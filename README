@@ -1,1 +1,4 @@
 This is Spoogle.
+
+Spoogle can crawl documents to produce an index and provides an
+intelligent search mechanism for the crawled documents.
