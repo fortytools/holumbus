@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Test.Main where
+module Main where
 
 import System
 import Test.HUnit
@@ -25,6 +25,7 @@ import Test.HUnit
 import qualified Spoogle.Test.PatriciaTest as Patricia
 import qualified Spoogle.Test.ParserTest as Parser
 
+allTests :: Test
 allTests = TestList
            [ Patricia.allTests
            , Parser.allTests

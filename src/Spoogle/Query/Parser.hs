@@ -51,19 +51,12 @@ parse (P p) inp = p inp
 
 
 failure :: Parser a
-failure = P (\inp -> [])
+failure = P (\_ -> [])
 
 item :: Parser Char
 item = P (\inp -> case inp of
                     [] -> []
                     (x:xs) -> [(x, xs)])
-
-p :: Parser (Char, Char)
-p = do
-      x <- item
-      item
-      y <- item
-      return (x, y)
 
 sat :: (Char -> Bool) -> Parser Char
 sat p = do
@@ -171,7 +164,7 @@ andQuery :: Parser Query
 andQuery = do
              t <- orQuery
              do
-               space
+               andOp
                q <- query
                return (BinQuery And t q)
                +++ return t
@@ -180,15 +173,15 @@ orQuery :: Parser Query
 orQuery = do
             t <- notQuery
             do
-              symbol "OR"
+              orOp
               q <- query
               return (BinQuery Or t q)
               +++ return t
 
 notQuery :: Parser Query
 notQuery = do
-             symbol "NOT"
-             q <- query
+             notOp
+             q <- contextQuery
              return (Negation q)
              +++ contextQuery
 
@@ -217,3 +210,19 @@ phraseQuery :: Parser Query
 phraseQuery = do
                 p <- phrase
                 return (Phrase p)
+
+andOp :: Parser ()
+andOp = do
+        symbol "AND"
+        return ()
+        +++ space
+
+orOp :: Parser ()
+orOp = do
+         symbol "OR"
+         return ()
+
+notOp :: Parser ()
+notOp = do
+          symbol "NOT"
+          return ()

@@ -17,10 +17,13 @@
 
 -- ----------------------------------------------------------------------------
 
--- | This module provides an implementation of a trie with string values as keys.
-module Spoogle.Data.Patricia where
+module Spoogle.Data.Patricia 
+  (Pat (End, Seq), empty, insert, elems, toList, toPat, size, prefixFind, find) 
+  where
 
 import Prelude hiding (succ)
+
+import Data.Maybe
 
 data Pat a 
   = End String a [Pat a]
@@ -34,6 +37,11 @@ empty = Seq "" []
 key :: Pat a -> String
 key (End k _ _) = k
 key (Seq k _)   = k
+
+-- | Extract the value of a node (if there is one)
+value :: Pat a -> Maybe a
+value (End _ n _) = Just n
+value (Seq _ _) = Nothing
 
 -- | Extract the successors of a node
 succ :: Pat a -> [Pat a]
@@ -74,10 +82,11 @@ split a b = split' a b ("","", "")
     split' (n:ns) (h:hs) (p, nr, hr) = if n == h then split' ns hs (p ++ [n], nr, hr) else
                                        (p, n:ns, h:hs)
 
--- | Return all elements of the trie.
+-- | Returns all values.
 elems :: Pat a -> [a]
 elems t   = map snd (toList t)
 
+-- | Returns all elements as key value pairs,
 toList :: Pat a -> [(String, a)]
 toList n = toList' "" n []
   where
@@ -85,6 +94,11 @@ toList n = toList' "" n []
     toList' ck (End k v t) r = let nk = ck ++ k in foldr (toList' nk) ((nk, v):r) t
     toList' ck (Seq k t) r   = let nk = ck ++ k in foldr (toList' nk) r t 
 
+-- | Creates a trie from a list of key/value pairs.
+toPat :: [(String, a)] -> Pat a
+toPat xs = foldr (\(k, v) p -> insert k v p) empty xs
+
+-- | The number of elements.
 size :: Pat a -> Int
 size n = size' n 0
   where
@@ -99,26 +113,10 @@ prefixFind p n | pr == ""  = elems n
                | otherwise = []
                where (_, pr, kr) = split p (key n)
 
--- prefixFind :: String -> Pat a -> [a]
--- prefixFind p n = elems (prefixTree p n)
--- 
--- prefixTree :: String -> Pat a -> Pat a
--- prefixTree p n | pr == ""  = n
---                | kr == ""  = let s = findSub pr (succ n) in if (isNothing s) then empty else prefixTree pr (fromJust s)
---                | otherwise = empty
---                where (_, pr, kr) = split p (key n)
--- 
--- findSub :: String -> [Pat a] -> Maybe (Pat a)
--- findSub _ []     = Nothing
--- findSub k (x:xs) = if head k == head (key x) then Just x else findSub k xs
-
-{-
-
 -- | Find the value associated with a key.
 find :: String -> Pat a -> Maybe a
-find [] (WordEnd v _)     = Just v
-find [] (Node _)          = Nothing
-find (x:xs) (WordEnd _ s) = if Map.member x s then find xs (s Map.! x) else Nothing
-find (x:xs) (Node s)      = if Map.member x s then find xs (s Map.! x) else Nothing
-
--}
+find q n | pr == "" = if kr == "" then value n else Nothing
+         | kr == "" = let xs = (filter isJust (map (find pr) (succ n))) in
+                        if null xs then Nothing else head xs
+         | otherwise = Nothing
+         where (_, pr, kr) = split q (key n)
