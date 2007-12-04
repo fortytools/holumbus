@@ -1,22 +1,35 @@
 VERSION  = 0.1
 
-GHCFLAGS = -Wall -O2
-GHC      = ghc $(GHCFLAGS)
+HDOCFLAGS		= 
+HDOC				= haddoc
 
-prog     = ./SpoogleTest
+GHCFLAGS		= -Wall -O2 -hidir ../$(OBJBASE) -odir ../$(OBJBASE)
+GHC					= ghc $(GHCFLAGS)
 
-all      : $(prog)
+RMFLAGS			= -rf
+RM					= rm $(RMFLAGS)
 
-force    :
-	$(GHC) -o $(prog) $(prog).hs
+SRCBASE			= src
+OBJBASE			= bin
 
-$(prog)  : $(prog).hs
-	$(GHC) -o $@ $<
+PROG				= $(OBJBASE)/Spoogle
+TEST				= $(OBJBASE)/SpoogleTest
 
-test     : $(prog)
-	@echo "===> running Spoogle tests" ; echo ; slepp2
-	$(prog)
+MAIN_TEST		= Spoogle/Test/Main.hs
+MAIN_PROG		= Spoogle/Main.hs
 
-clean    :
-	rm -f $(prog) $(prog).o $(prog).hi
+all					: $(PROG)
+
+test				: $(TEST)
+	@echo "===> running Spoogle tests" ; echo ; sleep 2
+	$(TEST)
+
+$(TEST)			: 
+	cd $(SRCBASE) ; $(GHC) --make $(MAIN_TEST) -o ../$@
+
+$(PROG)			: $(OBJS) $(MAIN_PROG)
+	cd $(SRCBASE) ; $(GHC) --make $(MAIN_PROG) -o ../$@ 
+
+clean    		:
+	$(RM) $(OBJBASE)/*
 				 
