@@ -57,6 +57,9 @@ findTests = TestList
   
   , TestCase (assertEqual "Finding the only element" (Just 6)
   (P.find "ace" (P.toPat [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
+
+  , TestCase (assertEqual "Finding some elements by prefix" [6, 5, 2]
+  (P.prefixFind "ac" (P.toPat [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
   ]
 
 allTests :: Test  

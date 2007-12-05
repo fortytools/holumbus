@@ -17,7 +17,11 @@
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Query.Parser where
+module Spoogle.Query.Parser 
+  (Query (Word, Phrase, Specifier, Negation, BinQuery), BinOp (And, Or), Context, Parser, parse, query)
+  where
+
+import Spoogle.Index.Inverted (Context)
 
 import Char
 import Control.Monad
@@ -31,15 +35,13 @@ data Query = Word      String
 
 data BinOp = And | Or deriving (Eq, Show)
 
-type Context = String
-
 data Parser a = P (String -> [(a, String)])
 
 instance Monad Parser where
   return v = P (\inp -> [(v, inp)])
   p >>= f  = P (\inp -> case parse p inp of
                          [] -> []
-                         [(v, out)] -> parse (f v) out)
+                         [(v, out)] -> (parse (f v) out))
 
 (+++) :: Parser a -> Parser a -> Parser a
 p +++ q = P( \inp -> case parse p inp of
@@ -62,18 +64,6 @@ sat :: (Char -> Bool) -> Parser Char
 sat p = do
           x <- item
           if (p x) then return x else failure
-
-digit :: Parser Char
-digit = sat isDigit
-
-lower :: Parser Char
-lower = sat isLower
-
-upper :: Parser Char
-upper = sat isUpper
-
-letter :: Parser Char
-letter = sat isAlpha
 
 alphanum :: Parser Char
 alphanum = sat isAlphaNum

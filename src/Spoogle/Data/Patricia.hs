@@ -18,7 +18,7 @@
 -- ----------------------------------------------------------------------------
 
 module Spoogle.Data.Patricia 
-  (Pat (End, Seq), empty, insert, elems, toList, toPat, size, prefixFind, find) 
+  (Pat (End, Seq), empty, insert, elems, toList, toPat, size, prefixFind, prefixFindWithKey, find) 
   where
 
 import Prelude hiding (succ)
@@ -27,7 +27,7 @@ import Data.Maybe
 
 data Pat a 
   = End String a [Pat a]
-  | Seq String [Pat a] deriving Show
+  | Seq String [Pat a] deriving (Show)
 
 -- | Create an empty trie.
 empty :: Pat a
@@ -106,12 +106,21 @@ size n = size' n 0
     size' (End _ _ t) i = foldr size' (i + 1) t
     size' (Seq _ t) i   = foldr size' i t
 
--- | Find all values where the string is a prefix of their keys.
+-- | Find all values where the string is a prefix of the key.
 prefixFind :: String -> Pat a -> [a] 
 prefixFind p n | pr == ""  = elems n
                | kr == ""  = concat (map (prefixFind pr) (succ n))
                | otherwise = []
                where (_, pr, kr) = split p (key n)
+
+-- | Find all values where the string is a prefix of the key and include the keys in the result.
+prefixFindWithKey :: String -> Pat a -> [(String, a)]
+prefixFindWithKey = prefixFindWithKey' ""
+  where
+    prefixFindWithKey' a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
+                             | kr == ""  = concat (map (prefixFindWithKey' (a ++ s) pr) (succ n))
+                             | otherwise = []
+                             where (s, pr, kr) = split p (key n)
 
 -- | Find the value associated with a key.
 find :: String -> Pat a -> Maybe a

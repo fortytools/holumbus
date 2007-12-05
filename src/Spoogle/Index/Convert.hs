@@ -23,7 +23,6 @@ import Spoogle.Index.Inverted
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
-import qualified Data.IntSet as IS
 import qualified Spoogle.Data.Patricia as P
 
 import qualified Hyphoon.DocIndex as H
