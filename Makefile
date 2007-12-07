@@ -1,6 +1,8 @@
+NAME					= Spoogle
+DESCR					= A distributed search and indexing engine
 VERSION  			= 0.1
 
-HDOCFLAGS			= -v -h -o $(DOCBASE) -t "Spoogle: A specialised search and indexing engine" --use-package=base
+HDOCFLAGS			= -v -h -o $(DOCBASE) -t "$(NAME)-$(VERSION): $(DESCR)" --use-package=base
 HDOC					= haddock $(HDOCFLAGS)
 
 GHCFLAGS			= -Wall -fno-warn-type-defaults -O2 -hidir ../$(OBJBASE) -odir ../$(OBJBASE)
@@ -34,7 +36,7 @@ doc						: $(SRC_ALL)
 	$(HDOC) $(SRC_ALL)
 
 version				:
-	echo $(VERSION)
+	@echo $(NAME)-$(VERSION): $(DESCR)
 
 test					: $(PRG_TEST)
 	@echo "===> running Spoogle tests" ; echo ; sleep 2
