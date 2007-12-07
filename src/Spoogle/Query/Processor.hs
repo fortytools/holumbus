@@ -57,6 +57,13 @@ process (BinQuery o q1 q2) i c = processBin o q1 q2 i c
 getPart :: InvIndex -> Context -> Maybe Part
 getPart i c = M.lookup c (indexParts i)
 
+allDocuments :: InvIndex -> Context -> Result
+allDocuments i c = if isNothing part then emptyResult
+                   else transformOccurrences (P.toList (fromJust part))
+                   where
+                     part = getPart i c
+
+-- | Process a single word by finding all documents which contain the word as prefix.
 processWord :: String -> InvIndex -> Context -> Result
 processWord s i c = if isNothing part then emptyResult
                     else transformOccurrences (P.prefixFindWithKey s (fromJust part))
@@ -66,31 +73,31 @@ processWord s i c = if isNothing part then emptyResult
 processPhrase :: String -> InvIndex -> Context -> Result
 processPhrase q i c = emptyResult
 
+-- | Process a negation by getting all documents and substracting the result of the negated query.
 processNegation :: Query -> InvIndex -> Context -> Result
-processNegation q i c = emptyResult
+processNegation q i c = IM.difference (allDocuments i c)  (process q i c)
 
+-- | Process a binary operator by caculating the union or the intersection of the two subqueries.
 processBin :: BinOp -> Query -> Query -> InvIndex -> Context -> Result
 processBin And q1 q2 i c = IM.intersectionWith (M.union) (process q1 i c) (process q2 i c)
 processBin Or q1 q2 i c = IM.union (process q1 i c) (process q2 i c)
 
+-- | Transforms a list of occurrences into a result, which can be better processed,
 transformOccurrences :: [(String, Occurrences)] -> Result
-transformOccurrences = foldr insertOccurrences emptyResult
-
-insertOccurrences :: (String, Occurrences) -> Result -> Result
-insertOccurrences (s, o) r = IM.foldWithKey (test s) r o
-
-test :: String -> Int -> Positions -> Result -> Result
-test key doc pos res = IM.insert doc (addPos (IM.findWithDefault emptyCompletions doc res)) res
+transformOccurrences = foldr (\(s, o) r -> IM.foldWithKey (buildCompletions s) r o) emptyResult
+  where
+    buildCompletions :: String -> Int -> Positions -> Result -> Result
+    buildCompletions k d p r = IM.insert d (addPos (IM.findWithDefault emptyCompletions d r)) r
                        where
                          addPos :: Completions -> Completions
-                         addPos c = M.insert key pos c
+                         addPos c = M.insert k p c
 
-transform :: Result -> InvIndex -> ([String], [String])
-transform r i = (extractDocuments r i, extractCompletions r i)
-
-extractDocuments :: Result -> InvIndex -> [String]
-extractDocuments r i = map fromJust (map (\d -> IM.lookup d (idToDoc (docTable i))) 
-                         (IM.foldWithKey (\k _ l -> k:l) [] r))
-
-extractCompletions :: Result -> InvIndex -> [String]
-extractCompletions r i = S.toList (IM.fold (\c s -> foldl (flip S.insert) s (map fst (M.toList c))) S.empty r)
+-- | Prepares a result for better processing by transformin it into a pair of documents and completions.
+prepareResult :: Result -> InvIndex -> ([String], [String])
+prepareResult r i = (extractDocuments, extractCompletions)
+  where
+    extractDocuments :: [String]
+    extractDocuments = map fromJust (map (\d -> IM.lookup d (idToDoc (docTable i))) 
+                             (IM.foldWithKey (\k _ l -> k:l) [] r))
+    extractCompletions :: [String]
+    extractCompletions = S.toList (IM.fold (\c s -> foldl (flip S.insert) s (map fst (M.toList c))) S.empty r)

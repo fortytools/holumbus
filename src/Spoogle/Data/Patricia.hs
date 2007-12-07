@@ -19,7 +19,7 @@
 
 module Spoogle.Data.Patricia 
   (Pat (End, Seq), empty, insert, elems, toList, toPat, size, prefixFind, prefixFindWithKey, find) 
-  where
+where
 
 import Prelude hiding (succ)
 
@@ -48,10 +48,12 @@ succ :: Pat a -> [Pat a]
 succ (End _ _ t) = t
 succ (Seq _ t)   = t
 
+-- | Sets the key of a node.
 setKey :: String -> Pat a -> Pat a
 setKey k (End _ v t) = End k v t
 setKey k (Seq _ t)   = Seq k t
 
+-- | Sets the successors of a node.
 setSucc :: [Pat a] -> Pat a -> Pat a
 setSucc t (End k v _) = End k v t
 setSucc t (Seq k _)   = Seq k t
