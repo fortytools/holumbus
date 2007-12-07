@@ -34,7 +34,7 @@ import qualified Spoogle.Data.Patricia as P
 data InvIndex    = InvSpoogle { docTable :: !Documents, indexParts :: !Parts } 
                  deriving (Show)
 
-data Documents   = DocTable { idToDoc :: !(IntMap URL), docToId :: !(Map URL DocId) }
+data Documents   = DocTable { idToDoc :: !(IntMap Document), docToId :: !(Map URL DocId) }
                  deriving (Show)
 
 type Parts       = Map Context Part    -- A context has a name and it's own index
@@ -42,6 +42,8 @@ type Part        = Pat Occurrences     -- The word is the key with its occurrenc
 
 type Occurrences = IntMap Positions    -- The key equals a document id
 type Positions   = IntSet              -- The positions of the word in the document
+
+type Document    = (Title, URL)
 
 type DocId       = Int
 type Position    = Int

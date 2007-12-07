@@ -47,4 +47,4 @@ toDocuments :: H.DocTable -> Documents
 toDocuments (H.DT dm _ _ _) = IM.foldWithKey (toDocuments') emptyDocuments dm
   where
     toDocuments' :: Int -> (H.DocName, H.DocTitle) -> Documents -> Documents
-    toDocuments' k (n, _) (DocTable i2d d2i) = DocTable (IM.insert k n i2d) (M.insert n k d2i)
+    toDocuments' k (n, t) (DocTable i2d d2i) = DocTable (IM.insert k (t, n) i2d) (M.insert n k d2i)
