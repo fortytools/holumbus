@@ -35,7 +35,6 @@ import qualified Data.Set as S
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
-import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
 data Result = Res { hits :: !Hits, hints :: !Hints}
@@ -61,10 +60,7 @@ allDocuments p = genHits (P.toList p)
 
 -- | Start processing a query by selecting the context.
 process :: Query -> InvIndex -> Context -> Result
-process q i c = if isNothing p then
-                  emptyResult
-                else
-                  process' q (fromJust p) i
+process q i c = maybe emptyResult ((flip (process' q)) i) p
                 where
                   p = M.lookup c (indexParts i)
 
@@ -82,23 +78,26 @@ processWord s p = Res (genHits r)  (genHints r)
   where
     r = P.prefixFindWithKey s p
 
+-- | Process a phrase query by searching for every word of the phrase and comparing their positions.
 processPhrase :: String -> Part -> Result
-processPhrase _ _ = emptyResult
+processPhrase q p = let w = words q 
+                        s = P.find (head w) p in
+                    if isNothing s then emptyResult
+                    else Res (genHits [(q, processPhrase' (tail w) 1 (fromJust s))]) emptyHints
+                    where
+                      processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
+                      processPhrase' [] _ o = o
+                      processPhrase' (x:xs) i o = processPhrase' xs 
+                                                  (i + 1)
+                                                  (IM.filterWithKey (nextWord (P.find x p) i) o)
 
---processPhrase :: String -> Part -> Result
---processPhrase q p = let w = words q 
---                        s = P.find (head w) p in
---                    if isNothing s then emptyResult
---                    else Res (processPhrase' (tail w) (fromJust s) p) emptyHints
---                    where
---                      processPhrase' :: [String] -> Occurrences -> Part -> Occurrences
---                      processPhrase' [] o _ = o
---                      processPhrase' (x:xs) o p = processPhrase' xs (IM.filterWithKey (nextWord ) o) p
+nextWord :: Maybe Occurrences -> Int -> Int -> Positions -> Bool
+nextWord Nothing  _ _ _ = False
+nextWord (Just o) i d p = maybe False (hasSuccessor p i) (IM.lookup d o)
 
---nextWord :: Int -> Positions -> Maybe Occurrences -> Bool
---
---hasSuccessor :: Positions -> Positions -> Bool
---hasSuccessor p s = IS.fold (\cp r -> r || (IS.member (cp + 1) s)) False p
+-- | Returns true if the second set contains any value of the first set incremented by the integer.
+hasSuccessor :: Positions -> Int -> Positions -> Bool
+hasSuccessor p i s = IS.fold (\cp r -> r || (IS.member (cp + i) s)) False p
 
 -- | Process a negation by getting all documents and substracting the result of the negated query.
 processNegation :: Query -> Part -> InvIndex -> Result
@@ -106,10 +105,9 @@ processNegation q p i = Res (IM.difference (allDocuments p) (hits r)) (hints r)
   where
     r = process' q p i
 
-
 -- | Process a binary operator by caculating the union or the intersection of the two subqueries.
 processBin :: BinOp -> Query -> Query -> Part -> InvIndex -> Result
-processBin And q1 q2 p i = Res (IM.intersectionWith (M.union) (hits r1) (hits r2)) (S.union (hints r1) (hints r2))
+processBin And q1 q2 p i = Res (IM.intersectionWith M.union (hits r1) (hits r2)) (S.union (hints r1) (hints r2))
   where
     r1 = process' q1 p i
     r2 = process' q2 p i

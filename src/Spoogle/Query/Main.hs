@@ -24,6 +24,7 @@ import System.Environment
 import System.Exit
 import System.Console.Readline
 
+import Char
 import Data.Maybe
 
 import qualified Data.Map as M
@@ -63,40 +64,49 @@ commandLineOpts _ = error "Usage: Spoogle INDEXFILE DEFAULTCONTEXT"
 
 answerQueries :: InvIndex -> String -> IO ()
 answerQueries i c = do
-                    q <- readline "Enter query (type :? for help): "
-                    answerQueries' q
+                    q <- readline ("Enter query (type :? for help) " ++ c ++ "> ")
+                    if isNothing q then answerQueries i c
+                      else
+                        do
+                        addHistory (fromJust q)
+                        answerQueries' (fromJust q)
   where
-    answerQueries' :: Maybe String -> IO ()
-    answerQueries' Nothing     = answerQueries i c
-    answerQueries' (Just "")   = answerQueries i c
-    answerQueries' (Just ":q") = exitWith ExitSuccess
-    answerQueries' (Just (':':'c':' ':xs)) = do 
-                                             if elem xs (map fst (M.toList (indexParts i))) then do
-                                               putStrLn ("New default context selected: " ++ xs)
-                                               answerQueries i xs
-                                               else do
-                                                 putStrLn "Unknown context!"
-                                                 answerQueries i c
-    answerQueries' (Just ":?") = do
-                                 putStrLn ""
-                                 printHelp
-                                 putStrLn ""
-                                 printContexts i
-                                 putStrLn ""
-                                 answerQueries i c
-    answerQueries' (Just q)    = do
-                                 addHistory q
-                                 [(pq, e)] <- return (parse query q)
---                               putStrLn "Query:"
---                               putStrLn (show pq)
-                                 if e == "" then do
-                                   r <- return (process pq i c)
-                                   printHits (hits r) i
-                                   putStrLn ""
-                                   printHints (hints r)
-                                   else do
-                                     putStrLn ("Could not parse query: " ++ e)
-                                 answerQueries i c
+    answerQueries' :: String -> IO ()
+    answerQueries' ""       = answerQueries i c
+    answerQueries' (':':xs) = internalCommand i c xs
+    answerQueries' q        = do
+                              [(pq, e)] <- return (parse query q)
+--                              putStrLn "Query:"
+--                              putStrLn (show pq)
+                              if e == "" then do
+                                r <- return (process pq i c)
+                                printHits (hits r) i
+                                putStrLn ""
+                                printHints (hints r)
+                                else do
+                                  putStrLn ("Could not parse query: " ++ e)
+                              answerQueries i c
+
+internalCommand :: InvIndex -> String -> String -> IO ()
+internalCommand _ _ "q"       = exitWith ExitSuccess
+internalCommand i c "?"       = do
+                                putStrLn ""
+                                printHelp
+                                putStrLn ""
+                                printContexts i
+                                putStrLn ""
+                                answerQueries i c
+internalCommand i c ('c':xs)  = do 
+                                if elem nc (map fst (M.toList (indexParts i))) then do
+                                  answerQueries i nc
+                                  else do
+                                    putStrLn "Unknown context!"
+                                    answerQueries i c
+                                 where
+                                   nc = dropWhile isSpace xs
+internalCommand i c _         = do
+                                putStrLn "Unknown command!"
+                                answerQueries i c
 
 printHits :: Hits -> InvIndex -> IO ()
 printHits h i = do
@@ -130,8 +140,10 @@ printHelp = do
             putStrLn "Priority can be influenced by round parantheses."
             putStrLn "A context other than the default context can be specified with the : operator."
             putStrLn "Example: context:(foo OR bar) NOT foobar"
+            putStrLn "This will search for documents containing \"foo\" or \"bar\" in the context named"
+            putStrLn "\"context\" and no \"foobar\" in the default context."
             putStrLn ""
-            putStrLn "Use :c context to set a new default context and :q to exit."
+            putStrLn "Use :c context to set a new default context, :q to exit and :? to show this help."
             return ()
 
 printContexts :: InvIndex -> IO ()
