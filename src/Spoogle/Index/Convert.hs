@@ -1,17 +1,16 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-   Module     : Spoogle.Index.Convert
-   Copyright  : Copyright (C) 2007 Timo B. Hübel
-   License    : MIT
+  Module     : Spoogle.Index.Convert
+  Copyright  : Copyright (C) 2007 Timo B. Hübel
+  License    : MIT
 
-   Maintainer : Timo B. Hübel
-   Maintainer : t.h@gmx.info
-   Stability  : experimental
-   Portability: portable
-   Version    : $Id$
+  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Stability  : experimental
+  Portability: portable
+  Version    : $Id$
 
-   Conversion between Spoogle indexes and several other formats.
+  Conversion between Spoogle indexes and several other formats.
 
 -}
 

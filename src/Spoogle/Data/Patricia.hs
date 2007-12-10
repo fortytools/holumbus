@@ -1,30 +1,48 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-   Module     : Spoogle.Data.Patricia
-   Copyright  : Copyright (C) 2007 Timo B. Hübel
-   License    : MIT
+  Module     : Spoogle.Data.Patricia
+  Copyright  : Copyright (C) 2007 Timo B. Hübel
+  License    : MIT
 
-   Maintainer : Timo B. Hübel
-   Maintainer : t.h@gmx.info
-   Stability  : experimental
-   Portability: portable
-   Version    : $Id$
+  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Stability  : experimental
+  Portability: portable
+  Version    : $Id$
 
-   A patricia trie implementation used for the Spoogle indexes.
+  A patricia trie implementation used for the Spoogle indexes.
+
+  Arbitrary values can associated with a string key. Searching for keys is very fast,
+  but the trie consumes quite some memory. The main difference to Data.Map are the special
+  \"prefixFind\" functions, which can be used to perform prefix queries. 
 
 -}
 
 -- ----------------------------------------------------------------------------
 
 module Spoogle.Data.Patricia 
-  (Pat (End, Seq), empty, insert, elems, toList, toPat, size, prefixFind, prefixFindWithKey, find) 
+  (
+  Pat
+  -- * Construction
+  , empty
+  , insert
+  -- * Query
+  , size
+  , find
+  , prefixFind
+  , prefixFindWithKey
+  -- * Conversion
+  , elems
+  , toList
+  , fromList
+  )
 where
 
 import Prelude hiding (succ)
 
 import Data.Maybe
 
+-- | A map from Strings to values a.
 data Pat a 
   = End String a [Pat a]
   | Seq String [Pat a] deriving (Show)
@@ -58,7 +76,7 @@ setSucc :: [Pat a] -> Pat a -> Pat a
 setSucc t (End k v _) = End k v t
 setSucc t (Seq k _)   = Seq k t
 
--- | Insert a new key with an associated value in the trie.
+-- | Insert a new key with an associated value into the trie.
 insert :: String -> a -> Pat a -> Pat a
 insert nk nv n | nk == ""             = error "Empty key!"
                | cr == "" && nr == "" = End s nv (succ n)
@@ -96,9 +114,9 @@ toList n = toList' "" n []
     toList' ck (End k v t) r = let nk = ck ++ k in foldr (toList' nk) ((nk, v):r) t
     toList' ck (Seq k t) r   = let nk = ck ++ k in foldr (toList' nk) r t 
 
--- | Creates a trie from a list of key/value pairs.
-toPat :: [(String, a)] -> Pat a
-toPat xs = foldr (\(k, v) p -> insert k v p) empty xs
+-- | Creates a trie from a list of key\/value pairs.
+fromList :: [(String, a)] -> Pat a
+fromList xs = foldr (\(k, v) p -> insert k v p) empty xs
 
 -- | The number of elements.
 size :: Pat a -> Int

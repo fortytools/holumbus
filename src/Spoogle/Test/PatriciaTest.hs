@@ -1,17 +1,16 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-   Module     : Spoogle.Test.PatriciaTest
-   Copyright  : Copyright (C) 2007 Timo B. Hübel
-   License    : MIT
+  Module     : Spoogle.Test.PatriciaTest
+  Copyright  : Copyright (C) 2007 Timo B. Hübel
+  License    : MIT
 
-   Maintainer : Timo B. Hübel
-   Maintainer : t.h@gmx.info
-   Stability  : experimental
-   Portability: portable
-   Version    : $Id$
+  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Stability  : experimental
+  Portability: portable
+  Version    : $Id$
 
-   The some unit tests for the Spoogle patricia trie.
+  The some unit tests for the Spoogle patricia trie.
 
 -}
 
@@ -56,10 +55,10 @@ findTests = TestList
   (P.find "a" (P.insert "a" 1 P.empty)))
   
   , TestCase (assertEqual "Finding the only element" (Just 6)
-  (P.find "ace" (P.toPat [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
+  (P.find "ace" (P.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
 
   , TestCase (assertEqual "Finding some elements by prefix" [6, 5, 2]
-  (P.prefixFind "ac" (P.toPat [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
+  (P.prefixFind "ac" (P.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
   ]
 
 allTests :: Test  

@@ -2,7 +2,7 @@ NAME					= Spoogle
 DESCR					= A distributed search and indexing engine
 VERSION  			= 0.1
 
-HDOCFLAGS			= -v -h -o $(DOCBASE) -t "$(NAME)-$(VERSION): $(DESCR)" --use-package=base
+HDOCFLAGS			= -v -h -o $(DOCBASE) -t "$(NAME): $(DESCR)"
 HDOC					= haddock $(HDOCFLAGS)
 
 GHCFLAGS			= -Wall -fno-warn-type-defaults -O2 -hidir ../$(OBJBASE) -odir ../$(OBJBASE)
@@ -23,7 +23,8 @@ MAIN_TEST			= Spoogle/Test/Main.hs
 MAIN_SEARCH		= Spoogle/Query/Main.hs
 MAIN_CRAWL		= Spoogle/Crawl/Main.hs
 
-SRC_ALL				= $(wildcard ./$(SRCBASE)/Spoogle/Data/*.hs) \
+SRC_ALL				= \
+	$(wildcard ./$(SRCBASE)/Spoogle/Data/*.hs) \
 	$(wildcard ./$(SRCBASE)/Spoogle/Index/*.hs) \
 	$(wildcard ./$(SRCBASE)/Spoogle/Query/*.hs) \
 	$(wildcard ./$(SRCBASE)/Spoogle/Crawl/*.hs) \
@@ -39,7 +40,6 @@ version				:
 	@echo $(NAME)-$(VERSION): $(DESCR)
 
 test					: $(PRG_TEST)
-	@echo "===> running Spoogle tests" ; echo ; sleep 2
 	$(PRG_TEST)
 
 search				: $(PRG_SEARCH)

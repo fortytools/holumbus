@@ -1,17 +1,16 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-   Module     : Spoogle.Main
-   Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Hübel
-   License    : MIT
+  Module     : Spoogle.Main
+  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Hübel
+  License    : MIT
 
-   Maintainer : Timo B. Hübel
-   Maintainer : t.h@gmx.info
-   Stability  : experimental
-   Portability: portable
-   Version    : $Id$
+  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Stability  : experimental
+  Portability: portable
+  Version    : $Id$
 
-   The inverted index for Spoogle.
+  The inverted index for Spoogle.
 
 -}
 

@@ -1,17 +1,16 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-   Module     : Spoogle.Query.Processor
-   Copyright  : Copyright (C) 2007 Timo B. Hübel
-   License    : MIT
+  Module     : Spoogle.Query.Processor
+  Copyright  : Copyright (C) 2007 Timo B. Hübel
+  License    : MIT
 
-   Maintainer : Timo B. Hübel
-   Maintainer : t.h@gmx.info
-   Stability  : experimental
-   Portability: portable
-   Version    : $Id$
+  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Stability  : experimental
+  Portability: portable
+  Version    : $Id$
 
-   The Spoogle query processor.
+  The Spoogle query processor.
 
 -}
 
@@ -84,16 +83,14 @@ processPhrase q p = let w = words q
                         s = P.find (head w) p in
                     if isNothing s then emptyResult
                     else Res (genHits [(q, processPhrase' (tail w) 1 (fromJust s))]) emptyHints
-                    where
-                      processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
-                      processPhrase' [] _ o = o
-                      processPhrase' (x:xs) i o = processPhrase' xs 
-                                                  (i + 1)
-                                                  (IM.filterWithKey (nextWord (P.find x p) i) o)
-
-nextWord :: Maybe Occurrences -> Int -> Int -> Positions -> Bool
-nextWord Nothing  _ _ _ = False
-nextWord (Just o) i d p = maybe False (hasSuccessor p i) (IM.lookup d o)
+  where
+    processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
+    processPhrase' [] _ o = o
+    processPhrase' (x:xs) i o = processPhrase' xs (i+1) (IM.filterWithKey (nextWord $ P.find x p) o)
+      where
+        nextWord :: Maybe Occurrences -> Int -> Positions -> Bool
+        nextWord Nothing   _ _  = False
+        nextWord (Just no) d np = maybe False (hasSuccessor np i) (IM.lookup d no)
 
 -- | Returns true if the second set contains any value of the first set incremented by the integer.
 hasSuccessor :: Positions -> Int -> Positions -> Bool
