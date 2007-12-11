@@ -31,13 +31,14 @@ import qualified Data.Set as S
 import qualified Data.IntMap as IM
 
 import Text.XML.HXT.Arrow
+import Text.XML.HXT.DOM.Unicode
 
 import Spoogle.Index.DocIndex
-
 import Spoogle.Index.Inverted
 import Spoogle.Index.Convert
 import Spoogle.Query.Parser
 import Spoogle.Query.Processor
+import Spoogle.Data.Patricia
 
 main :: IO ()
 main = do
@@ -45,7 +46,8 @@ main = do
        (indexFile, defaultContext) <- commandLineOpts argv
        putStrLn "Loading index ..."
        [invIndex] <- runX (loadIndex indexFile)
-       putStrLn ((show (IM.size (idToDoc (docTable invIndex)))) ++ " documents loaded")
+       putStr ("Loaded " ++ (show (IM.size (idToDoc (docTable invIndex)))) ++ " documents ")
+       putStrLn ("containing " ++ show (M.fold (\p r -> (size p) + r) 0 (indexParts invIndex)) ++ " words")
        answerQueries invIndex defaultContext
        return ()
 
@@ -66,9 +68,10 @@ answerQueries i c = do
                     q <- readline ("Enter query (type :? for help) " ++ c ++ "> ")
                     if isNothing q then answerQueries i c
                       else
-                        do
-                        addHistory (fromJust q)
-                        answerQueries' (fromJust q)
+                        let n = fst $ utf8ToUnicode (fromJust q) in
+                          do
+                          addHistory n
+                          answerQueries' n
   where
     answerQueries' :: String -> IO ()
     answerQueries' ""       = answerQueries i c
