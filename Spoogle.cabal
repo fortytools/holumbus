@@ -1,0 +1,21 @@
+name:				Spoogle
+version:			0.1
+license:			OtherLicense
+license-file:		LICENSE
+author:				Sebastian M. Schlatt and Timo B. Hübel
+copyright:			Copyright (c) 2007 Sebastian M. Schlatt and Timo B. Hübel
+maintainer:			Timo B. Hübel <t.h@gmx.info>
+stability:			experimental
+category:			Unclassified
+synopsis:			A distributed search and indexing engine.
+exposed-modules:
+	Spoogle.Data.Patricia,
+	Spoogle.Query.Parser,
+	Spoogle.Query.Processor,
+	Spoogle.Index.Inverted,
+	Spoogle.Index.Hybrid,
+	Spoogle.Index.DocIndex,
+	Spoogle.Index.Convert
+hs-source-dirs:		source
+ghc-options:		-Wall -O -fno-warn-type-defaults
+build-depends:		base, haskell98, hxt

@@ -1,62 +1,35 @@
-NAME					= Spoogle
-DESCR					= A distributed search and indexing engine
-VERSION  			= 0.1
+# Making all
+#
+# Building the library and generating documentation is done by cabal,
+# only the tests and the examples will be built using make.
 
-HDOCFLAGS			= -v -h -o $(DOCBASE) -t "$(NAME): $(DESCR)"
-HDOC					= haddock $(HDOCFLAGS)
+TEST_BASE			= test
+EXAMPLES_BASE	= examples
 
-GHCFLAGS			= -Wall -fno-warn-type-defaults -O2 -hidir ../$(OBJBASE) -odir ../$(OBJBASE)
-GHC						= ghc $(GHCFLAGS)
-
-RMFLAGS				= -rf
-RM						= rm $(RMFLAGS)
+all : lib alltests allexamples doc
 	
-SRCBASE				= src
-OBJBASE				= bin
-DOCBASE				= doc
+configure : .setup-config
 
-PRG_SEARCH		= $(OBJBASE)/SpoogleSearch
-PRG_CRAWL			= $(OBJBASE)/SpoogleCrawl
-PRG_TEST			= $(OBJBASE)/SpoogleTest
+doc	: configure
+	@runhaskell Setup.hs haddock
 
-MAIN_TEST			= Spoogle/Test/Main.hs
-MAIN_SEARCH		= Spoogle/Query/Main.hs
-MAIN_CRAWL		= Spoogle/Crawl/Main.hs
+lib	: configure
+	@runhaskell Setup.hs build
 
-SRC_ALL				= \
-	$(wildcard ./$(SRCBASE)/Spoogle/Data/*.hs) \
-	$(wildcard ./$(SRCBASE)/Spoogle/Index/*.hs) \
-	$(wildcard ./$(SRCBASE)/Spoogle/Query/*.hs) \
-	$(wildcard ./$(SRCBASE)/Spoogle/Crawl/*.hs) \
-	$(wildcard ./$(SRCBASE)/Spoogle/Test/*.hs)
+install : lib
+	@runhaskell Setup.hs install
 
-all						: search # crawl
+.setup-config :
+	@runhaskell Setup.hs configure
 
-doc						: $(SRC_ALL)
-	[ -d $(DOCBASE) ] || mkdir -p ./$(DOCBASE)
-	$(HDOC) $(SRC_ALL)
+alltests :
+	$(MAKE) -C $(TEST_BASE) all
 
-version				:
-	@echo $(NAME)-$(VERSION): $(DESCR)
+allexamples :
+	$(MAKE) -C $(EXAMPLES_BASE) all
 
-test					: $(PRG_TEST)
-	$(PRG_TEST)
-
-search				: $(PRG_SEARCH)
-crawl					: $(PRG_CRAWL)
-
-$(PRG_TEST)		: $(SRCBASE)/$(MAIN_TEST) $(SRC_ALL)
-	[ -d $(OBJBASE) ] || mkdir -p $(OBJBASE)
-	cd $(SRCBASE) ; $(GHC) --make $(MAIN_TEST) -o ../$@
-
-$(PRG_SEARCH)	: $(SRCBASE)/$(MAIN_SEARCH) $(SRC_ALL)
-	[ -d $(OBJBASE) ] || mkdir -p $(OBJBASE)
-	cd $(SRCBASE) ; $(GHC) --make $(MAIN_SEARCH) -o ../$@ 
-
-$(PRG_CRAWL)	: $(SRCBASE)/$(MAIN_CRAWL) $(SRC_ALL)
-	[ -d $(OBJBASE) ] || mkdir -p $(OBJBASE)
-	cd $(SRCBASE) ; $(GHC) --make $(MAIN_CRAWL) -o ../$@ 
-
-clean    			:
-	$(RM) $(OBJBASE) $(DOCBASE)
+clean :
+	@runhaskell Setup.hs clean
+	$(MAKE) -C $(TEST_BASE) clean
+	$(MAKE) -C $(EXAMPLES_BASE) clean
 				 
