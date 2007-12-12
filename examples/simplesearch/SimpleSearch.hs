@@ -38,7 +38,7 @@ import Spoogle.Index.Inverted
 import Spoogle.Index.Convert
 import Spoogle.Query.Parser
 import Spoogle.Query.Processor
-import Spoogle.Data.Patricia
+import Spoogle.Data.StrMap as SM
 
 main :: IO ()
 main = do
@@ -47,7 +47,7 @@ main = do
        putStrLn "Loading index ..."
        [invIndex] <- runX (loadIndex indexFile)
        putStr ("Loaded " ++ (show (IM.size (idToDoc (docTable invIndex)))) ++ " documents ")
-       putStrLn ("containing " ++ show (M.fold (\p r -> (size p) + r) 0 (indexParts invIndex)) ++ " words")
+       putStrLn ("containing " ++ show (M.fold (\p r -> (SM.size p) + r) 0 (indexParts invIndex)) ++ " words")
        answerQueries invIndex defaultContext
        return ()
 

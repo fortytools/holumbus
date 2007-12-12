@@ -10,10 +10,8 @@ RM				= rm $(RM_FLAGS)
 
 PROG			= SimpleSearch
 
-all : $(PROG)
-
-$(PROG) : $(PROG).hs
-	$(GHC) --make -o $@ $<
+all : 
+	$(GHC) --make -o $(PROG) $(PROG).hs
 
 clean :
 	$(RM) $(PROG) $(PROG).hi $(PROG).o
