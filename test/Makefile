@@ -12,12 +12,10 @@ PROG			= AllTests
 
 all : test
 
-test : $(PROG)
+test :
+	$(GHC) --make -o $(PROG) $(PROG).hs
 	@echo "Running Spoogle tests..."
 	./$(PROG)
-
-$(PROG) : $(PROG).hs
-	$(GHC) --make -o $@ $<
 
 clean :
 	$(RM) $(PROG) $(PROG).hi $(PROG).o
