@@ -21,12 +21,12 @@ module Main where
 import System
 import Test.HUnit
 
-import qualified PatriciaTest as Patricia
+import qualified StrMapTest as StrMap
 import qualified ParserTest as Parser
 
 allTests :: Test
 allTests = TestList
-           [ Patricia.allTests
+           [ StrMap.allTests
            , Parser.allTests
            ]
 

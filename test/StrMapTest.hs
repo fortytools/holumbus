@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : PatriciaTest
+  Module     : StrMapTest
   Copyright  : Copyright (C) 2007 Timo B. Hübel
   License    : MIT
 
@@ -16,53 +16,53 @@
 
 -- ----------------------------------------------------------------------------
 
-module PatriciaTest (allTests) where
+module StrMapTest (allTests) where
 
-import qualified Spoogle.Data.Patricia as P
+import qualified Spoogle.Data.StrMap as SM
 
 import Test.HUnit
 
 emptyTests :: Test
 emptyTests  = TestList 
-  [ TestCase (assertEqual "Empty node should have no key" 0 
-  (length (P.elems P.empty)))
+  [ TestCase (assertEqual "Empty map should have no key" 0 
+  (length (SM.elems SM.empty)))
   
-  , TestCase (assertEqual "Empty node should have no elements" 0 
-  (P.size P.empty))
+  , TestCase (assertEqual "Empty map should have no elements" 0 
+  (SM.size SM.empty))
   ]
 
 insertTests :: Test
 insertTests = TestList 
-  [ TestCase (assertEqual "Inserting into empty node" [("a",1)] 
-  (P.toList (P.insert "a" 1 P.empty)))
+  [ TestCase (assertEqual "Inserting into empty map" [("a",1)] 
+  (SM.toList (SM.insert "a" 1 SM.empty)))
 
-  , TestCase (assertEqual "Inserting should split nodes" [("ac",1),("a",2)] 
-  (P.toList (P.insert "a" 2 (P.insert "ac" 1 P.empty))))
+  , TestCase (assertEqual "Inserting should split correctly" [("ac",1),("a",2)] 
+  (SM.toList (SM.insert "a" 2 (SM.insert "ac" 1 SM.empty))))
 
   , TestCase (assertEqual "Insert should just concatenate" [("ac",2),("a",1)]
-  (P.toList (P.insert "ac" 2 (P.insert "a" 1 P.empty))))
+  (SM.toList (SM.insert "ac" 2 (SM.insert "a" 1 SM.empty))))
 
   , TestCase (assertEqual "Insert should add a new node" [("b",2),("a",1)]
-  (P.toList (P.insert "b" 2 (P.insert "a" 1 P.empty))))
+  (SM.toList (SM.insert "b" 2 (SM.insert "a" 1 SM.empty))))
 
   , TestCase (assertEqual "Complex insert" [("ad",4),("acd",3),("abcd",1),("bcd",2)]
-  (P.toList (P.insert "ad" 4 (P.insert "acd" 3 (P.insert "bcd" 2 (P.insert "abcd" 1 P.empty))))))
+  (SM.toList (SM.insert "ad" 4 (SM.insert "acd" 3 (SM.insert "bcd" 2 (SM.insert "abcd" 1 SM.empty))))))
   ]
   
 findTests :: Test  
 findTests = TestList
   [ TestCase (assertEqual "The only element should be found" (Just 1)
-  (P.find "a" (P.insert "a" 1 P.empty)))
+  (SM.lookup "a" (SM.insert "a" 1 SM.empty)))
   
   , TestCase (assertEqual "Finding the only element" (Just 6)
-  (P.find "ace" (P.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
+  (SM.lookup "ace" (SM.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
 
   , TestCase (assertEqual "Finding some elements by prefix" [6, 5, 2]
-  (P.prefixFind "ac" (P.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
+  (SM.prefixFind "ac" (SM.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6)])))
   ]
 
 allTests :: Test  
-allTests = TestLabel "Patricia tests" $ 
+allTests = TestLabel "StrMap tests" $ 
   TestList
   [ TestLabel "Empty tests" emptyTests
   , TestLabel "Insert tests" insertTests

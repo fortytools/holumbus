@@ -75,7 +75,7 @@ orTests = TestList
   (P.parseQuery "wurst:abc OR def OR ghi OR wurst:jkl"))
   ]
   
-specifierTests ::Test
+specifierTests :: Test
 specifierTests = TestList
   [ TestCase (assertEqual "Specifier with whitespace"
   [(a (s "wurst" (w "abc")) (s "batzen" (w "def")) ,"")]
@@ -90,10 +90,22 @@ specifierTests = TestList
   (P.parseQuery "wurst: (abc def ghi) batzen: (abc OR def)"))
   ]
 
+parentheseTests :: Test
+parentheseTests = TestList
+  [ TestCase (assertEqual "Parentheses without effect"
+  (P.parseQuery "abc def OR ghi")
+  (P.parseQuery "abc (def OR ghi)"))
+  
+  , TestCase (assertEqual "Parentheses changing priority of OR"
+  [(a (o (w "abc") (w "def")) (w "ghi"), "")]
+  (P.parseQuery "(abc OR def) ghi"))
+  ]
+  
 allTests :: Test
 allTests = TestLabel "Parser tests" $
   TestList 
   [ TestLabel "And tests" andTests
   , TestLabel "Or tests" orTests
   , TestLabel "Specifier tests" specifierTests
+  , TestLabel "Parenthese tests" parentheseTests
   ]
