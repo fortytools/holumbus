@@ -23,6 +23,7 @@ module Spoogle.Query.Processor
   Hints, 
   Hits, 
   Completions, 
+
   -- * Processing
   process
   )
@@ -31,7 +32,7 @@ where
 import Spoogle.Query.Parser
 import Spoogle.Index.Inverted
 
-import qualified Spoogle.Data.Patricia as P
+import qualified Spoogle.Data.StrMap as SM
 
 import Maybe
 
@@ -65,7 +66,7 @@ emptyResult :: Result
 emptyResult = Res emptyHits emptyHints
 
 allDocuments :: Part -> Hits
-allDocuments p = genHits (P.toList p)
+allDocuments p = genHits (SM.toList p)
 
 -- | Start processing a query by selecting the context.
 process :: Query -> InvIndex -> Context -> Result
@@ -85,18 +86,18 @@ process' (Specifier c q) _ i    = process q i c           -- Context switch: sta
 processWord :: String -> Part -> Result
 processWord s p = Res (genHits r)  (genHints r)
   where
-    r = P.prefixFindWithKey s p
+    r = SM.prefixFindWithKey s p
 
 -- | Process a phrase query by searching for every word of the phrase and comparing their positions.
 processPhrase :: String -> Part -> Result
 processPhrase q p = let w = words q 
-                        s = P.find (head w) p in
+                        s = SM.lookup (head w) p in
                     if isNothing s then emptyResult
                     else Res (genHits [(q, processPhrase' (tail w) 1 (fromJust s))]) emptyHints
   where
     processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
     processPhrase' [] _ o = o
-    processPhrase' (x:xs) i o = processPhrase' xs (i+1) (IM.filterWithKey (nextWord $ P.find x p) o)
+    processPhrase' (x:xs) i o = processPhrase' xs (i+1) (IM.filterWithKey (nextWord $ SM.lookup x p) o)
       where
         nextWord :: Maybe Occurrences -> Int -> Positions -> Bool
         nextWord Nothing   _ _  = False
@@ -136,13 +137,3 @@ genHits = foldr (\(s, o) r -> IM.foldWithKey (buildCompletions s) r o) emptyHits
 -- | Transforms a list of occurrences into a list of hints, which can be better processes.
 genHints :: [(String, Occurrences)] -> Hints
 genHints = foldr (\(s, _) r -> S.insert s r) emptyHints
-
----- | Prepares a result for better processing by transformin it into a pair of documents and completions.
---prepareResult :: Result -> InvIndex -> ([String], [String])
---prepareResult r i = (extractDocuments, extractCompletions)
---  where
---    extractDocuments :: [String]
---    extractDocuments = map fromJust (map (\d -> IM.lookup d (idToDoc (docTable i))) 
---                             (IM.foldWithKey (\k _ l -> k:l) [] r))
---    extractCompletions :: [String]
---    extractCompletions = S.toList (IM.fold (\c s -> foldl (flip S.insert) s (map fst (M.toList c))) S.empty r)

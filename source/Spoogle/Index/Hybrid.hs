@@ -21,7 +21,7 @@ module Spoogle.Index.Hybrid where
 import Data.Map
 import Data.IntMap
 
-import Spoogle.Data.Patricia
+import Spoogle.Data.StrMap
 
 data HybIndex      = HybSpoogle { docTable :: !Documents, indexParts :: !Parts } 
                    deriving (Show)
@@ -32,7 +32,7 @@ data Documents     = DocTable { idToDoc :: !(IntMap URL), docToId :: !(Map URL D
 type Parts         = Map Context Part
 type Part          = ( Dictionary, Blocks )
 
-type Dictionary    = Pat WordInfo
+type Dictionary    = StrMap WordInfo
 type WordInfo      = ( WordId, BlockId )          -- BlockID ersetzt Range-Info
 
 type Blocks        = IntMap Block                 -- Dient nur zum schnellen Finden eines Blocks

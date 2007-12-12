@@ -22,7 +22,7 @@ import Spoogle.Index.Inverted
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
-import qualified Spoogle.Data.Patricia as P
+import qualified Spoogle.Data.StrMap as SM
 
 import qualified Spoogle.Index.DocIndex as H
 
@@ -37,10 +37,10 @@ toParts idx = M.foldWithKey (toParts') M.empty idx
     toParts' dp wi p = M.insert dp (toPart wi) p
 
 toPart :: H.WordIndex -> Part
-toPart widx = M.foldWithKey (toPart') P.empty widx
+toPart widx = M.foldWithKey (toPart') SM.empty widx
   where
     toPart' :: H.Word -> H.Occurences -> Part -> Part
-    toPart' w o p = P.insert w o p
+    toPart' w o p = SM.insert w o p
 
 toDocuments :: H.DocTable -> Documents
 toDocuments (H.DT dm _ _ _) = IM.foldWithKey (toDocuments') emptyDocuments dm
