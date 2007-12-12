@@ -9,7 +9,8 @@ stability:			experimental
 category:			Unclassified
 synopsis:			A distributed search and indexing engine.
 exposed-modules:
-	Spoogle.Data.Patricia,
+	Spoogle.Data.StrMap,
+	Spoogle.Data.BiMap,
 	Spoogle.Query.Parser,
 	Spoogle.Query.Processor,
 	Spoogle.Index.Inverted,
