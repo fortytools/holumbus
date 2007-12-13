@@ -187,7 +187,7 @@ prefixFindCaseWithKey = prefixFindInternal splitCase
 
 -- | Internal prefix find function which is used to implement every other prefix find function.
 prefixFindInternal :: (String -> String -> (String, String, String)) -> String -> StrMap a -> [(String, a)]
-prefixFindInternal sf = prefixFindInternal' sf ""
+prefixFindInternal f = prefixFindInternal' f ""
   where
     prefixFindInternal' sf a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
                                  | kr == ""  = concat (map (prefixFindInternal' sf (a ++ (key n)) pr) (succ n))

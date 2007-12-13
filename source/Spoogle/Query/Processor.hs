@@ -39,9 +39,6 @@ import Maybe
 import Data.Map (Map)
 import qualified Data.Map as M
 
-import Data.Set (Set)
-import qualified Data.Set as S
-
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
@@ -49,7 +46,7 @@ import qualified Data.IntSet as IS
 
 data Result = Res { hits :: !Hits, hints :: !Hints}
 
-type Hints = Set String
+type Hints = Map String Occurrences
 type Hits = IntMap Completions          -- Key is document id
 type Completions = Map String Positions
 
@@ -57,7 +54,7 @@ emptyHits :: Hits
 emptyHits = IM.empty
 
 emptyHints :: Hints
-emptyHints = S.empty
+emptyHints = M.empty
 
 emptyCompletions :: Completions
 emptyCompletions = M.empty
@@ -115,11 +112,11 @@ processNegation q p i = Res (IM.difference (allDocuments p) (hits r)) (hints r)
 
 -- | Process a binary operator by caculating the union or the intersection of the two subqueries.
 processBin :: BinOp -> Query -> Query -> Part -> InvIndex -> Result
-processBin And q1 q2 p i = Res (IM.intersectionWith M.union (hits r1) (hits r2)) (S.union (hints r1) (hints r2))
+processBin And q1 q2 p i = Res (IM.intersectionWith M.union (hits r1) (hits r2)) (M.unionWith (IM.union) (hints r1) (hints r2))
   where
     r1 = process' q1 p i
     r2 = process' q2 p i
-processBin Or q1 q2 p i  = Res (IM.union (hits r1) (hits r2)) (S.union (hints r1) (hints r2))
+processBin Or q1 q2 p i  = Res (IM.union (hits r1) (hits r2)) (M.unionWith (IM.union) (hints r1) (hints r2))
   where
     r1 = process' q1 p i
     r2 = process' q2 p i
@@ -136,4 +133,4 @@ genHits = foldr (\(s, o) r -> IM.foldWithKey (buildCompletions s) r o) emptyHits
 
 -- | Transforms a list of occurrences into a list of hints, which can be better processes.
 genHints :: [(String, Occurrences)] -> Hints
-genHints = foldr (\(s, _) r -> S.insert s r) emptyHints
+genHints = foldr (\(s, o) r -> M.insert s o r) emptyHints
