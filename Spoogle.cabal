@@ -2,8 +2,8 @@ name:				Spoogle
 version:			0.1
 license:			OtherLicense
 license-file:		LICENSE
-author:				Sebastian M. Schlatt and Timo B. Hübel
-copyright:			Copyright (c) 2007 Sebastian M. Schlatt and Timo B. Hübel
+author:				Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
+copyright:			Copyright (c) 2007 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
 maintainer:			Timo B. Hübel <t.h@gmx.info>
 stability:			experimental
 category:			Unclassified
