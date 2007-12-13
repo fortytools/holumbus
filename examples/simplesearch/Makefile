@@ -13,6 +13,9 @@ PROG			= SimpleSearch
 all : 
 	$(GHC) --make -o $(PROG) $(PROG).hs
 
+start:
+	./$(PROG) sd.xml content
+
 clean :
 	$(RM) $(PROG) $(PROG).hi $(PROG).o
 	

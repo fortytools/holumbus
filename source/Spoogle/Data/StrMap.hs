@@ -33,8 +33,11 @@ module Spoogle.Data.StrMap
   , size
   , member
   , lookup
+  , lookupCase
   , prefixFind
   , prefixFindWithKey
+  , prefixFindCase
+  , prefixFindCaseWithKey
 
   -- * Construction
   , empty
@@ -51,11 +54,22 @@ where
 import Prelude hiding (succ, lookup)
 
 import Data.Maybe
+import Data.Char
+import qualified Data.List as L
 
 -- | A map from Strings to values a.
 data StrMap a 
   = End String a [StrMap a]
   | Seq String [StrMap a] deriving (Show)
+
+-- | Just deriving Eq will not work, because equality on the lists of successors takes the order 
+--   into account, whereas the order does not matter here.
+instance (Eq a) => Eq (StrMap a) where 
+  (==) (End k1 v1 s1) (End k2 v2 s2) = k1 == k2 && v1 == v2 && s1 L.\\ s2 == []
+  (==) (Seq k1 s1) (Seq k2 s2)       = k1 == k2 && s1 L.\\ s2 == []
+  (==) (Seq _ _) (End _ _ _)         = False
+  (==) (End _ _ _) (Seq _ _)         = False
+  (/=) m1 m2                         = not (m1 == m2)
 
 -- | Create an empty trie.
 empty :: StrMap a
@@ -127,6 +141,10 @@ split a b = split' a b ("","", "")
     split' (n:ns) (h:hs) (p, nr, hr) = if n == h then split' ns hs (p ++ [n], nr, hr) else
                                        (p, n:ns, h:hs)
 
+-- | Same a ssplit above, but case insensitive (strings are converted to lower case).
+splitCase :: String -> String -> (String, String, String)
+splitCase a b = split (map toLower a) (map toLower b)
+
 -- | Returns all values.
 elems :: StrMap a -> [a]
 elems t   = map snd (toList t)
@@ -167,6 +185,22 @@ prefixFindWithKey = prefixFindWithKey' ""
                              | otherwise = []
                              where (s, pr, kr) = split p (key n)
 
+-- | Same as prefixFind, but case insensitive.
+prefixFindCase :: String -> StrMap a -> [a]
+prefixFindCase p n | pr == ""  = elems n
+                   | kr == ""  = concat (map (prefixFindCase pr) (succ n))
+                   | otherwise = []
+                   where (_, pr, kr) = splitCase p (key n)
+
+-- | Same as prefixFindWithKey, but case insensitive
+prefixFindCaseWithKey :: String -> StrMap a -> [(String, a)]
+prefixFindCaseWithKey = prefixFindCaseWithKey' ""
+  where
+    prefixFindCaseWithKey' a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
+                                 | kr == ""  = concat (map (prefixFindCaseWithKey' (a ++ (key n)) pr) (succ n))
+                                 | otherwise = []
+                                 where (_, pr, kr) = splitCase p (key n)
+
 -- | Find the value associated with a key.
 lookup :: String -> StrMap a -> Maybe a
 lookup q n | pr == "" = if kr == "" then value n else Nothing
@@ -174,3 +208,10 @@ lookup q n | pr == "" = if kr == "" then value n else Nothing
                         if null xs then Nothing else head xs
            | otherwise = Nothing
            where (_, pr, kr) = split q (key n)
+
+-- | Search for values matching a key case insensitive.
+lookupCase :: String -> StrMap a -> [a]
+lookupCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
+               | kr == "" = concat (map (lookupCase pr) (succ n))
+               | otherwise = []
+               where (_, pr, kr) = splitCase q (key n)

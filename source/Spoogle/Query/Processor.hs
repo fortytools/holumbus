@@ -86,7 +86,7 @@ process' (Specifier c q) _ i    = process q i c           -- Context switch: sta
 processWord :: String -> Part -> Result
 processWord s p = Res (genHits r)  (genHints r)
   where
-    r = SM.prefixFindWithKey s p
+    r = SM.prefixFindCaseWithKey s p
 
 -- | Process a phrase query by searching for every word of the phrase and comparing their positions.
 processPhrase :: String -> Part -> Result
