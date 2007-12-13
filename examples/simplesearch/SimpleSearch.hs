@@ -77,16 +77,20 @@ answerQueries i c = do
     answerQueries' ""       = answerQueries i c
     answerQueries' (':':xs) = internalCommand i c xs
     answerQueries' q        = do
-                              [(pq, e)] <- return (parseQuery q)
+                              pr <- return (parseQuery q)
 --                              putStrLn "Query:"
 --                              putStrLn (show pq)
-                              if e == "" then do
-                                r <- return (process pq i c)
-                                printHits (hits r) i
-                                putStrLn ""
-                                printHints (hints r)
+                              if null pr then do
+                                putStrLn ("Could not parse query: " ++ q)
                                 else do
-                                  putStrLn ("Could not parse query: " ++ e)
+                                  [(pq, e)] <- return pr
+                                  if e == "" then do
+                                    r <- return (process pq i c)
+                                    printHits (hits r) i
+                                    putStrLn ""
+                                    printHints (hints r)
+                                    else do
+                                      putStrLn ("Could not parse query: " ++ e)
                               answerQueries i c
 
 internalCommand :: InvIndex -> String -> String -> IO ()
@@ -137,6 +141,8 @@ printHints h = do
 printHelp :: IO ()
 printHelp = do
             putStrLn "Spoogle treats single words as prefix terms and will give you possible completions."
+            putStrLn "Words are interpreted case insensitive. Phrases and exact matches (case sensitive)"
+            putStrLn "can be specified by using quotes (i.e. \"Foo Bar\" will match this exact sequence)."
             putStrLn "Terms just separated by space will be treated implicitly as AND terms."
             putStrLn "Other operators have to be specified explisitly. Avaliable operators are: AND, OR, NOT"
             putStrLn "Priority can be influenced by round parantheses."
