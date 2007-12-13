@@ -171,35 +171,28 @@ size n = size' n 0
 
 -- | Find all values where the string is a prefix of the key.
 prefixFind :: String -> StrMap a -> [a] 
-prefixFind p n | pr == ""  = elems n
-               | kr == ""  = concat (map (prefixFind pr) (succ n))
-               | otherwise = []
-               where (_, pr, kr) = split p (key n)
+prefixFind q n = map snd (prefixFindInternal split q n)
 
 -- | Find all values where the string is a prefix of the key and include the keys in the result.
 prefixFindWithKey :: String -> StrMap a -> [(String, a)]
-prefixFindWithKey = prefixFindWithKey' ""
-  where
-    prefixFindWithKey' a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
-                             | kr == ""  = concat (map (prefixFindWithKey' (a ++ s) pr) (succ n))
-                             | otherwise = []
-                             where (s, pr, kr) = split p (key n)
+prefixFindWithKey = prefixFindInternal split
 
 -- | Same as prefixFind, but case insensitive.
 prefixFindCase :: String -> StrMap a -> [a]
-prefixFindCase p n | pr == ""  = elems n
-                   | kr == ""  = concat (map (prefixFindCase pr) (succ n))
-                   | otherwise = []
-                   where (_, pr, kr) = splitCase p (key n)
+prefixFindCase q n = map snd (prefixFindInternal splitCase q n)
 
 -- | Same as prefixFindWithKey, but case insensitive
 prefixFindCaseWithKey :: String -> StrMap a -> [(String, a)]
-prefixFindCaseWithKey = prefixFindCaseWithKey' ""
+prefixFindCaseWithKey = prefixFindInternal splitCase
+
+-- | Internal prefix find function which is used to implement every other prefix find function.
+prefixFindInternal :: (String -> String -> (String, String, String)) -> String -> StrMap a -> [(String, a)]
+prefixFindInternal sf = prefixFindInternal' sf ""
   where
-    prefixFindCaseWithKey' a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
-                                 | kr == ""  = concat (map (prefixFindCaseWithKey' (a ++ (key n)) pr) (succ n))
+    prefixFindInternal' sf a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
+                                 | kr == ""  = concat (map (prefixFindInternal' sf (a ++ (key n)) pr) (succ n))
                                  | otherwise = []
-                                 where (_, pr, kr) = splitCase p (key n)
+                                 where (_, pr, kr) = sf p (key n)
 
 -- | Find the value associated with a key.
 lookup :: String -> StrMap a -> Maybe a
