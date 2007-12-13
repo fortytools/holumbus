@@ -26,8 +26,8 @@ import System.Console.Readline
 import Char
 import Data.Maybe
 
+import qualified Data.List as L
 import qualified Data.Map as M
-import qualified Data.Set as S
 import qualified Data.IntMap as IM
 
 import Text.XML.HXT.Arrow
@@ -88,7 +88,7 @@ answerQueries i c = do
                                     r <- return (process pq i c)
                                     printHits (hits r) i
                                     putStrLn ""
-                                    printHints (hints r)
+                                    printHints (hints r) i
                                     else do
                                       putStrLn ("Could not parse query: " ++ e)
                               answerQueries i c
@@ -131,12 +131,13 @@ printHits h i = do
                                            return ()
 
 
-printHints :: Hints -> IO ()
-printHints h = do
-               putStrLn "Completions:"
-               putStrLn (foldl (\r c -> r ++ c ++ " ") "" (S.toList h))
-               putStrLn ""
-               putStrLn ("Found " ++ (show (S.size h)) ++ " possible completions")
+printHints :: Hints -> InvIndex -> IO ()
+printHints h _ = do
+                 putStrLn "Completions:"
+                 d <- return (L.sortBy (compare `on` snd) (map (\(c, o) -> (c, IM.size o)) (M.toList h)))
+                 putStrLn (foldr (\(c, s) r -> r ++ c ++ " (" ++ (show s) ++ ") ") "" d)
+                 putStrLn ""
+                 putStrLn ("Found " ++ (show (M.size h)) ++ " possible completions")
 
 printHelp :: IO ()
 printHelp = do
@@ -168,3 +169,7 @@ printContexts i = do
 
 convertIndex :: IOSArrow DocIndex InvIndex
 convertIndex = arr hyphoonToInvSpoogle
+
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+(*) `on` f = \x y -> f x * f y
