@@ -8,6 +8,7 @@ maintainer:			Timo B. Hübel <t.h@gmx.info>
 stability:			experimental
 category:			Unclassified
 synopsis:			A distributed search and indexing engine.
+homepage:			http://darcsweb.schlatt.com
 exposed-modules:
 	Spoogle.Data.StrMap,
 	Spoogle.Data.BiMap,

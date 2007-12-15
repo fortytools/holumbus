@@ -2,13 +2,13 @@
 
 {- |
   Module     : Spoogle.Index.Hybrid
-  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Hübel
+  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : $Id$
+  Version    : 0.1
 
   The hybrid index for Spoogle.
 

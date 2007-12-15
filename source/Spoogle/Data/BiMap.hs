@@ -2,13 +2,13 @@
 
 {- |
   Module     : Spoogle.Data.BiMap
-  Copyright  : Copyright (C) 2007 Timo B. Hübel
+  Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : $Id$
+  Version    : 0.1
 
   A bijective map based on the Haskell default map.
 

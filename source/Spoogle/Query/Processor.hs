@@ -2,13 +2,13 @@
 
 {- |
   Module     : Spoogle.Query.Processor
-  Copyright  : Copyright (C) 2007 Timo B. Hübel
+  Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Hübel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : $Id$
+  Version    : 0.1
 
   The Spoogle query processor.
 
@@ -65,7 +65,7 @@ emptyResult = Res emptyHits emptyHints
 allDocuments :: Part -> Hits
 allDocuments p = genHits (SM.toList p)
 
--- | Start processing a query by selecting the context.
+-- | Process a query on a index with a default context.
 process :: Query -> InvIndex -> Context -> Result
 process q i c = maybe emptyResult ((flip (process' q)) i) p
                 where

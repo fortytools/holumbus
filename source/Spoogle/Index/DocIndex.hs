@@ -8,7 +8,6 @@
   Maintainer : Uwe Schmidt (uwe@fh-wedel.de)
   Stability  : experimental
   Portability: portable
-  Version    : $Id$
 
   Haskell XML\/HTML Document Index Datatype
 
