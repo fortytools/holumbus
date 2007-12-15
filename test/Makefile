@@ -18,4 +18,4 @@ test :
 	./$(PROG)
 
 clean :
-	$(RM) $(PROG) $(PROG).hi $(PROG).o
+	$(RM) $(PROG) *.hi *.o
