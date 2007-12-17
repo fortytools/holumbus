@@ -19,11 +19,15 @@
 module Holumbus.Query.Parser 
   (
   -- * Query data types
-  Query (Word, Phrase, Specifier, Negation, BinQuery), 
-  BinOp (And, Or),
+  Query (Word, Phrase, CaseWord, CasePhrase, Specifier, Negation, BinQuery)
+  , BinOp (And, Or)
+
+  -- * Parser data types
+  , Parser (P)
 
   -- * Parsing
-  parseQuery
+  , parseQuery
+  , parseQueryWith
   )
 where
 
@@ -31,13 +35,16 @@ import Holumbus.Index.Inverted (Context)
 
 import Char
 import Control.Monad
+--import Text.ParserCombinators.Parsec
 
 -- | The query datastructure.
-data Query = Word      String
-           | Phrase    String
-           | Specifier Context Query
-           | Negation  Query
-           | BinQuery  BinOp Query Query
+data Query = Word       String
+           | Phrase     String
+           | CaseWord   String
+           | CasePhrase String
+           | Specifier  [Context] Query
+           | Negation   Query
+           | BinQuery   BinOp Query Query
            deriving (Eq, Show)
 
 -- | A binary operation.
@@ -58,9 +65,13 @@ p +++ q = P( \inp -> case parse p inp of
                        [] -> parse q inp
                        (v, out):_ -> [(v, out)])
 
--- | Just for convenience: Apply the query parser to a string.
+-- | Parse a string with the default parser.
 parseQuery :: String -> [(Query, String)]
-parseQuery q = parse query q
+parseQuery = parse query
+
+-- | Parse a string with a custom parser. This allows for highly customized querylanguages.
+parseQueryWith :: Parser Query -> String -> [(Query, String)]
+parseQueryWith = parse
 
 -- | Apply a parser to an input string.
 parse :: Parser a -> String -> [(a, String)]
@@ -149,15 +160,19 @@ token p = do
 symbol :: String -> Parser String
 symbol xs = token (string xs)
 
--- | Parse a context specifier, which is a context name followed by a colon.
+-- | Parse a single context name.
 context :: Parser String
-context = token context'
-  where
-    context' :: Parser String
-    context' = do
-                 x <- manyOne alphanum
-                 char ':'
-                 return x
+context = token (manyOne alphanum)
+
+-- | Parse a list of context specifiers, which are context names separated by commas.
+contexts :: Parser [String]
+contexts =  do
+              x <- context
+              do
+                symbol ","
+                xs <- contexts
+                return (x:xs)
+                +++ return [x]
 
 -- | Parse a phrase, which is anything surrounded by the phrase delimiters.
 phrase :: Parser String
@@ -214,7 +229,8 @@ notQuery = do
 -- | Parse a context-query.
 contextQuery :: Parser Query
 contextQuery = do
-                 c <- context
+                 c <- contexts
+                 symbol ":"
                  t <- parQuery
                  return (Specifier c t)
                  +++ parQuery
@@ -226,20 +242,29 @@ parQuery = do
              q <- query
              symbol ")"
              return q
-             +++ wordQuery
-             +++ phraseQuery
+             +++ caseQuery
 
--- | Parse a single word-query.
-wordQuery :: Parser Query
-wordQuery = do
-              w <- word
-              return (Word w)
+-- | Parse a case-insensitive query.
+caseQuery :: Parser Query
+caseQuery = do
+              symbol "!"
+              do
+                (phraseQuery CasePhrase) +++ (wordQuery CaseWord)
+              +++ 
+              do
+                (phraseQuery Phrase) +++ (wordQuery Word)
 
--- | Parse a single phrase-query.
-phraseQuery :: Parser Query
-phraseQuery = do
-                p <- phrase
-                return (Phrase p)
+-- | Parse a terminal word query.
+wordQuery :: (String -> Query) -> Parser Query
+wordQuery f = do
+                w <- word
+                return (f w)
+
+-- | Parse a terminal phrase query.
+phraseQuery :: (String -> Query) -> Parser Query
+phraseQuery f = do
+                  p <- phrase
+                  return (f p)
 
 -- | Parse an AND-operator ("AND" or just whitespace).
 andOp :: Parser ()

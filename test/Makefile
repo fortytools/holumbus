@@ -14,7 +14,7 @@ all : test
 
 test :
 	$(GHC) --make -o $(PROG) $(PROG).hs
-	@echo "Running Spoogle tests..."
+	@echo "Running Holumbus tests..."
 	./$(PROG)
 
 clean :

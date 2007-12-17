@@ -70,25 +70,25 @@ findTests = TestList
   $ sort (SM.prefixFind "ac" (SM.fromList [("a", 1), ("b", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6), ("ac", 7)])))
 
   , TestCase (assertEqual "Finding some elements by case insensitive match" [2, 5]
-  $ sort (SM.lookupCase "aC" (SM.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("Ac", 5), ("ace", 6)])))
+  $ sort (SM.lookupNoCase "aC" (SM.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("Ac", 5), ("ace", 6)])))
 
   , TestCase (assertEqual "Finding some elements by case insensitive match" [2, 5, 6]
-  $ sort (SM.lookupCase "ACE" (SM.fromList [("Acg", 1), ("aCe", 2), ("acd", 3), ("AcF", 4), ("AcE", 5), ("ace", 6)])))
+  $ sort (SM.lookupNoCase "ACE" (SM.fromList [("Acg", 1), ("aCe", 2), ("acd", 3), ("AcF", 4), ("AcE", 5), ("ace", 6)])))
 
   , TestCase (assertEqual "Finding some elements by case insensitive match" [5, 6]
-  $ sort (SM.lookupCase "ACE" (SM.fromList [("a", 1), ("A", 2), ("aC", 3), ("Ac", 4), ("AcE", 5), ("aCe", 6), ("aCef", 7), ("AcEf", 8)])))
+  $ sort (SM.lookupNoCase "ACE" (SM.fromList [("a", 1), ("A", 2), ("aC", 3), ("Ac", 4), ("AcE", 5), ("aCe", 6), ("aCef", 7), ("AcEf", 8)])))
 
   , TestCase (assertEqual "Prefix find case insensitive" [2, 3, 4, 5, 6, 7, 8]
-  $ sort (SM.prefixFindCase "ac" (SM.fromList [("a", 1), ("aC", 2), ("Ac", 3), ("aCE", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
+  $ sort (SM.prefixFindNoCase "ac" (SM.fromList [("a", 1), ("aC", 2), ("Ac", 3), ("aCE", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
 
   , TestCase (assertEqual "Prefix find case insensitive" [3, 5, 6, 7, 8]
-  $ sort (SM.prefixFindCase "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
+  $ sort (SM.prefixFindNoCase "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
 
   , TestCase (assertEqual "Prefix find case insensitive with key" [("aCf", 5), ("aCE", 4), ("aC", 2), ("Aceg", 8), ("Acef", 7), ("Ace", 6), ("Ac", 3)]
-  (SM.prefixFindCaseWithKey "ac" (SM.fromList [("a", 1), ("aC", 2), ("Ac", 3), ("aCE", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
+  (SM.prefixFindNoCaseWithKey "ac" (SM.fromList [("a", 1), ("aC", 2), ("Ac", 3), ("aCE", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
 
   , TestCase (assertEqual "Prefix find case insensitive with key" [("aCf", 5), ("Aceg", 8), ("Acef", 7), ("Ace", 6), ("Ac", 3)]
-  (SM.prefixFindCaseWithKey "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
+  (SM.prefixFindNoCaseWithKey "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
   ]
 
 allTests :: Test  

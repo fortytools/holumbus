@@ -33,11 +33,11 @@ module Holumbus.Data.StrMap
   , size
   , member
   , lookup
-  , lookupCase
+  , lookupNoCase
   , prefixFind
   , prefixFindWithKey
-  , prefixFindCase
-  , prefixFindCaseWithKey
+  , prefixFindNoCase
+  , prefixFindNoCaseWithKey
 
   -- * Construction
   , empty
@@ -142,8 +142,8 @@ split a b = split' a b ("","", "")
                                        (p, n:ns, h:hs)
 
 -- | Same a ssplit above, but case insensitive (strings are converted to lower case).
-splitCase :: String -> String -> (String, String, String)
-splitCase a b = split (map toLower a) (map toLower b)
+splitNoCase :: String -> String -> (String, String, String)
+splitNoCase a b = split (map toLower a) (map toLower b)
 
 -- | Returns all values.
 elems :: StrMap a -> [a]
@@ -178,12 +178,12 @@ prefixFindWithKey :: String -> StrMap a -> [(String, a)]
 prefixFindWithKey = prefixFindInternal split
 
 -- | Same as prefixFind, but case insensitive.
-prefixFindCase :: String -> StrMap a -> [a]
-prefixFindCase q n = map snd (prefixFindInternal splitCase q n)
+prefixFindNoCase :: String -> StrMap a -> [a]
+prefixFindNoCase q n = map snd (prefixFindInternal splitNoCase q n)
 
 -- | Same as prefixFindWithKey, but case insensitive
-prefixFindCaseWithKey :: String -> StrMap a -> [(String, a)]
-prefixFindCaseWithKey = prefixFindInternal splitCase
+prefixFindNoCaseWithKey :: String -> StrMap a -> [(String, a)]
+prefixFindNoCaseWithKey = prefixFindInternal splitNoCase
 
 -- | Internal prefix find function which is used to implement every other prefix find function.
 prefixFindInternal :: (String -> String -> (String, String, String)) -> String -> StrMap a -> [(String, a)]
@@ -203,8 +203,8 @@ lookup q n | pr == "" = if kr == "" then value n else Nothing
            where (_, pr, kr) = split q (key n)
 
 -- | Search for values matching a key case insensitive.
-lookupCase :: String -> StrMap a -> [a]
-lookupCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
-               | kr == "" = concat (map (lookupCase pr) (succ n))
-               | otherwise = []
-               where (_, pr, kr) = splitCase q (key n)
+lookupNoCase :: String -> StrMap a -> [a]
+lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
+                 | kr == "" = concat (map (lookupNoCase pr) (succ n))
+                 | otherwise = []
+                 where (_, pr, kr) = splitNoCase q (key n)

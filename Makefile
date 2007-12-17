@@ -6,17 +6,17 @@
 TEST_BASE			= test
 EXAMPLES_BASE	= examples
 
-all : lib alltests allexamples doc
+all : build alltests allexamples doc
 	
 configure : .setup-config
 
 doc	: configure
 	@runhaskell Setup.hs haddock
 
-lib	: configure
+build	: configure
 	@runhaskell Setup.hs build
 
-install : lib
+install : build
 	@runhaskell Setup.hs install
 
 .setup-config :
