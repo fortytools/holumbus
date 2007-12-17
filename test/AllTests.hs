@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
 
-  This module just bundles all Spoogle tests.
+  This module just bundles all Holumbus tests.
 
 -}
 

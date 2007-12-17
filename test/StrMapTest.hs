@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
 
-  The some unit tests for the Spoogle patricia trie.
+  The some unit tests for the Holumbus patricia trie.
 
 -}
 
@@ -20,7 +20,7 @@ module StrMapTest (allTests) where
 
 import Data.List
 
-import qualified Spoogle.Data.StrMap as SM
+import qualified Holumbus.Data.StrMap as SM
 
 import Test.HUnit
 

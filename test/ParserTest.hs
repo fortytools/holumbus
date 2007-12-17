@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
 
-  The some unit tests for the Spoogle query parser.
+  The some unit tests for the Holumbus query parser.
 
 -}
 
@@ -18,7 +18,7 @@
 
 module ParserTest (allTests) where
 
-import qualified Spoogle.Query.Parser as P
+import qualified Holumbus.Query.Parser as P
 
 import Test.HUnit
 
