@@ -2,7 +2,7 @@
 
 {- |
   Module     : SimpleSearch
-  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
 
-  The inverted index for Spoogle.
+  The inverted index for Holumbus.
 
 -}
 
@@ -33,12 +33,12 @@ import qualified Data.IntMap as IM
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Spoogle.Index.DocIndex
-import Spoogle.Index.Inverted
-import Spoogle.Index.Convert
-import Spoogle.Query.Parser
-import Spoogle.Query.Processor
-import Spoogle.Data.StrMap as SM
+import Holumbus.Index.DocIndex
+import Holumbus.Index.Inverted
+import Holumbus.Index.Convert
+import Holumbus.Query.Parser
+import Holumbus.Query.Processor
+import Holumbus.Data.StrMap as SM
 
 main :: IO ()
 main = do
@@ -61,7 +61,7 @@ loadIndex f = readDocument [(a_validate, v_0)] f
 commandLineOpts :: [String] -> IO ((String, String))
 commandLineOpts [i, c] = do
                          return (i, c)
-commandLineOpts _ = error "Usage: Spoogle INDEXFILE DEFAULTCONTEXT"
+commandLineOpts _ = error "Usage: Holumbus INDEXFILE DEFAULTCONTEXT"
 
 answerQueries :: InvIndex -> String -> IO ()
 answerQueries i c = do
@@ -141,7 +141,7 @@ printHints h _ = do
 
 printHelp :: IO ()
 printHelp = do
-            putStrLn "Spoogle treats single words as prefix terms and will give you possible completions."
+            putStrLn "Holumbus treats single words as prefix terms and will give you possible completions."
             putStrLn "Words are interpreted case insensitive. Phrases and exact matches (case sensitive)"
             putStrLn "can be specified by using quotes (i.e. \"Foo Bar\" will match this exact sequence)."
             putStrLn "Terms just separated by space will be treated implicitly as AND terms."
@@ -168,7 +168,7 @@ printContexts i = do
                                             return ()
 
 convertIndex :: IOSArrow DocIndex InvIndex
-convertIndex = arr hyphoonToInvSpoogle
+convertIndex = arr hyphoonToInvHolumbus
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
