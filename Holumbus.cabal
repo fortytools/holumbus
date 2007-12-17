@@ -1,0 +1,24 @@
+name:				Holumbus
+version:			0.1
+license:			OtherLicense
+license-file:		LICENSE
+author:				Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
+copyright:			Copyright (c) 2007 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
+maintainer:			Timo B. Hübel <t.h@gmx.info>
+stability:			experimental
+category:			Unclassified
+synopsis:			A distributed search and indexing engine.
+homepage:			http://darcsweb.schlatt.com
+description:		The Holumbus library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
+exposed-modules:
+	Holumbus.Data.StrMap,
+	Holumbus.Data.BiMap,
+	Holumbus.Query.Parser,
+	Holumbus.Query.Processor,
+	Holumbus.Index.Inverted,
+	Holumbus.Index.Hybrid,
+	Holumbus.Index.DocIndex,
+	Holumbus.Index.Convert
+hs-source-dirs:		source
+ghc-options:		-Wall -O -fno-warn-type-defaults
+build-depends:		base, haskell98, containers, parsec, hxt
