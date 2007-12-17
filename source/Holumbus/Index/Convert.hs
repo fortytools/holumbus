@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Index.Convert
+  Module     : Holumbus.Index.Convert
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -10,29 +10,29 @@
   Portability: portable
   Version    : 0.1
 
-  Conversion between Spoogle indexes and several other formats.
+  Conversion between Holumbus indexes and several other formats.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Index.Convert 
+module Holumbus.Index.Convert 
   (
-  hyphoonToInvSpoogle
+  hyphoonToInvHolumbus
   )
 where
 
-import Spoogle.Index.Inverted
+import Holumbus.Index.Inverted
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
-import qualified Spoogle.Data.StrMap as SM
+import qualified Holumbus.Data.StrMap as SM
 
-import qualified Spoogle.Index.DocIndex as H
+import qualified Holumbus.Index.DocIndex as H
 
--- | Converts an inverted index from the Hyphoon format to the Spoogle format.
-hyphoonToInvSpoogle :: H.DocIndex -> InvIndex
-hyphoonToInvSpoogle (H.DI idx dt) = InvSpoogle (toDocuments dt) (toParts idx)
+-- | Converts an inverted index from the Hyphoon format to the Holumbus format.
+hyphoonToInvHolumbus :: H.DocIndex -> InvIndex
+hyphoonToInvHolumbus (H.DI idx dt) = InvHolumbus (toDocuments dt) (toParts idx)
 
 toParts :: H.Index -> Parts
 toParts idx = M.foldWithKey (toParts') M.empty idx

@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Query.Fuzzy
+  Module     : Holumbus.Query.Fuzzy
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -10,10 +10,10 @@
   Portability: portable
   Version    : 0.1
 
-  The unique Spoogle mechanism for fuzzy queries.
+  The unique Holumbus mechanism for fuzzy queries.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Query.Fuzzy where
+module Holumbus.Query.Fuzzy where

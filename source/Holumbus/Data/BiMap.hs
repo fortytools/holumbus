@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Data.BiMap
+  Module     : Holumbus.Data.BiMap
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -16,7 +16,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Data.BiMap
+module Holumbus.Data.BiMap
   (
     -- * BiMap type
     BiMap

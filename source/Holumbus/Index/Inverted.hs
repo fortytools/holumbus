@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Index.Inverted
+  Module     : Holumbus.Index.Inverted
   Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
   
@@ -10,13 +10,13 @@
   Portability: portable
   Version    : 0.1
   
-  The inverted index for Spoogle.
+  The inverted index for Holumbus.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Index.Inverted where
+module Holumbus.Index.Inverted where
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -27,10 +27,10 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
-import Spoogle.Data.StrMap (StrMap)
-import qualified Spoogle.Data.StrMap as SM
+import Holumbus.Data.StrMap (StrMap)
+import qualified Holumbus.Data.StrMap as SM
 
-data InvIndex    = InvSpoogle { docTable :: !Documents, indexParts :: !Parts } 
+data InvIndex    = InvHolumbus { docTable :: !Documents, indexParts :: !Parts } 
                  deriving (Show)
 
 data Documents   = DocTable { idToDoc :: !(IntMap Document), docToId :: !(Map URL DocId) }
@@ -52,7 +52,7 @@ type URL         = String
 type Title       = String
 
 empty :: InvIndex
-empty = InvSpoogle emptyDocuments M.empty
+empty = InvHolumbus emptyDocuments M.empty
 
 emptyDocuments :: Documents
 emptyDocuments = DocTable IM.empty M.empty

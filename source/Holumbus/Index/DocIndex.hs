@@ -1,7 +1,7 @@
 -- ------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Index.DocIndex
+  Module     : Holumbus.Index.DocIndex
   Copyright  : Copyright (C) 2005 Uwe Schmidt
   License    : MIT
 
@@ -15,7 +15,7 @@
 
 -- ------------------------------------------------------------
 
-module Spoogle.Index.DocIndex
+module Holumbus.Index.DocIndex
 where
 
 import Text.XML.HXT.Arrow		-- import all stuff for parsing, validating, and transforming XML

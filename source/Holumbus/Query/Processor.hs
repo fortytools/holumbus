@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Query.Processor
+  Module     : Holumbus.Query.Processor
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -10,13 +10,13 @@
   Portability: portable
   Version    : 0.1
 
-  The Spoogle query processor.
+  The Holumbus query processor.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Query.Processor 
+module Holumbus.Query.Processor 
   (
   -- * Result data types
   Result (hits, hints), 
@@ -29,10 +29,10 @@ module Spoogle.Query.Processor
   )
 where
 
-import Spoogle.Query.Parser
-import Spoogle.Index.Inverted
+import Holumbus.Query.Parser
+import Holumbus.Index.Inverted
 
-import qualified Spoogle.Data.StrMap as SM
+import qualified Holumbus.Data.StrMap as SM
 
 import Maybe
 

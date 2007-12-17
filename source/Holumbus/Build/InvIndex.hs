@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Query.Parser
+  Module     : Holumbus.Query.Parser
   Copyright  : Copyright (C) 2007 Sebastian M. Schlatt
   License    : MIT
 
@@ -10,13 +10,13 @@
   Portability: untested
   Version    : $Id$
 
-  The Spoogle query parser.
+  The Holumbus query parser.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Build.InvIndex where
+module Holumbus.Build.InvIndex where
 
 import Text.XML.HXT.Arrow			-- import all stuff for parsing, validating, and transforming XML
 
@@ -29,7 +29,7 @@ import System
 import Data.Maybe
 import Data.List
 
-import Spoogle.Index.Inverted
+import Holumbus.Index.Inverted
 	( empty
 	, InvIndex
 	)

@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Query.Parser
+  Module     : Holumbus.Query.Parser
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -10,13 +10,13 @@
   Portability: portable
   Version    : 0.1
 
-  The Spoogle query parser.
+  The Holumbus query parser.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Query.Parser 
+module Holumbus.Query.Parser 
   (
   -- * Query data types
   Query (Word, Phrase, Specifier, Negation, BinQuery), 
@@ -27,7 +27,7 @@ module Spoogle.Query.Parser
   )
 where
 
-import Spoogle.Index.Inverted (Context)
+import Holumbus.Index.Inverted (Context)
 
 import Char
 import Control.Monad

@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Index.Hybrid
+  Module     : Holumbus.Index.Hybrid
   Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
@@ -10,20 +10,20 @@
   Portability: portable
   Version    : 0.1
 
-  The hybrid index for Spoogle.
+  The hybrid index for Holumbus.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Index.Hybrid where
+module Holumbus.Index.Hybrid where
 
 import Data.Map
 import Data.IntMap
 
-import Spoogle.Data.StrMap
+import Holumbus.Data.StrMap
 
-data HybIndex      = HybSpoogle { docTable :: !Documents, indexParts :: !Parts } 
+data HybIndex      = HybHolumbus { docTable :: !Documents, indexParts :: !Parts } 
                    deriving (Show)
 
 data Documents     = DocTable { idToDoc :: !(IntMap URL), docToId :: !(Map URL DocId) }

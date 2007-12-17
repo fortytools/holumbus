@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Spoogle.Data.StrMap
+  Module     : Holumbus.Data.StrMap
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
 
-  A patricia trie implementation used for the Spoogle indexes.
+  A patricia trie implementation used for the Holumbus indexes.
 
   Arbitrary values can associated with a string key. Searching for keys is very fast,
   but the trie consumes quite some memory. The main difference to Data.Map are the special
@@ -20,7 +20,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Spoogle.Data.StrMap 
+module Holumbus.Data.StrMap 
   (
   -- * Map type
   StrMap
