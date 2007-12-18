@@ -30,11 +30,11 @@ import qualified Data.IntSet as IS
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
-data InvIndex    = InvHolumbus { docTable :: !Documents, indexParts :: !Parts } 
-                 deriving (Show)
+import Holumbus.Index.Common
 
-data Documents   = DocTable { idToDoc :: !(IntMap Document), docToId :: !(Map URL DocId) }
-                 deriving (Show)
+data InvIndex    = InvHolumbus { docTable :: !Documents
+                               , indexParts :: !Parts 
+                               } deriving (Show)
 
 type Parts       = Map Context Part    -- A context has a name and it's own index
 type Part        = StrMap Occurrences  -- The word is the key with its occurrences as value
@@ -42,20 +42,8 @@ type Part        = StrMap Occurrences  -- The word is the key with its occurrenc
 type Occurrences = IntMap Positions    -- The key equals a document id
 type Positions   = IntSet              -- The positions of the word in the document
 
-type Document    = (Title, URL)
-
-type DocId       = Int
-type Position    = Int
-type Word        = String
-type Context     = String
-type URL         = String
-type Title       = String
-
 empty :: InvIndex
 empty = InvHolumbus emptyDocuments M.empty
-
-emptyDocuments :: Documents
-emptyDocuments = DocTable IM.empty M.empty
 
 emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty

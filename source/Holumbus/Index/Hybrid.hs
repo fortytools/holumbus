@@ -18,30 +18,49 @@
 
 module Holumbus.Index.Hybrid where
 
-import Data.Map
-import Data.IntMap
+import Data.Map (Map)
+import qualified Data.Map as M
 
-import Holumbus.Data.StrMap
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IM
 
-data HybIndex      = HybHolumbus { docTable :: !Documents, indexParts :: !Parts } 
-                   deriving (Show)
+import Holumbus.Data.StrMap (StrMap)
+import qualified Holumbus.Data.StrMap as SM
 
-data Documents     = DocTable { idToDoc :: !(IntMap URL), docToId :: !(Map URL DocId) }
-                   deriving (Show)
+import Holumbus.Index.Common
+
+data HybIndex      = HybHolumbus { docTable   :: !Documents
+                                 , indexParts :: !Parts 
+                                 } deriving (Show)
 
 type Parts         = Map Context Part
-type Part          = ( Dictionary, Blocks )
+data Part          = HybPart { dictionary :: !Dictionary
+                             , blocks     :: !Blocks 
+                             } deriving (Show)
 
-type Dictionary    = StrMap WordInfo
-type WordInfo      = ( WordId, BlockId )          -- BlockID ersetzt Range-Info
+data Dictionary    = HybDictionary { wordTable  :: !(StrMap WordInfo)
+                                   , lastWordId :: !WordId
+                                   } deriving (Show)
 
-type Blocks        = IntMap Block                 -- Dient nur zum schnellen Finden eines Blocks
-type Block         = [ Occurrence ]               -- Sortiert nach DocID
+type WordInfo      = ( WordId, BlockId )
+
+data Blocks        = HybBlocks { blockTable  :: !(IntMap Block)
+                               , lastBlockId :: !BlockId
+                               } deriving (Show)
+type Block         = [ Occurrence ]               -- Sorted by DocId
 type Occurrence    = ( DocId, WordId, Position )
 
-type DocId         = Int
 type WordId        = Int
 type BlockId       = Int
-type Position      = Int
-type URL           = String
-type Context       = String
+
+empty :: HybIndex
+empty = HybHolumbus emptyDocuments M.empty
+
+emptyPart :: Part
+emptyPart = HybPart emptyDictionary emptyBlocks
+
+emptyDictionary :: Dictionary
+emptyDictionary = HybDictionary SM.empty 0
+
+emptyBlocks :: Blocks
+emptyBlocks = HybBlocks IM.empty 0
