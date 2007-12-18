@@ -21,11 +21,7 @@ module Holumbus.Index.Inverted where
 import Data.Map (Map)
 import qualified Data.Map as M
 
-import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
-
-import Data.IntSet (IntSet)
-import qualified Data.IntSet as IS
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
