@@ -31,7 +31,7 @@ module Holumbus.Query.Parser
   )
 where
 
-import Holumbus.Index.Inverted (Context)
+import Holumbus.Index.Common (Context)
 
 import Char
 import Control.Monad

@@ -18,19 +18,15 @@
 
 module Holumbus.Query.Processor 
   (
-  -- * Result data types
-  ContextResult (hits, hints), 
-  WordHints, 
-  DocHits, 
-  WordHits, 
-
   -- * Processing
   process
   )
 where
 
 import Holumbus.Query.Parser
+import Holumbus.Index.Common
 import Holumbus.Index.Inverted
+import Holumbus.Query.Result
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
@@ -45,28 +41,6 @@ import qualified Data.IntMap as IM
 
 import qualified Data.IntSet as IS
 
-type Result = Map Context ContextResult
-
-data ContextResult = Res { hits :: !DocHits, hints :: !WordHints} deriving (Show)
-
-type DocHits = IntMap WordHits          -- Key is document id
-type WordHits = Map String Positions
-type WordHints = Map String Occurrences
-
-emptyDocHits :: DocHits
-emptyDocHits = IM.empty
-
-emptyWordHits :: WordHits
-emptyWordHits = M.empty
-
-emptyWordHints :: WordHints
-emptyWordHints = M.empty
-
-emptyContextResult :: ContextResult
-emptyContextResult = Res emptyDocHits emptyWordHints
-
-emptyResult :: Result
-emptyResult = M.empty
 
 allDocuments :: Part -> DocHits
 allDocuments p = genHits (SM.toList p)
