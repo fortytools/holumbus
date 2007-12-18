@@ -39,9 +39,6 @@ data InvIndex    = InvHolumbus { docTable :: !Documents
 type Parts       = Map Context Part    -- A context has a name and it's own index
 type Part        = StrMap Occurrences  -- The word is the key with its occurrences as value
 
-type Occurrences = IntMap Positions    -- The key equals a document id
-type Positions   = IntSet              -- The positions of the word in the document
-
 empty :: InvIndex
 empty = InvHolumbus emptyDocuments M.empty
 
