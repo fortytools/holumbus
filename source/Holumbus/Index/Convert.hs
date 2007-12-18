@@ -32,7 +32,7 @@ import qualified Holumbus.Data.StrMap as SM
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
-import qualified Data.IntSet as IS
+--import qualified Data.IntSet as IS
 
 
 -- | Converts an inverted index from the Hyphoon format to the Holumbus inverted file format.
