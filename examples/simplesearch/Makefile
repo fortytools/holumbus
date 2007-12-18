@@ -14,7 +14,7 @@ all :
 	$(GHC) --make -o $(PROG) $(PROG).hs
 
 start:
-	./$(PROG) sd.xml content
+	./$(PROG) sd.xml
 
 clean :
 	$(RM) $(PROG) $(PROG).hi $(PROG).o

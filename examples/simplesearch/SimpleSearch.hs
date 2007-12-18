@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
 
-  The inverted index for Holumbus.
+  A simple example of Holumbus, providing a command line search with the
+  default query language.
 
 -}
 
@@ -34,21 +35,23 @@ import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
 import Holumbus.Index.DocIndex
+import Holumbus.Index.Common
 import Holumbus.Index.Inverted
 import Holumbus.Index.Convert
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
+import Holumbus.Query.Result
 import Holumbus.Data.StrMap as SM
 
 main :: IO ()
 main = do
        argv <- getArgs
-       (indexFile, defaultContext) <- commandLineOpts argv
+       indexFile <- commandLineOpts argv
        putStrLn "Loading index ..."
        [invIndex] <- runX (loadIndex indexFile)
        putStr ("Loaded " ++ (show (IM.size (idToDoc (docTable invIndex)))) ++ " documents ")
        putStrLn ("containing " ++ show (M.fold (\p r -> (SM.size p) + r) 0 (indexParts invIndex)) ++ " words")
-       answerQueries invIndex defaultContext
+       answerQueries invIndex
        return ()
 
 loadIndex :: String -> IOSArrow b InvIndex
@@ -58,24 +61,24 @@ loadIndex f = readDocument [(a_validate, v_0)] f
               >>>
               convertIndex     
        
-commandLineOpts :: [String] -> IO ((String, String))
-commandLineOpts [i, c] = do
-                         return (i, c)
-commandLineOpts _ = error "Usage: Holumbus INDEXFILE DEFAULTCONTEXT"
+commandLineOpts :: [String] -> IO (String)
+commandLineOpts [i] = do
+                      return i
+commandLineOpts _ = error "Usage: Holumbus INDEXFILE"
 
-answerQueries :: InvIndex -> String -> IO ()
-answerQueries i c = do
-                    q <- readline ("Enter query (type :? for help) " ++ c ++ "> ")
-                    if isNothing q then answerQueries i c
-                      else
-                        let n = fst $ utf8ToUnicode (fromJust q) in
-                          do
-                          addHistory n
-                          answerQueries' n
+answerQueries :: InvIndex -> IO ()
+answerQueries i = do
+                  q <- readline ("Enter query (type :? for help) > ")
+                  if isNothing q then answerQueries i
+                    else
+                      let n = fst $ utf8ToUnicode (fromJust q) in
+                        do
+                        addHistory n
+                        answerQueries' n
   where
     answerQueries' :: String -> IO ()
-    answerQueries' ""       = answerQueries i c
-    answerQueries' (':':xs) = internalCommand i c xs
+    answerQueries' ""       = answerQueries i
+    answerQueries' (':':xs) = internalCommand i xs
     answerQueries' q        = do
                               pr <- return (parseQuery q)
 --                              putStrLn "Query:"
@@ -85,59 +88,59 @@ answerQueries i c = do
                                 else do
                                   [(pq, e)] <- return pr
                                   if e == "" then do
-                                    r <- return (process pq i c)
-                                    printHits (hits r) i
+                                    r <- return (process pq i (map fst (M.toList (indexParts i))))
+                                    printDocHits (docHits r) i
                                     putStrLn ""
-                                    printHints (hints r) i
+                                    printWordHits (wordHits r) i
                                     else do
                                       putStrLn ("Could not parse query: " ++ e)
-                              answerQueries i c
+                              answerQueries i
 
-internalCommand :: InvIndex -> String -> String -> IO ()
-internalCommand _ _ "q"       = exitWith ExitSuccess
-internalCommand i c "?"       = do
-                                putStrLn ""
-                                printHelp
-                                putStrLn ""
-                                printContexts i
-                                putStrLn ""
-                                answerQueries i c
-internalCommand i c ('c':xs)  = do 
-                                if elem nc (map fst (M.toList (indexParts i))) then do
-                                  answerQueries i nc
-                                  else do
-                                    putStrLn "Unknown context!"
-                                    answerQueries i c
-                                 where
-                                   nc = dropWhile isSpace xs
-internalCommand i c _         = do
-                                putStrLn "Unknown command!"
-                                answerQueries i c
+internalCommand :: InvIndex -> String -> IO ()
+internalCommand _ "q"       = exitWith ExitSuccess
+internalCommand i "?"       = do
+                              putStrLn ""
+                              printHelp
+                              putStrLn ""
+                              printContexts i
+                              putStrLn ""
+                              answerQueries i
+--internalCommand i ('c':xs)  = do 
+--                              if elem nc (map fst (M.toList (indexParts i))) then do
+--                                answerQueries i
+--                                else do
+--                                  putStrLn "Unknown context!"
+--                                  answerQueries i
+--                               where
+--                                 nc = dropWhile isSpace xs
+internalCommand i _         = do
+                              putStrLn "Unknown command!"
+                              answerQueries i
 
-printHits :: Hits -> InvIndex -> IO ()
-printHits h i = do
-                putStrLn "Result:"
-                printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc (docTable i))) 
-                               (IM.foldWithKey (\k _ l -> k:l) [] h)))
-                putStrLn ""
-                putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
-                where
-                  printHits' :: [Document] -> IO ()
-                  printHits' [] = return ()
-                  printHits' ((t, u):xs) = do
-                                           putStrLn t
-                                           putStrLn u
-                                           printHits' xs
-                                           return ()
+printDocHits :: DocHits -> InvIndex -> IO ()
+printDocHits h i = do
+                   putStrLn "Result:"
+                   printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc (docTable i))) 
+                                  (IM.foldWithKey (\k _ l -> k:l) [] h)))
+                   putStrLn ""
+                   putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
+                   where
+                     printHits' :: [Document] -> IO ()
+                     printHits' [] = return ()
+                     printHits' ((t, u):xs) = do
+                                              putStrLn t
+                                              putStrLn u
+                                              printHits' xs
+                                              return ()
 
 
-printHints :: Hints -> InvIndex -> IO ()
-printHints h _ = do
-                 putStrLn "Completions:"
-                 d <- return (L.sortBy (compare `on` snd) (map (\(c, o) -> (c, IM.size o)) (M.toList h)))
-                 putStrLn (foldr (\(c, s) r -> r ++ c ++ " (" ++ (show s) ++ ") ") "" d)
-                 putStrLn ""
-                 putStrLn ("Found " ++ (show (M.size h)) ++ " possible completions")
+printWordHits :: WordHits -> InvIndex -> IO ()
+printWordHits h _ = do
+                    putStrLn "Completions:"
+                    d <- return (L.sortBy (compare `on` snd) (map (\(c, o) -> (c, M.fold (\m r -> r + IM.size m) 0 o)) (M.toList h)))
+                    putStrLn (foldr (\(c, s) r -> r ++ c ++ " (" ++ (show s) ++ ") ") "" d)
+                    putStrLn ""
+                    putStrLn ("Found " ++ (show (M.size h)) ++ " possible completions")
 
 printHelp :: IO ()
 printHelp = do
@@ -147,12 +150,12 @@ printHelp = do
             putStrLn "Terms just separated by space will be treated implicitly as AND terms."
             putStrLn "Other operators have to be specified explisitly. Avaliable operators are: AND, OR, NOT"
             putStrLn "Priority can be influenced by round parantheses."
-            putStrLn "A context other than the default context can be specified with the : operator."
-            putStrLn "Example: context:(foo OR bar) NOT foobar"
-            putStrLn "This will search for documents containing \"foo\" or \"bar\" in the context named"
-            putStrLn "\"context\" and no \"foobar\" in the default context."
+            putStrLn "The contexts to search can be restricted with the : operator (seperate them with , )."
+            putStrLn "Example: firstcontext,secondcontext:(foo OR bar) NOT foobar"
+            putStrLn "This will search for documents containing \"foo\" or \"bar\" in the contexts named"
+            putStrLn "\"firstcontext\" and \"secondcontext\" and no \"foobar\" in the all contexts."
             putStrLn ""
-            putStrLn "Use :c context to set a new default context, :q to exit and :? to show this help."
+            putStrLn "Use :q to exit and :? to show this help."
             return ()
 
 printContexts :: InvIndex -> IO ()
