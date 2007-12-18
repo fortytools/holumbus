@@ -25,7 +25,7 @@ where
 import Holumbus.Index.Common
 
 import qualified Holumbus.Index.Inverted as INV
-import qualified Holumbus.Index.Hybrid as HYB
+--import qualified Holumbus.Index.Hybrid as HYB
 import qualified Holumbus.Index.DocIndex as H
 
 import qualified Holumbus.Data.StrMap as SM
@@ -37,7 +37,7 @@ import qualified Data.IntSet as IS
 
 -- | Converts an inverted index from the Hyphoon format to the Holumbus inverted file format.
 hyphoonToInvHolumbus :: H.DocIndex -> INV.InvIndex
-hyphoonToInvHolumbus (H.DI idx dt) = INV.InvHolumbus (toDocuments dt) (toPartsInv idx)
+hyphoonToInvHolumbus (H.DI idx dt) = INV.InvIndex (toDocuments dt) (toPartsInv idx)
 
 toPartsInv :: H.Index -> INV.Parts
 toPartsInv idx = M.foldWithKey (toPartsInv') M.empty idx

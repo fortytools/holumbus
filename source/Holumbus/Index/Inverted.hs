@@ -28,15 +28,15 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 
-data InvIndex    = InvHolumbus { docTable :: !Documents
-                               , indexParts :: !Parts 
-                               } deriving (Show)
+data InvIndex    = InvIndex { docTable :: !Documents
+                             , indexParts :: !Parts 
+                             } deriving (Show)
 
 type Parts       = Map Context Part    -- A context has a name and it's own index
 type Part        = StrMap Occurrences  -- The word is the key with its occurrences as value
 
 empty :: InvIndex
-empty = InvHolumbus emptyDocuments M.empty
+empty = InvIndex emptyDocuments M.empty
 
 emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty

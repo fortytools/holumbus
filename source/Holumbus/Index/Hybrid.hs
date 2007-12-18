@@ -29,24 +29,24 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 
-data HybIndex      = HybHolumbus { docTable   :: !Documents
-                                 , indexParts :: !Parts 
-                                 } deriving (Show)
+data HybIndex      = HybIndex { docTable   :: !Documents
+                              , indexParts :: !Parts 
+                              } deriving (Show)
 
 type Parts         = Map Context Part
-data Part          = HybPart { dictionary :: !Dictionary
-                             , blocks     :: !Blocks 
-                             } deriving (Show)
+data Part          = Part { dictionary :: !Dictionary
+                          , blocks     :: !Blocks 
+                          } deriving (Show)
 
-data Dictionary    = HybDictionary { wordTable  :: !(StrMap WordInfo)
-                                   , lastWordId :: !WordId
-                                   } deriving (Show)
+data Dictionary    = Dictionary { wordTable  :: !(StrMap WordInfo)
+                                , lastWordId :: !WordId
+                                } deriving (Show)
 
 type WordInfo      = ( WordId, BlockId )
 
-data Blocks        = HybBlocks { blockTable  :: !(IntMap Block)
-                               , lastBlockId :: !BlockId
-                               } deriving (Show)
+data Blocks        = Blocks { blockTable  :: !(IntMap Block)
+                            , lastBlockId :: !BlockId
+                            } deriving (Show)
 type Block         = [ Occurrence ]               -- Sorted by DocId
 type Occurrence    = ( DocId, WordId, Position )
 
@@ -54,13 +54,13 @@ type WordId        = Int
 type BlockId       = Int
 
 empty :: HybIndex
-empty = HybHolumbus emptyDocuments M.empty
+empty = HybIndex emptyDocuments M.empty
 
 emptyPart :: Part
-emptyPart = HybPart emptyDictionary emptyBlocks
+emptyPart = Part emptyDictionary emptyBlocks
 
 emptyDictionary :: Dictionary
-emptyDictionary = HybDictionary SM.empty 0
+emptyDictionary = Dictionary SM.empty 0
 
 emptyBlocks :: Blocks
-emptyBlocks = HybBlocks IM.empty 0
+emptyBlocks = Blocks IM.empty 0
