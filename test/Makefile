@@ -2,11 +2,15 @@
 
 HOME			= ..
 
-GHC_FLAGS	= -Wall -O2 -fno-warn-type-defaults
+# Make GHC compile everything seperatly for the tests, to be able to 
+# execute them without installing the library first.
+GHC_FLAGS	= -Wall -O2 -fno-warn-type-defaults -ignore-package Holumbus -i$(SOURCE) -odir . -hidir .
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
 RM				= rm $(RM_FLAGS)
+
+SOURCE		= ../source
 
 PROG			= AllTests
 
@@ -18,4 +22,4 @@ test :
 	./$(PROG)
 
 clean :
-	$(RM) $(PROG) *.hi *.o
+	$(RM) $(PROG) *.hi *.o Holumbus

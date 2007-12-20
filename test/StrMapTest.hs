@@ -26,11 +26,14 @@ import Test.HUnit
 
 emptyTests :: Test
 emptyTests  = TestList 
-  [ TestCase (assertEqual "Empty map should have no key" 0 
-  (length (SM.elems SM.empty)))
+  [ TestCase (assertEqual "Empty map should have no key" ([] :: [Int])
+  (SM.elems SM.empty))
   
   , TestCase (assertEqual "Empty map should have no elements" 0 
   (SM.size SM.empty))
+  
+  , TestCase (assertEqual "Querying empty map for anything should give nothing" (Nothing :: Maybe Int)
+  (SM.lookup "test" SM.empty))
   ]
 
 insertTests :: Test
@@ -50,9 +53,25 @@ insertTests = TestList
   , TestCase (assertEqual "Complex insert" [("ad",4),("acd",3),("abcd",1),("bcd",2)]
   (SM.toList (SM.insert "ad" 4 (SM.insert "acd" 3 (SM.insert "bcd" 2 (SM.insert "abcd" 1 SM.empty))))))
   
+  , TestCase (assertEqual "1. case: Existing key"
+  (SM.singleton "abc" 2)
+  (SM.insert "abc" 2 (SM.singleton "abc" 1)))
+
+--  , TestCase (assertEqual "2. case: Insert into list of successors"
+--  (Seq "" [End "ab" 1 [End "c" 2 []]]) -- TODO: Make Seq and End avaliable for testing purposes.
+--  (SM.insert "abc" 2 (SM.singleton "ab" 1)))
+  
   , TestCase (assertEqual "Inserting in different order shold yield the same result"
   (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])
   (SM.fromList [("Aceg", 8), ("Acef", 7), ("Ace", 6), ("aCf", 5), ("Ab", 4), ("Ac", 3), ("aB", 2), ("a", 1)]))
+
+  , TestCase (assertEqual "Combining function should preserve old value"
+  [("abc", 3), ("a", 1)]
+  (SM.toList (SM.insertWithKey (\k nv ov -> if k == "abc" then ov else nv) "abc" 4 (SM.fromList [("a", 1), ("abc", 3)]))))
+
+  , TestCase (assertEqual "Combining function should give new value"
+  [("abd", 4), ("a", 1)]
+  (SM.toList (SM.insertWithKey (\k nv ov -> if k == "abc" then ov else nv) "abd" 4 (SM.fromList [("a", 1), ("abd", 3)]))))
   ]
 
 findTests :: Test  
