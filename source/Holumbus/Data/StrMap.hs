@@ -43,6 +43,8 @@ module Holumbus.Data.StrMap
   , empty
   , singleton
   , insert
+  , insertWith
+  , insertWithKey
 
   -- * Conversion
   , elems
@@ -77,7 +79,7 @@ empty = Seq "" []
 
 -- | Create a map with a single element.
 singleton :: String -> a -> StrMap a
-singleton k v = insert k v empty
+singleton k v = Seq "" [End k v []]
 
 -- | Extract the key of a node
 key :: StrMap a -> String
@@ -114,22 +116,44 @@ setSucc t (Seq k _)   = Seq k t
 member :: String -> StrMap a -> Bool
 member k m = maybe False (\_ -> True) (lookup k m)
 
--- | Insert a new key with an associated value into the trie.
-insert :: String -> a -> StrMap a -> StrMap a
-insert nk nv n | nk == ""             = error "Empty key!"
-               | cr == "" && nr == "" = End s nv (succ n)
-               | cr == "" && nr /= "" = setSucc (insertSub nr nv (succ n)) n
-               | nr == "" && cr /= "" = End s nv [setKey cr n]
-               | otherwise = Seq s [setKey cr n, (End nr nv [])]
-               where (s, nr, cr) = split nk (key n)
+-- | Insert with a combining function. If the key is already present in the map, the
+-- value of @f key new_value old_value@ will be inserted.
+insertWithKey :: (String -> a -> a -> a) -> String -> a -> StrMap a -> StrMap a
+insertWithKey f nk nv n = insert' f nk nv nk n
 
-insertSub :: String -> a -> [StrMap a] -> [StrMap a]
-insertSub k v t = insertSub' k v t []
+-- | Insert with a combining function. If the key is already present in the map, the
+-- value of @f new_value old_value@ will be inserted.
+insertWith :: (a -> a -> a) -> String -> a -> StrMap a -> StrMap a
+insertWith f nk nv n = insert' (\_ new old -> f new old) nk nv nk n
+
+-- | Insert a new key and value into the map. If the key is already present in the map,
+-- the associated value will be replaced with the new value.
+insert :: String -> a -> StrMap a -> StrMap a
+insert nk nv n = insertWith const nk nv n
+
+-- | The internal insert function which does the real work. The original new key has to be put
+-- through because otherwise it will be shortened on every recursive call.
+insert' :: (String -> a -> a -> a) -> String -> a -> String -> StrMap a -> StrMap a
+insert' f nk nv ok n | nk == ""             = error "Empty key!"
+                     -- Key already exists, the current value will be replaced with the new value.
+                     | cr == "" && nr == "" = End s (maybe nv (f ok nv) (value n)) (succ n) 
+                     -- Insert into list of successors.
+                     | cr == "" && nr /= "" = setSucc (insertSub f nr nv ok (succ n)) n
+                     -- New intermediate End node with the new value and the current node as successor.
+                     | nr == "" && cr /= "" = End s nv [setKey cr n]
+                     -- New intermediate Seq node which shares the prefix of the new key and the key of the current node.
+                     | otherwise = Seq s [setKey cr n, (End nr nv [])]
+                     where (s, nr, cr) = split nk (key n)
+
+-- | Internal support function for insert which searches the correct successor to insert into
+-- within a list of nodes (the successors of the current node, see call in insert' above).
+insertSub :: (String -> a -> a -> a) -> String -> a -> String -> [StrMap a] -> [StrMap a]
+insertSub f k v o t = insertSub' f k v t []
   where
-    insertSub' :: String -> a -> [StrMap a] -> [StrMap a] -> [StrMap a]
-    insertSub' nk nv [] r     = (End nk nv []):r
-    insertSub' nk nv (x:xs) r = if head (key x) == head nk then (insert nk nv x):r ++ xs else 
-                                insertSub' nk nv xs (x:r)
+    insertSub' :: (String -> a -> a -> a) -> String -> a -> [StrMap a] -> [StrMap a] -> [StrMap a]
+    insertSub' _ nk nv [] r     = (End nk nv []):r
+    insertSub' cf nk nv (x:xs) r = if head (key x) == head nk then (insert' cf nk nv o x):r ++ xs else 
+                                  insertSub' cf nk nv xs (x:r)
 
 -- | Analyses two strings and splits them into three parts: A common prefix and both reminders
 split :: String -> String -> (String, String, String)

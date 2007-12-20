@@ -22,6 +22,7 @@ module Holumbus.Data.BiMap
     BiMap
     
     -- * Query
+    , size
     , lookupA
     , lookupB
     
@@ -40,24 +41,32 @@ import Data.Map (Map)
 import qualified Data.Map as M
 
 -- | The BiMap data type from values of a to values of b and vice versa.
-data (Ord a, Ord b) => BiMap a b = BiMap { a2b :: !(Map a b)
-                                         , b2a :: !(Map b a) 
-                                         } deriving (Show)
+data BiMap a b = BiMap { a2b :: !(Map a b)
+                       , b2a :: !(Map b a) 
+                       } deriving (Show)
+
+-- | Equality of BiMap's.
+instance (Eq a, Eq b) => Eq (BiMap a b) where
+  bm1 == bm2 = a2b bm1 == a2b bm2 && b2a bm1 == b2a bm2
+
+-- | Returns the number of elements in the BiMap.
+size :: BiMap a b -> Int
+size = M.size . a2b -- Sizes of both maps should be equal.
 
 -- | Lookup the value b for another value a.
-lookupA :: (Ord a, Ord b) => a -> BiMap a b -> Maybe b
+lookupA :: (Ord a) => a -> BiMap a b -> Maybe b
 lookupA k m = M.lookup k (a2b m)
 
 -- | Lookup the value a for another value b.
-lookupB :: (Ord a, Ord b) => b -> BiMap a b -> Maybe a
+lookupB :: (Ord b) => b -> BiMap a b -> Maybe a
 lookupB k m = M.lookup k (b2a m)
 
 -- | Create an empty BiMap.
-empty :: (Ord a, Ord b) => BiMap a b
+empty :: BiMap a b
 empty = BiMap M.empty M.empty
 
 -- | Create a BiMap with just one pair of values.
-singleton :: (Ord a, Ord b) => a -> b -> BiMap a b
+singleton :: a -> b -> BiMap a b
 singleton va vb = BiMap (M.singleton va vb) (M.singleton vb va)
 
 -- | Insert two values into the BiMap. Existing values will be replaced with the new values.
