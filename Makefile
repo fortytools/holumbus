@@ -11,7 +11,7 @@ all : build alltests allexamples doc
 configure : .setup-config
 
 doc	: configure
-	@runhaskell Setup.hs haddock
+	@runhaskell Setup.hs haddock --hyperlink-source --hscolour-css=hscolour.css
 
 build	: configure
 	@runhaskell Setup.hs build
