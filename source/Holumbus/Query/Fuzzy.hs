@@ -20,7 +20,6 @@ module Holumbus.Query.Fuzzy
   (
   -- * Fuzzy types
   FuzzySet
-  , FuzzyString
   , Replacements
   , Replacement
   , Score
@@ -41,10 +40,11 @@ where
 
 import Data.List
 import Data.Function
+import Data.Map (Map)
+import qualified Data.Map as M
 
-type FuzzySet = [ FuzzyString ]
+type FuzzySet = Map String Score
 type Replacements = [ Replacement ]
-type FuzzyString = (String, Score)
 type Replacement = ((String, String), Score)
 type Score = Float
 
@@ -98,7 +98,7 @@ fuzzMore = fuzzMoreWith defaultReplacements
 -- | Fuzz a set of fuzzy strings even more using an explicitly specified list of replacements.
 -- (the new set of fuzzy strings is not merged with the original set).
 fuzzMoreWith :: Replacements -> FuzzySet -> FuzzySet
-fuzzMoreWith rs fs = foldr (\(s, sc) res -> res ++ fuzzInternal sc rs s) [] fs
+fuzzMoreWith rs fs = M.foldWithKey (\s sc res -> M.unionWith min res (fuzzInternal sc rs s)) M.empty fs
 
 -- | Continue fuzzing a string with the default replacements until a given score threshold is reached.
 fuzzUntil :: Score -> String -> FuzzySet
@@ -110,19 +110,19 @@ fuzzUntilWith :: Replacements -> Score -> String -> FuzzySet
 fuzzUntilWith rs th s = fuzzUntilWith' (fuzzLimit th 0.0 rs s)
   where
   fuzzUntilWith' :: FuzzySet -> FuzzySet
-  fuzzUntilWith' fs = if more == [] then fs else fs ++ (fuzzUntilWith' more)
+  fuzzUntilWith' fs = if M.null more then fs else M.unionWith min fs (fuzzUntilWith' more)
     where
     -- The current score is doubled on every recursive call, because fuzziness increases exponentially.
-    more = foldr (\(s, sc) res -> res ++ fuzzLimit th (sc + sc) rs s) [] fs
+    more = M.foldWithKey (\s sc res -> M.unionWith min res (fuzzLimit th (sc + sc) rs s)) M.empty fs
 
 -- | Fuzz a string and limit the allowed score to a given threshold.
 fuzzLimit :: Score -> Score -> Replacements -> String -> FuzzySet
-fuzzLimit th sc rs s = if sc <= th then filter (\(_, ns) -> ns <= th) (fuzzInternal sc rs s) else []
+fuzzLimit th sc rs s = if sc <= th then M.filter (\ns -> ns <= th) (fuzzInternal sc rs s) else M.empty
 
 -- | Fuzz a string with an list of explicitly specified replacements and combine the scores
 -- with an initial score.
 fuzzInternal :: Score -> Replacements -> String -> FuzzySet
-fuzzInternal sc rs s = foldr (\r res -> res ++ applyReplacement sc rs s r ) [] rs
+fuzzInternal sc rs s = foldr (\r res -> M.unionWith min res (applyReplacement sc rs s r)) M.empty rs
 
 -- | Return the first string of the replacement.
 fstRep :: Replacement -> String
@@ -139,11 +139,11 @@ applyReplacement :: Score -> Replacements -> String -> Replacement -> FuzzySet
 applyReplacement sc rs s r = apply pre suf
   where
   apply :: [ String ] -> [ String ] -> FuzzySet
-  apply [] [] = []
-  apply (pr:prs) (su:sus) = apply' (fstRep r) (sndRep r) ++ apply' (sndRep r) (fstRep r) ++ apply prs sus
+  apply [] [] = M.empty
+  apply (pr:prs) (su:sus) = M.unionsWith min [apply' (fstRep r) (sndRep r), apply' (sndRep r) (fstRep r), apply prs sus]
     where
     apply' :: String -> String -> FuzzySet
-    apply' tok sub = maybe [] (\rep -> [(rep, sc + calcScore (length pr) len r rs)]) (replacePosition pr su tok sub)
+    apply' tok sub = maybe M.empty (\rep -> M.singleton rep (sc + calcScore (length pr) len r rs)) (replacePosition pr su tok sub)
   pre = init $ inits s
   suf = init $ tails s
   len = length s
