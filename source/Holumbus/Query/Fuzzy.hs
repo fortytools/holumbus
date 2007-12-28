@@ -35,6 +35,9 @@ module Holumbus.Query.Fuzzy
   , fuzzMoreWith
   , fuzzUntil
   , fuzzUntilWith
+  
+  -- * Conversion
+  , toList
   )
 where
 
@@ -49,6 +52,7 @@ type Replacement = ((String, String), Score)
 type Score = Float
 
 -- | The default replacements to use in the functions without explicitly specified replacements.
+defaultReplacements :: Replacements
 defaultReplacements = germanReplacements
 
 -- | Some default replacements for the english language.
@@ -114,7 +118,7 @@ fuzzUntilWith rs th s = fuzzUntilWith' (fuzzLimit th 0.0 rs s)
   fuzzUntilWith' fs = if M.null more then fs else M.unionWith min fs (fuzzUntilWith' more)
     where
     -- The current score is doubled on every recursive call, because fuzziness increases exponentially.
-    more = M.foldWithKey (\s sc res -> M.unionWith min res (fuzzLimit th (sc + sc) rs s)) M.empty fs
+    more = M.foldWithKey (\sm sc res -> M.unionWith min res (fuzzLimit th (sc + sc) rs sm)) M.empty fs
 
 -- | Fuzz a string and limit the allowed score to a given threshold.
 fuzzLimit :: Score -> Score -> Replacements -> String -> FuzzySet
@@ -140,7 +144,8 @@ applyReplacement :: Score -> Replacements -> String -> Replacement -> FuzzySet
 applyReplacement sc rs s r = apply (init $ inits s) (init $ tails s)
   where
   apply :: [ String ] -> [ String ] -> FuzzySet
-  apply [] [] = M.empty
+  apply [] _ = M.empty
+  apply _ [] = M.empty
   apply (pr:prs) (su:sus) = M.unionsWith min [apply' (fwrd r), apply' (bwrd r), apply prs sus]
     where
     apply' :: (String, String) -> FuzzySet
@@ -168,8 +173,12 @@ calcScore pos len r rs = relPos * relScore
 -- | Searches a prefix and replaces it with a substitute in a list.
 replaceFirst :: Eq a => [a] -> [a] -> [a] -> [a]
 replaceFirst []       ys zs       = ys ++ zs
-replaceFirst xs       ys []       = []
+replaceFirst _        _ []       = []
 replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then 
                                       if null ys then replaceFirst xs [] zs 
                                       else (head ys) : replaceFirst xs (tail ys) zs
                                     else s
+
+-- | Transform a fuzzy set into a list (ordered by score).
+toList :: FuzzySet -> [ (String, Score) ]
+toList = sortBy (compare `on` snd) . M.toList
