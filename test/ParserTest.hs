@@ -19,32 +19,33 @@
 module ParserTest (allTests) where
 
 import qualified Holumbus.Query.Parser as P
+import Holumbus.Query.Syntax
 
 import Test.HUnit
 
-a :: P.Query -> P.Query -> P.Query
-a = P.BinQuery P.And
+a :: Query -> Query -> Query
+a = BinQuery And
 
-o :: P.Query -> P.Query -> P.Query
-o = P.BinQuery P.Or
+o :: Query -> Query -> Query
+o = BinQuery Or
 
-n :: P.Query -> P.Query
-n = P.Negation
+n :: Query -> Query
+n = Negation
 
-w :: String -> P.Query
-w = P.Word
+w :: String -> Query
+w = Word
 
-p :: String -> P.Query
-p = P.Phrase
+p :: String -> Query
+p = Phrase
 
-s :: [String] -> P.Query -> P.Query
-s = P.Specifier
+s :: [String] -> Query -> Query
+s = Specifier
 
-cw :: String -> P.Query
-cw = P.CaseWord
+cw :: String -> Query
+cw = CaseWord
 
-cp :: String -> P.Query
-cp = P.CasePhrase
+cp :: String -> Query
+cp = CasePhrase
 
 andTests :: Test
 andTests = TestList

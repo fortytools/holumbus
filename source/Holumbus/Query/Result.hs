@@ -35,12 +35,18 @@ module Holumbus.Query.Result
   , createDocHits
   , createWordHits
 
+  -- * Query
+  , size
+  , null
+
   -- * Combine
   , union
   , difference
   , intersection
   )
 where
+
+import Prelude hiding (null)
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -69,11 +75,21 @@ type WordDocHits = IntMap Positions            -- Key is document id
 emptyResult :: Result
 emptyResult = Result IM.empty M.empty
 
+-- | Create an empty set of document hits.
 emptyDocHits :: DocHits
 emptyDocHits = IM.empty
 
+-- | Create an empty set of word hits.
 emptyWordHits :: WordHits
 emptyWordHits = M.empty
+
+-- | Query the size of a result.
+size :: Result -> Int
+size = IM.size . docHits
+
+-- | Test if the result contains anything.
+null :: Result -> Bool
+null = IM.null . docHits
 
 -- | Create the document hits structure for the results from a single context.
 createDocHits :: Context -> [(String, Occurrences)] -> DocHits
@@ -113,6 +129,7 @@ intersection (Result d1 w1) (Result d2 w2) = Result (intersectDocHits d1 d2) (un
 difference :: Result -> Result -> Result
 difference (Result d1 _) (Result d2 w2) = Result (IM.difference d1 d2) w2
 
+-- | Combine two sets of word hits.
 unionWordHits :: WordHits -> WordHits -> WordHits
 unionWordHits = M.unionWith (M.unionWith (IM.unionWith IS.union))
 

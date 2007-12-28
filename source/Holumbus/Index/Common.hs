@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
 
-  Common data types shared by all index types.
+  Common data types shared by all index types and a unified interface for
+  all different index types.
 
 -}
 
@@ -45,5 +46,26 @@ type Word          = String
 type Occurrences   = IntMap Positions    -- The key equals a document id
 type Positions     = IntSet              -- The positions of the word in the document
 
+class HolIndex i where
+  empty         :: i
+
+  sizeDocs      :: i -> Int
+  sizeWords     :: i -> Int
+  documents     :: i -> Documents
+  contexts      :: i -> [ Context ]
+
+  allWords      :: Context -> i -> [(String, Occurrences)]
+  prefixCase    :: Context -> i -> String -> [(String, Occurrences)]
+  prefixNoCase  :: Context -> i -> String -> [(String, Occurrences)]
+  lookupCase    :: Context -> i -> String -> [Occurrences]
+  lookupNoCase  :: Context -> i -> String -> [Occurrences]
+
+  insert        :: Context -> Word -> Position -> Document -> i -> i
+  update        :: Context -> Word -> Position -> Document -> i -> i
+
 emptyDocuments :: Documents
 emptyDocuments = DocTable IM.empty M.empty 0
+
+emptyOccurrences :: Occurrences
+emptyOccurrences = IM.empty
+

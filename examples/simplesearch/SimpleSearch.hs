@@ -26,6 +26,7 @@ import System.Console.Readline
 
 import Char
 import Data.Maybe
+import Data.Function
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -41,7 +42,6 @@ import Holumbus.Index.Convert
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
-import Holumbus.Data.StrMap as SM
 
 main :: IO ()
 main = do
@@ -49,8 +49,8 @@ main = do
        indexFile <- commandLineOpts argv
        putStrLn "Loading index ..."
        [invIndex] <- runX (loadIndex indexFile)
-       putStr ("Loaded " ++ (show (IM.size (idToDoc (docTable invIndex)))) ++ " documents ")
-       putStrLn ("containing " ++ show (M.fold (\p r -> (SM.size p) + r) 0 (indexParts invIndex)) ++ " words")
+       putStr ("Loaded " ++ (show (sizeDocs invIndex)) ++ " documents ")
+       putStrLn ("containing " ++ show (sizeWords invIndex) ++ " words")
        answerQueries invIndex
        return ()
 
@@ -66,7 +66,7 @@ commandLineOpts [i] = do
                       return i
 commandLineOpts _ = error "Usage: Holumbus INDEXFILE"
 
-answerQueries :: InvIndex -> IO ()
+answerQueries :: HolIndex i => i -> IO ()
 answerQueries i = do
                   q <- readline ("Enter query (type :? for help) > ")
                   if isNothing q then answerQueries i
@@ -83,20 +83,20 @@ answerQueries i = do
                               pr <- return (parseQuery q)
 --                              putStrLn "Query:"
 --                              putStrLn (show pq)
-                              if null pr then do
+                              if L.null pr then do
                                 putStrLn ("Could not parse query: " ++ q)
                                 else do
                                   [(pq, e)] <- return pr
                                   if e == "" then do
-                                    r <- return (process pq i (map fst (M.toList (indexParts i))))
-                                    printDocHits (docHits r) i
+                                    r <- return (process pq i (contexts i))
+                                    printDocHits (docHits r) (documents i)
                                     putStrLn ""
-                                    printWordHits (wordHits r) i
+                                    printWordHits (wordHits r)
                                     else do
                                       putStrLn ("Could not parse query: " ++ e)
                               answerQueries i
 
-internalCommand :: InvIndex -> String -> IO ()
+internalCommand :: HolIndex i => i -> String -> IO ()
 internalCommand _ "q"       = exitWith ExitSuccess
 internalCommand i "?"       = do
                               putStrLn ""
@@ -105,22 +105,14 @@ internalCommand i "?"       = do
                               printContexts i
                               putStrLn ""
                               answerQueries i
---internalCommand i ('c':xs)  = do 
---                              if elem nc (map fst (M.toList (indexParts i))) then do
---                                answerQueries i
---                                else do
---                                  putStrLn "Unknown context!"
---                                  answerQueries i
---                               where
---                                 nc = dropWhile isSpace xs
 internalCommand i _         = do
                               putStrLn "Unknown command!"
                               answerQueries i
 
-printDocHits :: DocHits -> InvIndex -> IO ()
-printDocHits h i = do
+printDocHits :: DocHits -> Documents -> IO ()
+printDocHits h docs = do
                    putStrLn "Result:"
-                   printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc (docTable i))) 
+                   printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc docs)) 
                                   (IM.foldWithKey (\k _ l -> k:l) [] h)))
                    putStrLn ""
                    putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
@@ -134,13 +126,13 @@ printDocHits h i = do
                                               return ()
 
 
-printWordHits :: WordHits -> InvIndex -> IO ()
-printWordHits h _ = do
-                    putStrLn "Completions:"
-                    d <- return (L.sortBy (compare `on` snd) (map (\(c, o) -> (c, M.fold (\m r -> r + IM.size m) 0 o)) (M.toList h)))
-                    putStrLn (foldr (\(c, s) r -> r ++ c ++ " (" ++ (show s) ++ ") ") "" d)
-                    putStrLn ""
-                    putStrLn ("Found " ++ (show (M.size h)) ++ " possible completions")
+printWordHits :: WordHits -> IO ()
+printWordHits h = do
+                  putStrLn "Completions:"
+                  d <- return (L.sortBy (compare `on` snd) (map (\(c, o) -> (c, M.fold (\m r -> r + IM.size m) 0 o)) (M.toList h)))
+                  putStrLn (foldr (\(c, s) r -> r ++ c ++ " (" ++ (show s) ++ ") ") "" d)
+                  putStrLn ""
+                  putStrLn ("Found " ++ (show (M.size h)) ++ " possible completions")
 
 printHelp :: IO ()
 printHelp = do
@@ -158,10 +150,10 @@ printHelp = do
             putStrLn "Use :q to exit and :? to show this help."
             return ()
 
-printContexts :: InvIndex -> IO ()
+printContexts :: HolIndex i => i -> IO ()
 printContexts i = do
                   putStrLn "Avaliable contexts:"
-                  printContexts' (map fst (M.toList (indexParts i)))
+                  printContexts' (contexts i)
                   where
                     printContexts' :: [String] -> IO ()
                     printContexts' [] = return ()
@@ -172,7 +164,3 @@ printContexts i = do
 
 convertIndex :: IOSArrow DocIndex InvIndex
 convertIndex = arr hyphoonToInvHolumbus
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-(*) `on` f = \x y -> f x * f y

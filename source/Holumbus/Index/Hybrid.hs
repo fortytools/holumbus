@@ -18,6 +18,8 @@
 
 module Holumbus.Index.Hybrid where
 
+import Data.Maybe
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -53,8 +55,22 @@ type Occurrence    = ( DocId, WordId, Position )
 type WordId        = Int
 type BlockId       = Int
 
-empty :: HybIndex
-empty = HybIndex emptyDocuments M.empty
+instance HolIndex HybIndex where
+  empty = HybIndex emptyDocuments M.empty
+
+  sizeDocs _ = 0
+  sizeWords _ = 0
+  documents = docTable
+  contexts = map fst . M.toList . indexParts
+
+  allWords _ _ = [] -- TODO: This is just a dummy
+  prefixCase _ _ _ = [] -- TODO: This is just a dummy
+  prefixNoCase _ _ _ = [] -- TODO: This is just a dummy
+  lookupCase _ _ _ = [] -- TODO: This is just a dummy
+  lookupNoCase _ _ _ = [] -- TODO: This is just a dummy
+
+  insert _ _ _ _ _ = empty -- TODO: This is just a dummy
+  update _ _ _ _ _ = empty -- TODO: This is just a dummy
 
 emptyPart :: Part
 emptyPart = Part emptyDictionary emptyBlocks
@@ -64,3 +80,6 @@ emptyDictionary = Dictionary SM.empty 0
 
 emptyBlocks :: Blocks
 emptyBlocks = Blocks IM.empty 0
+
+getPart :: Context -> HybIndex -> Part
+getPart c i = fromMaybe emptyPart (M.lookup c $ indexParts i)

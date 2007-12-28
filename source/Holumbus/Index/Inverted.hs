@@ -18,6 +18,8 @@
 
 module Holumbus.Index.Inverted where
 
+import Data.Maybe
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -35,9 +37,23 @@ data InvIndex    = InvIndex { docTable :: !Documents
 type Parts       = Map Context Part    -- A context has a name and it's own index
 type Part        = StrMap Occurrences  -- The word is the key with its occurrences as value
 
-empty :: InvIndex
-empty = InvIndex emptyDocuments M.empty
+instance HolIndex InvIndex where
+  empty = InvIndex emptyDocuments M.empty
 
-emptyOccurrences :: Occurrences
-emptyOccurrences = IM.empty
+  sizeDocs = IM.size . idToDoc . docTable
+  sizeWords = M.fold ((+) . SM.size) 0 . indexParts
+  documents = docTable
+  contexts = map fst . M.toList . indexParts
+
+  allWords c i = SM.toList $ getPart c i
+  prefixCase c i q = SM.prefixFindNoCaseWithKey q $ getPart c i
+  prefixNoCase c i q = SM.prefixFindNoCaseWithKey q $ getPart c i
+  lookupCase c i q = maybeToList (SM.lookup q $ getPart c i)
+  lookupNoCase c i q = SM.lookupNoCase q $ getPart c i
+
+  insert _ _ _ _ _ = empty -- TODO: This is just a dummy
+  update _ _ _ _ _ = empty -- TODO: This is just a dummy
+
+getPart :: Context -> InvIndex -> Part
+getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
 

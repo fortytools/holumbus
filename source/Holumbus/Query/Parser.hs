@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
 
-  The Holumbus query parser.
+  The Holumbus query parser. Customized parsers for different query languages
+  can also be designed using a parser library like Parsec.
 
 -}
 
@@ -18,12 +19,8 @@
 
 module Holumbus.Query.Parser 
   (
-  -- * Query data types
-  Query (Word, Phrase, CaseWord, CasePhrase, Specifier, Negation, BinQuery)
-  , BinOp (And, Or)
-
   -- * Parser data types
-  , Parser (P)
+  Parser (P)
 
   -- * Parsing
   , parseQuery
@@ -31,24 +28,11 @@ module Holumbus.Query.Parser
   )
 where
 
-import Holumbus.Index.Common (Context)
+import Holumbus.Query.Syntax
 
 import Char
 import Control.Monad
 --import Text.ParserCombinators.Parsec
-
--- | The query datastructure.
-data Query = Word       String
-           | Phrase     String
-           | CaseWord   String
-           | CasePhrase String
-           | Specifier  [Context] Query
-           | Negation   Query
-           | BinQuery   BinOp Query Query
-           deriving (Eq, Show)
-
--- | A binary operation.
-data BinOp = And | Or deriving (Eq, Show)
 
 -- | The parser monad.
 data Parser a = P (String -> [(a, String)])
@@ -244,15 +228,20 @@ parQuery = do
              return q
              +++ caseQuery
 
--- | Parse a case-insensitive query.
+-- | Parse a case-sensitive query.
 caseQuery :: Parser Query
 caseQuery = do
               symbol "!"
               do
                 (phraseQuery CasePhrase) +++ (wordQuery CaseWord)
-              +++ 
-              do
-                (phraseQuery Phrase) +++ (wordQuery Word)
+              +++ fuzzyQuery
+
+-- | Parse a fuzzy query.
+fuzzyQuery :: Parser Query
+fuzzyQuery = do
+               symbol "~"
+               wordQuery FuzzyWord
+               +++ (phraseQuery Phrase) +++ (wordQuery Word)
 
 -- | Parse a terminal word query.
 wordQuery :: (String -> Query) -> Parser Query
