@@ -72,6 +72,7 @@ germanReplacements =
   , (("d", "t"), 0.4)
   , (("b", "p"), 0.4)
   , (("g", "k"), 0.4)
+  , (("g", "ch"), 0.4)
   , (("c", "k"), 0.4)
   , (("s", "z"), 0.4)
   , (("u", "ou"), 0.4)
@@ -124,29 +125,29 @@ fuzzLimit th sc rs s = if sc <= th then M.filter (\ns -> ns <= th) (fuzzInternal
 fuzzInternal :: Score -> Replacements -> String -> FuzzySet
 fuzzInternal sc rs s = foldr (\r res -> M.unionWith min res (applyReplacement sc rs s r)) M.empty rs
 
--- | Return the first string of the replacement.
-fstRep :: Replacement -> String
-fstRep ((f, _), _) = f
+-- | Return the replacement strings in forward direction.
+fwrd :: Replacement -> (String, String)
+fwrd ((f, s), _) = (f, s)
 
--- | Return the second string of the replacement.
-sndRep :: Replacement -> String
-sndRep ((_, s), _) = s
+-- | Return the replacement strings in backward direction.
+bwrd :: Replacement -> (String, String)
+bwrd ((f, s), _) = (s, f)
 
 -- | Applies a single replacement definition (in both directions) to a string. An initial score is
 -- combined with the new score for the replacement (calculated from the position in the string and 
 -- the scores in the list of all replacements).
 applyReplacement :: Score -> Replacements -> String -> Replacement -> FuzzySet
-applyReplacement sc rs s r = apply pre suf
+applyReplacement sc rs s r = apply (init $ inits s) (init $ tails s)
   where
   apply :: [ String ] -> [ String ] -> FuzzySet
   apply [] [] = M.empty
-  apply (pr:prs) (su:sus) = M.unionsWith min [apply' (fstRep r) (sndRep r), apply' (sndRep r) (fstRep r), apply prs sus]
+  apply (pr:prs) (su:sus) = M.unionsWith min [apply' (fwrd r), apply' (bwrd r), apply prs sus]
     where
-    apply' :: String -> String -> FuzzySet
-    apply' tok sub = maybe M.empty (\rep -> M.singleton rep (sc + calcScore (length pr) len r rs)) (replacePosition pr su tok sub)
-  pre = init $ inits s
-  suf = init $ tails s
-  len = length s
+    apply' :: (String, String) -> FuzzySet
+    apply' (tok, sub) = maybe M.empty fuzzySingleton (replacePosition pr su tok sub)
+      where
+      fuzzySingleton :: String -> FuzzySet
+      fuzzySingleton rep = M.singleton rep (sc + calcScore (length pr) (length s) r rs)
 
 -- | Replaces a prefix in the suffix of an already splitted string.
 replacePosition :: String -> String -> String -> String -> Maybe String
@@ -159,18 +160,16 @@ replacePosition prefix suffix tok sub = if replaced == suffix then Nothing else 
 calcScore :: Int -> Int -> Replacement -> Replacements -> Score
 calcScore pos len r rs = relPos * relScore
   where
-  relPos = (l - p + 1) / l -- Normalized position (depending on the length of the string)
+  relPos = (l - p) / l -- Normalized position (depending on the length of the string)
   relScore = (snd r) / (snd $ maximumBy (compare `on` snd) rs) -- Normalized score (depending on maximum score)
   p = fromIntegral pos
   l = fromIntegral len
 
 -- | Searches a prefix and replaces it with a substitute in a list.
 replaceFirst :: Eq a => [a] -> [a] -> [a] -> [a]
-replaceFirst []       ys     zs       = ys ++ zs
-replaceFirst xs       ys     []       = []
-replaceFirst t@(x:xs) []     s@(z:zs) = if t `isPrefixOf` s then 
-                                          if x == z then replaceFirst xs [] zs else s
-                                        else s
-replaceFirst t@(x:xs) (y:ys) s@(z:zs) = if t `isPrefixOf` s then
-                                          if x == z then y : replaceFirst xs ys zs else s
-                                        else s
+replaceFirst []       ys zs       = ys ++ zs
+replaceFirst xs       ys []       = []
+replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then 
+                                      if null ys then replaceFirst xs [] zs 
+                                      else (head ys) : replaceFirst xs (tail ys) zs
+                                    else s
