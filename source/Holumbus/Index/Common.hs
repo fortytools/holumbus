@@ -28,12 +28,15 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
+-- | The table which is used to map a document to an artificial id and vice versa.
 data Documents     = DocTable { idToDoc   :: !(IntMap Document)
                               , docToId   :: !(Map URL DocId) 
                               , lastDocId :: !DocId
                               } deriving (Show)
 
+-- | A document consists of a title and it's unique identifier.
 type Document      = (Title, URL)
+
 type DocId         = Int
 type URL           = String
 type Title         = String
@@ -42,30 +45,49 @@ type Position      = Int
 type Context       = String
 type Word          = String
 
--- These are needed for a common result data type (see Holumbus.Query.Result)
-type Occurrences   = IntMap Positions    -- The key equals a document id
-type Positions     = IntSet              -- The positions of the word in the document
+-- | The occurrences in a number of documents. A mapping from document ids to the positions in the document.
+type Occurrences   = IntMap Positions
+-- | The positions of the word in the document.
+type Positions     = IntSet
 
+-- | This class provides a generic interface to different types of index implementations.
 class HolIndex i where
+  -- | Create an empty index.
   empty         :: i
 
+  -- | Returns the number of unique documents in the index.
   sizeDocs      :: i -> Int
+  -- | Returns the number of unique words in the index.
   sizeWords     :: i -> Int
+  -- | Returns the table for mapping between documents and their ids.
   documents     :: i -> Documents
+  -- | Returns a list of all contexts avaliable in the index.
   contexts      :: i -> [ Context ]
 
+  -- | Returns the occurrences for every word. A potentially expensive operation.
   allWords      :: Context -> i -> [(String, Occurrences)]
+  -- | Searches for words beginning with the prefix in a given context (case-sensitive).
   prefixCase    :: Context -> i -> String -> [(String, Occurrences)]
+  -- | Searches for words beginning with the prefix in a given context (case-insensitive).
   prefixNoCase  :: Context -> i -> String -> [(String, Occurrences)]
+  -- | Searches for and exact word in a given context (case-sensitive).
   lookupCase    :: Context -> i -> String -> [Occurrences]
+  -- | Searches for and exact word in a given context (case-insensitive).
   lookupNoCase  :: Context -> i -> String -> [Occurrences]
 
+  -- | Inserts an occurrence of a word for a given context.
   insert        :: Context -> Word -> Position -> Document -> i -> i
+  -- | Updates an occurrence of a word for a given context.
   update        :: Context -> Word -> Position -> Document -> i -> i
 
+-- TODO: Something like a load function:
+-- load         :: URL -> i
+
+-- | Create an empty table.
 emptyDocuments :: Documents
 emptyDocuments = DocTable IM.empty M.empty 0
 
+-- | Create an empty set of positions.
 emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty
 

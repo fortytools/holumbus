@@ -30,12 +30,15 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 
+-- | The index consists of a table which maps documents to ids and a number of index parts.
 data InvIndex    = InvIndex { docTable :: !Documents
                              , indexParts :: !Parts 
                              } deriving (Show)
 
-type Parts       = Map Context Part    -- A context has a name and it's own index
-type Part        = StrMap Occurrences  -- The word is the key with its occurrences as value
+-- | The index parts are identified by a name, which should denote the context of the words.
+type Parts       = Map Context Part
+-- | The index part is the real inverted index. Words are mapped to their occurrences.
+type Part        = StrMap Occurrences
 
 instance HolIndex InvIndex where
   empty = InvIndex emptyDocuments M.empty
@@ -54,6 +57,7 @@ instance HolIndex InvIndex where
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
 
+-- | Return a part of the index for a given context.
 getPart :: Context -> InvIndex -> Part
 getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
 
