@@ -74,10 +74,11 @@ instance HolIndex HybIndex where
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
   
-  loadFromFile f = runX (xunpickleDocument xpHybIndex 
-                   			 [ (a_remove_whitespace, v_1)	
-				   			 , (a_validate, v_0)
-				   			 ] f)
+  loadFromFile f = do
+                     r <- runX (xunpickleDocument xpHybIndex options f)
+                     return (head r)
+                     where
+                       options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
 
 emptyPart :: Part
 emptyPart = Part emptyDictionary emptyBlocks

@@ -83,7 +83,7 @@ class HolIndex i where
   update        :: Context -> Word -> Position -> Document -> i -> i
 
   -- | Load Index from XML file
-  loadFromFile :: String -> IO[i]
+  loadFromFile :: String -> IO i
 
 
 -- | Create an empty table.
