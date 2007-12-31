@@ -70,10 +70,10 @@ instance HolIndex InvIndex where
 				
 
 -- | Return a part of the index for a given context.
--- TODO Shouldn't this be in Common.hs?
 getPart :: Context -> InvIndex -> Part
 getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
---------------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
 
 -- pickler functions
 
@@ -82,32 +82,33 @@ xpInvIndex = xpElem "indexes" $
 	    xpickle
 
 instance XmlPickler InvIndex where
-    xpickle =  xpWrap ( \(dt, ip) -> InvIndex dt ip
-                      , \(InvIndex dt ip) -> (dt, ip)
-		                  )
-   	(xpPair																									-- process doctable and indexparts
-		(xpElem "documents" xpickle)											-- <DOCUMENTS>
-		(xpWrap (M.fromList, M.toList)(xpList																-- Parts <-> [(Context, Part)]
-			(xpElem "part" (xpPair												-- <PART			
-				(xpAttr "id" xpText)											--       ID="">
-				(xpElem "index"													--   <INDEX>        
-					(xpWrap (SM.fromList, SM.toList) (xpList													-- Part <-> [(Word, Occurences)]
-					(xpElem "word" (xpPair										--     <WORD
-						(xpAttr "w" xpText)										--           W="">
-						(xpWrap (IM.fromList, IM.toList) (xpList											-- Occurences <-> [(DocId, Positions)]
-							(xpElem "doc" (xpPair								--       <DOC
-								(xpAttr "idref" xpPrim)							--            IDREF="">
-								(xpWrap	
-									( IS.fromList . Prelude.map read . words  								-- Positions -> String 
-									, unwords . Prelude.map show . IS.toList									-- String -> Positions
-									) xpText
-								)
-							))
-						))
-					))
-				)))
-			))
-		))
-	)
+  xpickle =  xpWrap ( \(dt, ip) -> InvIndex dt ip
+                    , \(InvIndex dt ip) -> (dt, ip)
+                    )
+    (xpPair                                                        --                        process doctable and indexparts
+      (xpElem "documents" xpickle)                                 -- <DOCUMENTS>
+      (xpWrap (M.fromList, M.toList)(xpList                        --                        Parts <-> [(Context, Part)]
+        (xpElem "part" (xpPair												             --   <PART			
+          (xpAttr "id" xpText)											               --         ID="">
+          (xpElem "index"													                 --   <INDEX>        
+            (xpWrap (SM.fromList, SM.toList) (xpList							 --                        Part <-> [(Word, Occurences)]
+              (xpElem "word" (xpPair										           --     <WORD
+                (xpAttr "w" xpText)										             --           W="">
+                (xpWrap (IM.fromList, IM.toList) (xpList					 --                        Occurences <-> [(DocId, Positions)]
+                  (xpElem "doc" (xpPair								             --       <DOC
+                    (xpAttr "idref" xpPrim)							           --            IDREF="">
+                    (xpWrap	
+                      ( IS.fromList . Prelude.map read . words  	 --                        Positions -> String 
+                      , unwords . Prelude.map show . IS.toList		 --                        String -> Positions
+                      ) xpText
+                    )
+                  ))
+                ))
+              ))
+            ))
+          )
+        ))
+      ))
+    )
 
 

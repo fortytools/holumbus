@@ -102,7 +102,7 @@ emptyOccurrences = IM.empty
 
 instance XmlPickler Documents where
    xpickle =  xpWrap  ( \itd -> DocTable itd (itd2dti itd) 100
-                      , \(DocTable itd dti ltd) -> itd
+                      , \(DocTable itd _ _) -> itd
 		              )
 --		              (xpTriple
 		                  (xpWrap (IM.fromList, IM.toList)
@@ -117,7 +117,7 @@ instance XmlPickler Documents where
 		              )
 	where
 		itd2dti :: IntMap Document -> Map URL DocId
-		itd2dti = IM.foldWithKey (\i (s1, s2) r -> M.insert s2 i r) M.empty
+		itd2dti = IM.foldWithKey (\i (_, s2) r -> M.insert s2 i r) M.empty
 			              	
 		              
 
