@@ -26,7 +26,6 @@ import System.Console.Readline
 
 import Char
 import Data.Maybe
-import Data.Function
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -141,7 +140,8 @@ printHelp = do
             putStrLn "can be specified by using quotes (i.e. \"Foo Bar\" will match this exact sequence)."
             putStrLn "Terms just separated by space will be treated implicitly as AND terms."
             putStrLn "Other operators have to be specified explisitly. Avaliable operators are: AND, OR, NOT"
-            putStrLn "Priority can be influenced by round parantheses."
+            putStrLn "Priority can be influenced by round parantheses. If unsure about spelling, a single"
+            putStrLn "word can be preceeded by ~ to make a fuzzy query."
             putStrLn "The contexts to search can be restricted with the : operator (seperate them with , )."
             putStrLn "Example: firstcontext,secondcontext:(foo OR bar) NOT foobar"
             putStrLn "This will search for documents containing \"foo\" or \"bar\" in the contexts named"
@@ -164,3 +164,7 @@ printContexts i = do
 
 convertIndex :: IOSArrow DocIndex InvIndex
 convertIndex = arr hyphoonToInvHolumbus
+
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+(*) `on` f = \x y -> f x * f y

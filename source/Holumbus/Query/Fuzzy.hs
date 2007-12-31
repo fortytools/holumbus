@@ -42,7 +42,7 @@ module Holumbus.Query.Fuzzy
 where
 
 import Data.List
-import Data.Function
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -182,3 +182,7 @@ replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then
 -- | Transform a fuzzy set into a list (ordered by score).
 toList :: FuzzySet -> [ (String, Score) ]
 toList = sortBy (compare `on` snd) . M.toList
+
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+(*) `on` f = \x y -> f x * f y
