@@ -31,6 +31,8 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 
+import Text.XML.HXT.Arrow   			-- Import stuff for pickling
+
 data HybIndex      = HybIndex { docTable   :: !Documents
                               , indexParts :: !Parts 
                               } deriving (Show)
@@ -71,6 +73,11 @@ instance HolIndex HybIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
+  
+  loadFromFile f = runX (xunpickleDocument xpHybIndex 
+                   			 [ (a_remove_whitespace, v_1)	
+				   			 , (a_validate, v_0)
+				   			 ] f)
 
 emptyPart :: Part
 emptyPart = Part emptyDictionary emptyBlocks
@@ -83,3 +90,13 @@ emptyBlocks = Blocks IM.empty 0
 
 getPart :: Context -> HybIndex -> Part
 getPart c i = fromMaybe emptyPart (M.lookup c $ indexParts i)
+
+
+
+-- -----------------------------------------------------------------------------
+xpHybIndex :: PU HybIndex
+xpHybIndex = xpElem "indexes" $
+	    xpickle
+
+instance XmlPickler HybIndex where
+    xpickle =  xpZero

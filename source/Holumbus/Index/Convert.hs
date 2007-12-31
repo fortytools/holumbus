@@ -57,6 +57,7 @@ toPartInv wi = M.foldWithKey (toPartInv') SM.empty wi
 hyphoonToHybHolumbus :: H.DocIndex -> HYB.HybIndex
 hyphoonToHybHolumbus (H.DI idx dt) = HYB.HybHolumbus (toDocuments dt) (toPartsHyb idx)
 
+
 toPartsHyb :: H.Index -> HYB.Parts
 toPartsHyb idx = M.foldWithKey (toPartsHyb') M.empty idx
   where

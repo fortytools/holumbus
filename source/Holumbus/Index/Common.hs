@@ -19,6 +19,8 @@
 
 module Holumbus.Index.Common where
 
+import Text.XML.HXT.Arrow.Pickle  -- nice pickling stuff
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -80,8 +82,9 @@ class HolIndex i where
   -- | Updates an occurrence of a word for a given context.
   update        :: Context -> Word -> Position -> Document -> i -> i
 
--- TODO: Something like a load function:
--- load         :: URL -> i
+  -- | Load Index from XML file
+  loadFromFile :: String -> IO[i]
+
 
 -- | Create an empty table.
 emptyDocuments :: Documents
@@ -90,4 +93,31 @@ emptyDocuments = DocTable IM.empty M.empty 0
 -- | Create an empty set of positions.
 emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty
+
+
+
+--------------------------------------------------------------------------------
+-- i think this should be in the common module since any other place would lead
+-- to code duplication or further modules
+
+instance XmlPickler Documents where
+   xpickle =  xpWrap  ( \itd -> DocTable itd (itd2dti itd) 100
+                      , \(DocTable itd dti ltd) -> itd
+		              )
+--		              (xpTriple
+		                  (xpWrap (IM.fromList, IM.toList)
+		                  		(xpList (xpElem "doc" (xpPair 
+		                  				(xpAttr "id" xpPrim)
+		                  				(xpPair 
+		                  					(xpAttr "href" xpText)
+		                  					(xpAttr "title" xpText)
+		                  				)
+		                  		)))
+	--	                  ) xpZero xpZero
+		              )
+	where
+		itd2dti :: IntMap Document -> Map URL DocId
+		itd2dti = IM.foldWithKey (\i (s1, s2) r -> M.insert s2 i r) M.empty
+			              	
+		              
 
