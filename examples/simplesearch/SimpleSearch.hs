@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.3
 
   A simple example of Holumbus, providing a command line search with the
   default query language.
@@ -23,6 +23,7 @@ import System.IO
 import System.Environment
 import System.Exit
 import System.Console.Readline
+import System.Console.GetOpt
 
 import Char
 import Data.Maybe
@@ -31,57 +32,82 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 
-import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.DocIndex
 import Holumbus.Index.Common
 import Holumbus.Index.Inverted
-import Holumbus.Index.Convert
+--import Holumbus.Index.Hybrid
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
 
+data Flag = Inverted String | Hybrid String | Verbose | Version deriving (Show, Eq)
+--data AnyHolIndex = forall i. HolIndex i => AnyHolIndex i
+
+version :: String
+version = "0.3"
+
 main :: IO ()
 main = do
        argv <- getArgs
-       indexFile <- commandLineOpts argv
+       flags <- commandLineOpts argv
+       if Version `elem` flags then (putStrLn version) >> (exitWith ExitSuccess) else return ()
+       verbose <- return (Verbose `elem` flags)
+       indexes <- return (filter (\f -> f /= Verbose && f /= Version) flags)
+       if L.null indexes then usage ["No index file given!\n"] else return ()
+       if length indexes > 1 then usage ["Only one index file allowed!\n"] else return ()
        putStrLn "Loading index ..."
-       [invIndex] <- runX (loadIndex indexFile)
-       putStr ("Loaded " ++ (show (sizeDocs invIndex)) ++ " documents ")
-       putStrLn ("containing " ++ show (sizeWords invIndex) ++ " words")
-       answerQueries invIndex
+       holIndex <- loadIndex (head indexes)
+       putStr ("Loaded " ++ (show (sizeDocs holIndex)) ++ " documents ")
+       putStrLn ("containing " ++ show (sizeWords holIndex) ++ " words")
+       answerQueries verbose holIndex
        return ()
 
-loadIndex :: String -> IOSArrow b InvIndex
-loadIndex f = readDocument [(a_validate, v_0)] f
-              >>>
-              docIndexFromXml
-              >>>
-              convertIndex     
-       
-commandLineOpts :: [String] -> IO (String)
-commandLineOpts [i] = do
-                      return i
-commandLineOpts _ = error "Usage: Holumbus INDEXFILE"
+-- This should be loadIndex :: HolIndex i => Flag -> IO i
+loadIndex :: Flag -> IO InvIndex
+loadIndex (Inverted file) = (loadFromFile file) :: IO InvIndex
+loadIndex (Hybrid _)      = usage ["Hybrid indexes are not yet supported!\n"]
+loadIndex _               = usage ["Internal error!\n"]
 
-answerQueries :: HolIndex i => i -> IO ()
-answerQueries i = do
-                  q <- readline ("Enter query (type :? for help) > ")
-                  if isNothing q then answerQueries i
-                    else
-                      let n = fst $ utf8ToUnicode (fromJust q) in
-                        do
-                        addHistory n
-                        answerQueries' n
+usage :: [String] -> IO a
+usage errs = if L.null errs then do
+             hPutStrLn stdout use
+             exitWith ExitSuccess
+             else do
+             hPutStrLn stderr (concat errs ++ "\n" ++ use)
+             exitWith (ExitFailure (-1))
+  where
+  header = "SimpleSearch - A simple command-line search using the Holumbus library.\n\n" ++
+           "Usage: SimpleSearch [OPTIONS]"
+  use    = usageInfo header options
+
+commandLineOpts :: [String] -> IO [Flag]
+commandLineOpts argv = case getOpt Permute options argv of
+                       (o, [], []  ) -> return o
+                       (_, _, errs) -> usage errs
+
+options :: [OptDescr Flag]
+options = [ Option ['i'] ["inverted"] (ReqArg Inverted "FILE") "Loads inverted index from FILE"
+          , Option ['h'] ["hybrid"]   (ReqArg Hybrid "FILE") "Loads hybrid index from FILE"
+          , Option ['v'] ["verbose"]  (NoArg Verbose)          "Be more verbose"
+          , Option ['V'] ["version"]  (NoArg Version)          "Output version and exit"
+          ]
+
+answerQueries :: HolIndex i => Bool -> i -> IO ()
+answerQueries verbose i = do
+                          q <- readline ("Enter query (type :? for help) > ")
+                          if isNothing q then answerQueries verbose i else
+                            do
+                            n <- return (fst $ utf8ToUnicode (fromJust q))
+                            addHistory n
+                            answerQueries' n
   where
     answerQueries' :: String -> IO ()
-    answerQueries' ""       = answerQueries i
-    answerQueries' (':':xs) = internalCommand i xs
+    answerQueries' ""       = answerQueries verbose i
+    answerQueries' (':':xs) = internalCommand verbose i xs
     answerQueries' q        = do
                               pr <- return (parseQuery q)
---                              putStrLn "Query:"
---                              putStrLn (show pq)
+                              if verbose then putStrLn ("Query: \n" ++ (show pr) ++ "\n") else return ()
                               if L.null pr then do
                                 putStrLn ("Could not parse query: " ++ q)
                                 else do
@@ -93,20 +119,20 @@ answerQueries i = do
                                     printWordHits (wordHits r)
                                     else do
                                       putStrLn ("Could not parse query: " ++ e)
-                              answerQueries i
+                              answerQueries verbose i
 
-internalCommand :: HolIndex i => i -> String -> IO ()
-internalCommand _ "q"       = exitWith ExitSuccess
-internalCommand i "?"       = do
-                              putStrLn ""
-                              printHelp
-                              putStrLn ""
-                              printContexts i
-                              putStrLn ""
-                              answerQueries i
-internalCommand i _         = do
-                              putStrLn "Unknown command!"
-                              answerQueries i
+internalCommand :: HolIndex i => Bool -> i -> String -> IO ()
+internalCommand _       _ "q"       = exitWith ExitSuccess
+internalCommand verbose i "?"       = do
+                                      putStrLn ""
+                                      printHelp
+                                      putStrLn ""
+                                      printContexts i
+                                      putStrLn ""
+                                      answerQueries verbose i
+internalCommand verbose i _         = do
+                                      putStrLn "Unknown command!"
+                                      answerQueries verbose i
 
 printDocHits :: DocHits -> Documents -> IO ()
 printDocHits h docs = do
@@ -139,7 +165,7 @@ printHelp = do
             putStrLn "Words are interpreted case insensitive. Phrases and exact matches (case sensitive)"
             putStrLn "can be specified by using quotes (i.e. \"Foo Bar\" will match this exact sequence)."
             putStrLn "Terms just separated by space will be treated implicitly as AND terms."
-            putStrLn "Other operators have to be specified explisitly. Avaliable operators are: AND, OR, NOT"
+            putStrLn "Other operators have to be specified explicitly. Avaliable operators are: AND, OR, NOT"
             putStrLn "Priority can be influenced by round parantheses. If unsure about spelling, a single"
             putStrLn "word can be preceeded by ~ to make a fuzzy query."
             putStrLn "The contexts to search can be restricted with the : operator (seperate them with , )."
@@ -161,9 +187,6 @@ printContexts i = do
                                             putStrLn x
                                             printContexts' xs
                                             return ()
-
-convertIndex :: IOSArrow DocIndex InvIndex
-convertIndex = arr hyphoonToInvHolumbus
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
