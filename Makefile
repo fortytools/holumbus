@@ -19,6 +19,10 @@ build	: configure
 install : build
 	@runhaskell Setup.hs install
 
+prof	:
+	@runhaskell Setup.hs configure -p
+	@runhaskell Setup.hs build
+
 .setup-config :
 	@runhaskell Setup.hs configure
 
