@@ -154,7 +154,7 @@ printDocHits h docs = do
 printWordHits :: WordHits -> IO ()
 printWordHits h = do
                   putStrLn "Completions:"
-                  d <- return (L.sortBy (compare `on` snd) (map (\(c, o) -> (c, M.fold (\m r -> r + IM.size m) 0 o)) (M.toList h)))
+                  d <- return (L.sortBy (compare `on` snd) (map (\(c, (_, o)) -> (c, M.fold (\m r -> r + IM.size m) 0 o)) (M.toList h)))
                   putStrLn (foldr (\(c, s) r -> r ++ c ++ " (" ++ (show s) ++ ") ") "" d)
                   putStrLn ""
                   putStrLn ("Found " ++ (show (M.size h)) ++ " possible completions")

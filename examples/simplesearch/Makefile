@@ -12,8 +12,11 @@ PROG			= SimpleSearch
 
 all : $(PROG)
 
-start: $(PROG)
+start : $(PROG)
 	./$(PROG) -i sd.xml
+
+prof : $(PROG).hs
+	$(GHC) -prof -auto-all --make -o $(PROG) $(PROG).hs
 
 $(PROG) : $(PROG).hs
 	$(GHC) --make -o $(PROG) $(PROG).hs
