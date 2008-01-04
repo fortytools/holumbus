@@ -46,6 +46,12 @@ module Holumbus.Data.StrMap
   , insertWith
   , insertWithKey
 
+  -- * Traversal
+  , map
+  , mapWithKey
+  , fold
+  , foldWithKey
+
   -- * Conversion
   , elems
   , toList
@@ -53,7 +59,7 @@ module Holumbus.Data.StrMap
   )
 where
 
-import Prelude hiding (succ, lookup)
+import Prelude hiding (succ, lookup, map)
 
 import Data.Maybe
 import Data.Char
@@ -61,8 +67,8 @@ import qualified Data.List as L
 
 -- | A map from Strings to values a.
 data StrMap a 
-  = End String a [StrMap a]
-  | Seq String [StrMap a] deriving (Show)
+  = End !String !a ![StrMap a]
+  | Seq !String ![StrMap a] deriving (Show)
 
 -- | Just deriving Eq will not work, because equality on the lists of successors takes the order 
 --   into account, whereas the order does not matter here.
@@ -167,19 +173,11 @@ split a b = split' a b ("","", "")
 
 -- | Same a ssplit above, but case insensitive (strings are converted to lower case).
 splitNoCase :: String -> String -> (String, String, String)
-splitNoCase a b = split (map toLower a) (map toLower b)
+splitNoCase a b = split (L.map toLower a) (L.map toLower b)
 
 -- | Returns all values.
 elems :: StrMap a -> [a]
-elems t   = map snd (toList t)
-
--- | Returns all elements as key value pairs,
-toList :: StrMap a -> [(String, a)]
-toList n = toList' "" n []
-  where
-    toList' :: String -> StrMap a -> [(String, a)] -> [(String, a)]
-    toList' ck (End k v t) r = let nk = ck ++ k in foldr (toList' nk) ((nk, v):r) t
-    toList' ck (Seq k t) r   = let nk = ck ++ k in foldr (toList' nk) r t 
+elems t   = L.map snd (toList t)
 
 -- | Creates a trie from a list of key\/value pairs.
 fromList :: [(String, a)] -> StrMap a
@@ -195,7 +193,7 @@ size n = size' n 0
 
 -- | Find all values where the string is a prefix of the key.
 prefixFind :: String -> StrMap a -> [a] 
-prefixFind q n = map snd (prefixFindInternal split q n)
+prefixFind q n = L.map snd (prefixFindInternal split q n)
 
 -- | Find all values where the string is a prefix of the key and include the keys in the result.
 prefixFindWithKey :: String -> StrMap a -> [(String, a)]
@@ -203,7 +201,7 @@ prefixFindWithKey = prefixFindInternal split
 
 -- | Same as prefixFind, but case insensitive.
 prefixFindNoCase :: String -> StrMap a -> [a]
-prefixFindNoCase q n = map snd (prefixFindInternal splitNoCase q n)
+prefixFindNoCase q n = L.map snd (prefixFindInternal splitNoCase q n)
 
 -- | Same as prefixFindWithKey, but case insensitive
 prefixFindNoCaseWithKey :: String -> StrMap a -> [(String, a)]
@@ -213,15 +211,15 @@ prefixFindNoCaseWithKey = prefixFindInternal splitNoCase
 prefixFindInternal :: (String -> String -> (String, String, String)) -> String -> StrMap a -> [(String, a)]
 prefixFindInternal f = prefixFindInternal' f ""
   where
-    prefixFindInternal' sf a p n | pr == ""  = map (\(k, v) -> (a ++ k, v)) (toList n)
-                                 | kr == ""  = concat (map (prefixFindInternal' sf (a ++ (key n)) pr) (succ n))
+    prefixFindInternal' sf a p n | pr == ""  = L.map (\(k, v) -> (a ++ k, v)) (toList n)
+                                 | kr == ""  = concat (L.map (prefixFindInternal' sf (a ++ (key n)) pr) (succ n))
                                  | otherwise = []
                                  where (_, pr, kr) = sf p (key n)
 
 -- | Find the value associated with a key.
 lookup :: String -> StrMap a -> Maybe a
 lookup q n | pr == "" = if kr == "" then value n else Nothing
-           | kr == "" = let xs = (filter isJust (map (lookup pr) (succ n))) in
+           | kr == "" = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
                         if null xs then Nothing else head xs
            | otherwise = Nothing
            where (_, pr, kr) = split q (key n)
@@ -229,6 +227,32 @@ lookup q n | pr == "" = if kr == "" then value n else Nothing
 -- | Search for values matching a key case insensitive.
 lookupNoCase :: String -> StrMap a -> [a]
 lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
-                 | kr == "" = concat (map (lookupNoCase pr) (succ n))
+                 | kr == "" = concat (L.map (lookupNoCase pr) (succ n))
                  | otherwise = []
                  where (_, pr, kr) = splitNoCase q (key n)
+
+-- | Fold over all key/value pairs in the map.
+foldWithKey :: (String -> a -> b -> b) -> b -> StrMap a -> b
+foldWithKey f n m = fold' "" m n
+  where
+  fold' ck (End k v t) r = let nk = ck ++ k in foldr (fold' nk) (f nk v r) t
+  fold' ck (Seq k t) r   = let nk = ck ++ k in foldr (fold' nk) r t
+
+-- | Fold over all values in the map.
+fold :: (a -> b -> b) -> b -> StrMap a -> b
+fold f = foldWithKey (\_ v r -> f v r)
+
+-- | Map over all key/value pairs in the map.
+mapWithKey :: (String -> a -> b) -> StrMap a -> StrMap b
+mapWithKey f m = map' "" m
+  where
+  map' ck (End k v t) = let nk = ck ++ k in End k (f nk v) (L.map (map' nk) t)
+  map' ck (Seq k t)   = let nk = ck ++ k in Seq k (L.map (map' nk) t)
+
+-- | Map over all values in the map.
+map :: (a -> b) -> StrMap a -> StrMap b
+map f = mapWithKey (\_ v -> f v)
+
+-- | Returns all elements as key value pairs,
+toList :: StrMap a -> [(String, a)]
+toList = foldWithKey (\k v r -> (k, v):r) []
