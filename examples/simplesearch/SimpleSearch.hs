@@ -24,6 +24,7 @@ import System.Environment
 import System.Exit
 import System.Console.Readline
 import System.Console.GetOpt
+import System.CPUTime
 
 import Char
 import Data.Maybe
@@ -113,10 +114,16 @@ answerQueries verbose i = do
                                 else do
                                   [(pq, e)] <- return pr
                                   if e == "" then do
+                                    t1 <- getCPUTime
                                     r <- return (process pq i (contexts i))
                                     printDocHits (docHits r) (documents i)
                                     putStrLn ""
                                     printWordHits (wordHits r)
+                                    t2 <- getCPUTime
+                                    s <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000000)
+                                    m <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000)
+                                    putStrLn ""
+                                    putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
                                     else do
                                       putStrLn ("Could not parse query: " ++ e)
                               answerQueries verbose i
