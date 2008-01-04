@@ -99,7 +99,6 @@ isQueryChar :: Char -> Bool
 isQueryChar c | c == '"'   = False
               | c == '('   = False
               | c == ')'   = False
-              | c == ':'   = False
               | isSpace c  = False
               | otherwise  = True
 

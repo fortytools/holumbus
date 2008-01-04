@@ -68,6 +68,7 @@ germanReplacements :: Replacements
 germanReplacements = 
   [ (("l", "ll"), 0.2)
   , (("t", "tt"), 0.2)
+  , (("n", "nn"), 0.2)
   , (("r", "rr"), 0.2)
   , (("i", "ie"), 0.2)
   , (("ei", "ie"), 0.2)

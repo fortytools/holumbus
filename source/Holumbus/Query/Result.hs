@@ -63,13 +63,15 @@ data Result = Result { docHits  :: !DocHits
                      , wordHits :: !WordHits
                      } deriving (Show)
 
-type DocHits = IntMap DocContextHits           -- Key is document id
+type DocHits = IntMap (Score, DocContextHits)         -- Key is document id, fst is score
 type DocContextHits = Map Context DocWordHits
-type DocWordHits = Map String Positions
+type DocWordHits = Map String Positions               -- Key is word
 
-type WordHits = Map String WordContextHits
+type WordHits = Map String (Score, WordContextHits)   -- Key is word, fst is score
 type WordContextHits = Map Context WordDocHits
-type WordDocHits = IntMap Positions            -- Key is document id
+type WordDocHits = IntMap Positions                   -- Key is document id
+
+type Score = Float
 
 -- | Create an empty result.
 emptyResult :: Result
@@ -97,9 +99,9 @@ createDocHits c = foldr (\(s, o) r -> IM.foldWithKey (insertDocHit c s) r o) emp
 
 -- | Inserts the positions of a word in a document from a context into the result.
 insertDocHit :: Context -> String -> Int -> Positions -> DocHits -> DocHits
-insertDocHit c w d p r = IM.insert d (M.insert c (M.insertWith IS.union w p dwh) dch) r
+insertDocHit c w d p r = IM.insert d (0.0, (M.insert c (M.insertWith IS.union w p dwh) dch)) r
   where
-  dch = IM.findWithDefault M.empty d r
+  dch = snd $ IM.findWithDefault (0.0, M.empty) d r
   dwh = M.findWithDefault M.empty c dch
 
 -- | Create the word hits structure for the results from a single context.
@@ -108,30 +110,46 @@ createWordHits c = foldr (\(s, o) r -> IM.foldWithKey (insertWordHit c s) r o) e
 
 -- | Inserts the positions of a word in a document from a context into the result.
 insertWordHit :: Context -> String -> Int -> Positions -> WordHits -> WordHits
-insertWordHit c w d p r = M.insert w (M.insert c (IM.insertWith IS.union d p wdh) wch) r
+insertWordHit c w d p r = M.insert w (0.0, (M.insert c (IM.insertWith IS.union d p wdh) wch)) r
   where
-  wch = M.findWithDefault M.empty w r
+  wch = snd $ M.findWithDefault (0.0, M.empty) w r
   wdh = M.findWithDefault IM.empty c wch
 
 -- | Combine two results by calculating their union.
 union :: Result -> Result -> Result
 union (Result d1 w1) (Result d2 w2) = Result (unionDocHits d1 d2) (unionWordHits w1 w2)
-  where
-  unionDocHits = IM.unionWith (M.unionWith (M.unionWith IS.union))
 
 -- | Combine two results by calculating their intersection.
 intersection :: Result -> Result -> Result
 intersection (Result d1 w1) (Result d2 w2) = Result (intersectDocHits d1 d2) (unionWordHits w1 w2)
-  where
-  intersectDocHits = IM.intersectionWith (M.unionWith (M.unionWith IS.union))
 
 -- | Combine two results by calculating their difference.
 difference :: Result -> Result -> Result
 difference (Result d1 _) (Result d2 w2) = Result (IM.difference d1 d2) w2
 
+-- | Intersect two sets of document hits.
+intersectDocHits :: DocHits -> DocHits -> DocHits
+intersectDocHits = IM.intersectionWith combineDocHits
+
+-- | Combine two sets of document hits.
+unionDocHits :: DocHits -> DocHits -> DocHits
+unionDocHits = IM.unionWith combineDocHits
+
 -- | Combine two sets of word hits.
 unionWordHits :: WordHits -> WordHits -> WordHits
-unionWordHits = M.unionWith (M.unionWith (IM.unionWith IS.union))
+unionWordHits = M.unionWith combineWordHits
+
+-- | Combine two tuples with score and context hits.
+combineDocHits :: (Score, DocContextHits) -> (Score, DocContextHits) -> (Score, DocContextHits)
+combineDocHits (s1, c1) (s2, c2) = (unionScore s1 s2, M.unionWith (M.unionWith IS.union) c1 c2)
+
+-- | Combine two tuples with score and context hits.
+combineWordHits :: (Score, WordContextHits) -> (Score, WordContextHits) -> (Score, WordContextHits)
+combineWordHits (s1, c1) (s2, c2) = (unionScore s1 s2, M.unionWith (IM.unionWith IS.union) c1 c2)
+
+-- | Combine two scores (just average between them).
+unionScore :: Score -> Score -> Score
+unionScore = flip flip 2.0 . ((/) .) . (+)
 
 -- | Create a result from a list of tuples.
 fromList :: Context -> [(String, Occurrences)] -> Result
