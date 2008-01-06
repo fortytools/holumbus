@@ -17,9 +17,9 @@ flag splitBase
 
 library
   if flag(splitBase)
-    build-depends: base >= 3, haskell98, containers, parsec, hxt
+    build-depends: base >= 3, haskell98, containers, parsec, hxt, binary, bzlib, bytestring
   else
-    build-depends: base < 3, haskell98, parsec, hxt
+    build-depends: base < 3, haskell98, parsec, hxt, binary, bzlib, bytestring
   exposed-modules:
     Holumbus.Data.StrMap,
     Holumbus.Data.BiMap,
@@ -32,6 +32,7 @@ library
     Holumbus.Index.Hybrid,
     Holumbus.Index.DocIndex,
     Holumbus.Index.Common,
+    Holumbus.Index.Documents,
     Holumbus.Index.Convert
   hs-source-dirs: source
   ghc-options:    -Wall -O -fno-warn-type-defaults
