@@ -22,7 +22,7 @@ module Holumbus.Index.Convert
   )
 where
 
-import Holumbus.Index.Common
+import Holumbus.Index.Documents
 
 import qualified Holumbus.Index.Inverted as INV
 --import qualified Holumbus.Index.Hybrid as HYB
@@ -33,7 +33,6 @@ import qualified Holumbus.Data.StrMap as SM
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 --import qualified Data.IntSet as IS
-
 
 -- | Converts an inverted index from the Hyphoon format to the Holumbus inverted file format.
 hyphoonToInvHolumbus :: H.DocIndex -> INV.InvIndex
@@ -75,4 +74,4 @@ toDocuments :: H.DocTable -> Documents
 toDocuments (H.DT dm _ _ _) = IM.foldWithKey (toDocuments') emptyDocuments dm
   where
     toDocuments' :: Int -> (H.DocName, H.DocTitle) -> Documents -> Documents
-    toDocuments' k (n, t) (DocTable i2d d2i _) = DocTable (IM.insert k (t, n) i2d) (M.insert n k d2i) k
+    toDocuments' k (n, t) (Documents i2d d2i _) = Documents (IM.insert k (t, n) i2d) (M.insert n k d2i) k

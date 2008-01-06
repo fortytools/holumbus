@@ -17,12 +17,26 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Common where
+module Holumbus.Index.Common 
+  (
+  -- * Common index types and classes
+  Position
+  , Context
+  , Word
+  , Occurrences
+  , Positions
+  , HolIndex (..)
 
-import Text.XML.HXT.Arrow.Pickle  -- nice pickling stuff
+  -- * Construction
+  , emptyOccurrences
 
-import Data.Map (Map)
-import qualified Data.Map as M
+  -- * Pickling
+  , xpOccurrences
+  , xpPositions
+  )
+where
+
+import Text.XML.HXT.Arrow.Pickle
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
@@ -30,18 +44,8 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
--- | The table which is used to map a document to an artificial id and vice versa.
-data Documents     = DocTable { idToDoc   :: !(IntMap Document)
-                              , docToId   :: !(Map URL DocId) 
-                              , lastDocId :: !DocId
-                              } deriving (Show)
-
--- | A document consists of a title and it's unique identifier.
-type Document      = (Title, URL)
-
-type DocId         = Int
-type URL           = String
-type Title         = String
+import Holumbus.Index.Documents (Documents, Document)
+import qualified Holumbus.Index.Documents as D
 
 type Position      = Int
 type Context       = String
@@ -85,39 +89,18 @@ class HolIndex i where
   -- | Load Index from XML file
   loadFromFile :: String -> IO i
 
+-- | The XML pickler for a set of positions.
+xpPositions :: PU Positions
+xpPositions = xpWrap ( IS.fromList . (map read) . words
+                     , unwords . (map show) . IS.toList
+                     ) xpText
 
--- | Create an empty table.
-emptyDocuments :: Documents
-emptyDocuments = DocTable IM.empty M.empty 0
+-- | The XML pickler for the occurrences of a word.
+xpOccurrences :: PU Occurrences
+xpOccurrences = xpWrap (IM.fromList, IM.toList) (xpList xpOccurrence)
+  where
+  xpOccurrence = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) xpPositions)
 
 -- | Create an empty set of positions.
 emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty
-
-
-
---------------------------------------------------------------------------------
--- i think this should be in the common module since any other place would lead
--- to code duplication or further modules
-
-instance XmlPickler Documents where
-   xpickle =  xpWrap  ( \itd -> DocTable itd (itd2dti itd) 100
-                      , \(DocTable itd _ _) -> itd
-		              )
---		              (xpTriple
-		                  (xpWrap (IM.fromList, IM.toList)
-		                  		(xpList (xpElem "doc" (xpPair 
-		                  				(xpAttr "id" xpPrim)
-		                  				(xpPair 
-		                  					(xpAttr "href" xpText)
-		                  					(xpAttr "title" xpText)
-		                  				)
-		                  		)))
-	--	                  ) xpZero xpZero
-		              )
-	where
-		itd2dti :: IntMap Document -> Map URL DocId
-		itd2dti = IM.foldWithKey (\i (_, s2) r -> M.insert s2 i r) M.empty
-			              	
-		              
-
