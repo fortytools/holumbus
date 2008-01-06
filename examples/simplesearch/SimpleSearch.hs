@@ -36,6 +36,7 @@ import qualified Data.IntMap as IM
 import Text.XML.HXT.DOM.Unicode
 
 import Holumbus.Index.Common
+import Holumbus.Index.Documents
 import Holumbus.Index.Inverted
 --import Holumbus.Index.Hybrid
 import Holumbus.Query.Parser
