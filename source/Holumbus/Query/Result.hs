@@ -19,13 +19,14 @@
 module Holumbus.Query.Result 
   (
   -- * Result data types
-  Result (Result, docHits, wordHits)
+  Result (..)
   , DocHits
   , DocContextHits
   , DocWordHits
   , WordHits
   , WordContextHits
   , WordDocHits
+  , Score
   
   -- * Construction
   , emptyResult
@@ -43,6 +44,11 @@ module Holumbus.Query.Result
   , union
   , difference
   , intersection
+  
+  -- * Pickling
+  , xpResult
+  , xpDocHits
+  , xpWordHits
   )
 where
 
@@ -55,6 +61,8 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
 import qualified Data.IntSet as IS
+
+import Text.XML.HXT.Arrow.Pickle
 
 import Holumbus.Index.Common
 
@@ -69,9 +77,44 @@ type DocWordHits = Map String Positions               -- Key is word
 
 type WordHits = Map String (Score, WordContextHits)   -- Key is word, fst is score
 type WordContextHits = Map Context WordDocHits
-type WordDocHits = IntMap Positions                   -- Key is document id
+type WordDocHits = Occurrences                        -- Key is document id
 
 type Score = Float
+
+instance XmlPickler Result where
+  xpickle = xpWrap (\(d, w) -> Result d w, \(Result d w) -> (d, w)) (xpPair xpDocHits xpWordHits)
+
+-- | The XML pickler for the result type.
+xpResult :: PU Result
+xpResult = xpElem "result" $ xpickle
+
+xpDocHits :: PU DocHits
+xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, IM.toList) (xpList xpScoredDoc)
+  where
+  xpScoredDoc = xpElem "doc" (xpPair (xpAttr "id" xpPrim) (xpPair (xpAttr "score" xpPrim) xpDocContextHits))
+
+xpDocContextHits :: PU DocContextHits
+xpDocContextHits = xpWrap (M.fromList, M.toList) (xpList xpDocContextHit)
+  where
+  xpDocContextHit = xpPair (xpElem "context" (xpAttr "c" xpText)) xpDocWordHits
+
+xpDocWordHits :: PU DocWordHits
+xpDocWordHits = xpWrap (M.fromList, M.toList) (xpList xpDocWordHit)
+  where
+  xpDocWordHit = xpPair (xpElem "word" (xpAttr "w" xpText)) xpPositions
+
+xpWordHits :: PU WordHits
+xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, M.toList) (xpList xpScoredWord)
+  where
+  xpScoredWord = xpElem "word" (xpPair (xpAttr "w" xpText) (xpPair (xpAttr "score" xpPrim) xpWordContextHits))
+
+xpWordContextHits :: PU WordContextHits
+xpWordContextHits = xpWrap (M.fromList, M.toList) (xpList xpWordContextHit)
+  where
+  xpWordContextHit = xpPair (xpElem "context" (xpAttr "c" xpText)) xpWordDocHits
+
+xpWordDocHits :: PU WordDocHits
+xpWordDocHits = xpOccurrences
 
 -- | Create an empty result.
 emptyResult :: Result
