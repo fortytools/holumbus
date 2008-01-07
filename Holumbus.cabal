@@ -28,6 +28,7 @@ library
     Holumbus.Query.Processor,
     Holumbus.Query.Result,
     Holumbus.Query.Fuzzy,
+    Holumbus.Query.Ranking,
     Holumbus.Index.Inverted,
     Holumbus.Index.Hybrid,
     Holumbus.Index.DocIndex,
