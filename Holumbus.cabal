@@ -17,9 +17,9 @@ flag splitBase
 
 library
   if flag(splitBase)
-    build-depends: base >= 3, haskell98, containers, parsec, hxt, binary, bzlib, bytestring
+    build-depends: base >= 3, haskell98, containers, parsec, hxt
   else
-    build-depends: base < 3, haskell98, parsec, hxt, binary, bzlib, bytestring
+    build-depends: base < 3, haskell98, parsec, hxt
   exposed-modules:
     Holumbus.Data.StrMap,
     Holumbus.Data.BiMap,
