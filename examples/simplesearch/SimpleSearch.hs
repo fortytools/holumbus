@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.3
+  Version    : 0.4
 
   A simple example of Holumbus, providing a command line search with the
   default query language.
@@ -35,19 +35,18 @@ import qualified Data.IntMap as IM
 
 import Text.XML.HXT.DOM.Unicode
 
+import qualified Holumbus.Index.Inverted as INV
+import qualified Holumbus.Index.Hybrid as HYB
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
-import Holumbus.Index.Inverted
---import Holumbus.Index.Hybrid
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
 
 data Flag = Inverted String | Hybrid String | Verbose | Version deriving (Show, Eq)
---data AnyHolIndex = forall i. HolIndex i => AnyHolIndex i
 
 version :: String
-version = "0.3"
+version = "0.4"
 
 main :: IO ()
 main = do
@@ -59,18 +58,22 @@ main = do
        if L.null indexes then usage ["No index file given!\n"] else return ()
        if length indexes > 1 then usage ["Only one index file allowed!\n"] else return ()
        putStrLn "Loading index ..."
-       holIndex <- loadIndex (head indexes)
-       putStr ("Loaded " ++ (show (sizeDocs holIndex)) ++ " documents ")
-       putStrLn ("containing " ++ show (sizeWords holIndex) ++ " words")
-       answerQueries verbose holIndex
+       startup verbose (head indexes)
        return ()
 
--- This should be loadIndex :: HolIndex i => Flag -> IO i
-loadIndex :: Flag -> IO InvIndex
-loadIndex (Inverted file) = (loadFromFile file) :: IO InvIndex
-loadIndex (Hybrid _)      = usage ["Hybrid indexes are not yet supported!\n"]
-loadIndex _               = usage ["Internal error!\n"]
-
+-- | Decide between hybrid and inverted and then fire up!
+startup :: Bool -> Flag -> IO ()
+startup v (Inverted file) = do
+                            idx <- INV.loadFromFile file
+                            printStats idx
+                            answerQueries v idx
+startup v (Hybrid file) = do
+                          idx <- HYB.loadFromFile file
+                          printStats idx
+                          answerQueries v idx
+startup _ _ = do
+              usage ["Internal error!\n"]
+                          
 usage :: [String] -> IO a
 usage errs = if L.null errs then do
              hPutStrLn stdout use
@@ -144,19 +147,19 @@ internalCommand verbose i _         = do
 
 printDocHits :: DocHits -> Documents -> IO ()
 printDocHits h docs = do
-                   putStrLn "Result:"
-                   printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc docs)) 
-                                  (IM.foldWithKey (\k _ l -> k:l) [] h)))
-                   putStrLn ""
-                   putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
-                   where
-                     printHits' :: [Document] -> IO ()
-                     printHits' [] = return ()
-                     printHits' ((t, u):xs) = do
-                                              putStrLn t
-                                              putStrLn u
-                                              printHits' xs
-                                              return ()
+                      putStrLn "Result:"
+                      printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc docs)) 
+                                 (IM.foldWithKey (\k _ l -> k:l) [] h)))
+                      putStrLn ""
+                      putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
+                      where
+                        printHits' :: [Document] -> IO ()
+                        printHits' [] = return ()
+                        printHits' ((t, u):xs) = do
+                                                 putStrLn t
+                                                 putStrLn u
+                                                 printHits' xs
+                                                 return ()
 
 
 printWordHits :: WordHits -> IO ()
@@ -195,6 +198,11 @@ printContexts i = do
                                             putStrLn x
                                             printContexts' xs
                                             return ()
+
+printStats :: HolIndex i => i -> IO ()
+printStats i = do
+               putStr ("Loaded " ++ (show (sizeDocs i)) ++ " documents ")
+               putStrLn ("containing " ++ show (sizeWords i) ++ " words")
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
