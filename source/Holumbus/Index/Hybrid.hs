@@ -74,28 +74,32 @@ instance HolIndex HybIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
-  
-  loadFromFile f = do
-                     r <- runX (xunpickleDocument xpHybIndex options f)
-                     return (head r)
-                     where
-                       options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
 
+-- | Load Index from XML file
+loadFromFile :: String -> IO HybIndex
+loadFromFile f = do
+                 r <- runX (xunpickleDocument xpHybIndex options f)
+                 return (head r)
+                 where
+                 options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
+
+-- | Create an empty part.
 emptyPart :: Part
 emptyPart = Part emptyDictionary emptyBlocks
 
+-- | Create an empty dictionary.
 emptyDictionary :: Dictionary
 emptyDictionary = Dictionary SM.empty 0
 
+-- | Create empty blocks.
 emptyBlocks :: Blocks
 emptyBlocks = Blocks IM.empty 0
 
+-- | Return a part of the index for a given context.
 getPart :: Context -> HybIndex -> Part
 getPart c i = fromMaybe emptyPart (M.lookup c $ indexParts i)
 
-
-
--- -----------------------------------------------------------------------------
+-- | The pickler for an hybrid index.
 xpHybIndex :: PU HybIndex
 xpHybIndex = xpElem "indexes" $
 	    xpickle

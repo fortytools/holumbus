@@ -59,12 +59,14 @@ instance HolIndex InvIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
-  
-  loadFromFile f = do
-                   r <- runX (xunpickleDocument xpInvIndex options f)
-                   return (head r)
-                   where
-                   options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]			
+
+-- | Load Index from XML file
+loadFromFile :: String -> IO InvIndex
+loadFromFile f = do
+                 r <- runX (xunpickleDocument xpInvIndex options f)
+                 return (head r)
+                 where
+                 options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]			
 
 -- | Return a part of the index for a given context.
 getPart :: Context -> InvIndex -> Part

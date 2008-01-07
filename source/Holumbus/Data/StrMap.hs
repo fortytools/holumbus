@@ -231,7 +231,7 @@ lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
                  | otherwise = []
                  where (_, pr, kr) = splitNoCase q (key n)
 
--- | Fold over all key/value pairs in the map.
+-- | Fold over all key\/value pairs in the map.
 foldWithKey :: (String -> a -> b -> b) -> b -> StrMap a -> b
 foldWithKey f n m = fold' "" m n
   where
@@ -242,7 +242,7 @@ foldWithKey f n m = fold' "" m n
 fold :: (a -> b -> b) -> b -> StrMap a -> b
 fold f = foldWithKey (\_ v r -> f v r)
 
--- | Map over all key/value pairs in the map.
+-- | Map over all key\/value pairs in the map.
 mapWithKey :: (String -> a -> b) -> StrMap a -> StrMap b
 mapWithKey f m = map' "" m
   where

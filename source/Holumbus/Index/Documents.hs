@@ -60,8 +60,11 @@ data Documents     = Documents { idToDoc   :: !(IntMap Document)
 -- | A document consists of a title and it's unique identifier.
 type Document      = (Title, URI)
 
+-- | The unique identifier of a document (created upon insertion into the document table).
 type DocId         = Int
+-- | The URI describing the location of the original document.
 type URI           = String
+-- | The title of a document.
 type Title         = String
 
 instance XmlPickler Documents where

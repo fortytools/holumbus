@@ -47,8 +47,11 @@ import qualified Data.IntSet as IS
 import Holumbus.Index.Documents (Documents, Document)
 import qualified Holumbus.Index.Documents as D
 
+-- | The position of a word in the document.
 type Position      = Int
+-- | The name of a context.
 type Context       = String
+-- | A single word.
 type Word          = String
 
 -- | The occurrences in a number of documents. A mapping from document ids to the positions in the document.
@@ -85,9 +88,6 @@ class HolIndex i where
   insert        :: Context -> Word -> Position -> Document -> i -> i
   -- | Updates an occurrence of a word for a given context.
   update        :: Context -> Word -> Position -> Document -> i -> i
-
-  -- | Load Index from XML file
-  loadFromFile :: String -> IO i
 
 -- | The XML pickler for a set of positions.
 xpPositions :: PU Positions
