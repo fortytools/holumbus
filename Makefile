@@ -8,7 +8,8 @@ EXAMPLES_BASE	= examples
 
 all : build alltests allexamples doc
 	
-configure : .setup-config
+configure :
+	@runhaskell Setup.hs configure
 
 doc	: configure
 	@runhaskell Setup.hs haddock --hyperlink-source --hscolour-css=hscolour.css
@@ -22,9 +23,6 @@ install : build
 prof	:
 	@runhaskell Setup.hs configure -p
 	@runhaskell Setup.hs build
-
-.setup-config :
-	@runhaskell Setup.hs configure
 
 alltests :
 	$(MAKE) -C $(TEST_BASE) all
