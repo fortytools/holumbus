@@ -91,17 +91,17 @@ xpResult = xpElem "result" $ xpickle
 xpDocHits :: PU DocHits
 xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, IM.toList) (xpList xpScoredDoc)
   where
-  xpScoredDoc = xpElem "doc" (xpPair (xpAttr "id" xpPrim) (xpPair (xpAttr "score" xpPrim) xpDocContextHits))
+  xpScoredDoc = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) (xpPair (xpAttr "score" xpPrim) xpDocContextHits))
 
 xpDocContextHits :: PU DocContextHits
 xpDocContextHits = xpWrap (M.fromList, M.toList) (xpList xpDocContextHit)
   where
-  xpDocContextHit = xpPair (xpElem "context" (xpAttr "c" xpText)) xpDocWordHits
+  xpDocContextHit = xpElem "context" (xpPair (xpAttr "name" xpText) xpDocWordHits)
 
 xpDocWordHits :: PU DocWordHits
 xpDocWordHits = xpWrap (M.fromList, M.toList) (xpList xpDocWordHit)
   where
-  xpDocWordHit = xpPair (xpElem "word" (xpAttr "w" xpText)) xpPositions
+  xpDocWordHit = xpElem "word" (xpPair (xpAttr "w" xpText) xpPositions)
 
 xpWordHits :: PU WordHits
 xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, M.toList) (xpList xpScoredWord)
@@ -111,7 +111,7 @@ xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, M.toList) (xpList xpScoredW
 xpWordContextHits :: PU WordContextHits
 xpWordContextHits = xpWrap (M.fromList, M.toList) (xpList xpWordContextHit)
   where
-  xpWordContextHit = xpPair (xpElem "context" (xpAttr "c" xpText)) xpWordDocHits
+  xpWordContextHit = xpElem "context" (xpPair (xpAttr "name" xpText) xpWordDocHits)
 
 xpWordDocHits :: PU WordDocHits
 xpWordDocHits = xpOccurrences
