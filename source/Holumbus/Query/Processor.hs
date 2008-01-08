@@ -29,7 +29,7 @@ where
 import Holumbus.Query.Syntax
 import Holumbus.Index.Common
 
-import Holumbus.Query.Fuzzy (Score)
+import Holumbus.Query.Fuzzy (FuzzyScore)
 import qualified Holumbus.Query.Fuzzy as F
 
 import Holumbus.Query.Result (Result)
@@ -100,7 +100,7 @@ processPhraseInternal f c i q = let
 processFuzzyWord :: HolIndex i => Context -> i -> String -> Result
 processFuzzyWord c i oq = processFuzzyWord' (F.toList $ F.fuzzUntil 1.0 oq) (processWord c i oq)
   where
-  processFuzzyWord' :: [ (String, Score) ] -> Result -> Result
+  processFuzzyWord' :: [ (String, FuzzyScore) ] -> Result -> Result
   processFuzzyWord' []     r = r
   processFuzzyWord' (q:qs) r = if R.null r then processFuzzyWord' qs (processWord c i (fst q)) else r
 

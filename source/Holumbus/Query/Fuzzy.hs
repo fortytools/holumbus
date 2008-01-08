@@ -22,7 +22,7 @@ module Holumbus.Query.Fuzzy
   FuzzySet
   , Replacements
   , Replacement
-  , Score
+  , FuzzyScore
   
   -- * Predefined replacements
   , englishReplacements
@@ -46,10 +46,10 @@ import Data.List
 import Data.Map (Map)
 import qualified Data.Map as M
 
-type FuzzySet = Map String Score
+type FuzzySet = Map String FuzzyScore
 type Replacements = [ Replacement ]
-type Replacement = ((String, String), Score)
-type Score = Float
+type Replacement = ((String, String), FuzzyScore)
+type FuzzyScore = Float
 
 -- | The default replacements to use in the functions without explicitly specified replacements.
 defaultReplacements :: Replacements
@@ -107,12 +107,12 @@ fuzzMoreWith :: Replacements -> FuzzySet -> FuzzySet
 fuzzMoreWith rs fs = M.foldWithKey (\s sc res -> M.unionWith min res (fuzzInternal sc rs s)) M.empty fs
 
 -- | Continue fuzzing a string with the default replacements until a given score threshold is reached.
-fuzzUntil :: Score -> String -> FuzzySet
+fuzzUntil :: FuzzyScore -> String -> FuzzySet
 fuzzUntil = fuzzUntilWith defaultReplacements
 
 -- | Continue fuzzing a string with the an explicitly specified list of replacements until 
 -- a given score threshold is reached.
-fuzzUntilWith :: Replacements -> Score -> String -> FuzzySet
+fuzzUntilWith :: Replacements -> FuzzyScore -> String -> FuzzySet
 fuzzUntilWith rs th s = fuzzUntilWith' (fuzzLimit th 0.0 rs s)
   where
   fuzzUntilWith' :: FuzzySet -> FuzzySet
@@ -122,12 +122,12 @@ fuzzUntilWith rs th s = fuzzUntilWith' (fuzzLimit th 0.0 rs s)
     more = M.foldWithKey (\sm sc res -> M.unionWith min res (fuzzLimit th (sc + sc) rs sm)) M.empty fs
 
 -- | Fuzz a string and limit the allowed score to a given threshold.
-fuzzLimit :: Score -> Score -> Replacements -> String -> FuzzySet
+fuzzLimit :: FuzzyScore -> FuzzyScore -> Replacements -> String -> FuzzySet
 fuzzLimit th sc rs s = if sc <= th then M.filter (\ns -> ns <= th) (fuzzInternal sc rs s) else M.empty
 
 -- | Fuzz a string with an list of explicitly specified replacements and combine the scores
 -- with an initial score.
-fuzzInternal :: Score -> Replacements -> String -> FuzzySet
+fuzzInternal :: FuzzyScore -> Replacements -> String -> FuzzySet
 fuzzInternal sc rs s = M.unionWith min replaced swapped
   where
   replaced = foldr (\r res -> M.unionWith min res (applyFuzz (replace rs r) sc s)) M.empty rs
@@ -136,7 +136,7 @@ fuzzInternal sc rs s = M.unionWith min replaced swapped
 -- | Applies a single replacement definition (in both directions) to a string. An initial score is
 -- combined with the new score for the replacement (calculated from the position in the string and 
 -- the scores in the list of all replacements).
-applyFuzz :: (String -> String -> [(String, Score)]) -> Score -> String -> FuzzySet
+applyFuzz :: (String -> String -> [(String, FuzzyScore)]) -> FuzzyScore -> String -> FuzzySet
 applyFuzz f sc s = apply (init $ inits s) (init $ tails s)
   where
   apply :: [String] -> [String] -> FuzzySet
@@ -144,12 +144,11 @@ applyFuzz f sc s = apply (init $ inits s) (init $ tails s)
   apply _ [] = M.empty
   apply (pr:prs) (su:sus) = M.unionsWith min $ (apply prs sus):(map create $ (f pr su))
     where
-    create :: (String, Score) -> FuzzySet
     create (fuzzed, score) = M.singleton fuzzed (sc + score * (calcWeight (length pr) (length s)))
 
 -- | Apply a replacement in both directions to the suffix of a string and return the complete
 -- string with a score, calculated from the replacement itself and the list of replacements.
-replace :: Replacements -> Replacement -> String -> String -> [(String, Score)]
+replace :: Replacements -> Replacement -> String -> String -> [(String, FuzzyScore)]
 replace rs ((r1, r2), s) prefix suffix = (replace' r1 r2) ++ (replace' r2 r1)
   where
   replace' tok sub = if replaced == suffix then [] else [(prefix ++ replaced, score)]
@@ -159,12 +158,12 @@ replace rs ((r1, r2), s) prefix suffix = (replace' r1 r2) ++ (replace' r2 r1)
     
 -- | Swap the first two characters of the suffix and return the complete string with a score or
 -- Nothing if there are not enough characters to swap.
-swap :: String -> String -> [(String, Score)]
+swap :: String -> String -> [(String, FuzzyScore)]
 swap prefix (s1:s2:suffix) =  [(prefix ++ (s2:s1:suffix), 1.0)]
 swap _ _ = []
 
 -- | Calculate the weighting factor depending on the position in the string and it's total length.
-calcWeight :: Int -> Int -> Score
+calcWeight :: Int -> Int -> FuzzyScore
 calcWeight pos len = (l - p) / l
   where
   p = fromIntegral pos
@@ -180,7 +179,7 @@ replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then
                                     else s
 
 -- | Transform a fuzzy set into a list (ordered by score).
-toList :: FuzzySet -> [ (String, Score) ]
+toList :: FuzzySet -> [ (String, FuzzyScore) ]
 toList = sortBy (compare `on` snd) . M.toList
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
