@@ -1,0 +1,6 @@
+This example requires the Janus application server. 
+
+Additionally, the following dependencies are required:
+(despite the default dependencies from Holumbus itself)
+
+- Network.CGI (cgi-3001.1.1.5.1 or newer)

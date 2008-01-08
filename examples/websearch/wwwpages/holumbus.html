@@ -40,20 +40,7 @@
 				<a id="credits" href="http://holumbus.schlatt.com">Holumbus</a>
 			</div>
 			<div id="words"> 
-				<p class="cloud">
-					<span id="cloud1">this</span> <span id="cloud2">is</span> <span id="cloud3">a</span> <span id="cloud2">test</span>
-					<span id="cloud4">this</span> <span id="cloud6">is</span> <span id="cloud1">a</span> <span id="cloud5">test</span>
-					<span id="cloud3">this</span> <span id="cloud5">is</span> <span id="cloud2">a</span> <span id="cloud7">test</span>
-					<span id="cloud1">this</span> <span id="cloud8">is</span> <span id="cloud3">a</span> <span id="cloud2">test</span>
-					<span id="cloud4">this</span> <span id="cloud2">is</span> <span id="cloud7">a</span> <span id="cloud5">test</span>
-					<span id="cloud1">this</span> <span id="cloud5">is</span> <span id="cloud2">a</span> <span id="cloud3">test</span>
-					<span id="cloud1">this</span> <span id="cloud2">is</span> <span id="cloud3">a</span> <span id="cloud2">test</span>
-					<span id="cloud4">this</span> <span id="cloud6">is</span> <span id="cloud1">a</span> <span id="cloud5">test</span>
-					<span id="cloud3">this</span> <span id="cloud5">is</span> <span id="cloud2">a</span> <span id="cloud7">test</span>
-					<span id="cloud1">this</span> <span id="cloud8">is</span> <span id="cloud3">a</span> <span id="cloud2">test</span>
-					<span id="cloud4">this</span> <span id="cloud2">is</span> <span id="cloud7">a</span> <span id="cloud5">test</span>
-					<span id="cloud1">this</span> <span id="cloud5">is</span> <span id="cloud2">a</span> <span id="cloud3">test</span>
-				</p>
+				<p class="cloud">&nbsp;</p>
 			</div>
 		</div>
 
@@ -64,8 +51,9 @@
 		
 			<div id="query">
 				<form id="queryform" onsubmit="return always_return_false()" method="get" action="holumbus.html">
-					<div id="help">Enter some search terms (<a id="help" onclick="toggleHelp()">help</a>):</div>
-					<input class="querybox" id="querytext" type="text" onkeyup="Hol.processQuery(event) value="" name="querytext"/>
+					<div id="help">Enter some search terms (<a id="help" href="javascript:toggleHelp()">help</a>):</div>
+					<input class="querybox" id="querytext" type="text" onkeyup="processQuery()" value="" name="querytext"/>
+					<div id="stats">Nothing found yet.</div>
 				</form>
 			</div>
 		</div>
@@ -119,8 +107,7 @@
 			</table>
 		</div>
 		<div id="results">
-			<div id="result">
-			</div>
+			<pre id="test">Result</pre>
 		</div>
 	</div>
 </body>
