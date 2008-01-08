@@ -46,9 +46,15 @@ import Data.List
 import Data.Map (Map)
 import qualified Data.Map as M
 
+-- | A set of string which have been "fuzzed" with an associated score.
 type FuzzySet = Map String FuzzyScore
+-- | Some replacements which can be applied to a string to generate a @FuzzySet@.
 type Replacements = [ Replacement ]
+-- | A single replacements, where the first will be replaced by the second and vice versa in
+-- the target string. The score indicates the amount of fuzzines that one single application
+-- of this replacement in just one direction will cause on the target string.
 type Replacement = ((String, String), FuzzyScore)
+-- | The score indicating an amount of fuzziness. 
 type FuzzyScore = Float
 
 -- | The default replacements to use in the functions without explicitly specified replacements.
@@ -184,4 +190,4 @@ toList = sortBy (compare `on` snd) . M.toList
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-(*) `on` f = \x y -> f x * f y
+op `on` f = \x y -> f x `op` f y

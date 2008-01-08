@@ -43,6 +43,10 @@ module Holumbus.Query.Result
   -- * Query
   , size
   , null
+  , sizeDocs
+  , sizeWords
+  , maxScoreDocs
+  , maxScoreWords
 
   -- * Combine
   , union
@@ -70,7 +74,7 @@ import qualified Data.IntSet as IS
 
 import Text.XML.HXT.Arrow.Pickle
 
-import Holumbus.Index.Common
+import Holumbus.Index.Common (Positions, Occurrences, Context, xpPositions, xpOccurrences)
 
 -- | The combined result type for Holumbus queries.
 data Result = Result { docHits  :: !DocHits
@@ -151,7 +155,23 @@ emptyWordHits = M.empty
 
 -- | Query the size of a result.
 size :: Result -> Int
-size = IM.size . docHits
+size = sizeDocs
+
+-- | Query the number of documents in a result.
+sizeDocs :: Result -> Int
+sizeDocs = IM.size . docHits
+
+-- | Query the number of documents in a result.
+sizeWords :: Result -> Int
+sizeWords = M.size . wordHits
+
+-- | Query the maximum score of the documents.
+maxScoreDocs :: Result -> Score
+maxScoreDocs = (IM.fold (\(s, _) r -> if s > r then s else r) 0.0) . docHits
+
+-- | Query the maximum score of the words.
+maxScoreWords :: Result -> Score
+maxScoreWords = (M.fold (\(s, _) r -> if s > r then s else r) 0.0) . wordHits
 
 -- | Test if the result contains anything.
 null :: Result -> Bool
@@ -221,4 +241,4 @@ fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-(*) `on` f = \x y -> f x * f y
+op `on` f = \x y -> f x `op` f y
