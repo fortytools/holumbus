@@ -20,7 +20,8 @@ module StrMapTest (allTests) where
 
 import Data.List
 
-import qualified Holumbus.Data.StrMap as SM
+import Holumbus.Data.StrMapInternal (StrMap (..))
+import qualified Holumbus.Data.StrMapInternal as SM
 
 import Test.HUnit
 
@@ -41,6 +42,22 @@ insertTests = TestList
   [ TestCase (assertEqual "Inserting into empty map" [("a",1)] 
   (SM.toList (SM.insert "a" 1 SM.empty)))
 
+  , TestCase (assertEqual "1. case: Existing key"
+  (Seq "" [End "abc" 2 []])
+  (SM.insert "abc" 2 (SM.singleton "abc" 1)))
+
+  , TestCase (assertEqual "2. case: Insert into list of successors"
+  (Seq "" [End "ab" 1 [End "c" 2 []]])
+  (SM.insert "abc" 2 (SM.singleton "ab" 1)))
+  
+  , TestCase (assertEqual "3. case: New intermediate End node"
+  (Seq "" [End "ab" 2 [End "c" 1 []]])
+  (SM.insert "ab" 2 (SM.singleton "abc" 1)))
+
+  , TestCase (assertEqual "4. case: New intermediate End node"
+  (Seq "" [Seq "ab" [End "c" 1 [], End "d" 2 []]])
+  (SM.insert "abd" 2 (SM.singleton "abc" 1)))
+
   , TestCase (assertEqual "Inserting should split correctly" [("ac",1),("a",2)] 
   (SM.toList (SM.insert "a" 2 (SM.insert "ac" 1 SM.empty))))
 
@@ -52,14 +69,6 @@ insertTests = TestList
 
   , TestCase (assertEqual "Complex insert" [("ad",4),("acd",3),("abcd",1),("bcd",2)]
   (SM.toList (SM.insert "ad" 4 (SM.insert "acd" 3 (SM.insert "bcd" 2 (SM.insert "abcd" 1 SM.empty))))))
-  
-  , TestCase (assertEqual "1. case: Existing key"
-  (SM.singleton "abc" 2)
-  (SM.insert "abc" 2 (SM.singleton "abc" 1)))
-
---  , TestCase (assertEqual "2. case: Insert into list of successors"
---  (Seq "" [End "ab" 1 [End "c" 2 []]]) -- TODO: Make Seq and End avaliable for testing purposes.
---  (SM.insert "abc" 2 (SM.singleton "ab" 1)))
   
   , TestCase (assertEqual "Inserting in different order shold yield the same result"
   (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])
