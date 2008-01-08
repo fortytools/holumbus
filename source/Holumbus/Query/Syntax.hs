@@ -27,7 +27,7 @@ where
 
 import Holumbus.Index.Common (Context)
 
--- | The query datastructure.
+-- | The query language.
 data Query = Word       String
            | Phrase     String
            | CaseWord   String

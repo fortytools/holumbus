@@ -12,6 +12,10 @@
 
   The data type for results of Holumbus queries.
 
+  The result of a query is defined in terms of two partial results, 
+  the documents containing the search terms and the words which 
+  are possible completions of the serach terms.
+
 -}
 
 -- ----------------------------------------------------------------------------
@@ -54,6 +58,8 @@ where
 
 import Prelude hiding (null)
 
+import qualified Data.List as L
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -71,14 +77,21 @@ data Result = Result { docHits  :: !DocHits
                      , wordHits :: !WordHits
                      } deriving (Show)
 
-type DocHits = IntMap (Score, DocContextHits)         -- Key is document id, fst is score
+-- | A mapping from a document to it's score and the contexts where it was found.
+type DocHits = IntMap (Score, DocContextHits)
+-- | A mapping from a context to the words of the document that were found in this context.
 type DocContextHits = Map Context DocWordHits
-type DocWordHits = Map String Positions               -- Key is word
+-- | A mapping from a word of the document in a specific context to it's positions.
+type DocWordHits = Map String Positions
 
-type WordHits = Map String (Score, WordContextHits)   -- Key is word, fst is score
+-- | A mapping from a word to it's score and the contexts where it was found.
+type WordHits = Map String (Score, WordContextHits)
+-- | A mapping from a context to the documents that contain the word that were found in this context.
 type WordContextHits = Map Context WordDocHits
-type WordDocHits = Occurrences                        -- Key is document id
+-- | A mapping from a document containing the word to the positions of the word.
+type WordDocHits = Occurrences
 
+-- | The score of a hit (either a document hit or a word hit).
 type Score = Float
 
 instance XmlPickler Result where
@@ -88,31 +101,39 @@ instance XmlPickler Result where
 xpResult :: PU Result
 xpResult = xpElem "result" $ xpickle
 
+-- | The XML pickler for the document hits. Will be sorted by score.
 xpDocHits :: PU DocHits
-xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, IM.toList) (xpList xpScoredDoc)
+xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpScoredDoc)
   where
+  toListSorted = L.sortBy (compare `on` (fst . snd)) . IM.toList -- Sort by score
   xpScoredDoc = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) (xpPair (xpAttr "score" xpPrim) xpDocContextHits))
 
+-- | The XML pickler for the contexts in which the documents were found.
 xpDocContextHits :: PU DocContextHits
 xpDocContextHits = xpWrap (M.fromList, M.toList) (xpList xpDocContextHit)
   where
   xpDocContextHit = xpElem "context" (xpPair (xpAttr "name" xpText) xpDocWordHits)
 
+-- | The XML pickler for the words and positions found in a document.
 xpDocWordHits :: PU DocWordHits
 xpDocWordHits = xpWrap (M.fromList, M.toList) (xpList xpDocWordHit)
   where
   xpDocWordHit = xpElem "word" (xpPair (xpAttr "w" xpText) xpPositions)
 
+-- | The XML pickler for the word hits. Will be sorted alphabetically by the words.
 xpWordHits :: PU WordHits
-xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, M.toList) (xpList xpScoredWord)
+xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, toListSorted) (xpList xpScoredWord)
   where
+  toListSorted = L.sortBy (compare `on` fst) . M.toList -- Sort by word
   xpScoredWord = xpElem "word" (xpPair (xpAttr "w" xpText) (xpPair (xpAttr "score" xpPrim) xpWordContextHits))
 
+-- | The XML pickler for the contexts in which the words were found.
 xpWordContextHits :: PU WordContextHits
 xpWordContextHits = xpWrap (M.fromList, M.toList) (xpList xpWordContextHit)
   where
   xpWordContextHit = xpElem "context" (xpPair (xpAttr "name" xpText) xpWordDocHits)
 
+-- | The XML pickler for the documents and positions where the word occurs (reusing existing pickler).
 xpWordDocHits :: PU WordDocHits
 xpWordDocHits = xpOccurrences
 
@@ -197,3 +218,7 @@ unionScore = flip flip 2.0 . ((/) .) . (+)
 -- | Create a result from a list of tuples.
 fromList :: Context -> [(String, Occurrences)] -> Result
 fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
+
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+(*) `on` f = \x y -> f x * f y
