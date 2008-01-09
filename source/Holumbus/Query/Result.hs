@@ -205,11 +205,11 @@ sizeWords = M.size . wordHits
 
 -- | Query the maximum score of the documents.
 maxScoreDocs :: Result -> Score
-maxScoreDocs = (IM.fold (\(s, _) r -> if s > r then s else r) 0.0) . docHits
+maxScoreDocs = (IM.fold (\(s, _) r -> max s r) 0.0) . docHits
 
 -- | Query the maximum score of the words.
 maxScoreWords :: Result -> Score
-maxScoreWords = (M.fold (\(s, _) r -> if s > r then s else r) 0.0) . wordHits
+maxScoreWords = (M.fold (\(s, _) r -> max s r) 0.0) . wordHits
 
 -- | Test if the result contains anything.
 null :: Result -> Bool

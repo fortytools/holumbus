@@ -91,7 +91,7 @@ emptyDocuments = Documents IM.empty M.empty 0
 
 -- | Query the @idToDoc@ part of the document table for the last id.
 lastId :: IntMap Document -> Int
-lastId = fst . fst . (fromMaybe ((0, ("", "")), IM.empty)) . IM.maxViewWithKey
+lastId = (IM.foldWithKey (\k _ r -> max k r) 0)
 
 -- | Look for an URI in the document table.
 lookupURI :: URI -> Documents -> Maybe DocId
