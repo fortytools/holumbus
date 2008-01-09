@@ -24,7 +24,9 @@ module Holumbus.Query.Result
   (
   -- * Result data types
   Result (..)
+  , VerboseResult (..)
   , DocHits
+  , VerboseDocHits
   , DocContextHits
   , DocWordHits
   , WordHits
@@ -55,14 +57,22 @@ module Holumbus.Query.Result
   
   -- * Pickling
   , xpResult
+  , xpVerboseResult
   , xpDocHits
+  , xpVerboseDocHits
   , xpWordHits
+  
+  -- * Transform
+  , annotateResult
+  , annotateDocHits
   )
 where
 
 import Prelude hiding (null)
 
 import qualified Data.List as L
+
+import Data.Maybe
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -74,15 +84,23 @@ import qualified Data.IntSet as IS
 
 import Text.XML.HXT.Arrow.Pickle
 
-import Holumbus.Index.Common (Positions, Occurrences, Context, xpPositions, xpOccurrences)
+import Holumbus.Index.Common hiding (sizeDocs, sizeWords)
+import Holumbus.Index.Documents
 
 -- | The combined result type for Holumbus queries.
 data Result = Result { docHits  :: !DocHits
                      , wordHits :: !WordHits
                      } deriving (Show)
 
+-- | The combined result type with complete information about the documents.
+data VerboseResult = VerboseResult { verboseDocHits  :: !VerboseDocHits
+                                   , verboseWordHits :: !WordHits
+                                   } deriving (Show)
+
 -- | A mapping from a document to it's score and the contexts where it was found.
 type DocHits = IntMap (Score, DocContextHits)
+-- | Almost the same as document hits above, but with retrieved title and URI of a document.
+type VerboseDocHits = IntMap (Title, URI, Score, DocContextHits)
 -- | A mapping from a context to the words of the document that were found in this context.
 type DocContextHits = Map Context DocWordHits
 -- | A mapping from a word of the document in a specific context to it's positions.
@@ -101,9 +119,24 @@ type Score = Float
 instance XmlPickler Result where
   xpickle = xpWrap (\(d, w) -> Result d w, \(Result d w) -> (d, w)) (xpPair xpDocHits xpWordHits)
 
+instance XmlPickler VerboseResult where
+  xpickle = xpWrap (\(d, w) -> VerboseResult d w, \(VerboseResult d w) -> (d, w)) (xpPair xpVerboseDocHits xpWordHits)
+
 -- | The XML pickler for the result type.
 xpResult :: PU Result
 xpResult = xpElem "result" $ xpickle
+
+-- | The XML pickler for the verbose result type.
+xpVerboseResult :: PU VerboseResult
+xpVerboseResult = xpElem "result" $ xpickle
+
+-- |  The XML pickler for verbose document hits. Will be sorted by score.
+xpVerboseDocHits :: PU VerboseDocHits
+xpVerboseDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpScoredDoc)
+  where
+  toListSorted = L.sortBy (compare `on` (\(_, (_, _, s, _)) -> s)) . IM.toList -- Sort by score
+  xpScoredDoc = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) xpDocInfo)
+  xpDocInfo = (xp4Tuple (xpAttr "title" xpText) (xpAttr "uri" xpText) (xpAttr "score" xpPrim) xpDocContextHits)
 
 -- | The XML pickler for the document hits. Will be sorted by score.
 xpDocHits :: PU DocHits
@@ -238,6 +271,19 @@ unionScore = flip flip 2.0 . ((/) .) . (+)
 -- | Create a result from a list of tuples.
 fromList :: Context -> [(String, Occurrences)] -> Result
 fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
+
+-- | Transform a result to a verbose result by transforming the document hits accordingly.
+annotateResult :: HolIndex i => Result -> i -> VerboseResult
+annotateResult (Result dh wh) i = VerboseResult (annotateDocHits dh i) wh
+
+-- | Transform document hits into verbose document hits by looking up all document information in
+-- the document table of the provided index.
+annotateDocHits :: HolIndex i => DocHits -> i -> VerboseDocHits
+annotateDocHits dh i = IM.mapWithKey annotateDoc dh
+  where
+  annotateDoc docId (s, dch) = (fst doc, snd doc, s, dch)
+    where
+    doc = fromJust $ lookupId docId (documents i)
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
