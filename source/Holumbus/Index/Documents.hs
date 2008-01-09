@@ -76,7 +76,7 @@ instance XmlPickler Documents where
 
 -- | The XML pickler for a single document.
 xpDocument :: PU Document
-xpDocument = xpPair xpURI xpTitle
+xpDocument = xpPair xpTitle xpURI
   where
   xpURI           = xpAttr "href" xpText
   xpTitle         = xpAttr "title" xpText
