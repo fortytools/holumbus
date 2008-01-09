@@ -36,6 +36,7 @@ module Holumbus.Query.Result
   
   -- * Construction
   , emptyResult
+  , emptyVerboseResult
   , emptyDocHits
   , emptyWordHits
   , fromList  
@@ -136,7 +137,7 @@ xpVerboseDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList
   where
   toListSorted = L.sortBy (compare `on` (\(_, (_, _, s, _)) -> s)) . IM.toList -- Sort by score
   xpScoredDoc = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) xpDocInfo)
-  xpDocInfo = (xp4Tuple (xpAttr "title" xpText) (xpAttr "uri" xpText) (xpAttr "score" xpPrim) xpDocContextHits)
+  xpDocInfo = (xp4Tuple (xpAttr "title" xpText) (xpAttr "href" xpText) (xpAttr "score" xpPrim) xpDocContextHits)
 
 -- | The XML pickler for the document hits. Will be sorted by score.
 xpDocHits :: PU DocHits
@@ -177,6 +178,10 @@ xpWordDocHits = xpOccurrences
 -- | Create an empty result.
 emptyResult :: Result
 emptyResult = Result IM.empty M.empty
+
+-- | Create an empty verbose result.
+emptyVerboseResult :: VerboseResult
+emptyVerboseResult = VerboseResult IM.empty M.empty
 
 -- | Create an empty set of document hits.
 emptyDocHits :: DocHits
@@ -273,13 +278,13 @@ fromList :: Context -> [(String, Occurrences)] -> Result
 fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
 
 -- | Transform a result to a verbose result by transforming the document hits accordingly.
-annotateResult :: HolIndex i => Result -> i -> VerboseResult
-annotateResult (Result dh wh) i = VerboseResult (annotateDocHits dh i) wh
+annotateResult :: HolIndex i => i -> Result -> VerboseResult
+annotateResult i (Result dh wh) = VerboseResult (annotateDocHits i dh) wh
 
 -- | Transform document hits into verbose document hits by looking up all document information in
 -- the document table of the provided index.
-annotateDocHits :: HolIndex i => DocHits -> i -> VerboseDocHits
-annotateDocHits dh i = IM.mapWithKey annotateDoc dh
+annotateDocHits :: HolIndex i => i -> DocHits -> VerboseDocHits
+annotateDocHits i dh = IM.mapWithKey annotateDoc dh
   where
   annotateDoc docId (s, dch) = (fst doc, snd doc, s, dch)
     where
