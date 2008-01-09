@@ -51,7 +51,7 @@ function displayWordHits (hits, count, score) {
 	var cloud = document.createElement("p");
 	cloud.setAttribute("class", "cloud");
 
-	var capacity = (0.6 * (window.innerWidth - 250)).round();
+	var capacity = (0.85 * (window.innerWidth - 250)).round();
 	var i = 0;
 	var chars = 0;
 
@@ -68,7 +68,7 @@ function displayWordHits (hits, count, score) {
 		cloud.appendChild(node);
 		cloud.appendChild(document.createTextNode(" "));
 		
-		chars += w.length;
+		chars += w.length * size;
 		i++;
 	}
 	
