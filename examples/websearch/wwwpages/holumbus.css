@@ -1,6 +1,7 @@
 body {
 	font-family: Verdana, sans-serif;
 	margin: 0px;
+	font-size: 8pt;
 }
 
 a:link { text-decoration: none; color: navy; }
@@ -112,3 +113,14 @@ p.cloud {
 #cloud7 { font-size: 16pt; }
 #cloud8 { font-size: 18pt; }
 #cloud9 { font-size: 20pt; }
+
+#results { margin: 10px; }
+
+#title { font-weight: bold; }
+
+a#link { text-decoration: underline; }
+
+#contexts { color: gray; }
+#context { font-weight: bold; }
+
+#uri { color: green; }
