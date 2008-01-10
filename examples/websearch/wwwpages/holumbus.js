@@ -1,23 +1,34 @@
 var lastPress = (new Date()).getTime();
+var poll;
 
-function processQuery () {
+function tryProcessQuery () {
 	currentPress = (new Date()).getTime();
 	delay = currentPress - lastPress;
 	lastPress = currentPress;
 	if (delay > 500) {
-		query = document.getElementById("querytext").value;
-		if (query.length > 1) {
-			new Ajax.Request("holumbus.xml?query=" + query,
-			{
-				method:'get',
-				onSuccess: function(transport) {
-					lastXMLResult = transport.responseXML;
-					lastTXTResult = transport.responseText;
-				  displayResult(transport.responseXML);
-				},
-				onFailure: function(){ alert('Something went wrong...') }
-			});
-		}
+		processQuery();
+	}
+}
+
+function forceProcessQuery () {
+	processQuery();
+	
+	return false;
+}
+
+function processQuery () {
+	query = document.getElementById("querytext").value;
+	if (query.length > 1) {
+		new Ajax.Request("holumbus.xml?query=" + query,
+		{
+			method:'get',
+			onSuccess: function(transport) {
+				lastXMLResult = transport.responseXML;
+				lastTXTResult = transport.responseText;
+			  displayResult(transport.responseXML);
+			},
+			onFailure: function(){ alert('Something went wrong...') }
+		});
 	}
 }
 
@@ -51,7 +62,7 @@ function displayWordHits (hits, count, score) {
 	var cloud = document.createElement("p");
 	cloud.setAttribute("class", "cloud");
 
-	var capacity = (0.85 * (window.innerWidth - 250)).round();
+	var capacity = (0.9 * (window.innerWidth - 250)).round();
 	var i = 0;
 	var chars = 0;
 

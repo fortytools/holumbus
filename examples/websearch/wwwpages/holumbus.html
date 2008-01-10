@@ -32,6 +32,20 @@
 
 <body>
 	<div id="top">
+		<div id="left">
+			<div id="logo">
+				<a href="http://holumbus.schlatt.com"><img border="0" src="holumbus.png"/></a>
+			</div>		
+		
+			<div id="query">
+				<form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="holumbus.xml">
+					<div id="help">Enter some search terms (<a id="help" href="javascript:toggleHelp()">help</a>):</div>
+					<input class="querybox" id="querytext" type="text" onkeyup="tryProcessQuery()" value="" name="querytext" autocomplete="off"/>
+					<div id="stats">Nothing found yet.</div>
+				</form>
+			</div>
+		</div>
+
 		<div id="right">
 			<div id="credits">
 				Powerd by <a id="credits" href="http://haskell.org">Haskell</a>, 
@@ -43,21 +57,6 @@
 				<p class="cloud"></p>
 			</div>
 		</div>
-
-		<div if="left">
-			<div id="logo">
-				<a href="http://holumbus.schlatt.com"><img border="0" src="holumbus.png"/></a>
-			</div>		
-		
-			<div id="query">
-				<form id="queryform" onsubmit="return always_return_false()" method="get" action="holumbus.html">
-					<div id="help">Enter some search terms (<a id="help" href="javascript:toggleHelp()">help</a>):</div>
-					<input class="querybox" id="querytext" type="text" onkeyup="processQuery()" value="" name="querytext"/>
-					<div id="stats">Nothing found yet.</div>
-				</form>
-			</div>
-		</div>
-	
 	</div>
 	
 	<div id="bottom">

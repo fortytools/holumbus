@@ -64,14 +64,15 @@ td.example {
 #top { 
 	background-color: #EEEEEE;
 	padding: 10px;
+	height: 140px;
 }
 
 #right { 
-	float: right; 
-	width: 65%;
+	padding-left: 300px;
+	right: 5px;
 }
 #left { 
-	float: left; 
+	float: left;
 }
 
 #query { margin: 10px; }
