@@ -56,6 +56,8 @@ module Holumbus.Data.StrMap
   , elems
   , toList
   , fromList
+  , toMap
+  , fromMap
   )
 where
 

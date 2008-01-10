@@ -26,6 +26,7 @@ import Prelude hiding (succ, lookup, map, null)
 import Data.Maybe
 import Data.Char
 import qualified Data.List as L
+import qualified Data.Map as M
 
 -- | A map from Strings to values a.
 data StrMap a 
@@ -153,6 +154,10 @@ elems t   = L.map snd (toList t)
 fromList :: [(String, a)] -> StrMap a
 fromList xs = foldr (\(k, v) p -> insert k v p) empty xs
 
+-- | /O(n)/ Returns all elements as list of key value pairs,
+toList :: StrMap a -> [(String, a)]
+toList = foldWithKey (\k v r -> (k, v):r) []
+
 -- | /O(n)/ The number of elements.
 size :: StrMap a -> Int
 size = fold (\_ r -> r + 1) 0
@@ -219,6 +224,10 @@ mapWithKey f m = map' "" m
 map :: (a -> b) -> StrMap a -> StrMap b
 map f = mapWithKey (\_ v -> f v)
 
--- | /O(n)/ Returns all elements as key value pairs,
-toList :: StrMap a -> [(String, a)]
-toList = foldWithKey (\k v r -> (k, v):r) []
+-- | Convert into an ordinary map.
+toMap :: StrMap a -> M.Map String a
+toMap = foldWithKey M.insert M.empty
+
+-- | Convert an ordinary map into a StrMap.
+fromMap :: M.Map String a -> StrMap a
+fromMap = M.foldWithKey insert empty
