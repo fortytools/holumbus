@@ -71,7 +71,7 @@ function displayWordHits (hits, count, score) {
 	var words = hits.getElementsByTagName("word");
 
 	var cloud = document.createElement("p");
-	cloud.setAttribute("class", "cloud");
+	cloud.setAttribute("id", "cloud");
 
 	var capacity = (0.9 * (window.innerWidth - 250)).round();
 	var i = 0;
@@ -83,7 +83,7 @@ function displayWordHits (hits, count, score) {
 		var s = word.getAttribute("score");
 		var size = weightScore(1, 9, s, score).round();
 		var node = document.createElement("span");
-		node.setAttribute("id", "cloud" + size);
+		node.setAttribute("class", "cloud" + size);
 		var text = document.createTextNode(w);
 		node.appendChild(text);
 		
@@ -99,7 +99,7 @@ function displayWordHits (hits, count, score) {
 	}
 	
 	var container = document.getElementById("words");
-	container.replaceChild(cloud, container.firstChild);
+	container.replaceChild(cloud, document.getElementById("cloud"));
 }
 
 function displayDocHits (hits, count, score) {
@@ -116,17 +116,17 @@ function displayDocHits (hits, count, score) {
 		node.setAttribute("class", "entry");
 		
 		var link = document.createElement("a");
-		link.setAttribute("id", "link");
+		link.setAttribute("class", "link");
 		link.setAttribute("href", href);
 		link.appendChild(document.createTextNode(doc.getAttribute("title")));
 		var title = document.createElement("div");
-		title.setAttribute("id", "title");
+		title.setAttribute("class", "title");
 		title.appendChild(link);
 
 		var contexts = createContextNode(doc.getElementsByTagName("context"));
 		
 		var uri = document.createElement("div");
-		uri.setAttribute("id", "uri");
+		uri.setAttribute("class", "uri");
 		uri.appendChild(document.createTextNode(href));
 		
 		node.appendChild(title);
@@ -138,17 +138,17 @@ function displayDocHits (hits, count, score) {
 	}
 	
 	var container = document.getElementById("results");
-	container.replaceChild(list, container.firstChild);
+	container.replaceChild(list, document.getElementById("list"));
 }
 
 function createContextNode(contexts) {
 	var node = document.createElement("div");
-	node.setAttribute("id", "contexts");
+	node.setAttribute("class", "contexts");
 
 	for (var i = 0; i < contexts.length; i++) {
 		var context = contexts[i];
 		var name = document.createElement("span");
-		name.setAttribute("id", "context");
+		name.setAttribute("class", "context");
 		var txt = context.getAttribute("name");
 		var upcase = txt.substr(0, 1).toUpperCase() + txt.substr(1).toLowerCase();
 		name.appendChild(document.createTextNode(upcase + ":"));

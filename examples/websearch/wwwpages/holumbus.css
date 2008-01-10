@@ -9,10 +9,13 @@ a:hover { text-decoration: underline; }
 a:visited { text-decoration: none; color: navy; }
 a:active { text-decoration: none; color: navy; }
 
-a#help { font-weight: bold; }
-a#help:hover { color: #505050; text-decoration: none; }
+a.help { font-weight: bold; color: gray; }
+a.help:hover { color: #505050; text-decoration: none; }
+
+img.logo { border: none; }
 
 #help { color: gray; }
+
 #stats { color: gray; }
 
 #throbber { 
@@ -82,10 +85,10 @@ td.example {
 
 #query { margin: 10px; }
 
-a#credits { font-weight: bold; }
-a#credits:link { font-weight: bold; }
-a#credits:visited { font-weight: bold; }
-a#credits:hover { color: #505050; text-decoration: none; }
+a.credits { font-weight: bold; color: gray; }
+a.credits:link { font-weight: bold; }
+a.credits:visited { font-weight: bold; }
+a.credits:hover { color: #505050; text-decoration: none; }
 
 #credits {
 	text-align: right;
@@ -93,7 +96,7 @@ a#credits:hover { color: #505050; text-decoration: none; }
 	color: gray;
 }
 
-p.cloud {
+p#cloud {
 	color: gray;
 	text-align: center;
 	vertical-align: middle;
@@ -110,23 +113,23 @@ p.cloud {
 	vertical-align: middle;
 }
 
-#cloud1 { font-size: 8pt; }
-#cloud2 { font-size: 10pt; }
-#cloud3 { font-size: 11pt; }
-#cloud4 { font-size: 12pt; }
-#cloud5 { font-size: 13pt; }
-#cloud6 { font-size: 14pt; }
-#cloud7 { font-size: 16pt; }
-#cloud8 { font-size: 18pt; }
-#cloud9 { font-size: 20pt; }
+.cloud1 { font-size: 8pt; }
+.cloud2 { font-size: 10pt; }
+.cloud3 { font-size: 11pt; }
+.cloud4 { font-size: 12pt; }
+.cloud5 { font-size: 13pt; }
+.cloud6 { font-size: 14pt; }
+.cloud7 { font-size: 16pt; }
+.cloud8 { font-size: 18pt; }
+.cloud9 { font-size: 20pt; }
 
 #results { margin: 10px; }
 
-#title { font-weight: bold; }
+.title { font-weight: bold; }
 
-a#link { text-decoration: underline; }
+a.link { text-decoration: underline; }
 
-#contexts { color: gray; }
-#context { font-weight: bold; }
+.contexts { color: gray; }
+.context { font-weight: bold; }
 
-#uri { color: green; }
+.uri { color: green; }

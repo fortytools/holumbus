@@ -34,14 +34,16 @@
 	<div id="top">
 		<div id="left">
 			<div id="logo">
-				<a href="http://holumbus.schlatt.com"><img border="0" src="holumbus.png"/></a>
+				<a href="http://holumbus.schlatt.com"><img class="logo" src="holumbus.png" alt="Holumbus logo"/></a>
 			</div>		
 		
 			<div id="query">
 				<form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="holumbus.xml">
-					<div id="help">Enter some search terms (<a id="help" href="javascript:toggleHelp()">help</a>):</div>
-					<input class="querybox" id="querytext" type="text" onkeyup="tryProcessQuery()" value="" name="querytext" autocomplete="off"/>
-					<img id="throbber" src="loader.gif"/>
+					<div id="help">Enter some search terms (<a class="help" href="javascript:toggleHelp()">help</a>):</div>
+					<div id="queryinterface">
+						<input class="querybox" id="querytext" type="text" onkeyup="tryProcessQuery()" value="" name="querytext" autocomplete="off"/>
+						<img id="throbber" src="loader.gif" alt="Throbber"/>
+					</div>
 					<div id="stats">Nothing found yet.</div>
 				</form>
 			</div>
@@ -49,13 +51,13 @@
 
 		<div id="right">
 			<div id="credits">
-				Powerd by <a id="credits" href="http://haskell.org">Haskell</a>, 
-				<a id="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
-				<a id="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">Janus</a> and 
-				<a id="credits" href="http://holumbus.schlatt.com">Holumbus</a>
+				Powerd by <a class="credits" href="http://haskell.org">Haskell</a>, 
+				<a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
+				<a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">Janus</a> and 
+				<a class="credits" href="http://holumbus.schlatt.com">Holumbus</a>
 			</div>
 			<div id="words"> 
-				<p class="cloud"></p>
+				<p id="cloud"></p>
 			</div>
 		</div>
 	</div>
