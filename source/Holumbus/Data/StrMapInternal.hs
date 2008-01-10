@@ -41,48 +41,48 @@ instance (Eq a) => Eq (StrMap a) where
   (==) (End _ _ _) (Seq _ _)         = False
   (/=) m1 m2                         = not (m1 == m2)
 
--- | Create an empty trie.
+-- | /O(1)/ Create an empty trie.
 empty :: StrMap a
 empty = Seq "" []
 
--- | Is the map empty?
+-- | /O(1)/ Is the map empty?
 null :: StrMap a -> Bool
 null (Seq _ [])    = True
 null (Seq _ (_:_)) = False
 null (End _ _ _)   = error "Root node should be Seq!"
 
--- | Create a map with a single element.
+-- | /O(1)/ Create a map with a single element.
 singleton :: String -> a -> StrMap a
 singleton k v = Seq "" [End k v []]
 
--- | Extract the key of a node
+-- | /O(1)/ Extract the key of a node
 key :: StrMap a -> String
 key (End k _ _) = k
 key (Seq k _)   = k
 
--- | Extract the value of a node (if there is one)
+-- | /O(1)/ Extract the value of a node (if there is one)
 value :: StrMap a -> Maybe a
 value (End _ n _) = Just n
 value (Seq _ _) = Nothing
 
--- | Extract the successors of a node
+-- | /O(1)/ Extract the successors of a node
 succ :: StrMap a -> [StrMap a]
 succ (End _ _ t) = t
 succ (Seq _ t)   = t
 
--- | Sets the key of a node.
+-- | /O(1)/ Sets the key of a node.
 setKey :: String -> StrMap a -> StrMap a
 setKey k (End _ v t) = End k v t
 setKey k (Seq _ t)   = Seq k t
 
--- | Sets the successors of a node.
+-- | /O(1)/ Sets the successors of a node.
 setSucc :: [StrMap a] -> StrMap a -> StrMap a
 setSucc t (End k v _) = End k v t
 setSucc t (Seq k _)   = Seq k t
 
 -- | Find the value at a key. Calls error when the element can not be found.
 (!) :: StrMap a -> String -> a
-(!) m k = if isNothing r then error ("key " ++ k ++ " is not an element of the map")
+(!) m k = if isNothing r then error ("Key " ++ k ++ " is not an element of the map!")
           else fromJust r
           where r = lookup k m
 
@@ -145,21 +145,17 @@ split a b = split' a b ("","", "")
 splitNoCase :: String -> String -> (String, String, String)
 splitNoCase a b = split (L.map toLower a) (L.map toLower b)
 
--- | Returns all values.
+-- | /O(n)/ Returns all values.
 elems :: StrMap a -> [a]
 elems t   = L.map snd (toList t)
 
--- | Creates a trie from a list of key\/value pairs.
+-- | /O(n)/ Creates a trie from a list of key\/value pairs.
 fromList :: [(String, a)] -> StrMap a
 fromList xs = foldr (\(k, v) p -> insert k v p) empty xs
 
--- | The number of elements.
+-- | /O(n)/ The number of elements.
 size :: StrMap a -> Int
-size n = size' n 0
-  where
-    size' :: StrMap a -> Int -> Int
-    size' (End _ _ t) i = foldr size' (i + 1) t
-    size' (Seq _ t) i   = foldr size' i t
+size = fold (\_ r -> r + 1) 0
 
 -- | Find all values where the string is a prefix of the key.
 prefixFind :: String -> StrMap a -> [a] 
@@ -201,28 +197,28 @@ lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
                  | otherwise = []
                  where (_, pr, kr) = splitNoCase q (key n)
 
--- | Fold over all key\/value pairs in the map.
+-- | /O(n)/ Fold over all key\/value pairs in the map.
 foldWithKey :: (String -> a -> b -> b) -> b -> StrMap a -> b
 foldWithKey f n m = fold' "" m n
   where
   fold' ck (End k v t) r = let nk = ck ++ k in foldr (fold' nk) (f nk v r) t
   fold' ck (Seq k t) r   = let nk = ck ++ k in foldr (fold' nk) r t
 
--- | Fold over all values in the map.
+-- | /O(n)/ Fold over all values in the map.
 fold :: (a -> b -> b) -> b -> StrMap a -> b
 fold f = foldWithKey (\_ v r -> f v r)
 
--- | Map over all key\/value pairs in the map.
+-- | /O(n)/ Map over all key\/value pairs in the map.
 mapWithKey :: (String -> a -> b) -> StrMap a -> StrMap b
 mapWithKey f m = map' "" m
   where
   map' ck (End k v t) = let nk = ck ++ k in End k (f nk v) (L.map (map' nk) t)
   map' ck (Seq k t)   = let nk = ck ++ k in Seq k (L.map (map' nk) t)
 
--- | Map over all values in the map.
+-- | /O(n)/ Map over all values in the map.
 map :: (a -> b) -> StrMap a -> StrMap b
 map f = mapWithKey (\_ v -> f v)
 
--- | Returns all elements as key value pairs,
+-- | /O(n)/ Returns all elements as key value pairs,
 toList :: StrMap a -> [(String, a)]
 toList = foldWithKey (\k v r -> (k, v):r) []
