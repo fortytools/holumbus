@@ -35,5 +35,7 @@ library
     Holumbus.Index.Common,
     Holumbus.Index.Documents,
     Holumbus.Index.Convert
+  other-modules:
+    Holumbus.Data.StrMapInternal
   hs-source-dirs: source
   ghc-options:    -Wall -O -fno-warn-type-defaults
