@@ -15,6 +15,11 @@ a#help:hover { color: #505050; text-decoration: none; }
 #help { color: gray; }
 #stats { color: gray; }
 
+#throbber { 
+	display: none; 
+	vertical-align: text-bottom;
+}
+
 td {
 	border: 0px;
 	margin: 0px;

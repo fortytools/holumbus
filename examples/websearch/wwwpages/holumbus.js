@@ -1,6 +1,14 @@
 var lastPress = (new Date()).getTime();
 var poll;
 
+function showThrobber () {
+	document.getElementById("throbber").style.display = "inline";
+}
+
+function hideThrobber () {
+	document.getElementById("throbber").style.display = "none";
+}
+
 function tryProcessQuery () {
 	currentPress = (new Date()).getTime();
 	delay = currentPress - lastPress;
@@ -19,6 +27,7 @@ function forceProcessQuery () {
 function processQuery () {
 	query = document.getElementById("querytext").value;
 	if (query.length > 1) {
+		showThrobber();
 		new Ajax.Request("holumbus.xml?query=" + query,
 		{
 			method:'get',
@@ -54,6 +63,8 @@ function displayResult (result) {
 
 	displayDocHits(docHits, noDocHits, maxDocScore);
 	displayWordHits(wordHits, noWordHits, maxWordScore);
+	
+	hideThrobber();
 }
 
 function displayWordHits (hits, count, score) {

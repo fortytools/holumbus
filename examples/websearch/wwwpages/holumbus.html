@@ -41,6 +41,7 @@
 				<form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="holumbus.xml">
 					<div id="help">Enter some search terms (<a id="help" href="javascript:toggleHelp()">help</a>):</div>
 					<input class="querybox" id="querytext" type="text" onkeyup="tryProcessQuery()" value="" name="querytext" autocomplete="off"/>
+					<img id="throbber" src="loader.gif"/>
 					<div id="stats">Nothing found yet.</div>
 				</form>
 			</div>
