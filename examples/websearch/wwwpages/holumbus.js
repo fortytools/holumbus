@@ -108,7 +108,7 @@ function displayDocHits (hits, count, score) {
 	var list = document.createElement("div");
 	list.setAttribute("id", "list");
 	
-	for (var i = 0; i < docs.length; i++) {
+	for (var i = (docs.length - 1); i >= 0; i--) {
 		var doc = docs[i];
 		var href = doc.getAttribute("href");
 
