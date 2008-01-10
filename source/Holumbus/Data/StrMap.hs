@@ -59,5 +59,5 @@ module Holumbus.Data.StrMap
   )
 where
 
-import Prelude hiding (lookup, map)
+import Prelude hiding (lookup, map, null)
 import Holumbus.Data.StrMapInternal

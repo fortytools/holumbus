@@ -17,9 +17,11 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS_HADDOCK hide #-}
+
 module Holumbus.Data.StrMapInternal where
 
-import Prelude hiding (succ, lookup, map)
+import Prelude hiding (succ, lookup, map, null)
 
 import Data.Maybe
 import Data.Char
@@ -42,6 +44,12 @@ instance (Eq a) => Eq (StrMap a) where
 -- | Create an empty trie.
 empty :: StrMap a
 empty = Seq "" []
+
+-- | Is the map empty?
+null :: StrMap a -> Bool
+null (Seq _ [])    = True
+null (Seq _ (_:_)) = False
+null (End _ _ _)   = error "Root node should be Seq!"
 
 -- | Create a map with a single element.
 singleton :: String -> a -> StrMap a
@@ -182,7 +190,7 @@ prefixFindInternal f = prefixFindInternal' f ""
 lookup :: String -> StrMap a -> Maybe a
 lookup q n | pr == "" = if kr == "" then value n else Nothing
            | kr == "" = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
-                        if null xs then Nothing else head xs
+                        if L.null xs then Nothing else head xs
            | otherwise = Nothing
            where (_, pr, kr) = split q (key n)
 
