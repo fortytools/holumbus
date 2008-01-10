@@ -14,7 +14,10 @@
 
   Arbitrary values can associated with a string key. Searching for keys is very fast,
   but the trie consumes quite some memory. The main difference to Data.Map are the special
-  \"prefixFind\" functions, which can be used to perform prefix queries. 
+  \"prefixFind\" functions, which can be used to perform prefix queries.
+  
+  Many functions have a worst-case complexity of /O(L)/. This means that the operation is
+  at most linear with the length of the key (the number of characters in the string).
 
 -}
 

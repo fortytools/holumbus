@@ -81,33 +81,33 @@ setSucc :: [StrMap a] -> StrMap a -> StrMap a
 setSucc t (End k v _) = End k v t
 setSucc t (Seq k _)   = Seq k t
 
--- | Find the value at a key. Calls error when the element can not be found.
+-- | /O(L)/ Find the value at a key. Calls error when the element can not be found.
 (!) :: StrMap a -> String -> a
 (!) m k = if isNothing r then error ("Key " ++ k ++ " is not an element of the map!")
           else fromJust r
           where r = lookup k m
 
--- | Is the key a member of the map?
+-- | /O(L)/ Is the key a member of the map?
 member :: String -> StrMap a -> Bool
 member k m = maybe False (\_ -> True) (lookup k m)
 
--- | Insert with a combining function. If the key is already present in the map, the
+-- | /O(L)/ Insert with a combining function. If the key is already present in the map, the
 -- value of @f key new_value old_value@ will be inserted.
 insertWithKey :: (String -> a -> a -> a) -> String -> a -> StrMap a -> StrMap a
 insertWithKey f nk nv n = insert' f nk nv nk n
 
--- | Insert with a combining function. If the key is already present in the map, the
+-- | /O(L)/ Insert with a combining function. If the key is already present in the map, the
 -- value of @f new_value old_value@ will be inserted.
 insertWith :: (a -> a -> a) -> String -> a -> StrMap a -> StrMap a
 insertWith f nk nv n = insert' (\_ new old -> f new old) nk nv nk n
 
--- | Insert a new key and value into the map. If the key is already present in the map,
+-- | /O(L)/ Insert a new key and value into the map. If the key is already present in the map,
 -- the associated value will be replaced with the new value.
 insert :: String -> a -> StrMap a -> StrMap a
 insert nk nv n = insertWith const nk nv n
 
--- | The internal insert function which does the real work. The original new key has to be put
--- through because otherwise it will be shortened on every recursive call.
+-- | /O(L)/ The internal insert function which does the real work. The original new key has to be
+-- put through because otherwise it will be shortened on every recursive call.
 insert' :: (String -> a -> a -> a) -> String -> a -> String -> StrMap a -> StrMap a
 insert' f nk nv ok n | nk == ""             = error "Empty key!"
                      -- Key already exists, the current value will be replaced with the new value.
@@ -162,23 +162,23 @@ toList = foldWithKey (\k v r -> (k, v):r) []
 size :: StrMap a -> Int
 size = fold (\_ r -> r + 1) 0
 
--- | Find all values where the string is a prefix of the key.
+-- | /O(L)/ Find all values where the string is a prefix of the key.
 prefixFind :: String -> StrMap a -> [a] 
 prefixFind q n = L.map snd (prefixFindInternal split q n)
 
--- | Find all values where the string is a prefix of the key and include the keys in the result.
+-- | /O(L)/ Find all values where the string is a prefix of the key and include the keys in the result.
 prefixFindWithKey :: String -> StrMap a -> [(String, a)]
 prefixFindWithKey = prefixFindInternal split
 
--- | Same as prefixFind, but case insensitive.
+-- | /O(L)/ Same as prefixFind, but case insensitive.
 prefixFindNoCase :: String -> StrMap a -> [a]
 prefixFindNoCase q n = L.map snd (prefixFindInternal splitNoCase q n)
 
--- | Same as prefixFindWithKey, but case insensitive
+-- | /O(L)/ Same as prefixFindWithKey, but case insensitive
 prefixFindNoCaseWithKey :: String -> StrMap a -> [(String, a)]
 prefixFindNoCaseWithKey = prefixFindInternal splitNoCase
 
--- | Internal prefix find function which is used to implement every other prefix find function.
+-- | /O(L)/ Internal prefix find function which is used to implement every other prefix find function.
 prefixFindInternal :: (String -> String -> (String, String, String)) -> String -> StrMap a -> [(String, a)]
 prefixFindInternal f = prefixFindInternal' f ""
   where
@@ -187,7 +187,7 @@ prefixFindInternal f = prefixFindInternal' f ""
                                  | otherwise = []
                                  where (_, pr, kr) = sf p (key n)
 
--- | Find the value associated with a key.
+-- | /O(L)/ Find the value associated with a key.
 lookup :: String -> StrMap a -> Maybe a
 lookup q n | pr == "" = if kr == "" then value n else Nothing
            | kr == "" = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
@@ -195,7 +195,7 @@ lookup q n | pr == "" = if kr == "" then value n else Nothing
            | otherwise = Nothing
            where (_, pr, kr) = split q (key n)
 
--- | Search for values matching a key case insensitive.
+-- | /O(L)/ Search for values matching a key case insensitive.
 lookupNoCase :: String -> StrMap a -> [a]
 lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
                  | kr == "" = concat (L.map (lookupNoCase pr) (succ n))
@@ -224,10 +224,10 @@ mapWithKey f m = map' "" m
 map :: (a -> b) -> StrMap a -> StrMap b
 map f = mapWithKey (\_ v -> f v)
 
--- | Convert into an ordinary map.
+-- | /O(n)/ Convert into an ordinary map.
 toMap :: StrMap a -> M.Map String a
 toMap = foldWithKey M.insert M.empty
 
--- | Convert an ordinary map into a StrMap.
+-- | /O(n)/ Convert an ordinary map into a StrMap.
 fromMap :: M.Map String a -> StrMap a
 fromMap = M.foldWithKey insert empty
