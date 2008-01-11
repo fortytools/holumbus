@@ -16,7 +16,7 @@ start : $(PROG)
 	./$(PROG) -i sd.xml
 
 prof : $(PROG).hs
-	$(GHC) -prof -auto-all --make -o $(PROG) $(PROG).hs
+	$(GHC) -prof -auto-all -ignore-package Holumbus -i../../source/ -hidir . -odir . --make -o $(PROG) $(PROG).hs
 
 $(PROG) : $(PROG).hs
 	$(GHC) --make -o $(PROG) $(PROG).hs
