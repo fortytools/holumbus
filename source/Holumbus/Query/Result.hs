@@ -24,19 +24,17 @@ module Holumbus.Query.Result
   (
   -- * Result data types
   Result (..)
-  , VerboseResult (..)
   , DocHits
-  , VerboseDocHits
   , DocContextHits
   , DocWordHits
   , WordHits
   , WordContextHits
   , WordDocHits
+  , DocInfo (..)
   , Score
   
   -- * Construction
   , emptyResult
-  , emptyVerboseResult
   , emptyDocHits
   , emptyWordHits
   , fromList  
@@ -58,14 +56,14 @@ module Holumbus.Query.Result
   
   -- * Pickling
   , xpResult
-  , xpVerboseResult
   , xpDocHits
-  , xpVerboseDocHits
   , xpWordHits
   
   -- * Transform
   , annotateResult
-  , annotateDocHits
+  , setTitle
+  , setURI
+  , setScore
   )
 where
 
@@ -89,19 +87,21 @@ import Holumbus.Index.Common hiding (sizeDocs, sizeWords)
 import Holumbus.Index.Documents
 
 -- | The combined result type for Holumbus queries.
-data Result = Result { docHits  :: !DocHits
-                     , wordHits :: !WordHits
-                     } deriving (Show)
+data Result = Result        { docHits  :: !DocHits
+                            , wordHits :: !WordHits
+                            }
+            deriving (Show)
 
--- | The combined result type with complete information about the documents.
-data VerboseResult = VerboseResult { verboseDocHits  :: !VerboseDocHits
-                                   , verboseWordHits :: !WordHits
-                                   } deriving (Show)
+-- | Information about an document, either just the document id or the whole document information.
+data DocInfo = DocInfo        { score :: !Score }
+             | VerboseDocInfo { title :: !Title
+                              , uri   :: !URI
+                              , score :: !Score
+                              }
+             deriving (Show)
 
 -- | A mapping from a document to it's score and the contexts where it was found.
-type DocHits = IntMap (Score, DocContextHits)
--- | Almost the same as document hits above, but with retrieved title and URI of a document.
-type VerboseDocHits = IntMap (Title, URI, Score, DocContextHits)
+type DocHits = IntMap (DocInfo, DocContextHits)
 -- | A mapping from a context to the words of the document that were found in this context.
 type DocContextHits = Map Context DocWordHits
 -- | A mapping from a word of the document in a specific context to it's positions.
@@ -118,33 +118,30 @@ type WordDocHits = Occurrences
 type Score = Float
 
 instance XmlPickler Result where
-  xpickle = xpWrap (\(d, w) -> Result d w, \(Result d w) -> (d, w)) (xpPair xpDocHits xpWordHits)
+  xpickle =  xpWrap (\(dh, wh) -> Result dh wh, \(Result dh wh) -> (dh, wh)) (xpPair xpDocHits xpWordHits)
 
-instance XmlPickler VerboseResult where
-  xpickle = xpWrap (\(d, w) -> VerboseResult d w, \(VerboseResult d w) -> (d, w)) (xpPair xpVerboseDocHits xpWordHits)
-
+instance XmlPickler DocInfo where
+  xpickle = xpAlt tag ps
+    where
+    tag (DocInfo _) = 0
+    tag (VerboseDocInfo _ _ _) = 1
+    ps = [ xpDocInfo, xpVerboseDocInfo ]
+      where
+      xpDocInfo = xpWrap (DocInfo, \(DocInfo s) -> s) (xpAttr "score" xpPrim)
+      xpVerboseDocInfo = xpWrap (\(t, u, s) -> VerboseDocInfo t u s, \(VerboseDocInfo t u s) -> (t, u, s)) xpVerboseDocInfo'
+        where
+        xpVerboseDocInfo' = xpTriple (xpAttr "title" xpText) (xpAttr "href" xpText) (xpAttr "score" xpPrim)
+         
 -- | The XML pickler for the result type.
 xpResult :: PU Result
-xpResult = xpElem "result" $ xpickle
-
--- | The XML pickler for the verbose result type.
-xpVerboseResult :: PU VerboseResult
-xpVerboseResult = xpElem "result" $ xpickle
-
--- |  The XML pickler for verbose document hits. Will be sorted by score.
-xpVerboseDocHits :: PU VerboseDocHits
-xpVerboseDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpScoredDoc)
-  where
-  toListSorted = L.sortBy (compare `on` (\(_, (_, _, s, _)) -> s)) . IM.toList -- Sort by score
-  xpScoredDoc = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) xpDocInfo)
-  xpDocInfo = (xp4Tuple (xpAttr "title" xpText) (xpAttr "href" xpText) (xpAttr "score" xpPrim) xpDocContextHits)
+xpResult = xpElem "result" xpickle
 
 -- | The XML pickler for the document hits. Will be sorted by score.
 xpDocHits :: PU DocHits
-xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpScoredDoc)
+xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpDocHit)
   where
-  toListSorted = L.sortBy (compare `on` (fst . snd)) . IM.toList -- Sort by score
-  xpScoredDoc = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) (xpPair (xpAttr "score" xpPrim) xpDocContextHits))
+  toListSorted = L.sortBy (compare `on` (score . fst . snd)) . IM.toList -- Sort by score
+  xpDocHit = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) (xpPair xpickle xpDocContextHits))
 
 -- | The XML pickler for the contexts in which the documents were found.
 xpDocContextHits :: PU DocContextHits
@@ -179,10 +176,6 @@ xpWordDocHits = xpOccurrences
 emptyResult :: Result
 emptyResult = Result IM.empty M.empty
 
--- | Create an empty verbose result.
-emptyVerboseResult :: VerboseResult
-emptyVerboseResult = VerboseResult IM.empty M.empty
-
 -- | Create an empty set of document hits.
 emptyDocHits :: DocHits
 emptyDocHits = IM.empty
@@ -205,7 +198,7 @@ sizeWords = M.size . wordHits
 
 -- | Query the maximum score of the documents.
 maxScoreDocs :: Result -> Score
-maxScoreDocs = (IM.fold (\(s, _) r -> max s r) 0.0) . docHits
+maxScoreDocs = (IM.fold (\(di, _) r -> max (score di) r) 0.0) . docHits
 
 -- | Query the maximum score of the words.
 maxScoreWords :: Result -> Score
@@ -215,15 +208,30 @@ maxScoreWords = (M.fold (\(s, _) r -> max s r) 0.0) . wordHits
 null :: Result -> Bool
 null = IM.null . docHits
 
+-- | Set the title of a document info.
+setTitle :: Title -> DocInfo -> DocInfo
+setTitle t (DocInfo s) = VerboseDocInfo t "" s
+setTitle t (VerboseDocInfo _ u s) = VerboseDocInfo t u s
+
+-- | Set the URI of a document info.
+setURI :: URI -> DocInfo -> DocInfo
+setURI u (DocInfo s) = VerboseDocInfo "" u s
+setURI u (VerboseDocInfo t _ s) = VerboseDocInfo t u s
+
+-- | Set the score of a document info.
+setScore :: Score -> DocInfo -> DocInfo
+setScore s (DocInfo _) = DocInfo s
+setScore s (VerboseDocInfo t u _) = VerboseDocInfo t u s
+
 -- | Create the document hits structure for the results from a single context.
 createDocHits :: Context -> [(String, Occurrences)] -> DocHits
 createDocHits c = foldr (\(s, o) r -> IM.foldWithKey (insertDocHit c s) r o) emptyDocHits
 
 -- | Inserts the positions of a word in a document from a context into the result.
 insertDocHit :: Context -> String -> Int -> Positions -> DocHits -> DocHits
-insertDocHit c w d p r = IM.insert d (0.0, (M.insert c (M.insertWith IS.union w p dwh) dch)) r
+insertDocHit c w d p r = IM.insert d (DocInfo 0.0, (M.insert c (M.insertWith IS.union w p dwh) dch)) r
   where
-  dch = snd $ IM.findWithDefault (0.0, M.empty) d r
+  dch = snd $ IM.findWithDefault (DocInfo 0.0, M.empty) d r
   dwh = M.findWithDefault M.empty c dch
 
 -- | Create the word hits structure for the results from a single context.
@@ -262,12 +270,19 @@ unionWordHits :: WordHits -> WordHits -> WordHits
 unionWordHits = M.unionWith combineWordHits
 
 -- | Combine two tuples with score and context hits.
-combineDocHits :: (Score, DocContextHits) -> (Score, DocContextHits) -> (Score, DocContextHits)
-combineDocHits (s1, c1) (s2, c2) = (unionScore s1 s2, M.unionWith (M.unionWith IS.union) c1 c2)
+combineDocHits :: (DocInfo, DocContextHits) -> (DocInfo, DocContextHits) -> (DocInfo, DocContextHits)
+combineDocHits (i1, c1) (i2, c2) = (unionDocInfo i1 i2, M.unionWith (M.unionWith IS.union) c1 c2)
 
 -- | Combine two tuples with score and context hits.
 combineWordHits :: (Score, WordContextHits) -> (Score, WordContextHits) -> (Score, WordContextHits)
 combineWordHits (s1, c1) (s2, c2) = (unionScore s1 s2, M.unionWith (IM.unionWith IS.union) c1 c2)
+
+-- | Combine two doc informations.
+unionDocInfo :: DocInfo -> DocInfo -> DocInfo
+unionDocInfo (DocInfo s1) (DocInfo s2) = DocInfo (unionScore s1 s2)
+unionDocInfo (VerboseDocInfo t u s1) (DocInfo s2) = VerboseDocInfo t u (unionScore s1 s2)
+unionDocInfo (DocInfo s1) (VerboseDocInfo t u s2) = VerboseDocInfo t u (unionScore s1 s2)
+unionDocInfo (VerboseDocInfo t u s1) (VerboseDocInfo _ _ s2) = VerboseDocInfo t u (unionScore s1 s2)
 
 -- | Combine two scores (just average between them).
 unionScore :: Score -> Score -> Score
@@ -277,19 +292,16 @@ unionScore = flip flip 2.0 . ((/) .) . (+)
 fromList :: Context -> [(String, Occurrences)] -> Result
 fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
 
--- | Transform a result to a verbose result by transforming the document hits accordingly.
-annotateResult :: HolIndex i => i -> Result -> VerboseResult
-annotateResult i (Result dh wh) = VerboseResult (annotateDocHits i dh) wh
-
--- | Transform document hits into verbose document hits by looking up all document information in
+-- | Transform a result to a verbose result by by looking up all document information in
 -- the document table of the provided index.
-annotateDocHits :: HolIndex i => i -> DocHits -> VerboseDocHits
-annotateDocHits i dh = IM.mapWithKey annotateDoc dh
+annotateResult :: HolIndex i => i -> Result -> Result
+annotateResult i (Result dh wh) = Result (IM.mapWithKey convertDocInfo dh) wh
   where
-  annotateDoc docId (s, dch) = (fst doc, snd doc, s, dch)
+  convertDocInfo _ ((VerboseDocInfo t u s), dch) = (VerboseDocInfo t u s, dch)
+  convertDocInfo docId ((DocInfo s), dch) = (VerboseDocInfo (fst doc) (snd doc) s, dch)
     where
     doc = fromJust $ lookupId docId (documents i)
-
+ 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 op `on` f = \x y -> f x `op` f y

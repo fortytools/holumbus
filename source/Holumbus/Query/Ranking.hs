@@ -54,7 +54,7 @@ rank = rankWith docDefaultRanking wordDefaultRanking
 rankWith :: (DocId -> DocContextHits -> Score) -> (Word -> WordContextHits -> Score) -> Result -> Result
 rankWith fd fw r = Result scoredDocHits scoredWordHits
   where
-  scoredDocHits = IM.mapWithKey (\k (_, dch) -> (fd k dch, dch)) $ docHits r
+  scoredDocHits = IM.mapWithKey (\k (di, dch) -> (setScore (fd k dch) di, dch)) $ docHits r
   scoredWordHits = M.mapWithKey (\k (_, wch) -> (fw k wch, wch)) $ wordHits r
 
 -- | Rank documents by count.
