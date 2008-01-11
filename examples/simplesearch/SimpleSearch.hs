@@ -41,7 +41,8 @@ import Holumbus.Index.Common
 import Holumbus.Index.Documents
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
-import Holumbus.Query.Result
+import Holumbus.Query.Ranking
+import Holumbus.Query.Result hiding (sizeDocs, sizeWords)
 
 data Flag = Inverted String | Hybrid String | Verbose | Version deriving (Show, Eq)
 
@@ -107,30 +108,28 @@ answerQueries verbose i = do
                             addHistory n
                             answerQueries' n
   where
-    answerQueries' :: String -> IO ()
-    answerQueries' ""       = answerQueries verbose i
-    answerQueries' (':':xs) = internalCommand verbose i xs
-    answerQueries' q        = do
-                              pr <- return (parseQuery q)
-                              if verbose then putStrLn ("Query: \n" ++ (show pr) ++ "\n") else return ()
-                              if L.null pr then do
-                                putStrLn ("Could not parse query: " ++ q)
-                                else do
-                                  [(pq, e)] <- return pr
-                                  if e == "" then do
-                                    t1 <- getCPUTime
-                                    r <- return (process pq i (contexts i))
-                                    printDocHits (docHits r) (documents i)
-                                    putStrLn ""
-                                    printWordHits (wordHits r)
-                                    t2 <- getCPUTime
-                                    s <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000000)
-                                    m <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000)
-                                    putStrLn ""
-                                    putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
-                                    else do
-                                      putStrLn ("Could not parse query: " ++ e)
-                              answerQueries verbose i
+  answerQueries' :: String -> IO ()
+  answerQueries' ""       = answerQueries verbose i
+  answerQueries' (':':xs) = internalCommand verbose i xs
+  answerQueries' q        = do
+                            pr <- return (parseQuery q)
+                            if verbose then putStrLn ("Query: \n" ++ (show pr) ++ "\n") else return ()
+                            either printError makeQuery pr
+                            answerQueries verbose i
+    where
+    printError err = putStrLn ("Problem parsing query: " ++ err)
+    makeQuery pq = do
+                   t1 <- getCPUTime
+                   r <- return (process pq i (contexts i))
+                   rr <- return (rank r)
+                   printDocHits (docHits rr) (documents i)
+                   putStrLn ""
+                   printWordHits (wordHits rr)
+                   t2 <- getCPUTime
+                   s <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000000)
+                   m <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000)
+                   putStrLn ""
+                   putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
 
 internalCommand :: HolIndex i => Bool -> i -> String -> IO ()
 internalCommand _       _ "q"       = exitWith ExitSuccess
@@ -206,4 +205,4 @@ printStats i = do
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-(*) `on` f = \x y -> f x * f y
+op `on` f = \x y -> f x `op` f y
