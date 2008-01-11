@@ -45,12 +45,12 @@ import Holumbus.Index.Common
 
 
 -- import MapReduce.Basic
-import qualified MapReduce.Basic as MAPRED
+-- import qualified MapReduce.Basic as MAPRED
 
-import qualified Misc.Fold
-import qualified Misc.Unfold
+-- import qualified Misc.Fold
+-- import qualified Misc.Unfold
 
-type Dict = Map
+-- type Dict = Map
 
 
 r f = readDocument [(a_parse_html ,"1")] f 
@@ -63,21 +63,11 @@ dest = "/home/sms/workspace/ruby.idx"
 idxfile = "/home/sms/haskell/spoogle/www.haskell.org.idx.xml"
 
 
-
 stdOpts = [(a_validate, v_0)]
 
 nn src = nn' src stdOpts 
 
 nn' src opts = readDocument opts src
-
-
-
-
-
-
-
-
-
 
 
 
@@ -118,4 +108,5 @@ testDocs = ["/home/sms/ruby/ruby0.htm"
            ,"/home/sms/ruby/ruby4.htm"
            ,"/home/sms/ruby/ruby5.htm"
            ,"/home/sms/ruby/ruby6.htm"
-           ]-}
+           ]
+-}
