@@ -47,88 +47,118 @@ cw = CaseWord
 cp :: String -> Query
 cp = CasePhrase
 
+fw :: String -> Query
+fw = FuzzyWord
+
 andTests :: Test
 andTests = TestList
   [ TestCase (assertEqual "Simple two term 'and' query"
-  [(a (w "abc") (w "def"), "")]
+  (Right (a (w "abc") (w "def")))
   (P.parseQuery "abc def"))
 
   , TestCase (assertEqual "Concatenating 'and' terms"
-  [(a (w "abc") (a (w "def") (w "ghi")), "")]
+  (Right (a (w "abc") (a (w "def") (w "ghi"))))
   (P.parseQuery "abc def ghi"))
 
   , TestCase (assertEqual "Ignoring whitespace"
-  [(a (w "abc") (a (w "def") (a (w "ghi") (w "jkl"))), "")]
+  (Right (a (w "abc") (a (w "def") (a (w "ghi") (w "jkl")))))
   (P.parseQuery " \rabc \r  def  \tghi \njkl \r\n "))
 
   , TestCase (assertEqual "Priorities"
-  [(a (s ["wurst"] (w "abc")) (a (w "def") (a (w "ghi") (s ["wurst"] (w "jkl")))), "")]
+  (Right (a (s ["wurst"] (w "abc")) (a (w "def") (a (w "ghi") (s ["wurst"] (w "jkl"))))))
   (P.parseQuery "wurst:abc def ghi wurst:jkl"))
   ]
 
 orTests :: Test
 orTests = TestList
   [ TestCase (assertEqual "Simple two term 'or' query"
-  [(o (w "abc") (w "def"), "")]
+  (Right (o (w "abc") (w "def")))
   (P.parseQuery "abc OR def"))
 
   , TestCase (assertEqual "Concatenating 'or' terms"
-  [(o (w "abc") (o (w "def") (w "ghi")), "")]
+  (Right (o (w "abc") (o (w "def") (w "ghi"))))
   (P.parseQuery "abc OR def OR ghi"))
 
   , TestCase (assertEqual "Ignoring whitespace"
-  [(o (w "abc") (o (w "def") (o (w "ghi") (w "jkl"))), "")]
+  (Right (o (w "abc") (o (w "def") (o (w "ghi") (w "jkl")))))
   (P.parseQuery " \rabc \rOR  def OR \tghi OR\njkl \r\n "))
 
   , TestCase (assertEqual "Priorities"
-  [(o (s ["wurst"] (w "abc")) (o (w "def") (o (w "ghi") (s ["wurst"] (w "jkl")))), "")]
+  (Right (o (s ["wurst"] (w "abc")) (o (w "def") (o (w "ghi") (s ["wurst"] (w "jkl"))))))
   (P.parseQuery "wurst:abc OR def OR ghi OR wurst:jkl"))
+
+  , TestCase (assertEqual "Operator precedence"
+  (P.parseQuery "wurst:abc (def OR ghi) wurst:jkl")
+  (P.parseQuery "wurst:abc def OR ghi wurst:jkl"))
   ]
   
 specifierTests :: Test
 specifierTests = TestList
   [ TestCase (assertEqual "Specifier with whitespace"
-  [(a (s ["wurst"] (w "abc")) (s ["batzen"] (w "def")) ,"")]
+  (Right (a (s ["wurst"] (w "abc")) (s ["batzen"] (w "def"))))
   (P.parseQuery " wurst:\t abc \nbatzen : \r def "))
 
   , TestCase (assertEqual "Specifier priority"
-  [(a (w "abc") (a (s ["wurst"] (w "def")) (o (n (s ["wurst"] (w "ghi"))) (s ["wurst"] (w "jkl")))) ,"")]
+  (Right (a (w "abc") (a (s ["wurst"] (w "def")) (o (n (s ["wurst"] (w "ghi"))) (s ["wurst"] (w "jkl"))))))
   (P.parseQuery "abc wurst: def NOT wurst: ghi OR wurst: jkl"))
 
   ,TestCase (assertEqual "Specifier and brackets"
-  [(a (s ["wurst"] (a (w "abc") (a (w "def") (w "ghi")))) (s ["batzen"] (o (w "abc") (w "def"))) ,"")]
+  (Right (a (s ["wurst"] (a (w "abc") (a (w "def") (w "ghi")))) (s ["batzen"] (o (w "abc") (w "def")))))
   (P.parseQuery "wurst: (abc def ghi) batzen: (abc OR def)"))
 
   ,TestCase (assertEqual "Specifier and brackets"
-  [(a (s ["wurst"] (a (w "abc") (a (w "def") (w "ghi")))) (s ["batzen"] (o (w "abc") (w "def"))) ,"")]
+  (Right (a (s ["wurst"] (a (w "abc") (a (w "def") (w "ghi")))) (s ["batzen"] (o (w "abc") (w "def")))))
   (P.parseQuery "wurst: (abc def ghi) batzen: (abc OR def)")) 
 
   ,TestCase (assertEqual "Specifier and space"
-  [(a (s ["wurst"] (a (w "abc") (a (w "def") (w "ghi")))) (s ["batzen"] (o (w "abc") (w "def"))) ,"")]
+  (Right (a (s ["wurst"] (a (w "abc") (a (w "def") (w "ghi")))) (s ["batzen"] (o (w "abc") (w "def")))))
   (P.parseQuery "wurst \t: (abc def ghi) batzen \n : (abc OR def)")) 
 
   ,TestCase (assertEqual "Specifier lists"
-  [(s ["wurst","batzen","schinken"] (a (w "abc") (a (w "def") (w "ghi"))) ,"")]
+  (Right (s ["wurst","batzen","schinken"] (a (w "abc") (a (w "def") (w "ghi")))))
   (P.parseQuery "wurst,batzen,schinken: (abc def ghi)")) 
 
   ,TestCase (assertEqual "Specifier lists with space"
-  [(s ["wurst","batzen","schinken"] (a (w "abc") (a (w "def") (w "ghi"))) ,"")]
+  (Right (s ["wurst","batzen","schinken"] (a (w "abc") (a (w "def") (w "ghi")))))
   (P.parseQuery "wurst , \n batzen \t, schinken: (abc def ghi)")) 
 
   ,TestCase (assertEqual "Specifier lists with phrase"
-  [(s ["wurst","batzen","schinken"] (p "this is A Test") ,"")]
+  (Right (s ["wurst","batzen","schinken"] (p "this is A Test")))
   (P.parseQuery "wurst , \n batzen \t, schinken: \"this is A Test\"")) 
+  ]
+
+notTests :: Test
+notTests = TestList
+  [ TestCase (assertEqual "Simple not query"
+  (Right (n (w "batzen")))
+  (P.parseQuery "NOT batzen"))
+
+  , TestCase (assertEqual "Operator precedence"
+  (Right (a (n (w "batzen")) (w "wurst")))
+  (P.parseQuery "NOT batzen wurst"))
+
+  , TestCase (assertEqual "Operator precedence with and"
+  (Right (a (w "test") (a (n (w "batzen")) (w "wurst"))))
+  (P.parseQuery "test NOT batzen wurst"))
+
+  , TestCase (assertEqual "Operator precedence with or"
+  (Right (o (w "test") (o (n (w "batzen")) (w "wurst"))))
+  (P.parseQuery "test OR NOT batzen OR wurst"))
   ]
 
 caseTests :: Test
 caseTests = TestList
   [ TestCase (assertEqual "Simple case sensitive word"
-  [(cw "batzen", "")]
+  (Right (cw "batzen"))
   (P.parseQuery "!batzen"))
 
   ,TestCase (assertEqual "Simple case sensitive phrase"
-  [(cp "this is a test" ,"")]
+  (Right (cp "this is a test"))
   (P.parseQuery "!\"this is a test\"")) 
+
+  ,TestCase (assertEqual "Case sensitive word with whitespace"
+  (Right (cw "test"))
+  (P.parseQuery " ! test")) 
   ]
 
 parentheseTests :: Test
@@ -138,8 +168,23 @@ parentheseTests = TestList
   (P.parseQuery "abc (def OR ghi)"))
   
   , TestCase (assertEqual "Parentheses changing priority of OR"
-  [(a (o (w "abc") (w "def")) (w "ghi"), "")]
+  (Right (a (o (w "abc") (w "def")) (w "ghi")))
   (P.parseQuery "(abc OR def) ghi"))
+
+  , TestCase (assertEqual "Parentheses with whitespace"
+  (Right (o (w "abc") (w "def")))
+  (P.parseQuery " ( abc OR def ) "))
+  ]
+  
+fuzzyTests :: Test
+fuzzyTests = TestList
+  [ TestCase (assertEqual "Simple fuzzy query"
+  (Right (fw "test"))
+  (P.parseQuery "~test"))
+
+  , TestCase (assertEqual "Fuzzy query with whitespace"
+  (Right (fw "test"))
+  (P.parseQuery " ~ test"))
   ]
   
 allTests :: Test
@@ -147,7 +192,9 @@ allTests = TestLabel "Parser tests" $
   TestList 
   [ TestLabel "And tests" andTests
   , TestLabel "Or tests" orTests
+  , TestLabel "Not tests" notTests
   , TestLabel "Specifier tests" specifierTests
   , TestLabel "Case tests" caseTests
   , TestLabel "Parenthese tests" parentheseTests
+  , TestLabel "Fuzzy tests" fuzzyTests
   ]

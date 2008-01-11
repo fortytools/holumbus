@@ -24,12 +24,14 @@ import Test.HUnit
 import qualified StrMapTest as StrMap
 import qualified BiMapTest as BiMap
 import qualified ParserTest as Parser
+import qualified FuzzyTest as Fuzzy
 
 allTests :: Test
 allTests = TestList
            [ StrMap.allTests
            , BiMap.allTests
            , Parser.allTests
+           , Fuzzy.allTests
            ]
 
 main :: IO ()
