@@ -38,6 +38,7 @@ import Text.XML.HXT.DOM.Unicode
 import qualified Holumbus.Index.Inverted as INV
 import qualified Holumbus.Index.Hybrid as HYB
 import Holumbus.Index.Common
+import Holumbus.Index.Combined
 import Holumbus.Index.Documents
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
@@ -99,7 +100,7 @@ options = [ Option ['i'] ["inverted"] (ReqArg Inverted "FILE") "Loads inverted i
           , Option ['V'] ["version"]  (NoArg Version)          "Output version and exit"
           ]
 
-answerQueries :: HolIndex i => Bool -> i -> IO ()
+answerQueries :: Bool -> AnyIndex -> IO ()
 answerQueries verbose i = do
                           q <- readline ("Enter query (type :? for help) > ")
                           if isNothing q then answerQueries verbose i else
@@ -131,7 +132,7 @@ answerQueries verbose i = do
                    putStrLn ""
                    putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
 
-internalCommand :: HolIndex i => Bool -> i -> String -> IO ()
+internalCommand :: Bool -> AnyIndex -> String -> IO ()
 internalCommand _       _ "q"       = exitWith ExitSuccess
 internalCommand verbose i "?"       = do
                                       putStrLn ""
@@ -186,7 +187,7 @@ printHelp = do
             putStrLn "Use :q to exit and :? to show this help."
             return ()
 
-printContexts :: HolIndex i => i -> IO ()
+printContexts :: AnyIndex -> IO ()
 printContexts i = do
                   putStrLn "Avaliable contexts:"
                   printContexts' (contexts i)
@@ -198,7 +199,7 @@ printContexts i = do
                                             printContexts' xs
                                             return ()
 
-printStats :: HolIndex i => i -> IO ()
+printStats :: AnyIndex -> IO ()
 printStats i = do
                putStr ("Loaded " ++ (show (sizeDocs i)) ++ " documents ")
                putStrLn ("containing " ++ show (sizeWords i) ++ " words")
