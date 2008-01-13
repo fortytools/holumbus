@@ -59,8 +59,6 @@ type WordId        = Int
 type BlockId       = Int
 
 instance HolIndex HybIndex where
-  empty = HybIndex emptyDocuments M.empty
-
   sizeDocs _ = 0
   sizeWords _ = 0
   documents = docTable
@@ -74,6 +72,10 @@ instance HolIndex HybIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
+
+-- | Create an empty index.
+empty :: HybIndex
+empty = HybIndex emptyDocuments M.empty
 
 -- | Load Index from XML file
 loadFromFile :: String -> IO HybIndex

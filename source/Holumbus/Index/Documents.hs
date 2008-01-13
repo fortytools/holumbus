@@ -41,9 +41,9 @@ module Holumbus.Index.Documents
 )
 where
 
-import Data.Maybe
-
 import Text.XML.HXT.Arrow.Pickle
+
+import Data.Maybe
 
 import Data.Map (Map)
 import qualified Data.Map as M

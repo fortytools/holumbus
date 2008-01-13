@@ -61,9 +61,6 @@ type Positions     = IntSet
 
 -- | This class provides a generic interface to different types of index implementations.
 class HolIndex i where
-  -- | Create an empty index.
-  empty         :: i
-
   -- | Returns the number of unique documents in the index.
   sizeDocs      :: i -> Int
   -- | Returns the number of unique words in the index.

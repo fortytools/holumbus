@@ -18,9 +18,9 @@
 
 module Holumbus.Index.Inverted where
 
-import Data.Maybe
-
 import Text.XML.HXT.Arrow
+
+import Data.Maybe
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -44,8 +44,6 @@ type Parts       = Map Context Part
 type Part        = StrMap Occurrences
 
 instance HolIndex InvIndex where
-  empty = InvIndex emptyDocuments M.empty
-
   sizeDocs = IM.size . idToDoc . docTable
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts
   documents = docTable
@@ -59,6 +57,10 @@ instance HolIndex InvIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
+
+-- | Create an empty index.
+empty :: InvIndex
+empty = InvIndex emptyDocuments M.empty
 
 -- | Load Index from XML file
 loadFromFile :: String -> IO InvIndex
