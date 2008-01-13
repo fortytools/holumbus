@@ -70,7 +70,7 @@ empty = InvIndex emptyDocuments M.empty
 loadFromFile :: String -> IO InvIndex
 loadFromFile f = do
                  r <- runX (xunpickleDocument xpInvIndex options f)
-                 return (head r)
+                 return $ strict (head r)
                  where
                  options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]			
 

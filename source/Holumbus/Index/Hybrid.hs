@@ -95,7 +95,7 @@ empty = HybIndex emptyDocuments M.empty
 loadFromFile :: String -> IO HybIndex
 loadFromFile f = do
                  r <- runX (xunpickleDocument xpHybIndex options f)
-                 return (head r)
+                 return $ strict (head r)
                  where
                  options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
 
