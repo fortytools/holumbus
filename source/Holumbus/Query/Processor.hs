@@ -110,8 +110,9 @@ processNegation c i q = R.difference (allDocuments c i) (process' q c i)
 
 -- | Process a binary operator by caculating the union or the intersection of the two subqueries.
 processBin :: HolIndex i => Context -> i -> BinOp -> Query -> Query -> Result
-processBin c i And q1 q2 = R.intersection (process' q1 c i) (process' q2 c i)
-processBin c i Or q1 q2  = R.union (process' q1 c i) (process' q2 c i)
+processBin c i And q1 q2    = R.intersection (process' q1 c i) (process' q2 c i)
+processBin c i Or q1 q2     = R.union (process' q1 c i) (process' q2 c i)
+processBin c i Filter q1 q2 = R.difference (process' q1 c i) (process' q2 c i)
 
 -- | Merge occurrences
 mergeOccurrences :: [Occurrences] -> Occurrences

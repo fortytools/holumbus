@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
 
   The data type for results of Holumbus queries.
 

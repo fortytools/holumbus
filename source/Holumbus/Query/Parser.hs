@@ -8,10 +8,9 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
-  The Holumbus query parser. Customized parsers for different query languages
-  can also be designed using a parser library like Parsec.
+  The Holumbus query parser, based on the famous Parsec library.
 
 -}
 

@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The Holumbus query syntax definition. The specific syntax of any query
   language can be designed independently by creating appropriate parsers.
@@ -21,7 +21,7 @@ module Holumbus.Query.Syntax
   (
   -- * Query data types
   Query (Word, Phrase, CaseWord, CasePhrase, FuzzyWord, Specifier, Negation, BinQuery)
-  , BinOp (And, Or)
+  , BinOp (And, Or, Filter)
   -- * Optimizing
   , optimize
   )

@@ -79,7 +79,7 @@ instance DeepSeq HybIndex where
   deepSeq (HybIndex docs parts) b = deepSeq docs $ deepSeq parts b
 
 instance DeepSeq Part where
-  deepSeq (Part dic blocks) b = deepSeq dic $ deepSeq blocks b
+  deepSeq (Part dic bls) b = deepSeq dic $ deepSeq bls b
 
 instance DeepSeq Dictionary where
   deepSeq (Dictionary tab lid) b = deepSeq tab $ deepSeq lid b

@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.3
 
   This module just exists to ease the testing of the trie internals. 
   For further information, see Holumbus.Data.StrMap.

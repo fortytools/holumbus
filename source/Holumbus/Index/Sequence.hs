@@ -18,9 +18,7 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Index.Sequence 
-  (
-    module Control.Strategies.DeepSeq
-  )
+  ( module Control.Strategies.DeepSeq )
 where
 
 import Control.Strategies.DeepSeq
