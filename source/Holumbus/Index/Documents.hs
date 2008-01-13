@@ -51,6 +51,8 @@ import qualified Data.Map as M
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
+import Holumbus.Index.Sequence
+
 -- | The table which is used to map a document to an artificial id and vice versa.
 data Documents     = Documents { idToDoc   :: !(IntMap Document)
                                , docToId   :: !(Map URI DocId) 
@@ -66,6 +68,9 @@ type DocId         = Int
 type URI           = String
 -- | The title of a document.
 type Title         = String
+
+instance DeepSeq Documents where
+  deepSeq (Documents i2d d2i lid) b = deepSeq i2d $ deepSeq d2i $ deepSeq lid b
 
 instance XmlPickler Documents where
   xpickle =  xpWrap convertDoctable (xpWrap (IM.fromList, IM.toList) (xpList xpDocumentWithId))

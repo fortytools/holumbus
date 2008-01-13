@@ -32,6 +32,7 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
+import Holumbus.Index.Sequence
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
 data InvIndex    = InvIndex { docTable :: !Documents
@@ -57,6 +58,9 @@ instance HolIndex InvIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
+
+instance DeepSeq InvIndex where
+  deepSeq (InvIndex docs parts) b = deepSeq docs $ deepSeq parts b
 
 -- | Create an empty index.
 empty :: InvIndex

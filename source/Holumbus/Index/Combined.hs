@@ -20,21 +20,11 @@
 module Holumbus.Index.Combined where
 
 import Holumbus.Index.Common
+import Holumbus.Index.Sequence
 
 -- Import all supported index types.
 import Holumbus.Index.Inverted
 import Holumbus.Index.Hybrid
-
--- Imports for providing instances of DeepSeq
-import Control.Strategies.DeepSeq
-import Holumbus.Data.StrMap (StrMap)
-import qualified Holumbus.Data.StrMap as SM
-import Data.Map (Map)
-import qualified Data.Map as M
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-import Data.IntSet (IntSet)
-import qualified Data.IntSet as IS
 
 -- | This is the combined index type, which combines all functions required by @HolIndex@
 -- for every index type.
@@ -75,20 +65,6 @@ instance HolIndex AnyIndex where
   update c w p d (Inv i) = Inv (update c w p d i)
   update c w p d (Hyb i) = Hyb (update c w p d i)
 
-instance DeepSeq InvIndex where
-  deepSeq (InvIndex docs parts) b = deepSeq parts b
-
---instance DeepSeq Documents where
---  deepSeq (Documents i2d d2i lid) b = deepSeq i2d $ deepSeq d2i $ deepSeq lid b
-
-instance (DeepSeq a) => DeepSeq (IntMap a) where
-  deepSeq m y = IM.foldWithKey (\k v r -> deepSeq k $ deepSeq v r) y m
-  
-instance (DeepSeq a, DeepSeq b) => DeepSeq (Map a b) where  
-  deepSeq m y = M.foldWithKey (\k v r -> deepSeq k $ deepSeq v r) y m
-  
-instance (DeepSeq a) => DeepSeq (StrMap a) where
-  deepSeq m y = SM.foldWithKey (\k v r -> deepSeq k $ deepSeq v r) y m
-
-instance DeepSeq IntSet where
-  deepSeq s y = IS.fold deepSeq y s
+instance DeepSeq AnyIndex where
+  deepSeq (Inv i) b = deepSeq i b
+  deepSeq (Hyb i) b = deepSeq i b

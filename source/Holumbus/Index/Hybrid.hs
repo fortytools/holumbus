@@ -31,6 +31,7 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
+import Holumbus.Index.Sequence
 
 import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 
@@ -52,6 +53,7 @@ type WordInfo      = ( WordId, BlockId )
 data Blocks        = Blocks { blockTable  :: !(IntMap Block)
                             , lastBlockId :: !BlockId
                             } deriving (Show)
+
 type Block         = [ Occurrence ]               -- Sorted by DocId
 type Occurrence    = ( DocId, WordId, Position )
 
@@ -72,6 +74,18 @@ instance HolIndex HybIndex where
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
+
+instance DeepSeq HybIndex where
+  deepSeq (HybIndex docs parts) b = deepSeq docs $ deepSeq parts b
+
+instance DeepSeq Part where
+  deepSeq (Part dic blocks) b = deepSeq dic $ deepSeq blocks b
+
+instance DeepSeq Dictionary where
+  deepSeq (Dictionary tab lid) b = deepSeq tab $ deepSeq lid b
+
+instance DeepSeq Blocks where
+  deepSeq (Blocks tab lid) b = deepSeq tab $ deepSeq lid b
 
 -- | Create an empty index.
 empty :: HybIndex
