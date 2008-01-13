@@ -66,11 +66,13 @@ main = do
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Bool -> Flag -> IO ()
 startup v (Inverted file) = do
-                            idx <- INV.loadFromFile file
+                            inv <- INV.loadFromFile file
+                            idx <- return (Inv inv)
                             printStats idx
                             answerQueries v idx
 startup v (Hybrid file) = do
-                          idx <- HYB.loadFromFile file
+                          hyb <- HYB.loadFromFile file
+                          idx <- return (Hyb hyb)
                           printStats idx
                           answerQueries v idx
 startup _ _ = do
