@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The data type for results of Holumbus queries.
 
@@ -84,13 +84,14 @@ import qualified Data.IntSet as IS
 import Text.XML.HXT.Arrow.Pickle
 
 import Holumbus.Index.Common hiding (sizeDocs, sizeWords)
+import Holumbus.Index.Combined
 import Holumbus.Index.Documents
 
 -- | The combined result type for Holumbus queries.
 data Result = Result        { docHits  :: !DocHits
                             , wordHits :: !WordHits
                             }
-            deriving (Show)
+                            deriving (Show)
 
 -- | Information about an document, either just the document id or the whole document information.
 data DocInfo = DocInfo        { score :: !Score }
@@ -98,17 +99,17 @@ data DocInfo = DocInfo        { score :: !Score }
                               , uri   :: !URI
                               , score :: !Score
                               }
-             deriving (Show)
+                              deriving (Show)
 
 -- | A mapping from a document to it's score and the contexts where it was found.
 type DocHits = IntMap (DocInfo, DocContextHits)
 -- | A mapping from a context to the words of the document that were found in this context.
 type DocContextHits = Map Context DocWordHits
 -- | A mapping from a word of the document in a specific context to it's positions.
-type DocWordHits = Map String Positions
+type DocWordHits = Map Word Positions
 
 -- | A mapping from a word to it's score and the contexts where it was found.
-type WordHits = Map String (Score, WordContextHits)
+type WordHits = Map Word (Score, WordContextHits)
 -- | A mapping from a context to the documents that contain the word that were found in this context.
 type WordContextHits = Map Context WordDocHits
 -- | A mapping from a document containing the word to the positions of the word.
@@ -225,25 +226,15 @@ setScore s (VerboseDocInfo t u _) = VerboseDocInfo t u s
 
 -- | Create the document hits structure for the results from a single context.
 createDocHits :: Context -> [(String, Occurrences)] -> DocHits
-createDocHits c = foldr (\(s, o) r -> IM.foldWithKey (insertDocHit c s) r o) emptyDocHits
-
--- | Inserts the positions of a word in a document from a context into the result.
-insertDocHit :: Context -> String -> Int -> Positions -> DocHits -> DocHits
-insertDocHit c w d p r = IM.insert d (DocInfo 0.0, (M.insert c (M.insertWith IS.union w p dwh) dch)) r
+createDocHits c os = IM.unionsWith combineDocHits (map createDocHits' os)
   where
-  dch = snd $ IM.findWithDefault (DocInfo 0.0, M.empty) d r
-  dwh = M.findWithDefault M.empty c dch
+  createDocHits' (w, o) = IM.map (\p -> (DocInfo 0.0, M.singleton c (M.singleton w p))) o
 
 -- | Create the word hits structure for the results from a single context.
 createWordHits :: Context -> [(String, Occurrences)] -> WordHits
-createWordHits c = foldr (\(s, o) r -> IM.foldWithKey (insertWordHit c s) r o) emptyWordHits
-
--- | Inserts the positions of a word in a document from a context into the result.
-insertWordHit :: Context -> String -> Int -> Positions -> WordHits -> WordHits
-insertWordHit c w d p r = M.insert w (0.0, (M.insert c (IM.insertWith IS.union d p wdh) wch)) r
+createWordHits c os = M.unionsWith combineWordHits (map createWordHits' os)
   where
-  wch = snd $ M.findWithDefault (0.0, M.empty) w r
-  wdh = M.findWithDefault IM.empty c wch
+  createWordHits' (w, o) = M.singleton w (0.0, (M.singleton c o))
 
 -- | Combine two results by calculating their union.
 union :: Result -> Result -> Result
@@ -294,7 +285,7 @@ fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
 
 -- | Transform a result to a verbose result by by looking up all document information in
 -- the document table of the provided index.
-annotateResult :: HolIndex i => i -> Result -> Result
+annotateResult :: AnyIndex -> Result -> Result
 annotateResult i (Result dh wh) = Result (IM.mapWithKey convertDocInfo dh) wh
   where
   convertDocInfo _ ((VerboseDocInfo t u s), dch) = (VerboseDocInfo t u s, dch)
