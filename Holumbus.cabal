@@ -21,6 +21,7 @@ library
   else
     build-depends: base < 3, haskell98, parsec, hxt
   exposed-modules:
+    Holumbus.Control.Sequence,
     Holumbus.Data.StrMap,
     Holumbus.Data.BiMap,
     Holumbus.Query.Parser,
@@ -33,7 +34,6 @@ library
     Holumbus.Index.Hybrid,
     Holumbus.Index.DocIndex,
     Holumbus.Index.Common,
-    Holumbus.Index.Sequence,
     Holumbus.Index.Documents,
     Holumbus.Index.Convert,
     Holumbus.Index.Combined
