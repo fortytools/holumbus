@@ -2,7 +2,7 @@
 
 {- |
   Module     : Benchmark
-  Copyright  : Copyright (C) 2007 Timo B. Huebel
+  Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -40,7 +40,6 @@ import Holumbus.Query.Syntax
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Result
-import Holumbus.Query.Parser
 
 data Flag = Inverted String | Hybrid String | Times String | Version deriving (Show, Eq)
 
@@ -110,76 +109,68 @@ options = [ Option ['i'] ["inverted"] (ReqArg Inverted "FILE") "Loads inverted i
           , Option ['V'] ["version"]  (NoArg Version)          "Output version and exit"
           ]
 
-generateQueries :: Int -> [String]
+generateQueries :: Int -> [Query]
 generateQueries 0 = []
 generateQueries t = allQueries ++ (generateQueries $ t - 1)
   where
-  allWords = twoWords ++ oneWords
   twoWords = [ x:[y] | y <- ['a'..'z'], x <- ['a'..'z'] ]
   oneWords = [ [x] | x <- ['a'..'z']]
   allQueries = primQueries ++ unOpQueries ++ binOpQueries
-  binOpQueries = [w1 ++ " " ++ w2 | w1 <- allWords, w2 <- allWords]
-              ++ [w1 ++ " OR " ++ w2 | w1 <- allWords, w2 <- allWords]
-              ++ [w1 ++ " NOT " ++ w2 | w1 <- allWords, w2 <- allWords]
-  unOpQueries = [ "NOT " ++ w | w <- oneWords ]
-  primQueries = [w | w <- allWords]
-             ++ ["!" ++ w | w <- allWords]
-             ++ ["\"" ++ w1 ++ " " ++ w2 ++ "\"" | w1 <- allWords, w2 <- oneWords]
-             ++ ["!\"" ++ w1 ++ " " ++ w2 ++ "\"" | w1 <- allWords, w2 <- oneWords]
-             ++ ["~" ++ w | w <- allWords]
+  binOpQueries = [BinQuery And (Word w1) (Word w2) | w1 <- oneWords, w2 <- oneWords]
+              ++ [BinQuery Or (Word w1) (Word w2) | w1 <- oneWords, w2 <- oneWords]
+              ++ [BinQuery And (Word w1) (Negation (Word w2)) | w1 <- oneWords, w2 <- oneWords]
+  unOpQueries = [Negation (Word w) | w <- oneWords ]
+  primQueries = [Word w | w <- oneWords]
+             ++ [CaseWord w | w <- oneWords]
+             ++ [Phrase (w1 ++ " " ++ w2) | w1 <- oneWords, w2 <- oneWords]
+             ++ [CasePhrase (w1 ++ " " ++ w2) | w1 <- oneWords, w2 <- oneWords]
+             ++ [FuzzyWord w | w <- twoWords]
 
-runQueries :: [String] -> AnyIndex -> IO ()
+runQueries :: [Query] -> AnyIndex -> IO ()
 runQueries qs i = do
                   printStats qs i
-                  putStrLn "0%                                            100%"
-                  one <- return (l / 50.0)
-                  tmp1 <- getCPUTime
+                  putStrLn "Running queries ..."
+                  tmp1 <- strict $ getCPUTime
                   t1 <- return (fromIntegral tmp1)
-                  runner qs i one 0 -- Fire!
-                  tmp2 <- getCPUTime
+
+                  count <- strict $ (runner qs i 0) -- Fire!
+                  putStrLn $ "Total number of hits: " ++ (show count)
+
+                  tmp2 <- strict $ getCPUTime
                   t2 <- return (fromIntegral tmp2)
                   d <- return (((t2 - t1) / 1000000000000) :: Float)
                   a <- return (d / l)
                   p <- return (l / d)
 
                   ds <- return (printf "%.3f" d)
-                  as <- return (printf "%.5f" a)
+                  as <- return (printf "%.4f" a)
                   ps <- return (printf "%.2f" p)
 
+                  putStrLn $ "Number of executed queries: " ++ (show $ floor l)
                   putStrLn $ "Total running time: " ++ ds ++ " sec"
                   putStrLn $ "Seconds per query: " ++ as ++ " sec"
                   putStrLn $ "Queries per second: " ++ ps ++ " queries"
                     where
                     l = fromIntegral $ length qs
 
-runner :: [String] -> AnyIndex -> Float -> Int -> IO ()
-runner [] _ _ _ = putStrLn "="
-runner (q:qs) i m c = do
-                      nc <- return (if c > (floor m) then 0 else c + 1)
-                      if nc == 0 then do { putStr "=" ; hFlush stdout }else return ()
-                      runQuery q i
-                      runner qs i m nc
+runner :: [Query] -> AnyIndex -> Integer -> IO (Integer)
+runner [] _ a = return a
+runner (q:qs) i a = do
+                    l <- strict $ runQuery q i
+                    runner qs i (strict $ a + (strict $ fromIntegral l))
                
-runQuery :: String -> AnyIndex -> IO ()
-runQuery s i = do
-               pq <- return (parseQuery s)
-               either printError makeQuery pq
-  where
-  printError e = usage [e]
-  makeQuery q = do 
-                oq <- return (optimize q)
-                r <- return (process oq i (IDX.contexts i))
-                rr <- return (strict $ rank r)
-                return (sizeDocs rr)
-                return (sizeWords rr)
-                return ()
+runQuery :: Query -> AnyIndex -> IO (Int)
+runQuery q i = do
+               oq <- return (optimize q)
+               r <- return (process oq i (IDX.contexts i))
+               rr <- return (rank r)
+               return (strict $ (strict $ (strict $ sizeDocs rr) + (strict $ sizeWords rr)))
 
-printStats :: [String] -> AnyIndex -> IO ()
+printError :: String -> IO ()
+printError e = usage [e]
+
+printStats :: [Query] -> AnyIndex -> IO ()
 printStats qs i = do
                   putStr ("Loaded " ++ (show (IDX.sizeDocs i)) ++ " documents ")
                   putStrLn ("containing " ++ show (IDX.sizeWords i) ++ " words")
-                  putStrLn ("Running " ++ (show $ length qs) ++ " queries")
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y
+                  putStrLn ("Generated " ++ (show $ length qs) ++ " queries")
