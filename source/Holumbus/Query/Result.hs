@@ -83,6 +83,8 @@ import qualified Data.IntSet as IS
 
 import Text.XML.HXT.Arrow.Pickle
 
+import Holumbus.Control.Sequence
+
 import Holumbus.Index.Common hiding (sizeDocs, sizeWords)
 import Holumbus.Index.Combined
 import Holumbus.Index.Documents
@@ -132,6 +134,13 @@ instance XmlPickler DocInfo where
       xpVerboseDocInfo = xpWrap (\(t, u, s) -> VerboseDocInfo t u s, \(VerboseDocInfo t u s) -> (t, u, s)) xpVerboseDocInfo'
         where
         xpVerboseDocInfo' = xpTriple (xpAttr "title" xpText) (xpAttr "href" xpText) (xpAttr "score" xpPrim)
+
+instance DeepSeq Result where
+  deepSeq (Result dh wh) b = deepSeq dh $ deepSeq wh b
+
+instance DeepSeq DocInfo where
+  deepSeq (DocInfo s) b = deepSeq s b
+  deepSeq (VerboseDocInfo t u s) b = deepSeq t $ deepSeq u $ deepSeq s b
          
 -- | The XML pickler for the result type.
 xpResult :: PU Result
