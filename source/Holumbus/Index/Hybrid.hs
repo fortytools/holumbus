@@ -31,7 +31,7 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
-import Holumbus.Index.Sequence
+import Holumbus.Control.Sequence
 
 import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 

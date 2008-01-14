@@ -32,7 +32,7 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
-import Holumbus.Index.Sequence
+import Holumbus.Control.Sequence
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
 data InvIndex    = InvIndex { docTable :: !Documents

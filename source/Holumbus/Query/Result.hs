@@ -113,7 +113,7 @@ type WordHits = Map Word (Score, WordContextHits)
 -- | A mapping from a context to the documents that contain the word that were found in this context.
 type WordContextHits = Map Context WordDocHits
 -- | A mapping from a document containing the word to the positions of the word.
-type WordDocHits = Occurrences
+type WordDocHits = Occurrences -- IntMap Positions (docId -> positions)
 
 -- | The score of a hit (either a document hit or a word hit).
 type Score = Float

@@ -20,7 +20,7 @@
 module Holumbus.Index.Combined where
 
 import Holumbus.Index.Common
-import Holumbus.Index.Sequence
+import Holumbus.Control.Sequence
 
 -- Import all supported index types.
 import Holumbus.Index.Inverted

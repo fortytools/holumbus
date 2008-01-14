@@ -51,7 +51,7 @@ import qualified Data.Map as M
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
-import Holumbus.Index.Sequence
+import Holumbus.Control.Sequence
 
 -- | The table which is used to map a document to an artificial id and vice versa.
 data Documents     = Documents { idToDoc   :: !(IntMap Document)

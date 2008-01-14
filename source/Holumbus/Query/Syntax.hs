@@ -43,7 +43,7 @@ data Query = Word       String
 -- | A binary operation.
 data BinOp = And | Or | Filter deriving (Eq, Show)
 
--- | Transforms all @(BinQuery And q1 q2)@ where one of @q1@ and @q2@ is @Negation@ into
+-- | Transforms all @(BinQuery And q1 q2)@ where one of @q1@ or @q2@ is a @Negation@ into
 -- @BinQuery Filter q1 q2@ or @BinQuery Filter q2 q1@ respectively.
 optimize :: Query -> Query
 optimize (BinQuery And q1 (Negation q2)) = BinQuery Filter (optimize q1) (optimize q2)

@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Holumbus.Index.Sequence
+  Module     : Holumbus.Control.Sequence
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Sequence 
+module Holumbus.Control.Sequence 
   ( module Control.Strategies.DeepSeq )
 where
 
