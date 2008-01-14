@@ -40,4 +40,4 @@ library
   other-modules:
     Holumbus.Data.StrMapInternal
   hs-source-dirs: source
-  ghc-options:    -Wall -O -fno-warn-type-defaults -fno-warn-orphans
+  ghc-options:    -Wall -O
