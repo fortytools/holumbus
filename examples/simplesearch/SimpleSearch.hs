@@ -40,6 +40,7 @@ import qualified Holumbus.Index.Hybrid as HYB
 import Holumbus.Index.Common
 import Holumbus.Index.Combined
 import Holumbus.Index.Documents
+import Holumbus.Query.Syntax
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
@@ -123,7 +124,9 @@ answerQueries verbose i = do
     printError err = putStrLn ("Problem parsing query: " ++ err)
     makeQuery pq = do
                    t1 <- getCPUTime
-                   r <- return (process pq i (contexts i))
+                   oq <- return (optimize pq)
+                   if verbose then putStrLn ("Optimized: \n" ++ (show oq) ++ "\n") else return ()
+                   r <- return (process oq i (contexts i))
                    rr <- return (rank r)
                    printDocHits (docHits rr) (documents i)
                    putStrLn ""

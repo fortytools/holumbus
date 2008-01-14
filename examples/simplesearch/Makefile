@@ -2,7 +2,7 @@
 
 HOME	= ../..
 
-GHC_FLAGS	= -Wall -O2 -fno-warn-type-defaults -fglasgow-exts
+GHC_FLAGS	= -Wall -O2 -fno-warn-type-defaults -fno-warn-orphans -fglasgow-exts
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
@@ -22,5 +22,5 @@ $(PROG) : $(PROG).hs
 	$(GHC) --make -o $(PROG) $(PROG).hs
 
 clean :
-	$(RM) $(PROG) $(PROG).hi $(PROG).o
+	$(RM) $(PROG) *.hi *.o Holumbus
 	
