@@ -17,6 +17,8 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
+
 {-# OPTIONS_HADDOCK hide #-}
 
 module Holumbus.Data.StrMapInternal where
@@ -62,9 +64,14 @@ key (End k _ _) = k
 key (Seq k _)   = k
 
 -- | /O(1)/ Extract the value of a node (if there is one)
-value :: StrMap a -> Maybe a
-value (End _ n _) = Just n
-value (Seq _ _) = Nothing
+value :: Monad m => StrMap a -> m a
+value (End _ v _) = return v
+value (Seq _ _) = fail "No value at this node"
+
+-- | /O(1)/ Extract the value of a node or return a default value if no value exists.
+valueWithDefault :: a -> StrMap a -> a
+valueWithDefault _ (End _ v _) = v
+valueWithDefault d (Seq _ _) = d
 
 -- | /O(1)/ Extract the successors of a node
 succ :: StrMap a -> [StrMap a]
@@ -187,13 +194,20 @@ prefixFindInternal f = prefixFindInternal' f ""
                                  | otherwise = []
                                  where (_, pr, kr) = sf p (key n)
 
--- | /O(L)/ Find the value associated with a key.
-lookup :: String -> StrMap a -> Maybe a
-lookup q n | pr == "" = if kr == "" then value n else Nothing
-           | kr == "" = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
-                        if L.null xs then Nothing else head xs
-           | otherwise = Nothing
-           where (_, pr, kr) = split q (key n)
+-- | /O(L)/ Find the value associated with a key. The function will @return@ the result in
+-- the monad or @fail@ in it if the key isn't in the map.
+lookup :: Monad m => String -> StrMap a -> m a
+lookup q n = case lookup' q n of
+             Just v -> return v
+             Nothing -> fail "Holumbus.Data.StrMapInternal: Key not found"
+
+-- | /O(L)/ Internal lookup function which is generalised for arbitrary monads above.
+lookup' :: String -> StrMap a -> Maybe a
+lookup' q n | pr == "" = if kr == "" then value n else Nothing
+            | kr == "" = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
+                         if L.null xs then Nothing else head xs
+            | otherwise = Nothing
+            where (_, pr, kr) = split q (key n)
 
 -- | /O(L)/ Search for values matching a key case insensitive.
 lookupNoCase :: String -> StrMap a -> [a]
@@ -201,6 +215,10 @@ lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
                  | kr == "" = concat (L.map (lookupNoCase pr) (succ n))
                  | otherwise = []
                  where (_, pr, kr) = splitNoCase q (key n)
+
+-- | /O(L)/ Find the value associated with a key or return a default value if nothing was found.
+findWithDefault :: a -> String -> StrMap a -> a
+findWithDefault d q n = maybe d id (lookup q n)
 
 -- | /O(n)/ Fold over all key\/value pairs in the map.
 foldWithKey :: (String -> a -> b -> b) -> b -> StrMap a -> b

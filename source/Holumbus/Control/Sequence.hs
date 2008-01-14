@@ -17,6 +17,8 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fno-warn-orphans #-}
+
 module Holumbus.Control.Sequence 
   ( module Control.Strategies.DeepSeq )
 where

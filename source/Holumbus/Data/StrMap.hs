@@ -37,6 +37,7 @@ module Holumbus.Data.StrMap
   , member
   , lookup
   , lookupNoCase
+  , findWithDefault  
   , prefixFind
   , prefixFindWithKey
   , prefixFindNoCase
