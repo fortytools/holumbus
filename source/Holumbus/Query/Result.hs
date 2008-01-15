@@ -31,6 +31,7 @@ module Holumbus.Query.Result
   , WordContextHits
   , WordDocHits
   , DocInfo (..)
+  , WordInfo (..)
   , Score
   
   -- * Construction
@@ -61,9 +62,6 @@ module Holumbus.Query.Result
   
   -- * Transform
   , annotateResult
-  , setTitle
-  , setURI
-  , setScore
   )
 where
 
@@ -93,15 +91,19 @@ import Holumbus.Index.Documents
 data Result = Result        { docHits  :: !DocHits
                             , wordHits :: !WordHits
                             }
-                            deriving (Show)
+                            deriving (Eq, Show)
 
 -- | Information about an document, either just the document id or the whole document information.
-data DocInfo = DocInfo        { score :: !Score }
-             | VerboseDocInfo { title :: !Title
-                              , uri   :: !URI
-                              , score :: !Score
-                              }
-                              deriving (Show)
+data DocInfo = DocInfo { document :: !Document
+                       , docScore :: !Score
+                       }
+                       deriving (Eq, Show)
+
+-- | Information about a word.
+data WordInfo = WordInfo { term      :: ![Word]
+                         , wordScore :: !Score 
+                         }
+                         deriving (Eq, Show)
 
 -- | A mapping from a document to it's score and the contexts where it was found.
 type DocHits = IntMap (DocInfo, DocContextHits)
@@ -111,7 +113,7 @@ type DocContextHits = Map Context DocWordHits
 type DocWordHits = Map Word Positions
 
 -- | A mapping from a word to it's score and the contexts where it was found.
-type WordHits = Map Word (Score, WordContextHits)
+type WordHits = Map Word (WordInfo, WordContextHits)
 -- | A mapping from a context to the documents that contain the word that were found in this context.
 type WordContextHits = Map Context WordDocHits
 -- | A mapping from a document containing the word to the positions of the word.
@@ -124,24 +126,25 @@ instance XmlPickler Result where
   xpickle =  xpWrap (\(dh, wh) -> Result dh wh, \(Result dh wh) -> (dh, wh)) (xpPair xpDocHits xpWordHits)
 
 instance XmlPickler DocInfo where
-  xpickle = xpAlt tag ps
+  xpickle = xpWrap (\(d, s) -> DocInfo d s, \(DocInfo d s) -> (d, s)) xpDocInfo'
     where
-    tag (DocInfo _) = 0
-    tag (VerboseDocInfo _ _ _) = 1
-    ps = [ xpDocInfo, xpVerboseDocInfo ]
-      where
-      xpDocInfo = xpWrap (DocInfo, \(DocInfo s) -> s) (xpAttr "score" xpPrim)
-      xpVerboseDocInfo = xpWrap (\(t, u, s) -> VerboseDocInfo t u s, \(VerboseDocInfo t u s) -> (t, u, s)) xpVerboseDocInfo'
-        where
-        xpVerboseDocInfo' = xpTriple (xpAttr "title" xpText) (xpAttr "href" xpText) (xpAttr "score" xpPrim)
+    xpDocInfo' = xpPair (xpPair (xpAttr "title" xpText0) (xpAttr "href" xpText0)) (xpAttr "score" xpPrim)
+
+instance XmlPickler WordInfo where
+  xpickle = xpWrap (\(t, s) -> WordInfo t s, \(WordInfo t s) -> (t, s)) xpWordInfo
+    where
+    xpWordInfo = xpPair (xpAttr "term" xpTerms) (xpAttr "score" xpPrim)
+    xpTerms = xpWrap (split ",", join ",") xpText0
 
 instance DeepSeq Result where
   deepSeq (Result dh wh) b = deepSeq dh $ deepSeq wh b
 
 instance DeepSeq DocInfo where
-  deepSeq (DocInfo s) b = deepSeq s b
-  deepSeq (VerboseDocInfo t u s) b = deepSeq t $ deepSeq u $ deepSeq s b
-         
+  deepSeq (DocInfo d s) b = deepSeq d $ deepSeq s b
+
+instance DeepSeq WordInfo where
+  deepSeq (WordInfo s t) b = deepSeq s $ deepSeq t b
+
 -- | The XML pickler for the result type.
 xpResult :: PU Result
 xpResult = xpElem "result" xpickle
@@ -150,7 +153,7 @@ xpResult = xpElem "result" xpickle
 xpDocHits :: PU DocHits
 xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpDocHit)
   where
-  toListSorted = L.sortBy (compare `on` (score . fst . snd)) . IM.toList -- Sort by score
+  toListSorted = L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
   xpDocHit = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) (xpPair xpickle xpDocContextHits))
 
 -- | The XML pickler for the contexts in which the documents were found.
@@ -167,10 +170,10 @@ xpDocWordHits = xpWrap (M.fromList, M.toList) (xpList xpDocWordHit)
 
 -- | The XML pickler for the word hits. Will be sorted alphabetically by the words.
 xpWordHits :: PU WordHits
-xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, toListSorted) (xpList xpScoredWord)
+xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, toListSorted) (xpList xpWordHit)
   where
   toListSorted = L.sortBy (compare `on` fst) . M.toList -- Sort by word
-  xpScoredWord = xpElem "word" (xpPair (xpAttr "w" xpText) (xpPair (xpAttr "score" xpPrim) xpWordContextHits))
+  xpWordHit = xpElem "word" (xpPair (xpAttr "w" xpText) (xpPair xpickle xpWordContextHits))
 
 -- | The XML pickler for the contexts in which the words were found.
 xpWordContextHits :: PU WordContextHits
@@ -208,42 +211,27 @@ sizeWords = M.size . wordHits
 
 -- | Query the maximum score of the documents.
 maxScoreDocs :: Result -> Score
-maxScoreDocs = (IM.fold (\(di, _) r -> max (score di) r) 0.0) . docHits
+maxScoreDocs = (IM.fold (\(di, _) r -> max (docScore di) r) 0.0) . docHits
 
 -- | Query the maximum score of the words.
 maxScoreWords :: Result -> Score
-maxScoreWords = (M.fold (\(s, _) r -> max s r) 0.0) . wordHits
+maxScoreWords = (M.fold (\(wi, _) r -> max (wordScore wi) r) 0.0) . wordHits
 
 -- | Test if the result contains anything.
 null :: Result -> Bool
 null = IM.null . docHits
 
--- | Set the title of a document info.
-setTitle :: Title -> DocInfo -> DocInfo
-setTitle t (DocInfo s) = VerboseDocInfo t "" s
-setTitle t (VerboseDocInfo _ u s) = VerboseDocInfo t u s
-
--- | Set the URI of a document info.
-setURI :: URI -> DocInfo -> DocInfo
-setURI u (DocInfo s) = VerboseDocInfo "" u s
-setURI u (VerboseDocInfo t _ s) = VerboseDocInfo t u s
-
--- | Set the score of a document info.
-setScore :: Score -> DocInfo -> DocInfo
-setScore s (DocInfo _) = DocInfo s
-setScore s (VerboseDocInfo t u _) = VerboseDocInfo t u s
-
 -- | Create the document hits structure for the results from a single context.
 createDocHits :: Context -> [(String, Occurrences)] -> DocHits
 createDocHits c os = IM.unionsWith combineDocHits (map createDocHits' os)
   where
-  createDocHits' (w, o) = IM.map (\p -> (DocInfo 0.0, M.singleton c (M.singleton w p))) o
+  createDocHits' (w, o) = IM.map (\p -> (DocInfo ("", "") 0.0, M.singleton c (M.singleton w p))) o
 
 -- | Create the word hits structure for the results from a single context.
-createWordHits :: Context -> [(String, Occurrences)] -> WordHits
-createWordHits c os = foldr insertWordHit M.empty os
+createWordHits :: Word -> Context -> [(String, Occurrences)] -> WordHits
+createWordHits t c os = foldr insertWordHit M.empty os
   where
-  insertWordHit (w, o) = M.insertWith combineWordHits w (0.0, M.singleton c o)
+  insertWordHit (w, o) = M.insertWith combineWordHits w (WordInfo [t] 0.0, M.singleton c o)
 
 -- | Combine two results by calculating their union.
 union :: Result -> Result -> Result
@@ -274,34 +262,44 @@ combineDocHits :: (DocInfo, DocContextHits) -> (DocInfo, DocContextHits) -> (Doc
 combineDocHits (i1, c1) (i2, c2) = (unionDocInfo i1 i2, M.unionWith (M.unionWith IS.union) c1 c2)
 
 -- | Combine two tuples with score and context hits.
-combineWordHits :: (Score, WordContextHits) -> (Score, WordContextHits) -> (Score, WordContextHits)
-combineWordHits (s1, c1) (s2, c2) = (unionScore s1 s2, M.unionWith (IM.unionWith IS.union) c1 c2)
+combineWordHits :: (WordInfo, WordContextHits) -> (WordInfo, WordContextHits) -> (WordInfo, WordContextHits)
+combineWordHits (i1, c1) (i2, c2) = (unionWordInfo i1 i2, M.unionWith (IM.unionWith IS.union) c1 c2)
 
 -- | Combine two doc informations.
 unionDocInfo :: DocInfo -> DocInfo -> DocInfo
-unionDocInfo (DocInfo s1) (DocInfo s2) = DocInfo (unionScore s1 s2)
-unionDocInfo (VerboseDocInfo t u s1) (DocInfo s2) = VerboseDocInfo t u (unionScore s1 s2)
-unionDocInfo (DocInfo s1) (VerboseDocInfo t u s2) = VerboseDocInfo t u (unionScore s1 s2)
-unionDocInfo (VerboseDocInfo t u s1) (VerboseDocInfo _ _ s2) = VerboseDocInfo t u (unionScore s1 s2)
+unionDocInfo (DocInfo d1 s1) (DocInfo _ s2) = DocInfo d1 (unionScore s1 s2)
+
+-- | Combine two word informations.
+unionWordInfo :: WordInfo -> WordInfo -> WordInfo
+unionWordInfo (WordInfo t1 s1) (WordInfo t2 s2) = WordInfo (t1 ++ t2) (unionScore s1 s2)
 
 -- | Combine two scores (just average between them).
 unionScore :: Score -> Score -> Score
 unionScore = flip flip 2.0 . ((/) .) . (+)
 
 -- | Create a result from a list of tuples.
-fromList :: Context -> [(String, Occurrences)] -> Result
-fromList c xs = Result (createDocHits c xs) (createWordHits c xs)
+fromList :: Word -> Context -> [(String, Occurrences)] -> Result
+fromList t c xs = Result (createDocHits c xs) (createWordHits t c xs)
 
 -- | Transform a result to a verbose result by by looking up all document information in
 -- the document table of the provided index.
 annotateResult :: AnyIndex -> Result -> Result
 annotateResult i (Result dh wh) = Result (IM.mapWithKey convertDocInfo dh) wh
   where
-  convertDocInfo _ ((VerboseDocInfo t u s), dch) = (VerboseDocInfo t u s, dch)
-  convertDocInfo docId ((DocInfo s), dch) = (VerboseDocInfo (fst doc) (snd doc) s, dch)
+  convertDocInfo docId ((DocInfo _ s), dch) = (DocInfo doc s, dch)
     where
     doc = fromJust $ lookupId docId (documents i)
+
+-- | Split a string into seperate strings at a specific character.
+split :: Eq a => [a] -> [a] -> [[a]]
+split _ []       = [[]] 
+split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (L.stripPrefix at w)
+                    where (r:rs) = split at xs
  
+-- | Join with a seperating character.
+join :: Eq a => [a] -> [[a]] -> [a]
+join = L.intercalate
+
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 op `on` f = \x y -> f x `op` f y
