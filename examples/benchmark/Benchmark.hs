@@ -40,6 +40,7 @@ import Holumbus.Query.Syntax
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Result
+import Holumbus.Query.Fuzzy
 
 data Flag = Inverted String | Hybrid String | Times String | Version deriving (Show, Eq)
 
@@ -162,9 +163,11 @@ runner (q:qs) i a = do
 runQuery :: Query -> AnyIndex -> IO (Int)
 runQuery q i = do
                oq <- return (optimize q)
-               r <- return (process oq i (IDX.contexts i))
+               r <- return (processQuery cfg i oq)
                rr <- return (rank r)
                return (strict $ (strict $ (strict $ sizeDocs rr) + (strict $ sizeWords rr)))
+                 where
+                 cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
 
 printError :: String -> IO ()
 printError e = usage [e]
