@@ -20,6 +20,7 @@ module PickleTest (allTests) where
 
 import Holumbus.Index.Inverted
 import Holumbus.Index.Documents
+import Holumbus.Query.Result
 
 import Data.Maybe
 
@@ -55,75 +56,103 @@ testIndex2 = InvIndex docs parts
                          , ("word5", IM.fromList [(3, IS.fromList [86,78,35])])
                          ]
 
+testResult1, testResult2 :: Result
+testResult1 = emptyResult
+
+testResult2 = Result dh wh
+  where
+  dh = IM.fromList [(1, (DocInfo ("", "") 1.0, dch1)), (2, (DocInfo ("doc2", "uri2") 2.0, dch2)), (3, (DocInfo ("doc3", "uri3") 3.0, dch3))]
+  dch1 =  M.fromList [ ("context1", M.fromList [("word1", IS.fromList [12,23,43]), ("word2", IS.fromList [15,33,45])]) 
+                     , ("context2", M.fromList [("word3", IS.fromList [86,78,35]), ("word4", IS.fromList [21,26,25])])
+                     ]
+  dch2 =  M.fromList [ ("context1", M.fromList [("word1", IS.fromList [12,23,43]), ("word2", IS.fromList [15,33,45])]) 
+                     , ("context3", M.fromList [("word3", IS.fromList [8,48,55]), ("word4", IS.fromList [21,26,25])])
+                     , ("context4", M.fromList [("word3", IS.fromList [86,78,35,1,32,94])])
+                     ]
+  dch3 =  M.fromList [ ("context1", M.fromList [("word1", IS.fromList [12,23,43]), ("word2", IS.fromList [15,33,45])]) 
+                     , ("context2", M.fromList [("word3", IS.fromList [86,78,35]), ("word4", IS.fromList [13,32,14])])
+                     , ("context3", M.fromList [("word3", IS.fromList [8,48,55]), ("word4", IS.fromList [10,2,4])])
+                     , ("context4", M.fromList [("word3", IS.fromList [18,82,64])])
+                     ]
+
+  wh = M.fromList [ ("word1", (WordInfo ["wor"] 1.0, wch1)), ("word2", (WordInfo ["wor","word"] 2.0, wch2))
+                  , ("word3", (WordInfo ["wor","word"] 3.0, wch3)), ("word4", (WordInfo ["wor"] 4.0, wch4))]
+  wch1 = M.fromList [ ("context1", IM.fromList [(1, IS.fromList [12,23,43]), (2, IS.fromList [12,23,43]), (3, IS.fromList [12,23,43])])]
+  wch2 = M.fromList [ ("context1", IM.fromList [(1, IS.fromList [15,33,45]), (2, IS.fromList [15,33,45]), (3, IS.fromList [15,33,45])])]
+  wch3 = M.fromList [ ("context2", IM.fromList [(1, IS.fromList [86,78,35]), (3, IS.fromList [86,78,35])])
+                    , ("context3", IM.fromList [(2, IS.fromList [8,48,55]), (3, IS.fromList [8,48,55])])
+                    , ("context4", IM.fromList [(2, IS.fromList [86,78,35,1,32,94]), (3, IS.fromList [18,82,64])])
+                    ]
+  wch4 = M.fromList [ ("context2", IM.fromList [(1, IS.fromList [21,26,25]), (3, IS.fromList [13,32,14])])
+                    , ("context3", IM.fromList [(2, IS.fromList [21,26,25]), (3, IS.fromList [10,2,4])])
+                    ]
+
 -- Stolen from the HXT pickle tests. Thanks :)
-pickleUnpickleTests :: Test
-pickleUnpickleTests = TestLabel "Pickle/unpickle tests with inverted indexes" $
-                      TestList $ map makeTests [testIndex1, testIndex2]
-                      where
-                      makeTests i = TestList $
-                        [ TestCase $
-                          assertEqual "pickleDoc/unpickleDoc without XML serialisation: " [i] res1
-  
-                        , TestCase $
-                          assertEqual "pickleDoc/unpickleDoc with xshow/xread: " [i] res2
-  
-                        , TestCase $
-                          do
-                          res <- res4
-                          assertEqual "pickle/unpickle with readFromString: " [i] res
-  
-                        , TestCase $
-                          res5 >>= 
-                          assertEqual "pickle/unpickle with writeDocument/readDocument: " [i]
-  
-                        , TestCase $
-                          res6 >>= 
-                          assertEqual "pickle/unpickle with xpickleDocument/xunpickleDocument: " [i]
+pickleUnpickleTests :: (XmlPickler p, Eq p, Show p) => [p] -> PU p -> String -> Test
+pickleUnpickleTests input pickler desc = TestLabel ("Pickle/unpickle tests with " ++ desc) $
+                                         TestList $ map makeTests input
+  where
+  makeTests i = TestList $
+    [ TestCase $
+      assertEqual "pickleDoc/unpickleDoc without XML serialisation: " [i] res1
+
+    , TestCase $
+      assertEqual "pickleDoc/unpickleDoc with xshow/xread: " [i] res2
+
+    , TestCase $
+      do
+      res <- res4
+      assertEqual "pickle/unpickle with readFromString: " [i] res
+
+    , TestCase $
+      res5 >>= 
+      assertEqual "pickle/unpickle with writeDocument/readDocument: " [i]
+
+    , TestCase $
+      res6 >>= 
+      assertEqual "pickle/unpickle with xpickleDocument/xunpickleDocument: " [i]
 {-
 FIXME TH 15.01.2008: See below
-                        , TestCase $
-                          res7 >>= 
-                          assertEqual "pickle/unpickle with DTD validation xpickleDocument/xunpickleDocument: " [i]
+    , TestCase $
+      res7 >>= 
+      assertEqual "pickle/unpickle with DTD validation xpickleDocument/xunpickleDocument: " [i]
 -}
-                        ]
-                        where
-                        res1 :: [InvIndex]
-                        res1 = maybeToList . unpickleDoc xpInvIndex . pickleDoc xpInvIndex $ i
-                      
-                        res2 :: [InvIndex]
-                        res2 = runLA (xshow (arr (pickleDoc xpInvIndex) 
-                                 >>> getChildren)
-                                 >>> root [] [xread]
-                                 >>> arrL (maybeToList . unpickleDoc xpInvIndex)) i
-                      
-                        res4 :: IO [InvIndex]
-                        res4 = runX (constA i
-                                >>> arr (pickleDoc xpInvIndex)                   -- InvIndex => XmlTree
-                                >>> writeDocumentToString []                     -- XmlTree => String
-                                >>> readFromString [(a_validate, v_0)]           -- String => XmlTree
-                                >>> arrL (maybeToList . unpickleDoc xpInvIndex)) -- XmlTree => InvIndex
-                      
-                        res5 :: IO [InvIndex] 
-                        res5 = runX (constA i                                    -- Take the InvIndex value
-                                >>> arr (pickleDoc xpInvIndex)                   -- InvIndex => XmlTree
-                                >>> writeDocument [(a_indent, v_1)] "pickle.xml" -- XmlTree => formated external XML document
-                                >>> readDocument  [(a_remove_whitespace, v_1), (a_validate, v_0)] "pickle.xml" -- Formated external XML document => XmlTree 
-                                >>> arrL (maybeToList . unpickleDoc xpInvIndex)) -- XmlTree => InvIndex
-                      
-                        res6 :: IO [InvIndex]                                    -- Same as above the convinient way
-                        res6 = runX (constA i
-                                >>> xpickleDocument xpInvIndex [(a_indent, v_1)] "pickle.xml"
-                                >>> xunpickleDocument xpInvIndex [(a_remove_whitespace, v_1), (a_validate, v_0)] "pickle.xml")
+    ]
+    where
+    res1 = maybeToList . unpickleDoc pickler . pickleDoc pickler $ i
+  
+    res2 = runLA (xshow (arr (pickleDoc pickler) 
+             >>> getChildren)
+             >>> root [] [xread]
+             >>> arrL (maybeToList . unpickleDoc pickler)) i
+  
+    res4 = runX (constA i
+            >>> arr (pickleDoc pickler)                   -- InvIndex => XmlTree
+            >>> writeDocumentToString []                  -- XmlTree => String
+            >>> readFromString [(a_validate, v_0)]        -- String => XmlTree
+            >>> arrL (maybeToList . unpickleDoc pickler)) -- XmlTree => InvIndex
+  
+    res5 = runX (constA i                                    -- Take the InvIndex value
+            >>> arr (pickleDoc pickler)                      -- InvIndex => XmlTree
+            >>> writeDocument [(a_indent, v_1)] "pickle.xml" -- XmlTree => formated external XML document
+            >>> readDocument  [(a_remove_whitespace, v_1), (a_validate, v_0)] "pickle.xml" -- Formated external XML document => XmlTree 
+            >>> arrL (maybeToList . unpickleDoc pickler))    -- XmlTree => InvIndex
+  
+    res6 = runX (constA i -- Same as above the convinient way
+            >>> xpickleDocument pickler [(a_indent, v_1)] "pickle.xml"
+            >>> xunpickleDocument pickler [(a_remove_whitespace, v_1), (a_validate, v_0)] "pickle.xml")
 
 {-
 FIXME TH 15.01.2008: Adding a DTD automatically does not work yet, because we use
                      the doc element twice with different meanings: Once as part of the
                      document table and as part of an index, too  
-                        res7 :: IO [InvIndex]                                    -- Same as above with validation
-                        res7 = runX (constA i
-                                >>> xpickleDocument xpInvIndex [(a_indent, v_1), (a_addDTD, v_1)] "pickle.xml"
-                                >>> xunpickleDocument xpInvIndex [(a_remove_whitespace, v_1), (a_validate, v_1)] "pickle.xml")
+    res7 :: IO [InvIndex]                                    -- Same as above with validation
+    res7 = runX (constA i
+            >>> xpickleDocument xpInvIndex [(a_indent, v_1), (a_addDTD, v_1)] "pickle.xml"
+            >>> xunpickleDocument xpInvIndex [(a_remove_whitespace, v_1), (a_validate, v_1)] "pickle.xml")
 --}
 
 allTests :: Test  
-allTests = pickleUnpickleTests
+allTests = TestList [ pickleUnpickleTests [testIndex1, testIndex2] xpInvIndex "InvIndex"
+                    , pickleUnpickleTests [testResult1, testResult2] xpResult "Result"
+                    ]
