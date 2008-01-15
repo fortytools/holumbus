@@ -44,6 +44,7 @@ import Holumbus.Query.Syntax
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
+import Holumbus.Query.Fuzzy
 import Holumbus.Query.Result hiding (sizeDocs, sizeWords)
 
 data Flag = Inverted String | Hybrid String | Verbose | Version deriving (Show, Eq)
@@ -126,7 +127,7 @@ answerQueries verbose i = do
                    t1 <- getCPUTime
                    oq <- return (optimize pq)
                    if verbose then putStrLn ("Optimized: \n" ++ (show oq) ++ "\n") else return ()
-                   r <- return (process oq i (contexts i))
+                   r <- return (processQuery cfg i oq)
                    rr <- return (rank r)
                    printDocHits (docHits rr) (documents i)
                    putStrLn ""
@@ -136,6 +137,8 @@ answerQueries verbose i = do
                    m <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000)
                    putStrLn ""
                    putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
+                     where
+                     cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
 
 internalCommand :: Bool -> AnyIndex -> String -> IO ()
 internalCommand _       _ "q"       = exitWith ExitSuccess
