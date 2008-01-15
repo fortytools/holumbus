@@ -62,6 +62,8 @@ module Holumbus.Query.Result
   
   -- * Transform
   , annotateResult
+  , setDocScore
+  , setWordScore
   )
 where
 
@@ -100,7 +102,7 @@ data DocInfo = DocInfo { document :: !Document
                        deriving (Eq, Show)
 
 -- | Information about a word.
-data WordInfo = WordInfo { term      :: ![Word]
+data WordInfo = WordInfo { term      :: ![String]
                          , wordScore :: !Score 
                          }
                          deriving (Eq, Show)
@@ -289,6 +291,14 @@ annotateResult i (Result dh wh) = Result (IM.mapWithKey convertDocInfo dh) wh
   convertDocInfo docId ((DocInfo _ s), dch) = (DocInfo doc s, dch)
     where
     doc = fromJust $ lookupId docId (documents i)
+
+-- | Set the score in a document info.
+setDocScore :: Score -> DocInfo -> DocInfo
+setDocScore s (DocInfo d _) = DocInfo d s
+
+-- | Set the score in a word info.
+setWordScore :: Score -> WordInfo -> WordInfo
+setWordScore s (WordInfo t _) = WordInfo t s
 
 -- | Split a string into seperate strings at a specific character.
 split :: Eq a => [a] -> [a] -> [[a]]

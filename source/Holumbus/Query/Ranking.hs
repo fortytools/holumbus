@@ -38,6 +38,9 @@ import Holumbus.Query.Result
 import Holumbus.Index.Documents
 import Holumbus.Index.Common
 
+type DocRanking = DocId -> DocContextHits -> Score
+type WordRanking = Word -> WordContextHits -> Score
+
 -- | The default ranking for document hits.
 docDefaultRanking :: DocId -> DocContextHits -> Score
 docDefaultRanking = docRankByCount
@@ -51,11 +54,11 @@ rank :: Result -> Result
 rank = rankWith docDefaultRanking wordDefaultRanking
 
 -- | Rank the result with custom ranking functions.
-rankWith :: (DocId -> DocContextHits -> Score) -> (Word -> WordContextHits -> Score) -> Result -> Result
+rankWith :: DocRanking -> WordRanking -> Result -> Result
 rankWith fd fw r = Result scoredDocHits scoredWordHits
   where
-  scoredDocHits = IM.mapWithKey (\k (di, dch) -> (setScore (fd k dch) di, dch)) $ docHits r
-  scoredWordHits = M.mapWithKey (\k (_, wch) -> (fw k wch, wch)) $ wordHits r
+  scoredDocHits = IM.mapWithKey (\k (di, dch) -> (setDocScore (fd k dch) di, dch)) $ docHits r
+  scoredWordHits = M.mapWithKey (\k (wi, wch) -> (setWordScore (fw k wch) wi, wch)) $ wordHits r
 
 -- | Rank documents by count.
 docRankByCount :: DocId -> DocContextHits -> Score

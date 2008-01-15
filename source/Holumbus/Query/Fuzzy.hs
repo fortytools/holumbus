@@ -23,6 +23,7 @@ module Holumbus.Query.Fuzzy
   , Replacements
   , Replacement
   , FuzzyScore
+  , FuzzyConfig (..)
   
   -- * Predefined replacements
   , englishReplacements
@@ -30,11 +31,6 @@ module Holumbus.Query.Fuzzy
   
   -- * Generation
   , fuzz
-  , fuzzWith
-  , fuzzMore
-  , fuzzMoreWith
-  , fuzzUntil
-  , fuzzUntilWith
   
   -- * Conversion
   , toList
@@ -57,9 +53,13 @@ type Replacement = ((String, String), FuzzyScore)
 -- | The score indicating an amount of fuzziness. 
 type FuzzyScore = Float
 
--- | The default replacements to use in the functions without explicitly specified replacements.
-defaultReplacements :: Replacements
-defaultReplacements = germanReplacements
+-- | The configuration of a fuzzy query.
+data FuzzyConfig = FuzzyConfig { applyReplacements  :: Bool
+                               , applySwappings     :: Bool
+                               , maxFuzziness       :: FuzzyScore
+                               , customReplacements :: Replacements
+                               }
+                               deriving (Show)
 
 -- | Some default replacements for the english language.
 englishReplacements :: Replacements
@@ -94,54 +94,38 @@ germanReplacements =
   , (("ß", "ss"), 0.1)
   ]
 
--- | Fuzz a string usind the default replacements.
-fuzz :: String -> FuzzySet
-fuzz = fuzzWith defaultReplacements
-
--- | Fuzz a string using an explicitly specified list of replacements.
-fuzzWith :: Replacements -> String -> FuzzySet
-fuzzWith = fuzzInternal 0.0
-
--- | Fuzz a set of fuzzy strings even more using the default replacements (the new set of 
--- fuzzy strings is not merged with the original set).
-fuzzMore :: FuzzySet -> FuzzySet
-fuzzMore = fuzzMoreWith defaultReplacements
-
--- | Fuzz a set of fuzzy strings even more using an explicitly specified list of replacements.
--- (the new set of fuzzy strings is not merged with the original set).
-fuzzMoreWith :: Replacements -> FuzzySet -> FuzzySet
-fuzzMoreWith rs fs = M.foldWithKey (\s sc res -> M.unionWith min res (fuzzInternal sc rs s)) M.empty fs
-
--- | Continue fuzzing a string with the default replacements until a given score threshold is reached.
-fuzzUntil :: FuzzyScore -> String -> FuzzySet
-fuzzUntil = fuzzUntilWith defaultReplacements
-
 -- | Continue fuzzing a string with the an explicitly specified list of replacements until 
 -- a given score threshold is reached.
-fuzzUntilWith :: Replacements -> FuzzyScore -> String -> FuzzySet
-fuzzUntilWith rs th s = fuzzUntilWith' (fuzzLimit th 0.0 rs s)
+fuzz :: FuzzyConfig -> String -> FuzzySet
+fuzz cfg s = M.delete s (fuzz' (fuzzLimit cfg 0.0 s))
   where
-  fuzzUntilWith' :: FuzzySet -> FuzzySet
-  fuzzUntilWith' fs = if M.null more then fs else M.unionWith min fs (fuzzUntilWith' more)
+  fuzz' :: FuzzySet -> FuzzySet
+  fuzz' fs = if M.null more then fs else M.unionWith min fs (fuzz' more)
     where
     -- The current score is doubled on every recursive call, because fuzziness increases exponentially.
-    more = M.foldWithKey (\sm sc res -> M.unionWith min res (fuzzLimit th (sc + sc) rs sm)) M.empty fs
+    more = M.foldWithKey (\sm sc res -> M.unionWith min res (fuzzLimit cfg (sc + sc) sm)) M.empty fs
 
 -- | Fuzz a string and limit the allowed score to a given threshold.
-fuzzLimit :: FuzzyScore -> FuzzyScore -> Replacements -> String -> FuzzySet
-fuzzLimit th sc rs s = if sc <= th then M.filter (\ns -> ns <= th) (fuzzInternal sc rs s) else M.empty
+fuzzLimit :: FuzzyConfig -> FuzzyScore -> String -> FuzzySet
+fuzzLimit cfg sc s = if sc <= th then M.filter (\ns -> ns <= th) (fuzzInternal cfg sc s) else M.empty
+  where
+  th = maxFuzziness cfg
 
 -- | Fuzz a string with an list of explicitly specified replacements and combine the scores
 -- with an initial score.
-fuzzInternal :: FuzzyScore -> Replacements -> String -> FuzzySet
-fuzzInternal sc rs s = M.unionWith min replaced swapped
+fuzzInternal :: FuzzyConfig -> FuzzyScore -> String -> FuzzySet
+fuzzInternal cfg sc s = M.unionWith min replaced swapped
   where
-  replaced = foldr (\r res -> M.unionWith min res (applyFuzz (replace rs r) sc s)) M.empty rs
-  swapped = applyFuzz swap sc s
+  replaced = let rs = customReplacements cfg in if (applyReplacements cfg) 
+             then foldr (\r res -> M.unionWith min res (applyFuzz (replace rs r) sc s)) M.empty rs
+             else M.empty
+  swapped = if (applySwappings cfg) 
+            then applyFuzz swap sc s
+            else M.empty
 
--- | Applies a single replacement definition (in both directions) to a string. An initial score is
--- combined with the new score for the replacement (calculated from the position in the string and 
--- the scores in the list of all replacements).
+-- | Applies a fuzzy function to a string. An initial score is combined with the new score 
+-- for the replacement (calculated from the position in the string and the scores in the 
+-- list of all replacements).
 applyFuzz :: (String -> String -> [(String, FuzzyScore)]) -> FuzzyScore -> String -> FuzzySet
 applyFuzz f sc s = apply (init $ inits s) (init $ tails s)
   where
@@ -151,7 +135,7 @@ applyFuzz f sc s = apply (init $ inits s) (init $ tails s)
   apply (pr:prs) (su:sus) = M.unionsWith min $ (apply prs sus):(map create $ (f pr su))
     where
     create (fuzzed, score) = M.singleton fuzzed (sc + score * (calcWeight (length pr) (length s)))
-
+                             
 -- | Apply a replacement in both directions to the suffix of a string and return the complete
 -- string with a score, calculated from the replacement itself and the list of replacements.
 replace :: Replacements -> Replacement -> String -> String -> [(String, FuzzyScore)]

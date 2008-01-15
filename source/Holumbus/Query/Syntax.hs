@@ -22,8 +22,10 @@ module Holumbus.Query.Syntax
   -- * Query data types
   Query (Word, Phrase, CaseWord, CasePhrase, FuzzyWord, Specifier, Negation, BinQuery)
   , BinOp (And, Or, Filter)
+
   -- * Optimizing
   , optimize
+  , checkWith
   )
 where
 
@@ -54,4 +56,15 @@ optimize (BinQuery Filter q1 q2) = BinQuery Or (optimize q1) (optimize q2)
 optimize (Negation q) = Negation (optimize q)
 optimize (Specifier cs q) = Specifier cs (optimize q)
 optimize q = q
+
+-- | Check if the query complies with some custom predicate.
+checkWith :: (String -> Bool) -> Query -> Bool
+checkWith f (Word s) = f s
+checkWith f (Phrase s) = f s
+checkWith f (CaseWord s) = f s
+checkWith f (CasePhrase s) = f s
+checkWith f (FuzzyWord s) = f s
+checkWith f (Negation q) = checkWith f q
+checkWith f (BinQuery _ q1 q2) = (checkWith f q1) && (checkWith f q2)
+checkWith f (Specifier _ q) = checkWith f q
 
