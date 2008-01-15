@@ -30,6 +30,9 @@ alltests :
 allexamples :
 	$(MAKE) -C $(EXAMPLES_BASE) all
 
+wc :
+	@wc -l `find ./$(EXAMPLES_BASE) ./source ./$(TEST_BASE) -wholename './_darcs/*' -prune -o -name "*.hs" -print`   
+
 clean :
 	@runhaskell Setup.hs clean
 	$(MAKE) -C $(TEST_BASE) clean
