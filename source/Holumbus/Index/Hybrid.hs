@@ -37,22 +37,22 @@ import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 
 data HybIndex      = HybIndex { docTable   :: !Documents
                               , indexParts :: !Parts 
-                              } deriving (Show)
+                              } deriving (Show, Eq)
 
 type Parts         = Map Context Part
 data Part          = Part { dictionary :: !Dictionary
                           , blocks     :: !Blocks 
-                          } deriving (Show)
+                          } deriving (Show, Eq)
 
 data Dictionary    = Dictionary { wordTable  :: !(StrMap WordInfo)
                                 , lastWordId :: !WordId
-                                } deriving (Show)
+                                } deriving (Show, Eq)
 
 type WordInfo      = ( WordId, BlockId )
 
 data Blocks        = Blocks { blockTable  :: !(IntMap Block)
                             , lastBlockId :: !BlockId
-                            } deriving (Show)
+                            } deriving (Show, Eq)
 
 type Block         = [ Occurrence ]               -- Sorted by DocId
 type Occurrence    = ( DocId, WordId, Position )

@@ -30,6 +30,7 @@ import Holumbus.Index.Hybrid
 -- for every index type.
 data AnyIndex = Inv InvIndex
               | Hyb HybIndex
+              deriving (Show, Eq)
 
 instance HolIndex AnyIndex where
   sizeDocs (Inv i) = sizeDocs i

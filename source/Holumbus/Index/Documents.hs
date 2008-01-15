@@ -57,7 +57,7 @@ import Holumbus.Control.Sequence
 data Documents     = Documents { idToDoc   :: !(IntMap Document)
                                , docToId   :: !(Map URI DocId) 
                                , lastDocId :: !DocId
-                               } deriving (Show)
+                               } deriving (Show, Eq)
 
 -- | A document consists of a title and it's unique identifier.
 type Document      = (Title, URI)
