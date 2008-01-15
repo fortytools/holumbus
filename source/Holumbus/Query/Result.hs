@@ -2,7 +2,7 @@
 
 {- |
   Module     : Holumbus.Query.Result
-  Copyright  : Copyright (C) 2007 Timo B. Huebel
+  Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -241,9 +241,9 @@ createDocHits c os = IM.unionsWith combineDocHits (map createDocHits' os)
 
 -- | Create the word hits structure for the results from a single context.
 createWordHits :: Context -> [(String, Occurrences)] -> WordHits
-createWordHits c os = M.unionsWith combineWordHits (map createWordHits' os)
+createWordHits c os = foldr insertWordHit M.empty os
   where
-  createWordHits' (w, o) = M.singleton w (0.0, (M.singleton c o))
+  insertWordHit (w, o) = M.insertWith combineWordHits w (0.0, M.singleton c o)
 
 -- | Combine two results by calculating their union.
 union :: Result -> Result -> Result
