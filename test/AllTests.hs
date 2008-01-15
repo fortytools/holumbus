@@ -25,6 +25,7 @@ import qualified StrMapTest as StrMap
 import qualified BiMapTest as BiMap
 import qualified ParserTest as Parser
 import qualified FuzzyTest as Fuzzy
+import qualified PickleTest as Pickle
 
 allTests :: Test
 allTests = TestList
@@ -32,6 +33,7 @@ allTests = TestList
            , BiMap.allTests
            , Parser.allTests
            , Fuzzy.allTests
+           , Pickle.allTests
            ]
 
 main :: IO ()
