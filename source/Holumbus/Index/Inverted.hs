@@ -51,7 +51,7 @@ instance HolIndex InvIndex where
   contexts = map fst . M.toList . indexParts
 
   allWords c i = SM.toList $ getPart c i
-  prefixCase c i q = SM.prefixFindNoCaseWithKey q $ getPart c i
+  prefixCase c i q = SM.prefixFindWithKey q $ getPart c i
   prefixNoCase c i q = SM.prefixFindNoCaseWithKey q $ getPart c i
   lookupCase c i q = maybeToList (SM.lookup q $ getPart c i)
   lookupNoCase c i q = SM.lookupNoCase q $ getPart c i
@@ -60,7 +60,14 @@ instance HolIndex InvIndex where
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
 
 instance DeepSeq InvIndex where
-  deepSeq (InvIndex docs parts) b = deepSeq docs $ deepSeq parts b
+  deepSeq (InvIndex docs parts) b = deepSeq parts $ deepSeq docs b
+
+-- TODO: This can be used to decrease memory consumption.
+--inflate :: IntMap DiffList -> Occurrences
+--inflate = IM.map toIntSet
+--
+--deflate :: Occurrences -> IntMap DiffList
+--deflate = IM.map fromIntSet
 
 -- | Create an empty index.
 empty :: InvIndex
