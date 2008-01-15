@@ -23,13 +23,16 @@ module Network.Server.Janus.Shader.WebSearch where
 
 import Text.XML.HXT.Arrow
 
-import Holumbus.Index.Common (HolIndex, contexts)
+--import Holumbus.Index.Common
+import Holumbus.Index.Combined
 import Holumbus.Index.Inverted
+
 import Holumbus.Query.Syntax
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
 import Holumbus.Query.Ranking
+import Holumbus.Query.Fuzzy
 
 import Network.Server.Janus.Core
 import Network.Server.Janus.XmlHelper
@@ -46,24 +49,24 @@ type Status = (String, Int, Float, Int, Float)
 websearchShader :: ShaderCreator
 websearchShader = mkDynamicCreator $ proc (_, _) -> do
   tmp <- arrIO $ loadFromFile -< "indexes/vl.xml" -- Should be configurable (from Context)
-  mix <- arrIO $ newMVar -< tmp
+  mix <- arrIO $ newMVar -< Inv tmp
   returnA -< websearchService mix
 
-websearchService :: MVar InvIndex -> Shader
+websearchService :: MVar AnyIndex -> Shader
 websearchService mix = proc inTxn -> do
   idx      <- arrIO $ readMVar                                             -< mix
   request  <- getValDef (_transaction_http_request_cgi_ "@query") ""       -< inTxn
   response <- writeString <<< (genError ||| genResult) <<< (arrParseQuery) -< (urlDecode request, idx)
   setVal _transaction_http_response_body response                          -<< inTxn    
-  where
+    where
     writeString = pickleStatusResult >>> (writeDocumentToString [(a_indent, v_1), (a_output_encoding, isoLatin1)])
     pickleStatusResult = xpickleVal xpStatusResult
 
-arrParseQuery :: (ArrowXml a, HolIndex i) => a (String, i) (Either (String, i) (Query, i))
+arrParseQuery :: ArrowXml a => a (String, AnyIndex) (Either (String, AnyIndex) (Query, AnyIndex))
 arrParseQuery = arr $ (\(r, i) -> either (\m -> Left (m, i)) (\q -> Right (q, i)) (parseQuery r))
 
-genResult :: (ArrowXml a, HolIndex i) => a (Query, i) (Status, Result)
-genResult = (arr $ (\(q, i) -> (process q i (contexts i), i)))
+genResult :: ArrowXml a => a (Query, AnyIndex) (Status, Result)
+genResult = (arr $ (\(q, i) -> (makeQuery i q, i)))
             >>>
             (first $ arr $ rank)
             >>>
@@ -71,7 +74,14 @@ genResult = (arr $ (\(q, i) -> (process q i (contexts i), i)))
             >>>
             (arr $ (\r -> (setResult r defaultStatus , r)))
 
-genError :: (ArrowXml a, HolIndex i) => a (String, i) (Status, Result)
+makeQuery :: AnyIndex -> Query -> Result
+makeQuery i q = if checkWith ((> 1) . length) q then
+                processQuery cfg i (optimize q)
+                else emptyResult
+                  where
+                  cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+
+genError :: ArrowXml a => a (String, AnyIndex) (Status, Result)
 genError = arr $ (\(msg, _) -> (setMessage msg defaultStatus, emptyResult))
 
 xpStatusResult :: PU StatusResult
