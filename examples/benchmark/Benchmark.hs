@@ -163,11 +163,15 @@ runner (q:qs) i a = do
 runQuery :: Query -> AnyIndex -> IO (Int)
 runQuery q i = do
                oq <- return (optimize q)
-               r <- return (processQuery cfg i oq)
-               rr <- return (rank r)
+               r <- return (processQuery procCfg i oq)
+               rr <- return (rank rankCfg r)
                return (strict $ (strict $ (strict $ sizeDocHits rr) + (strict $ sizeWordHits rr)))
                  where
-                 cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+                 procCfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+                 rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
+                  where
+                  weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
+
 
 printError :: String -> IO ()
 printError e = usage [e]

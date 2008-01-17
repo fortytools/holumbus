@@ -2,7 +2,7 @@
 
 {- |
   Module     : WebSearch
-  Copyright  : Copyright (C) 2007 Timo B. Huebel
+  Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -89,10 +89,14 @@ arrLogRequest = proc inTxn -> do
   arrIO $ putStrLn -< (currTime ++ " - " ++ remHost ++ " - " ++ rawRequest ++ " - " ++ decodedRequest)
 
 genResult :: ArrowXml a => a (Query, AnyIndex) (String, Result)
-genResult = ifP (\(q, _) -> checkWith ((> 1) . length) q)
+genResult = let 
+              rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
+              weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
+            in
+            ifP (\(q, _) -> checkWith ((> 1) . length) q)
               ((arr $ (\(q, i) -> (makeQuery i q, i)))
               >>>
-              (first $ arr $ rank)
+              (first $ arr $ rank rankCfg)
               >>>
               (arr $ (\(r, i) -> annotateResult i r))
               >>>

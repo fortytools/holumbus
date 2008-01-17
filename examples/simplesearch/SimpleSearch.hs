@@ -2,7 +2,7 @@
 
 {- |
   Module     : SimpleSearch
-  Copyright  : Copyright (C) 2007 Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -39,7 +39,6 @@ import qualified Holumbus.Index.Inverted as INV
 import qualified Holumbus.Index.Hybrid as HYB
 import Holumbus.Index.Common
 import Holumbus.Index.Combined
-import Holumbus.Index.Documents
 import Holumbus.Query.Syntax
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
@@ -127,9 +126,10 @@ answerQueries verbose i = do
                    t1 <- getCPUTime
                    oq <- return (optimize pq)
                    if verbose then putStrLn ("Optimized: \n" ++ (show oq) ++ "\n") else return ()
-                   r <- return (processQuery cfg i oq)
-                   rr <- return (rank r)
-                   printDocHits (docHits rr) (documents i)
+                   r <- return (processQuery procCfg i oq)
+                   ar <- return (annotateResult i r)
+                   rr <- return (rank rankCfg ar)
+                   printDocHits (docHits rr)
                    putStrLn ""
                    printWordHits (wordHits rr)
                    t2 <- getCPUTime
@@ -138,7 +138,10 @@ answerQueries verbose i = do
                    putStrLn ""
                    putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
                      where
-                     cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+                     procCfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+                     rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
+                      where
+                      weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
 
 internalCommand :: Bool -> AnyIndex -> String -> IO ()
 internalCommand _       _ "q"       = exitWith ExitSuccess
@@ -153,22 +156,21 @@ internalCommand verbose i _         = do
                                       putStrLn "Unknown command!"
                                       answerQueries verbose i
 
-printDocHits :: DocHits -> Documents -> IO ()
-printDocHits h docs = do
-                      putStrLn "Result:"
-                      printHits' (map fromJust (map (\d -> IM.lookup d (idToDoc docs)) 
-                                 (IM.foldWithKey (\k _ l -> k:l) [] h)))
-                      putStrLn ""
-                      putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
-                      where
-                        printHits' :: [Document] -> IO ()
-                        printHits' [] = return ()
-                        printHits' ((t, u):xs) = do
-                                                 putStrLn t
-                                                 putStrLn u
-                                                 printHits' xs
-                                                 return ()
-
+printDocHits :: DocHits -> IO ()
+printDocHits h = do
+                 putStrLn "Result:"
+                 printHits' (L.sortBy (compare `on` (docScore . fst . snd)) $ IM.toList h)
+                 putStrLn ""
+                 putStrLn ("Found " ++ (show (IM.size h)) ++ " documents")
+                 where
+                   printHits' [] = return ()
+                   printHits' ((_, (di, _)):xs) = do
+                                                  putStr (fst $ document di)
+                                                  putStr " Score: "
+                                                  putStrLn (show $ docScore  di)
+                                                  putStrLn (snd $ document di)
+                                                  printHits' xs
+                                                  return ()
 
 printWordHits :: WordHits -> IO ()
 printWordHits h = do
