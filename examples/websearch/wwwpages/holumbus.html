@@ -31,87 +31,80 @@
 </head>
 
 <body>
-	<div id="top">
-		<div id="left">
-			<div id="logo">
-				<a href="http://holumbus.schlatt.com"><img class="logo" src="holumbus.png" alt="Holumbus logo"/></a>
-			</div>		
-		
-			<div id="query">
-				<form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="holumbus.xml">
-					<div id="help">Enter some search terms (<a class="help" href="javascript:toggleHelp()">help</a>):</div>
-					<div id="queryinterface">
-						<input class="querybox" id="querytext" type="text" onkeyup="tryProcessQuery()" value="" name="querytext" autocomplete="off"/>
-						<img id="throbber" src="loader.gif" alt="Throbber"/>
-					</div>
-					<div id="stats">Nothing found yet.</div>
-				</form>
-			</div>
-		</div>
+	<div id="credits">
+		Powerd by <a class="credits" href="http://haskell.org">Haskell</a>, 
+		<a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
+		<a class="credits" href="http://darcs.fh-wedel.de/janus/">Janus</a> and 
+		<a class="credits" href="http://holumbus.schlatt.com">Holumbus</a>
+	</div>
 
-		<div id="right">
-			<div id="credits">
-				Powerd by <a class="credits" href="http://haskell.org">Haskell</a>, 
-				<a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
-				<a class="credits" href="http://darcs.fh-wedel.de/janus/">Janus</a> and 
-				<a class="credits" href="http://holumbus.schlatt.com">Holumbus</a>
+	<div id="query">
+		<div id="logo">
+			<a href="http://holumbus.schlatt.com"><img class="logo" src="holumbus.png" alt="Holumbus logo"/></a>
+		</div>		
+
+		<form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="holumbus.xml">
+			<div id="help">Enter some search terms (<a class="help" href="javascript:toggleHelp()">help</a>):</div>
+			<div id="queryinterface">
+				<input id="querytext" type="text" onkeyup="tryProcessQuery()" value="" name="querytext" autocomplete="off"/>
+				<input id="querybutton" type="submit" value="Go"/>
+				<img id="throbber" src="loader.gif" alt="Throbber"/>
 			</div>
-			<div id="words"> 
-				<p id="cloud"></p>
-			</div>
-		</div>
+		</form>
 	</div>
 	
-	<div id="bottom">
-		<div id="onlinehelp" style="display: none;">
-			<table class="onlinehelp">
-				<tr class="onlinehelp">
-					<th class="description">Description</th>
-					<th class="example">Example</th>
-				</tr>
-				<tr class="onlinehelp">
-					<td class="description">
-			      Holumbus treats single words as prefix terms and will give you hints on possible completions.
-		      	Exact phrases can be specified by using quotes. Words and phrases are interpreted case-insensitive,
-			      unless they are preceeded by the ! operator.
-			    </td>
-			  	<td class="example">
-		    		<code>caSeInseNsitive !CaseSensitive "CaSe InSensitive" !"Case Sensitive"</code>
-		    	</td>
-		    </tr>
-		    <tr class="onlinehelp">
-			  	<td class="description">
-			      Terms just separated by space will be treated implicitly as AND terms. Other operators have to 
-	      		be specified explicitly. The priority can be influenced by round parantheses. Avaliable 
-	      		operators are: AND, OR, NOT
-	      	</td>
-	      	<td class="example">
-	      		<code>(foo bar) OR (foo AND bar) NOT foobar</code>
-					</td>
-				</tr>
-		    <tr class="onlinehelp">
-			  	<td class="description">
-		        If unsure about spelling, a single word can be preceeded by ~ to make a fuzzy query.
-	      	</td>
-	      	<td class="example">
-	      		<code>~fooobarr ~voobar</code>
-					</td>
-				</tr>
-		    <tr class="onlinehelp">
-			  	<td class="description">
-		        The contexts to search can be restricted with the : operator. Several contexts can be
-		        specified, seperated by commas.
-	      	</td>
-	      	<td class="example">
-	      		<code>firstcontext,secondcontext:(foo OR bar)</code>
-					</td>
-				</tr>
-			</table>
-		</div>
-		<div id="results">
-			<div id="list"></div>
-		</div>
+	<div id="onlinehelp" style="display:none;">
+		<table class="help">
+			<tr class="help">
+				<th class="description">Description</th>
+				<th class="example">Example</th>
+			</tr>
+			<tr class="help">
+				<td class="description">
+		      Holumbus treats single words as prefix terms and will give you hints on possible completions.
+	      	Exact phrases can be specified by using quotes. Words and phrases are interpreted case-insensitive,
+		      unless they are preceeded by the ! operator.
+		    </td>
+		  	<td class="example">
+	    		<code>caSeInseNsitive !CaseSensitive "CaSe InSensitive" !"Case Sensitive"</code>
+	    	</td>
+	    </tr>
+	    <tr class="help">
+		  	<td class="description">
+		      Terms just separated by space will be treated implicitly as AND terms. Other operators have to 
+      		be specified explicitly. The priority can be influenced by round parantheses. Avaliable 
+      		operators are: AND, OR, NOT
+      	</td>
+      	<td class="example">
+      		<code>(foo bar) OR (foo AND bar) NOT foobar</code>
+				</td>
+			</tr>
+	    <tr class="help">
+		  	<td class="description">
+	        If unsure about spelling, a single word can be preceeded by ~ to make a fuzzy query.
+      	</td>
+      	<td class="example">
+      		<code>~fooobarr ~voobar</code>
+				</td>
+			</tr>
+	    <tr class="help">
+		  	<td class="description">
+	        The contexts to search can be restricted with the : operator. Several contexts can be
+	        specified, seperated by commas.
+      	</td>
+      	<td class="example">
+      		<code>firstcontext,secondcontext:(foo OR bar)</code>
+				</td>
+			</tr>
+		</table>
 	</div>
+
+	<div id="result">
+		<div id="status">&nbsp;</div>
+		<div id="words">&nbsp;</div>
+		<div id="documents">&nbsp;</div>
+  </div>
+
 </body>
 
 </html>

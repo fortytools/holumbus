@@ -113,7 +113,7 @@
 
 	<like>
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
-	  <case match="^/holumbus.xml$" ><shader type="holumbus"/></case>
+	  <case match="^/result.html$" ><shader type="holumbus"/></case>
           <default>
             <shader id="file_shader" type="file_shader">
               <config base_url="/" maps_to="./wwwpages"/>
