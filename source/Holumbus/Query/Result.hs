@@ -303,13 +303,28 @@ setWordScore s (WordInfo t _) = WordInfo t s
 -- | Split a string into seperate strings at a specific character.
 split :: Eq a => [a] -> [a] -> [[a]]
 split _ []       = [[]] 
-split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (L.stripPrefix at w)
+split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (stripPrefix at w)
                     where (r:rs) = split at xs
  
 -- | Join with a seperating character.
 join :: Eq a => [a] -> [[a]] -> [a]
-join = L.intercalate
+join = intercalate
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
 op `on` f = \x y -> f x `op` f y
+
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.List)
+intercalate :: [a] -> [[a]] -> [a]
+intercalate xs xss = concat (intersperse xs xss)
+  where
+  intersperse _   []      = []
+  intersperse _   [y]     = [y]
+  intersperse sep (y:ys)  = y : sep : intersperse sep ys
+  
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.List)
+stripPrefix :: Eq a => [a] -> [a] -> Maybe [a]
+stripPrefix [] ys = Just ys
+stripPrefix (x:xs) (y:ys)
+ | x == y = stripPrefix xs ys
+stripPrefix _ _ = Nothing
