@@ -45,10 +45,10 @@ module Holumbus.Query.Result
   -- * Query
   , size
   , null
-  , sizeDocs
-  , sizeWords
-  , maxScoreDocs
-  , maxScoreWords
+  , sizeDocHits
+  , sizeWordHits
+  , maxScoreDocHits
+  , maxScoreWordHits
 
   -- * Combine
   , union
@@ -201,23 +201,23 @@ emptyWordHits = M.empty
 
 -- | Query the size of a result.
 size :: Result -> Int
-size = sizeDocs
+size = sizeDocHits
 
 -- | Query the number of documents in a result.
-sizeDocs :: Result -> Int
-sizeDocs = IM.size . docHits
+sizeDocHits :: Result -> Int
+sizeDocHits = IM.size . docHits
 
 -- | Query the number of documents in a result.
-sizeWords :: Result -> Int
-sizeWords = M.size . wordHits
+sizeWordHits :: Result -> Int
+sizeWordHits = M.size . wordHits
 
 -- | Query the maximum score of the documents.
-maxScoreDocs :: Result -> Score
-maxScoreDocs = (IM.fold (\(di, _) r -> max (docScore di) r) 0.0) . docHits
+maxScoreDocHits :: Result -> Score
+maxScoreDocHits = (IM.fold (\(di, _) r -> max (docScore di) r) 0.0) . docHits
 
 -- | Query the maximum score of the words.
-maxScoreWords :: Result -> Score
-maxScoreWords = (M.fold (\(wi, _) r -> max (wordScore wi) r) 0.0) . wordHits
+maxScoreWordHits :: Result -> Score
+maxScoreWordHits = (M.fold (\(wi, _) r -> max (wordScore wi) r) 0.0) . wordHits
 
 -- | Test if the result contains anything.
 null :: Result -> Bool
