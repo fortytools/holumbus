@@ -56,7 +56,7 @@ type StatusResult = (String, Result)
 
 websearchShader :: ShaderCreator
 websearchShader = J.mkDynamicCreator $ proc (_, _) -> do
-  tmp <- arrIO $ loadFromFile -< "indexes/sd.xml" -- Should be configurable (from Context)
+  tmp <- arrIO $ loadFromFile -< "indexes/vl.xml" -- Should be configurable (from Context)
   mix <- arrIO $ newMVar -< Inv tmp
   returnA -< websearchService mix
 
