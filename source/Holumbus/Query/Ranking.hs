@@ -2,13 +2,13 @@
 
 {- |
   Module     : Holumbus.Query.Ranking
-  Copyright  : Copyright (C) 2007 Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The ranking mechanism for Holumbus.
 
@@ -18,18 +18,27 @@
 
 module Holumbus.Query.Ranking 
   (
+  -- * Ranking types
+  RankConfig (..)
+  
   -- * Ranking
-  rank
-  , rankWith
+  , rank
   
   -- * Predefined document rankings
   , docRankByCount
+  , docRankWeightedByCount
   
   -- * Predefined word rankings
   , wordRankByCount
+  , wordRankWeightedByCount
   )
 where
 
+import Prelude hiding (foldr)
+
+import Data.Foldable
+
+import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
@@ -38,24 +47,16 @@ import Holumbus.Query.Result
 import Holumbus.Index.Documents
 import Holumbus.Index.Common
 
+data RankConfig = RankConfig { docRanking :: DocRanking
+                             , wordRanking :: WordRanking
+                             }
+
 type DocRanking = DocId -> DocContextHits -> Score
 type WordRanking = Word -> WordContextHits -> Score
 
--- | The default ranking for document hits.
-docDefaultRanking :: DocId -> DocContextHits -> Score
-docDefaultRanking = docRankByCount
-
--- | The default ranking for word hits.
-wordDefaultRanking :: Word -> WordContextHits -> Score
-wordDefaultRanking = wordRankByCount
-
--- | Rank with the default ranking mechanism.
-rank :: Result -> Result
-rank = rankWith docDefaultRanking wordDefaultRanking
-
 -- | Rank the result with custom ranking functions.
-rankWith :: DocRanking -> WordRanking -> Result -> Result
-rankWith fd fw r = Result scoredDocHits scoredWordHits
+rank :: RankConfig -> Result -> Result
+rank (RankConfig fd fw) r = Result scoredDocHits scoredWordHits
   where
   scoredDocHits = IM.mapWithKey (\k (di, dch) -> (setDocScore (fd k dch) di, dch)) $ docHits r
   scoredWordHits = M.mapWithKey (\k (wi, wch) -> (setWordScore (fw k wch) wi, wch)) $ wordHits r
@@ -66,4 +67,35 @@ docRankByCount _ h = fromIntegral $ M.fold (\h1 r1 -> M.fold (\h2 r2 -> IS.size 
 
 -- | Rank words by count.
 wordRankByCount :: Word -> WordContextHits -> Score
-wordRankByCount _ h = fromIntegral $ M.fold (\h1 r1 -> IM.fold (\h2 r2 -> IS.size h2 + r2) r1 h1) 0 h
+wordRankByCount _ h = fromIntegral $ M.fold (\h1 r1 -> IM.fold ((+) . IS.size) r1 h1) 0 h
+
+-- | Rank documents by context-weighted count. The weights will be normalized to a maximum of 1.0.
+-- Contexts with no weight (or a weight of zero) will be ignored.
+docRankWeightedByCount :: [(Context, Score)] -> DocId -> DocContextHits -> Score
+docRankWeightedByCount ws _ h =  M.foldWithKey (calcWeightedScore ws) 0.0 h
+
+-- | Rank words by context-weighted count. The weights will be normalized to a maximum of 1.0.
+-- Contexts with no weight (or a weight of zero) will be ignored.
+wordRankWeightedByCount :: [(Context, Score)] -> Word -> WordContextHits -> Score
+wordRankWeightedByCount ws _ h = M.foldWithKey (calcWeightedScore ws) 0.0 h
+
+-- | Calculate the weighted score of occurrences of a word.
+calcWeightedScore :: (Foldable f) => [(Context, Score)] -> Context -> (f IS.IntSet) -> Score -> Score
+calcWeightedScore ws c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight c ws)
+  where
+  count = fromIntegral $ foldr ((+) . IS.size) 0 h
+  mw = snd $ L.maximumBy (compare `on` snd) ws
+
+-- | Find the weight of a context in a list of weights. If the context was not found or it's
+-- weight is equal to zero, @Nothing@ will be returned.
+lookupWeight :: Context -> [(Context, Score)] -> Maybe Score
+lookupWeight _ [] = Nothing
+lookupWeight c (x:xs) = if fst x == c then
+                          if snd x /= 0.0
+                          then Just (snd x)
+                          else Nothing
+                        else lookupWeight c xs
+
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+op `on` f = \x y -> f x `op` f y

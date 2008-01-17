@@ -2,7 +2,7 @@
 
 {- |
   Module     : Holumbus.Query.Result
-  Copyright  : Copyright (C) 2008 Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)

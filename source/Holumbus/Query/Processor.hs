@@ -2,7 +2,7 @@
 
 {- |
   Module     : Holumbus.Query.Processor
-  Copyright  : Copyright (C) 2007 Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -76,7 +76,7 @@ allDocuments s = R.fromList "" (context s) (allWords (context s) (index s))
 
 -- | Process a query on a index with a list of contexts (should default to all contexts).
 processQuery :: ProcessConfig -> AnyIndex -> Query -> Result
-processQuery cfg i q = processContexts (initState cfg i) (contexts i) q
+processQuery cfg i q = R.annotateResult i (processContexts (initState cfg i) (contexts i) (optimize q))
 
 -- | Process a query for different contexts.
 processContexts :: ProcessState -> [Context] -> Query -> Result
