@@ -45,7 +45,7 @@ import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
-import Holumbus.Query.Result hiding (sizeDocs, sizeWords)
+import Holumbus.Query.Result
 
 data Flag = Inverted String | Hybrid String | Verbose | Version deriving (Show, Eq)
 

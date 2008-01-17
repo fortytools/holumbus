@@ -165,7 +165,7 @@ runQuery q i = do
                oq <- return (optimize q)
                r <- return (processQuery cfg i oq)
                rr <- return (rank r)
-               return (strict $ (strict $ (strict $ sizeDocs rr) + (strict $ sizeWords rr)))
+               return (strict $ (strict $ (strict $ sizeDocHits rr) + (strict $ sizeWordHits rr)))
                  where
                  cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
 
