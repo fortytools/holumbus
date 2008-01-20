@@ -85,7 +85,7 @@ import Text.XML.HXT.Arrow.Pickle
 
 import Holumbus.Control.Sequence
 
-import Holumbus.Index.Common hiding (sizeDocs, sizeWords)
+import Holumbus.Index.Common
 import Holumbus.Index.Combined
 import Holumbus.Index.Documents
 
