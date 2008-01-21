@@ -30,8 +30,8 @@ import qualified Data.List as L
 
 import Holumbus.Control.Sequence
 
-import Holumbus.Index.Combined (AnyIndex(Inv, Hyb))
-import qualified Holumbus.Index.Common as ANY
+import Holumbus.Index.Common (HolIndex)
+
 import qualified Holumbus.Index.Inverted as INV
 import qualified Holumbus.Index.Hybrid as HYB
 import qualified Holumbus.Index.Common as IDX
@@ -56,11 +56,10 @@ main = do
        times <- getTimes flags
        if L.null indexes then usage ["No index file given!\n"] else return ()
        if length indexes > 1 then usage ["Only one index file allowed!\n"] else return ()
-       putStrLn "Loading index ..."
-       idx <- load (head indexes)
        putStrLn "Generating queries ..."
        qs <- return (generateQueries times)
-       runQueries qs idx
+       putStrLn "Loading index ..."
+       startup (head indexes) qs
        return ()
 
 isIndex :: Flag -> Bool
@@ -76,15 +75,16 @@ getTimes ((Hybrid _):fs) = getTimes fs
 getTimes ((Version):fs) = getTimes fs
 
 -- | Decide between hybrid and inverted and then fire up!
-load :: Flag -> IO (AnyIndex)
-load (Inverted file) = do
-                        inv <- INV.loadFromFile file
-                        return (Inv inv)
-load (Hybrid file) = do
-                     hyb <- HYB.loadFromFile file
-                     return (Hyb hyb)
-load _ = do
-         usage ["Internal error!\n"]
+startup :: Flag -> [Query] -> IO ()
+startup (Inverted file) qs = do
+                             idx <- INV.loadFromFile file
+                             runQueries qs idx
+                             
+startup (Hybrid file) qs = do
+                           idx <- HYB.loadFromFile file
+                           runQueries qs idx
+
+startup _ _ = usage ["Internal error!\n"]
                           
 usage :: [String] -> IO a
 usage errs = if L.null errs then do
@@ -127,7 +127,7 @@ generateQueries t = allQueries ++ (generateQueries $ t - 1)
              ++ [CasePhrase (w1 ++ " " ++ w2) | w1 <- oneWords, w2 <- oneWords]
              ++ [FuzzyWord w | w <- twoWords]
 
-runQueries :: [Query] -> AnyIndex -> IO ()
+runQueries :: HolIndex i => [Query] -> i -> IO ()
 runQueries qs i = do
                   printStats qs i
                   putStrLn "Running queries ..."
@@ -154,13 +154,13 @@ runQueries qs i = do
                     where
                     l = fromIntegral $ length qs
 
-runner :: [Query] -> AnyIndex -> Integer -> IO (Integer)
+runner :: HolIndex i => [Query] -> i -> Integer -> IO (Integer)
 runner [] _ a = return a
 runner (q:qs) i a = do
                     l <- strict $ runQuery q i
                     runner qs i (strict $ a + (strict $ fromIntegral l))
                
-runQuery :: Query -> AnyIndex -> IO (Int)
+runQuery :: HolIndex i => Query -> i -> IO (Int)
 runQuery q i = do
                oq <- return (optimize q)
                r <- return (processQuery procCfg i oq)
@@ -176,7 +176,7 @@ runQuery q i = do
 printError :: String -> IO ()
 printError e = usage [e]
 
-printStats :: [Query] -> AnyIndex -> IO ()
+printStats :: HolIndex i => [Query] -> i -> IO ()
 printStats qs i = do
                   putStr ("Loaded " ++ (show (IDX.sizeDocs i)) ++ " documents ")
                   putStrLn ("containing " ++ show (IDX.sizeWords i) ++ " words")

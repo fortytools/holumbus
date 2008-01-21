@@ -38,7 +38,6 @@ import Text.XML.HXT.DOM.Unicode
 import qualified Holumbus.Index.Inverted as INV
 import qualified Holumbus.Index.Hybrid as HYB
 import Holumbus.Index.Common
-import Holumbus.Index.Combined
 import Holumbus.Query.Syntax
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
@@ -67,13 +66,11 @@ main = do
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Bool -> Flag -> IO ()
 startup v (Inverted file) = do
-                            inv <- INV.loadFromFile file
-                            idx <- return (Inv inv)
+                            idx <- INV.loadFromFile file
                             printStats idx
                             answerQueries v idx
 startup v (Hybrid file) = do
-                          hyb <- HYB.loadFromFile file
-                          idx <- return (Hyb hyb)
+                          idx <- HYB.loadFromFile file
                           printStats idx
                           answerQueries v idx
 startup _ _ = do
@@ -103,7 +100,7 @@ options = [ Option ['i'] ["inverted"] (ReqArg Inverted "FILE") "Loads inverted i
           , Option ['V'] ["version"]  (NoArg Version)          "Output version and exit"
           ]
 
-answerQueries :: Bool -> AnyIndex -> IO ()
+answerQueries :: HolIndex i => Bool -> i -> IO ()
 answerQueries verbose i = do
                           q <- readline ("Enter query (type :? for help) > ")
                           if isNothing q then answerQueries verbose i else
@@ -143,7 +140,7 @@ answerQueries verbose i = do
                       where
                       weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
 
-internalCommand :: Bool -> AnyIndex -> String -> IO ()
+internalCommand :: HolIndex i => Bool -> i -> String -> IO ()
 internalCommand _       _ "q"       = exitWith ExitSuccess
 internalCommand verbose i "?"       = do
                                       putStrLn ""
@@ -197,7 +194,7 @@ printHelp = do
             putStrLn "Use :q to exit and :? to show this help."
             return ()
 
-printContexts :: AnyIndex -> IO ()
+printContexts :: HolIndex i => i -> IO ()
 printContexts i = do
                   putStrLn "Avaliable contexts:"
                   printContexts' (contexts i)
@@ -209,7 +206,7 @@ printContexts i = do
                                             printContexts' xs
                                             return ()
 
-printStats :: AnyIndex -> IO ()
+printStats :: HolIndex i => i -> IO ()
 printStats i = do
                putStr ("Loaded " ++ (show (sizeDocs i)) ++ " documents ")
                putStrLn ("containing " ++ show (sizeWords i) ++ " words")

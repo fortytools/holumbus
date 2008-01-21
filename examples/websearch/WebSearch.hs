@@ -28,7 +28,6 @@ import qualified Data.IntMap as IM
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Combined
 import Holumbus.Index.Inverted
 import Holumbus.Index.Documents
 import Holumbus.Index.Common
@@ -57,10 +56,10 @@ type StatusResult = (String, Result)
 websearchShader :: ShaderCreator
 websearchShader = J.mkDynamicCreator $ proc (_, _) -> do
   tmp <- arrIO $ loadFromFile -< "indexes/vl.xml" -- Should be configurable (from Context)
-  mix <- arrIO $ newMVar -< Inv tmp
+  mix <- arrIO $ newMVar -< tmp
   returnA -< websearchService mix
 
-websearchService :: MVar AnyIndex -> Shader
+websearchService :: HolIndex i => MVar i -> Shader
 websearchService mix = proc inTxn -> do
   idx      <- arrIO $ readMVar                                             -< mix
   request  <- getValDef (_transaction_http_request_cgi_ "@query") ""       -< inTxn
@@ -71,7 +70,7 @@ websearchService mix = proc inTxn -> do
     writeString = pickleStatusResult >>> (writeDocumentToString [(a_no_xml_pi, v_1), (a_output_encoding, utf8)])
     pickleStatusResult = xpickleVal xpStatusResult
 
-arrParseQuery :: ArrowXml a => a (String, AnyIndex) (Either (String, AnyIndex) (Query, AnyIndex))
+arrParseQuery :: (HolIndex i, ArrowXml a) => a (String, i) (Either (String, i) (Query, i))
 arrParseQuery = (first arrDecode)
                 >>>
                 (arr $ (\(r, i) -> either (\m -> Left (m, i)) (\q -> Right (q, i)) (parseQuery r)))
@@ -88,7 +87,7 @@ arrLogRequest = proc inTxn -> do
   currTime <- arr $ calendarTimeToString . toUTCTime                   -< unixTime
   arrIO $ putStrLn -< (currTime ++ " - " ++ remHost ++ " - " ++ rawRequest ++ " - " ++ decodedRequest)
 
-genResult :: ArrowXml a => a (Query, AnyIndex) (String, Result)
+genResult :: (HolIndex i, ArrowXml a) => a (Query, i) (String, Result)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
               weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
@@ -114,12 +113,12 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
                  cs = if sw == 1 then "completion" else "completions"
 
 -- | This is where the magic happens!
-makeQuery :: AnyIndex -> Query -> Result
+makeQuery :: HolIndex i => i -> Query -> Result
 makeQuery i q = processQuery cfg i (optimize q)
                   where
                   cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
 
-genError :: ArrowXml a => a (String, AnyIndex) (String, Result)
+genError :: (HolIndex i, ArrowXml a) => a (String, i) (String, Result)
 genError = arr $ (\(msg, _) -> (msg, emptyResult))
 
 xpStatusResult :: PU StatusResult
