@@ -55,10 +55,10 @@ module Holumbus.Query.Result
   , difference
   , intersection
   
-  -- * Pickling
-  , xpResult
-  , xpDocHits
-  , xpWordHits
+--  -- * Pickling
+--  , xpResult
+--  , xpDocHits
+--  , xpWordHits
   
   -- * Transform
   , annotateResult
@@ -81,13 +81,12 @@ import qualified Data.IntMap as IM
 
 import qualified Data.IntSet as IS
 
-import Text.XML.HXT.Arrow.Pickle
-
 import Holumbus.Control.Sequence
 
 import Holumbus.Index.Common
-import Holumbus.Index.Combined
-import Holumbus.Index.Documents
+
+import Holumbus.Index.Documents (Document)
+import qualified Holumbus.Index.Documents as D
 
 -- | The combined result type for Holumbus queries.
 data Result = Result        { docHits  :: !DocHits
@@ -124,20 +123,6 @@ type WordDocHits = Occurrences -- IntMap Positions (docId -> positions)
 -- | The score of a hit (either a document hit or a word hit).
 type Score = Float
 
-instance XmlPickler Result where
-  xpickle =  xpWrap (\(dh, wh) -> Result dh wh, \(Result dh wh) -> (dh, wh)) (xpPair xpDocHits xpWordHits)
-
-instance XmlPickler DocInfo where
-  xpickle = xpWrap (\(d, s) -> DocInfo d s, \(DocInfo d s) -> (d, s)) xpDocInfo'
-    where
-    xpDocInfo' = xpPair (xpPair (xpAttr "title" xpText0) (xpAttr "href" xpText0)) (xpAttr "score" xpPrim)
-
-instance XmlPickler WordInfo where
-  xpickle = xpWrap (\(t, s) -> WordInfo t s, \(WordInfo t s) -> (t, s)) xpWordInfo
-    where
-    xpWordInfo = xpPair (xpAttr "term" xpTerms) (xpAttr "score" xpPrim)
-    xpTerms = xpWrap (split ",", join ",") xpText0
-
 instance DeepSeq Result where
   deepSeq (Result dh wh) b = deepSeq dh $ deepSeq wh b
 
@@ -146,46 +131,6 @@ instance DeepSeq DocInfo where
 
 instance DeepSeq WordInfo where
   deepSeq (WordInfo s t) b = deepSeq s $ deepSeq t b
-
--- | The XML pickler for the result type.
-xpResult :: PU Result
-xpResult = xpElem "result" xpickle
-
--- | The XML pickler for the document hits. Will be sorted by score.
-xpDocHits :: PU DocHits
-xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpDocHit)
-  where
-  toListSorted = L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
-  xpDocHit = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) (xpPair xpickle xpDocContextHits))
-
--- | The XML pickler for the contexts in which the documents were found.
-xpDocContextHits :: PU DocContextHits
-xpDocContextHits = xpWrap (M.fromList, M.toList) (xpList xpDocContextHit)
-  where
-  xpDocContextHit = xpElem "context" (xpPair (xpAttr "name" xpText) xpDocWordHits)
-
--- | The XML pickler for the words and positions found in a document.
-xpDocWordHits :: PU DocWordHits
-xpDocWordHits = xpWrap (M.fromList, M.toList) (xpList xpDocWordHit)
-  where
-  xpDocWordHit = xpElem "word" (xpPair (xpAttr "w" xpText) xpPositions)
-
--- | The XML pickler for the word hits. Will be sorted alphabetically by the words.
-xpWordHits :: PU WordHits
-xpWordHits = xpElem "wordhits" $ xpWrap (M.fromList, toListSorted) (xpList xpWordHit)
-  where
-  toListSorted = L.sortBy (compare `on` fst) . M.toList -- Sort by word
-  xpWordHit = xpElem "word" (xpPair (xpAttr "w" xpText) (xpPair xpickle xpWordContextHits))
-
--- | The XML pickler for the contexts in which the words were found.
-xpWordContextHits :: PU WordContextHits
-xpWordContextHits = xpWrap (M.fromList, M.toList) (xpList xpWordContextHit)
-  where
-  xpWordContextHit = xpElem "context" (xpPair (xpAttr "name" xpText) xpWordDocHits)
-
--- | The XML pickler for the documents and positions where the word occurs (reusing existing pickler).
-xpWordDocHits :: PU WordDocHits
-xpWordDocHits = xpOccurrences
 
 -- | Create an empty result.
 emptyResult :: Result
@@ -285,12 +230,12 @@ fromList t c xs = Result (createDocHits c xs) (createWordHits t c xs)
 
 -- | Transform a result to a verbose result by by looking up all document information in
 -- the document table of the provided index.
-annotateResult :: AnyIndex -> Result -> Result
+annotateResult :: HolIndex i => i -> Result -> Result
 annotateResult i (Result dh wh) = Result (IM.mapWithKey convertDocInfo dh) wh
   where
   convertDocInfo docId ((DocInfo _ s), dch) = (DocInfo doc s, dch)
     where
-    doc = fromJust $ lookupId docId (documents i)
+    doc = fromJust $ D.lookupId docId (documents i)
 
 -- | Set the score in a document info.
 setDocScore :: Score -> DocInfo -> DocInfo
@@ -300,31 +245,8 @@ setDocScore s (DocInfo d _) = DocInfo d s
 setWordScore :: Score -> WordInfo -> WordInfo
 setWordScore s (WordInfo t _) = WordInfo t s
 
--- | Split a string into seperate strings at a specific character.
-split :: Eq a => [a] -> [a] -> [[a]]
-split _ []       = [[]] 
-split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (stripPrefix at w)
-                    where (r:rs) = split at xs
- 
--- | Join with a seperating character.
-join :: Eq a => [a] -> [[a]] -> [a]
-join = intercalate
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.List)
-intercalate :: [a] -> [[a]] -> [a]
-intercalate xs xss = concat (intersperse xs xss)
-  where
-  intersperse _   []      = []
-  intersperse _   [y]     = [y]
-  intersperse sep (y:ys)  = y : sep : intersperse sep ys
-  
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.List)
-stripPrefix :: Eq a => [a] -> [a] -> Maybe [a]
-stripPrefix [] ys = Just ys
-stripPrefix (x:xs) (y:ys)
- | x == y = stripPrefix xs ys
-stripPrefix _ _ = Nothing
+--makeWordHits :: DocHits -> WordHits
+--makeWordHits = IM.foldWithKey insertDocHit emptyWordHits
+--  where
+--  insertDocHit docid (_, dch) wh = M.foldWithKey insertContextHit wh dch
+--  insertContextHit c dwh wh = M.foldWithKey insertWordHit wh dwh

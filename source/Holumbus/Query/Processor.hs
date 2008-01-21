@@ -36,9 +36,8 @@ import Data.Maybe
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Holumbus.Index.Common (Context, Occurrences, Positions)
+import Holumbus.Index.Common (HolIndex, Context, Occurrences, Positions)
 import qualified Holumbus.Index.Common as IDX
-import Holumbus.Index.Combined
 
 import Holumbus.Query.Syntax
 
@@ -54,36 +53,36 @@ data ProcessConfig = ProcessConfig { queryServers  :: [String]
                                    }
 
 -- | The internal state of the query processor.
-data ProcessState = ProcessState { config   :: ProcessConfig
-                                 , contexts :: [Context]
-                                 , index    :: AnyIndex
-                                 }
+data HolIndex i => ProcessState i = ProcessState { config   :: ProcessConfig
+                                                 , contexts :: [Context]
+                                                 , index    :: i
+                                                 }
 
 -- | Get the fuzzy config out of the process state.
-getFuzzyConfig :: ProcessState -> FuzzyConfig
+getFuzzyConfig :: HolIndex i => ProcessState i -> FuzzyConfig
 getFuzzyConfig = fuzzyConfig . config
 
 -- | Set the current context in the state.
-setContexts :: [Context] -> ProcessState -> ProcessState
+setContexts :: HolIndex i => [Context] -> ProcessState i -> ProcessState i
 setContexts cs (ProcessState cfg _ i) = ProcessState cfg cs i
 
 -- | Initialize the state of the processor.
-initState :: ProcessConfig -> AnyIndex -> ProcessState
+initState :: HolIndex i => ProcessConfig -> i -> ProcessState i
 initState cfg i = ProcessState cfg (IDX.contexts i) i
 
 forAllContexts :: (Context -> Result) -> [Context] -> Result
 forAllContexts f cs = foldr R.union R.emptyResult $ map f cs
 
 -- | Just everything.
-allDocuments :: ProcessState -> Result
+allDocuments :: HolIndex i => ProcessState i -> Result
 allDocuments s = forAllContexts (\c -> R.fromList "" c $ IDX.allWords c (index s)) (contexts s)
 
 -- | Process a query on a index with a list of contexts (should default to all contexts).
-processQuery :: ProcessConfig -> AnyIndex -> Query -> Result
+processQuery :: HolIndex i => ProcessConfig -> i -> Query -> Result
 processQuery cfg i q = R.annotateResult i (process (initState cfg i) (optimize q))
 
 -- | Continue processing a query by deciding what to do depending on the current query element.
-process :: ProcessState -> Query -> Result
+process :: HolIndex i => ProcessState i -> Query -> Result
 process s (Word w)           = processWord s w
 process s (Phrase w)         = processPhrase s w
 process s (CaseWord w)       = processCaseWord s w
@@ -94,25 +93,25 @@ process s (BinQuery o q1 q2) = processBin s o q1 q2
 process s (Specifier cs q)   = process (setContexts cs s) q
 
 -- | Process a single, case-insensitive word by finding all documents which contain the word as prefix.
-processWord :: ProcessState -> String -> Result
+processWord :: HolIndex i => ProcessState i -> String -> Result
 processWord s q = forAllContexts wordNoCase (contexts s)
   where
   wordNoCase c = R.fromList q c $ IDX.prefixNoCase c (index s) q
 
 -- | Process a single, case-sensitive word by finding all documents which contain the word as prefix.
-processCaseWord :: ProcessState -> String -> Result
+processCaseWord :: HolIndex i => ProcessState i -> String -> Result
 processCaseWord s q = forAllContexts wordCase (contexts s)
   where
   wordCase c = R.fromList q c $ IDX.prefixCase c (index s) q
 
 -- | Process a phrase case-insensitive.
-processPhrase :: ProcessState -> String -> Result
+processPhrase :: HolIndex i => ProcessState i -> String -> Result
 processPhrase s q = forAllContexts phraseNoCase (contexts s)
   where
   phraseNoCase c = processPhraseInternal (IDX.lookupNoCase c (index s)) c q
 
 -- | Process a phrase case-sensitive.
-processCasePhrase :: ProcessState -> String -> Result
+processCasePhrase :: HolIndex i => ProcessState i -> String -> Result
 processCasePhrase s q = forAllContexts phraseCase (contexts s)
   where
   phraseCase c = processPhraseInternal (IDX.lookupCase c (index s)) c q
@@ -137,7 +136,7 @@ processPhraseInternal f c q = let
       hasSuccessor w = IS.fold (\cp r -> r || (IS.member (cp + p) w)) False np
 
 -- | Process a single word and try some fuzzy alternatives if nothing was found.
-processFuzzyWord :: ProcessState -> String -> Result
+processFuzzyWord :: HolIndex i => ProcessState i -> String -> Result
 processFuzzyWord s oq = processFuzzyWord' (F.toList $ F.fuzz (getFuzzyConfig s) oq) (processWord s oq)
   where
   processFuzzyWord' :: [(String, FuzzyScore)] -> Result -> Result
@@ -145,11 +144,11 @@ processFuzzyWord s oq = processFuzzyWord' (F.toList $ F.fuzz (getFuzzyConfig s) 
   processFuzzyWord' (q:qs) r = if R.null r then processFuzzyWord' qs (processWord s (fst q)) else r
 
 -- | Process a negation by getting all documents and substracting the result of the negated query.
-processNegation :: ProcessState -> Query -> Result
+processNegation :: HolIndex i => ProcessState i -> Query -> Result
 processNegation s q = R.difference (allDocuments s) (process s q)
 
 -- | Process a binary operator by caculating the union or the intersection of the two subqueries.
-processBin :: ProcessState -> BinOp -> Query -> Query -> Result
+processBin :: HolIndex i => ProcessState i -> BinOp -> Query -> Query -> Result
 processBin s And q1 q2 = R.intersection (process s q1) (process s q2)
 processBin s Or q1 q2  = R.union (process s q1) (process s q2)
 processBin s But q1 q2 = R.difference (process s q1) (process s q2)
