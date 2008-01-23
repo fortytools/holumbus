@@ -8,16 +8,13 @@ GHC				= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM				= rm $(RM_FLAGS)
 
-PROG			= Words
+PROGS			= Words Stats
 
-all : $(PROG)
+all : $(PROGS)
 
-prof : $(PROG).hs
-	$(GHC) -prof -auto-all -ignore-package Holumbus -i../../source/ -hidir . -odir . --make -o $(PROG) $(PROG).hs
-
-$(PROG) : $(PROG).hs
-	$(GHC) --make -o $(PROG) $(PROG).hs
+% : %.hs
+	$(GHC) --make -o $@ $<
 
 clean :
-	$(RM) $(PROG) *.hi *.o Holumbus
+	$(RM) $(PROGS) *.hi *.o Holumbus
 	
