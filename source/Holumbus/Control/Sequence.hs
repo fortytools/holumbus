@@ -25,6 +25,8 @@ where
 
 import Control.Strategies.DeepSeq
 
+import Data.Word
+
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
@@ -37,14 +39,19 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
+instance DeepSeq Word8
+instance DeepSeq Word16
+instance DeepSeq Word32
+instance DeepSeq Word64
+
 instance (DeepSeq a) => DeepSeq (IntMap a) where
-  deepSeq m y = IM.foldWithKey (\k v r -> deepSeq k $ deepSeq v r) y m
+  deepSeq m y = deepSeq (IM.toList m) y
   
 instance (DeepSeq a, DeepSeq b) => DeepSeq (Map a b) where  
-  deepSeq m y = M.foldWithKey (\k v r -> deepSeq k $ deepSeq v r) y m
+  deepSeq m y = deepSeq (M.toList m) y
   
 instance (DeepSeq a) => DeepSeq (StrMap a) where
-  deepSeq m y = SM.foldWithKey (\k v r -> deepSeq k $ deepSeq v r) y m
+  deepSeq m y = deepSeq (SM.toList m) y
 
 instance DeepSeq IntSet where
-  deepSeq s y = IS.fold deepSeq y s
+  deepSeq s y = deepSeq (IS.toList s) y
