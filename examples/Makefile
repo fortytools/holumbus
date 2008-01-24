@@ -1,6 +1,6 @@
 # Making all examples
 
-EXAMPLES	= simplesearch benchmark
+EXAMPLES	= simplesearch benchmark utilities
 
 all :
 	$(foreach i,$(EXAMPLES),$(MAKE) -C $i all ;)

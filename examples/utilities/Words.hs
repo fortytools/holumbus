@@ -70,11 +70,11 @@ fromContext _ = do
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Context -> Flag -> IO ()
 startup c (Inv file) = do
-                       idx <- INV.loadFromFile file
+                       idx <- INV.loadFromXmlFile file
                        return (rnf idx)
                        printWords c idx
 startup c (Hyb file) = do
-                       idx <- HYB.loadFromFile file
+                       idx <- HYB.loadFromXmlFile file
                        printWords c idx
 startup _ _ = do
               usage ["Internal error!\n"]

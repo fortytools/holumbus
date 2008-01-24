@@ -26,6 +26,8 @@ import System.Console.Readline
 import System.Console.GetOpt
 import System.CPUTime
 
+import Control.Parallel.Strategies
+
 import Char
 import Data.Maybe
 
@@ -45,7 +47,7 @@ import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
 import Holumbus.Query.Result
 
-data Flag = Inverted String | Hybrid String | Verbose | Version deriving (Show, Eq)
+data Flag = InvXml String | InvBin String | Hyb String | Verbose | Version deriving (Show, Eq)
 
 version :: String
 version = "0.4"
@@ -65,14 +67,20 @@ main = do
 
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Bool -> Flag -> IO ()
-startup v (Inverted file) = do
-                            idx <- INV.loadFromFile file
-                            printStats idx
-                            answerQueries v idx
-startup v (Hybrid file) = do
-                          idx <- HYB.loadFromFile file
+startup v (InvXml file) = do
+                          idx <- INV.loadFromXmlFile file
+                          return (rnf idx)
                           printStats idx
                           answerQueries v idx
+startup v (InvBin file) = do
+                          idx <- INV.loadFromBinFile file
+                          return (rnf idx)
+                          printStats idx
+                          answerQueries v idx
+startup v (Hyb file) = do
+                       idx <- HYB.loadFromXmlFile file
+                       printStats idx
+                       answerQueries v idx
 startup _ _ = do
               usage ["Internal error!\n"]
                           
@@ -94,10 +102,11 @@ commandLineOpts argv = case getOpt Permute options argv of
                        (_, _, errs) -> usage errs
 
 options :: [OptDescr Flag]
-options = [ Option ['i'] ["inverted"] (ReqArg Inverted "FILE") "Loads inverted index from FILE"
-          , Option ['h'] ["hybrid"]   (ReqArg Hybrid "FILE") "Loads hybrid index from FILE"
-          , Option ['v'] ["verbose"]  (NoArg Verbose)          "Be more verbose"
-          , Option ['V'] ["version"]  (NoArg Version)          "Output version and exit"
+options = [ Option ['i'] ["inverted-xml"] (ReqArg InvXml "FILE") "Loads inverted index from XML FILE"
+          , Option ['b'] ["inverted-binary"] (ReqArg InvBin "FILE") "Loads hybrid index from binary FILE"
+          , Option ['h'] ["hybrid"] (ReqArg Hyb "FILE") "Loads hybrid index from FILE"
+          , Option ['v'] ["verbose"] (NoArg Verbose)          "Be more verbose"
+          , Option ['V'] ["version"] (NoArg Version)          "Output version and exit"
           ]
 
 answerQueries :: HolIndex i => Bool -> i -> IO ()
@@ -124,8 +133,7 @@ answerQueries verbose i = do
                    oq <- return (optimize pq)
                    if verbose then putStrLn ("Optimized: \n" ++ (show oq) ++ "\n") else return ()
                    r <- return (processQuery procCfg i oq)
-                   ar <- return (annotateResult i r)
-                   rr <- return (rank rankCfg ar)
+                   rr <- return (rank rankCfg r)
                    printDocHits (docHits rr)
                    putStrLn ""
                    printWordHits (wordHits rr)
@@ -208,7 +216,7 @@ printContexts i = do
 
 printStats :: HolIndex i => i -> IO ()
 printStats i = do
-               putStr ("Loaded " ++ (show (sizeDocs i)) ++ " documents ")
+               putStr ("Loaded " ++ show (sizeDocs i) ++ " documents ")
                putStrLn ("containing " ++ show (sizeWords i) ++ " words")
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)

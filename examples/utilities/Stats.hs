@@ -57,11 +57,11 @@ isIndex _ = False
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Flag -> IO ()
 startup (Inv file) = do
-                       idx <- INV.loadFromFile file
+                       idx <- INV.loadFromXmlFile file
                        return (rnf idx)
                        printStats idx
 startup (Hyb file) = do
-                       idx <- HYB.loadFromFile file
+                       idx <- HYB.loadFromXmlFile file
                        printStats idx
 startup _ = do
               usage ["Internal error!\n"]

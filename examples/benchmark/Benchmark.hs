@@ -77,11 +77,11 @@ getTimes ((Version):fs) = getTimes fs
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Flag -> [Query] -> IO ()
 startup (Inverted file) qs = do
-                             idx <- INV.loadFromFile file
+                             idx <- INV.loadFromXmlFile file
                              runQueries qs idx
                              
 startup (Hybrid file) qs = do
-                           idx <- HYB.loadFromFile file
+                           idx <- HYB.loadFromXmlFile file
                            runQueries qs idx
 
 startup _ _ = usage ["Internal error!\n"]
