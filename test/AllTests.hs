@@ -23,17 +23,21 @@ import Test.HUnit
 
 import qualified StrMapTest as StrMap
 import qualified BiMapTest as BiMap
+import qualified DiffListTest as DiffList
 import qualified ParserTest as Parser
 import qualified FuzzyTest as Fuzzy
 import qualified PickleTest as Pickle
+import qualified BinaryTest as Binary
 
 allTests :: Test
 allTests = TestList
            [ StrMap.allTests
            , BiMap.allTests
+           , DiffList.allTests
            , Parser.allTests
            , Fuzzy.allTests
            , Pickle.allTests
+           , Binary.allTests
            ]
 
 main :: IO ()

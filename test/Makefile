@@ -12,14 +12,21 @@ RM				= rm $(RM_FLAGS)
 
 SOURCE		= ../source
 
+TESTDATA  = data
+OUTPUT    = output
+
 PROG			= AllTests
 
-all : test
+all : build test
+
+build :
+	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
+	$(GHC) --make -o $(PROG) $(PROG).hs -odir $(OUTPUT) -hidir $(OUTPUT)
 
 test :
-	$(GHC) --make -o $(PROG) $(PROG).hs
+	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Running Holumbus tests..."
 	./$(PROG)
 
 clean :
-	$(RM) $(PROG) *.hi *.o Holumbus
+	$(RM) $(PROG) *.hi *.o $(OUTPUT) $(TESTDATA)
