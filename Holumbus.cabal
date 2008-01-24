@@ -17,13 +17,14 @@ flag splitBase
 
 library
   if flag(splitBase)
-    build-depends: base >= 3, haskell98, containers, parsec, hxt
+    build-depends: base >= 3, haskell98, containers, parallel, parsec, hxt, bzlib, bytestring, binary
   else
-    build-depends: base < 3, haskell98, parsec, hxt
+    build-depends: base < 3, haskell98, parsec, hxt, bzlib, bytestring, binary
   exposed-modules:
     Holumbus.Control.Sequence,
     Holumbus.Data.StrMap,
     Holumbus.Data.BiMap,
+    Holumbus.Data.DiffList,
     Holumbus.Query.Parser,
     Holumbus.Query.Syntax,
     Holumbus.Query.Processor,
@@ -32,12 +33,10 @@ library
     Holumbus.Query.Ranking,
     Holumbus.Index.Inverted,
     Holumbus.Index.Hybrid,
-    Holumbus.Index.DocIndex,
     Holumbus.Index.Common,
-    Holumbus.Index.Documents,
-    Holumbus.Index.Convert,
-    Holumbus.Index.Combined
+    Holumbus.Index.Documents
   other-modules:
-    Holumbus.Data.StrMapInternal
+    Holumbus.Data.StrMapInternal,
+    Holumbus.Query.Intermediate
   hs-source-dirs: source
   ghc-options:    -Wall -O
