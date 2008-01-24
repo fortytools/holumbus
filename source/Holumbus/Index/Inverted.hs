@@ -21,21 +21,22 @@ module Holumbus.Index.Inverted where
 import Text.XML.HXT.Arrow
 
 import Data.Maybe
+import Data.Binary
 
 import Data.Map (Map)
 import qualified Data.Map as M
 
+import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
+import Holumbus.Data.DiffList (DiffList)
+import qualified Holumbus.Data.DiffList as DL
+
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
-
-import Data.Binary
-import qualified Data.ByteString.Lazy as B
-import Codec.Compression.BZip
 
 import Control.Parallel.Strategies
 
@@ -47,7 +48,7 @@ data InvIndex    = InvIndex { docTable :: !Documents
 -- | The index parts are identified by a name, which should denote the context of the words.
 type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to their occurrences.
-type Part        = StrMap Occurrences
+type Part        = StrMap (IntMap DiffList)
 
 instance HolIndex InvIndex where
   sizeDocs = IM.size . idToDoc . docTable
@@ -55,11 +56,11 @@ instance HolIndex InvIndex where
   documents = docTable
   contexts = map fst . M.toList . indexParts
 
-  allWords c i = SM.toList $ getPart c i
-  prefixCase c i q = SM.prefixFindWithKey q $ getPart c i
-  prefixNoCase c i q = SM.prefixFindNoCaseWithKey q $ getPart c i
-  lookupCase c i q = maybeToList (SM.lookup q $ getPart c i)
-  lookupNoCase c i q = SM.lookupNoCase q $ getPart c i
+  allWords c i = map (\(w, o) -> (w, inflate o)) $ SM.toList $ getPart c i
+  prefixCase c i q = map (\(w, o) -> (w, inflate o)) $ SM.prefixFindWithKey q $ getPart c i
+  prefixNoCase c i q = map (\(w, o) -> (w, inflate o)) $ SM.prefixFindNoCaseWithKey q $ getPart c i
+  lookupCase c i q = map inflate $ maybeToList (SM.lookup q $ getPart c i)
+  lookupNoCase c i q = map inflate $ SM.lookupNoCase q $ getPart c i
 
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
@@ -79,6 +80,14 @@ instance Binary InvIndex where
         docs <- get
         parts <- get
         return (InvIndex docs parts)
+
+-- | Convert the differences back to a set of integers.
+inflate :: IntMap DiffList -> Occurrences
+inflate = IM.map DL.toIntSet
+
+-- | Save some memory on the positions by just saving their differences.
+deflate :: Occurrences -> IntMap DiffList
+deflate = IM.map DL.fromIntSet
 
 -- | Create an empty index.
 empty :: InvIndex
@@ -102,11 +111,11 @@ writeToXmlFile f i = do
 
 -- | Load index from a binary file.
 loadFromBinFile :: FilePath -> IO InvIndex
-loadFromBinFile f = return . decode . decompress =<< B.readFile f
+loadFromBinFile f = decodeFile f
 
 -- | Write index to a binary file.
 writeToBinFile :: FilePath -> InvIndex -> IO ()
-writeToBinFile f =  B.writeFile f . compress . encode                       
+writeToBinFile =  encodeFile
                   
 -- | Return a part of the index for a given context.
 getPart :: Context -> InvIndex -> Part
@@ -126,4 +135,4 @@ xpParts = xpWrap (M.fromList, M.toList) (xpList xpContext)
 xpPart :: PU Part
 xpPart = xpElem "index" (xpWrap (SM.fromList, SM.toList) (xpList xpWord))
   where
-  xpWord = xpElem "word" (xpPair (xpAttr "w" xpText) xpOccurrences)
+  xpWord = xpElem "word" (xpPair (xpAttr "w" xpText) (xpWrap (deflate, inflate) xpOccurrences))
