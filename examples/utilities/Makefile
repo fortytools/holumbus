@@ -15,8 +15,8 @@ OUTPUT    = output
 all : $(PROGS)
 
 % : %.hs
-	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
-	$(GHC) --make -o $@ $< -hidir $(OUTPUT) -odir $(OUTPUT)
+	[ -d $(OUTPUT)/$@ ] || mkdir -p $(OUTPUT)/$@
+	$(GHC) --make -o $@ $< -hidir $(OUTPUT)/$@ -odir $(OUTPUT)/$@
 
 clean :
 	$(RM) $(PROGS) *.hi *.o $(OUTPUT)
