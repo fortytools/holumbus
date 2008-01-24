@@ -31,7 +31,6 @@ import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
 import Holumbus.Index.Documents
-import Holumbus.Control.Sequence
 
 import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 
@@ -61,7 +60,7 @@ type WordId        = Int
 type BlockId       = Int
 
 instance HolIndex HybIndex where
-  sizeDocs _ = 0
+  sizeDocs = IM.size . idToDoc . docTable
   sizeWords _ = 0
   documents = docTable
   contexts = map fst . M.toList . indexParts
@@ -75,29 +74,17 @@ instance HolIndex HybIndex where
   insert _ _ _ _ _ = empty -- TODO: This is just a dummy
   update _ _ _ _ _ = empty -- TODO: This is just a dummy
 
-instance DeepSeq HybIndex where
-  deepSeq (HybIndex docs parts) b = deepSeq docs $ deepSeq parts b
-
-instance DeepSeq Part where
-  deepSeq (Part dic bls) b = deepSeq dic $ deepSeq bls b
-
-instance DeepSeq Dictionary where
-  deepSeq (Dictionary tab lid) b = deepSeq tab $ deepSeq lid b
-
-instance DeepSeq Blocks where
-  deepSeq (Blocks tab lid) b = deepSeq tab $ deepSeq lid b
-
 -- | Create an empty index.
 empty :: HybIndex
 empty = HybIndex emptyDocuments M.empty
 
 -- | Load Index from XML file
-loadFromFile :: String -> IO HybIndex
-loadFromFile f = do
-                 r <- runX (xunpickleDocument xpHybIndex options f)
-                 return $ strict (head r)
-                 where
-                 options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
+loadFromXmlFile :: String -> IO HybIndex
+loadFromXmlFile f = do
+                    r <- runX (xunpickleDocument xpHybIndex options f)
+                    return $ head r
+                    where
+                    options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
 
 -- | Create an empty part.
 emptyPart :: Part
