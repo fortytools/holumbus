@@ -27,13 +27,18 @@ import Prelude hiding (succ, lookup, map, null)
 
 import Data.Maybe
 import Data.Char
+import Data.Binary
+
 import qualified Data.List as L
 import qualified Data.Map as M
+
+import Control.Parallel.Strategies
 
 -- | A map from Strings to values a.
 data StrMap a 
   = End !String !a ![StrMap a]
-  | Seq !String ![StrMap a] deriving (Show)
+  | Seq !String ![StrMap a] 
+  deriving (Show)
 
 -- | Just deriving Eq will not work, because equality on the lists of successors takes the order 
 --   into account, whereas the order does not matter here.
@@ -43,6 +48,36 @@ instance (Eq a) => Eq (StrMap a) where
   (==) (Seq _ _) (End _ _ _)         = False
   (==) (End _ _ _) (Seq _ _)         = False
   (/=) m1 m2                         = not (m1 == m2)
+
+-- | Providing strict evaluation for @StrMap@.
+instance NFData v => NFData (StrMap v) where
+  rnf (End k v t) = rnf k `seq` rnf v `seq` rnf t
+  rnf (Seq k t)   = rnf k `seq` rnf t
+
+instance (Binary a) => Binary (StrMap a) where
+  put (End k v t) = do
+                    put (0 :: Word8)
+                    put k
+                    put v
+                    put t
+  put (Seq k t) = do
+                  put (1 :: Word8)
+                  put k
+                  put t
+
+  get = do
+        n <- get :: Get Word8
+        case n of
+          0 -> do 
+               k <- get
+               v <- get
+               t <- get
+               return (End k v t)
+          1 -> do
+               k <- get
+               t <- get
+               return (Seq k t)
+          _ -> fail "Error while decoding StrMap"                       
 
 -- | /O(1)/ Create an empty trie.
 empty :: StrMap a
