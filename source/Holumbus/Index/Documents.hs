@@ -52,7 +52,6 @@ import qualified Data.Map as M
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
-import Data.Word
 import Data.Binary
 
 import Control.Parallel.Strategies
