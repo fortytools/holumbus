@@ -36,7 +36,6 @@ library
     Holumbus.Index.Common,
     Holumbus.Index.Documents
   other-modules:
-    Holumbus.Data.StrMapInternal,
-    Holumbus.Query.Intermediate
+    Holumbus.Data.StrMapInternal
   hs-source-dirs: source
   ghc-options:    -Wall -O
