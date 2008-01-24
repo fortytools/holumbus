@@ -8,7 +8,7 @@ GHC				= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM				= rm $(RM_FLAGS)
 
-PROGS			= Words Stats
+PROGS			= Words Stats Convert
 
 all : $(PROGS)
 
