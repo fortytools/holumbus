@@ -10,11 +10,14 @@ RM				= rm $(RM_FLAGS)
 
 PROGS			= Words Stats Convert
 
+OUTPUT    = output
+
 all : $(PROGS)
 
 % : %.hs
-	$(GHC) --make -o $@ $<
+	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
+	$(GHC) --make -o $@ $< -hidir $(OUTPUT) -odir $(OUTPUT)
 
 clean :
-	$(RM) $(PROGS) *.hi *.o Holumbus
+	$(RM) $(PROGS) *.hi *.o $(OUTPUT)
 	
