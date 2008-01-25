@@ -28,6 +28,7 @@ library
     Holumbus.Query.Parser,
     Holumbus.Query.Syntax,
     Holumbus.Query.Processor,
+    Holumbus.Query.Intermediate,
     Holumbus.Query.Result,
     Holumbus.Query.Fuzzy,
     Holumbus.Query.Ranking,
