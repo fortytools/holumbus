@@ -31,41 +31,36 @@ parseQuery = result . (parse query "")
 
 -- | A query may always be surrounded by whitespace
 query :: Parser Query
-query = andQuery
+query = spaces >> andQuery
 
 -- | Parse an and query.
 andQuery :: Parser Query
 andQuery = do t <- orQuery
-              spaces
-              do andOp
-                 spaces
-                 q <- query
-                 return (BinQuery And t q)
-                 <|> return t
+              try (andOp' t) <|> return t
+  where
+  andOp' r = do andOp
+                q <- andQuery
+                return (BinQuery And r q)
 
 -- | Parse an or query.
 orQuery :: Parser Query
 orQuery = do t <- notQuery
-             spaces
              do orOp
-                spaces
                 q <- orQuery
                 return (BinQuery Or t q)
                 <|> return t
 
 -- | Parse a negation.
 notQuery :: Parser Query
-notQuery = do spaces
-              notQuery' <|> contextQuery
+notQuery = do notQuery' <|> contextQuery
   where
   notQuery' = do notOp
-                 spaces
                  q <- contextQuery
                  return (Negation q)
 
 -- | Parse a context query.
 contextQuery :: Parser Query
-contextQuery = do try contextQuery' <|> parQuery
+contextQuery = try contextQuery' <|> parQuery
   where
   contextQuery' = do c <- contexts
                      spaces
@@ -76,16 +71,18 @@ contextQuery = do try contextQuery' <|> parQuery
 
 -- | Parse a query surrounded by parentheses.
 parQuery :: Parser Query
-parQuery = do parQuery' <|> caseQuery
+parQuery = parQuery' <|> caseQuery
   where
   parQuery' = do char '('
-                 q <- query
+                 spaces
+                 q <- andQuery
+                 spaces
                  char ')'
                  return q
 
 -- | Parse a case sensitive query.
 caseQuery :: Parser Query
-caseQuery = do caseQuery' <|> fuzzyQuery
+caseQuery = caseQuery' <|> fuzzyQuery
   where
   caseQuery' = do char '!'
                   spaces
@@ -93,7 +90,7 @@ caseQuery = do caseQuery' <|> fuzzyQuery
 
 -- | Parse a fuzzy query.
 fuzzyQuery :: Parser Query
-fuzzyQuery = do fuzzyQuery' <|> phraseQuery Phrase <|> wordQuery Word
+fuzzyQuery = fuzzyQuery' <|> phraseQuery Phrase <|> wordQuery Word
   where
   fuzzyQuery' = do char '~'
                    spaces
@@ -111,19 +108,30 @@ phraseQuery c = do p <- phrase
 
 -- | Parse an and operator.
 andOp :: Parser ()
-andOp = do string "AND" 
-           return ()
-           <|> spaces 
+andOp = (try andOp') <|> spaces1
+  where
+  andOp' = do spaces
+              string "AND" 
+              spaces1
+              return ()
 
 -- | Parse an or operator.
 orOp :: Parser ()
-orOp = do string "OR"
-          return ()
+orOp = try orOp'
+  where
+  orOp' = do spaces
+             string "OR"
+             spaces1
+             return ()
 
 -- | Parse a not operator.
 notOp :: Parser ()
-notOp = do string "NOT"
-           return ()
+notOp = try notOp'
+  where
+  notOp' = do spaces
+              string "NOT" 
+              spaces1
+              return ()
 
 -- | Parse a word.
 word :: Parser String
@@ -154,3 +162,7 @@ context = do spaces
              c <- (many1 alphaNum)
              spaces
              return c
+
+-- | Parse at least on white space character.
+spaces1 :: Parser ()
+spaces1 = skipMany1 space
