@@ -28,5 +28,8 @@ test :
 	@echo "Running Holumbus tests..."
 	./$(PROG)
 
+wc :
+	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`
+
 clean :
 	$(RM) $(PROG) *.hi *.o $(OUTPUT) $(TESTDATA)

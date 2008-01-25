@@ -31,7 +31,9 @@ allexamples :
 	$(MAKE) -C $(EXAMPLES_BASE) all
 
 wc :
-	@wc -l `find ./$(EXAMPLES_BASE) ./source ./$(TEST_BASE) -wholename './_darcs/*' -prune -o -name "*.hs" -print`   
+	@wc -l `find ./source -wholename './_darcs/*' -prune -o -name "*.hs" -print`   
+	$(MAKE) -C $(TEST_BASE) wc
+	$(MAKE) -C $(EXAMPLES_BASE) wc
 
 clean :
 	@runhaskell Setup.hs clean
