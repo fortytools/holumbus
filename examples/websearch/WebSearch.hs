@@ -53,9 +53,12 @@ import Network.CGI         -- For decoding URI-encoded strings
 -- Status information of query processing.
 type StatusResult = (String, Result)
 
+_shader_config_index :: JanusPath
+_shader_config_index = jp "/shader/config/@index"
+
 websearchShader :: ShaderCreator
-websearchShader = J.mkDynamicCreator $ proc (_, _) -> do
-  tmp <- arrIO $ loadFromFile -< "indexes/vl.xml" -- Should be configurable (from Context)
+websearchShader = J.mkDynamicCreator $ proc (conf, _) -> do
+  tmp <- (arrIO $ loadFromBinFile) <<< (getValDef _shader_config_index "") -< conf
   mix <- arrIO $ newMVar -< tmp
   returnA -< websearchService mix
 
@@ -97,9 +100,7 @@ genResult = let
               >>>
               (first $ arr $ rank rankCfg)
               >>>
-              (arr $ (\(r, i) -> annotateResult i r))
-              >>>
-              (arr $ (\r -> (msgSuccess r , r))))
+              (arr $ (\(r, _) -> (msgSuccess r , r))))
               
               (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
 

@@ -111,9 +111,13 @@
         <shader id="request_shader" type="request_shader"/>
         <shader id="cgi_shader" type="cgi_shader"/>
 
-	<like>
+        <like>
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
-	  <case match="^/result.html$" ><shader type="holumbus"/></case>
+      	  <case match="^/result.html$" >
+      	    <shader type="holumbus">
+      	    	<config index="indexes/vl.bin"/>
+      	    </shader>
+      	  </case>
           <default>
             <shader id="file_shader" type="file_shader">
               <config base_url="/" maps_to="./wwwpages"/>
