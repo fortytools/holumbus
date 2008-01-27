@@ -19,6 +19,7 @@
 module BinaryTest (allTests) where
 
 import Holumbus.Index.Inverted
+import Holumbus.Index.Documents
 
 import Data.Binary
 
@@ -28,37 +29,44 @@ import SampleData
 
 import Control.Concurrent
 
+import System.Directory
+
 testIndex1, testIndex2 :: InvIndex
-testIndex1 = empty
+testIndex1 = emptyInverted
 testIndex2 = sampleIndex1
 
-binaryTests :: [InvIndex] -> String -> Test
+testDocs1, testDocs2 :: Documents
+testDocs1 = emptyDocuments
+testDocs2 = sampleDocs1
+
+binaryTests :: (Show b, Eq b, Binary b) => [b] -> String -> Test
 binaryTests input desc = TestLabel ("Binary encode/decode tests with " ++ desc) $
                                          TestList $ map makeTests input
   where
   makeTests i = TestList $ 
     [ TestCase $ assertEqual "encode/decode without writing to file" i res1
     , TestCase $ res2 >>= assertEqual "encode/decode with writing to file" i
-    , TestCase $ res3 >>= assertEqual "encode/decode with writing to XML file" i 
     ]
     where
     res1 = decode . encode $ i
     res2 = do
-           writeToBinFile "data/binary1.bin" i
+           writeToBin "data/binary1.bin" i
            threadDelay 1000 -- Avoid start reading the file before it is written
-           loadFromBinFile "data/binary1.bin"
-    res3 = do
-           writeToBinFile "data/binary2.bin" i
-           threadDelay 1000 -- Avoid start reading the file before it is written
-           bi <- loadFromBinFile "data/binary2.bin"
-           writeToXmlFile "data/binary1.xml" bi
-           xi <- loadFromXmlFile "data/binary1.xml"
-           writeToBinFile "data/binary3.bin" xi
-           threadDelay 1000 -- Avoid start reading the file before it is written
-           loadFromBinFile "data/binary3.bin"
+           r <- loadFromBin "data/binary1.bin"
+           removeFile "data/binary1.bin"
+           return r
+
+-- | Load from a binary file.
+loadFromBin :: Binary b => FilePath -> IO b
+loadFromBin f = decodeFile f
+
+-- | Write to a binary file.
+writeToBin :: Binary b => FilePath -> b -> IO ()
+writeToBin =  encodeFile
 
 allTests :: Test  
 allTests = TestLabel "StrMap tests" $ 
   TestList
   [ binaryTests [testIndex1, testIndex2] "InvIndex"
+  , binaryTests [testDocs1, testDocs2] "Documents"
   ]

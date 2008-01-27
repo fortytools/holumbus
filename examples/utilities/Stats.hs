@@ -8,13 +8,15 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   Outputs all unique words of an index.
 
 -}
 
 -- ----------------------------------------------------------------------------
+
+{-# OPTIONS -fno-warn-type-defaults  #-}
 
 module Main where
 
@@ -29,59 +31,73 @@ import qualified Data.List as L
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import qualified Holumbus.Index.Inverted as INV
-import qualified Holumbus.Index.Hybrid as HYB
+import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
-data Flag = Inv String | Hyb String | Version deriving (Show, Eq)
+data Flag = Index String 
+          | Documents String 
+          | Version 
+          | Help deriving (Show, Eq)
 
 version :: String
-version = "0.1"
+version = "0.2"
 
 main :: IO ()
 main = do
        argv <- getArgs
        flags <- commandLineOpts argv
+
        if Version `elem` flags then (putStrLn version) >> (exitWith ExitSuccess) else return ()
-       indexes <- return (filter isIndex flags)
-       if null indexes then usage ["No index file given!\n"] else return ()
-       if length indexes > 1 then usage ["Only one index file allowed!\n"] else return ()
-       startup (head indexes)
+       if Help `elem` flags then usage [] >> (exitWith ExitSuccess) else return ()
+
+       idx <- return (filter isIndex flags)
+       if L.null idx then usage ["No index file given!\n"] else return ()
+       if length idx > 1 then usage ["Only one index file allowed!\n"] else return ()
+
+       doc <- return (filter isDocuments flags)
+       if L.null doc then usage ["No documents file given!\n"] else return ()
+       if length doc > 1 then usage ["Only one documents file allowed!\n"] else return ()
+
+       startup (head idx) (head doc)
        return ()
 
 isIndex :: Flag -> Bool
-isIndex (Inv _) = True
-isIndex (Hyb _) = True
+isIndex (Index _) = True
 isIndex _ = False
 
--- | Decide between hybrid and inverted and then fire up!
-startup :: Flag -> IO ()
-startup (Inv file) = do
-                       idx <- INV.loadFromXmlFile file
-                       return (rnf idx)
-                       printStats idx
-startup (Hyb file) = do
-                       idx <- HYB.loadFromXmlFile file
-                       printStats idx
-startup _ = do
-              usage ["Internal error!\n"]
+isDocuments :: Flag -> Bool
+isDocuments (Documents _) = True
+isDocuments _ = False
 
-printStats :: HolIndex i => i -> IO ()
-printStats i = do
-               putStrLn "General:"
-               putStrLn $ "Contexts:" ++ concatMap ((++) " ") (contexts i)
-               putStrLn $ "Unique documents: " ++ show noUniqueDocs
-               putStrLn $ "Unique words: " ++ show noUniqueWords
-               putStrLn $ "Documents: " ++ show noDocs
-               putStrLn $ "Words: " ++ show noWords
-               putStrLn $ "Words per document: " ++ (show $ round (fromIntegral noWords / fromIntegral noUniqueDocs))
-               putStrLn $ "Documents per word: " ++ (show $ round (fromIntegral noDocs / fromIntegral noUniqueWords))
-               printContextStats (contexts i) i
-               where
-                noUniqueDocs = sizeDocs i
-                noUniqueWords = sizeWords i
-                noDocs = foldr (\c r -> foldr (\(_, o) n -> n + IM.size o) r (allWords c i)) 0 (contexts i)
-                noWords = foldr (\c r -> foldr (\(_, o) n -> IM.fold ((+) . IS.size) n o) r (allWords c i)) 0 (contexts i)
+-- | Decide between hybrid and inverted and then fire up!
+startup ::Flag -> Flag -> IO ()
+startup (Index idxFile) (Documents docFile) = do
+                                              putStrLn "Loading index..."
+                                              idx <- (loadFromFile idxFile) :: IO InvIndex
+                                              return (rnf idx)
+                                              putStrLn "Loading documents..."
+                                              doc <- (loadFromFile docFile) :: IO Documents
+                                              return (rnf doc)
+                                              printStats idx doc
+startup _ _ = usage ["Internal error!\n"]
+
+printStats :: (HolIndex i, HolDocuments d) => i -> d -> IO ()
+printStats i d = do
+                 putStrLn "General:"
+                 putStrLn $ "Contexts:" ++ concatMap ((++) " ") (contexts i)
+                 putStrLn $ "Unique documents: " ++ show noUniqueDocs
+                 putStrLn $ "Unique words: " ++ show noUniqueWords
+                 putStrLn $ "Documents: " ++ show noDocs
+                 putStrLn $ "Words: " ++ show noWords
+                 putStrLn $ "Words per document: " ++ (show $ round (fromIntegral noWords / fromIntegral noUniqueDocs))
+                 putStrLn $ "Documents per word: " ++ (show $ round (fromIntegral noDocs / fromIntegral noUniqueWords))
+                 printContextStats (contexts i) i
+                 where
+                  noUniqueDocs = sizeDocs d
+                  noUniqueWords = sizeWords i
+                  noDocs = foldr (\c r -> foldr (\(_, o) n -> n + IM.size o) r (allWords i c)) 0 (contexts i)
+                  noWords = foldr (\c r -> foldr (\(_, o) n -> IM.fold ((+) . IS.size) n o) r (allWords i c)) 0 (contexts i)
 
 printContextStats :: HolIndex i => [Context] -> i -> IO ()
 printContextStats [] _ = return ()
@@ -92,8 +108,8 @@ printContextStats (c:cs) i = do
                              putStrLn $ "Words: " ++ (show noWords)
                              printContextStats cs i
                              where
-                               noUniqueWords = length $ allWords c i
-                               noWords = foldr (\(_, o) r -> IM.fold ((+) . IS.size) r o) 0 (allWords c i)
+                               noUniqueWords = length $ allWords i c
+                               noWords = foldr (\(_, o) r -> IM.fold ((+) . IS.size) r o) 0 (allWords i c)
 
 usage :: [String] -> IO a
 usage errs = if null errs then do
@@ -113,7 +129,8 @@ commandLineOpts argv = case getOpt Permute options argv of
                        (_, _, errs) -> usage errs
 
 options :: [OptDescr Flag]
-options = [ Option ['i'] ["inverted"] (ReqArg Inv "FILE") "Loads inverted index from FILE"
-          , Option ['h'] ["hybrid"]   (ReqArg Hyb "FILE") "Loads hybrid index from FILE"
-          , Option ['V'] ["version"]  (NoArg Version)     "Output version and exit"
+options = [ Option ['i'] ["index"] (ReqArg Index "FILE") "Loads index from FILE"
+          , Option ['d'] ["documents"] (ReqArg Documents "FILE") "Loads documents from FILE"
+          , Option ['V'] ["version"] (NoArg Version) "Output version and exit"
+          , Option ['?'] ["help"] (NoArg Help) "Output this help and exit"
           ]

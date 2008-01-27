@@ -3,12 +3,12 @@ version:       0.1
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
-copyright:     Copyright (c) 2007 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
+copyright:     Copyright (c) 2007, 2008 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
 maintainer:    Timo B. Hübel <t.h@gmx.info>
 stability:     experimental
 category:      Unclassified
 synopsis:      A distributed search and indexing engine.
-homepage:      http://holumbus.schlatt.com
+homepage:      http://holumbus.org
 description:   The Holumbus library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
 cabal-version: >=1.2
 

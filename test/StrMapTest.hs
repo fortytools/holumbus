@@ -16,6 +16,8 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fno-warn-type-defaults  #-}
+
 module StrMapTest (allTests) where
 
 import Data.List

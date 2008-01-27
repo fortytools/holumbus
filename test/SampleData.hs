@@ -21,6 +21,7 @@ module SampleData
   -- * Sample data structures
   sampleIndex1
   , sampleResult1
+  , sampleDocs1
 )
 where
 
@@ -35,13 +36,15 @@ import qualified Data.IntSet as IS
 import qualified Holumbus.Data.StrMap as SM
 import qualified Holumbus.Data.DiffList as DL
 
+sampleDocs1 :: Documents
+sampleDocs1 = Documents
+             (IM.fromList [(1, ("doc1","uri1")), (2, ("doc2","uri2")), (3, ("doc3","uri3"))])
+             (M.fromList [("uri1", 1), ("uri2", 2), ("uri3", 3)])
+             3
+
 sampleIndex1 :: InvIndex
-sampleIndex1 = InvIndex docs parts
+sampleIndex1 = InvIndex parts
   where
-  docs = Documents
-         (IM.fromList [(1, ("doc1","uri1")), (2, ("doc2","uri2")), (3, ("doc3","uri3"))])
-         (M.fromList [("uri1", 1), ("uri2", 2), ("uri3", 3)])
-         3
   parts = M.fromList [("context1", context1), ("context2", context2), ("context3", context3)]
   context1 = SM.fromList [ ("word1", IM.fromList [(1, DL.fromList [12,23,43]), (2, DL.fromList [10,2,4])])
                          , ("word2", IM.fromList [(3, DL.fromList [15,33,45]), (2, DL.fromList [1,32,94])])

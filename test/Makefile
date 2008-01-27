@@ -4,7 +4,7 @@ HOME			= ..
 
 # Make GHC compile everything seperatly for the tests, to be able to 
 # execute them without installing the library first.
-GHC_FLAGS	= -Wall -O2 -fno-warn-type-defaults -fno-warn-orphans -ignore-package Holumbus -i$(SOURCE) -odir . -hidir .
+GHC_FLAGS	= -Wall -O2 -ignore-package Holumbus -i$(SOURCE) -odir . -hidir .
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf

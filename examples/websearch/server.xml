@@ -115,7 +115,7 @@
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
       	  <case match="^/result.html$" >
       	    <shader type="holumbus">
-      	    	<config index="indexes/vl.bin"/>
+      	    	<config index="indexes/vl-index.bin" documents="indexes/vl-docs.bin"/>
       	    </shader>
       	  </case>
           <default>

@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.3
+  Version    : 0.4
 
   The data type for results of Holumbus queries.
 
@@ -52,7 +52,6 @@ module Holumbus.Query.Result
   , setWordScore
   
   -- * Picklers
-  , xpResult
   , xpDocHits
   , xpWordHits
   )
@@ -71,9 +70,6 @@ import qualified Data.List as L
 import Text.XML.HXT.Arrow
 
 import Holumbus.Index.Common
-
-import Holumbus.Index.Documents (Document)
-import qualified Holumbus.Index.Documents as D
 
 -- | The combined result type for Holumbus queries.
 data Result = Result        { docHits  :: !DocHits
@@ -111,7 +107,8 @@ type WordDocHits = Occurrences -- IntMap Positions (docId -> positions)
 type Score = Float
 
 instance XmlPickler Result where
-  xpickle =  xpWrap (\(dh, wh) -> Result dh wh, \(Result dh wh) -> (dh, wh)) (xpPair xpDocHits xpWordHits)
+  xpickle = xpElem "result" $ 
+            xpWrap (\(dh, wh) -> Result dh wh, \(Result dh wh) -> (dh, wh)) (xpPair xpDocHits xpWordHits)
 
 instance XmlPickler DocInfo where
   xpickle = xpWrap (\(d, s) -> DocInfo d s, \(DocInfo d s) -> (d, s)) xpDocInfo'
@@ -123,10 +120,6 @@ instance XmlPickler WordInfo where
     where
     xpWordInfo = xpPair (xpAttr "term" xpTerms) (xpAttr "score" xpPrim)
     xpTerms = xpWrap (split ",", join ",") xpText0
-
--- | The XML pickler for the result type.
-xpResult :: PU Result
-xpResult = xpElem "result" xpickle
 
 -- | The XML pickler for the document hits. Will be sorted by score.
 xpDocHits :: PU DocHits

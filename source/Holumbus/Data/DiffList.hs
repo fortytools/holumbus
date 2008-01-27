@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
   
-  Provide difference coding for Data.IntSet
+  Providing space efficient difference encoding for lists of integers. For
+  convenience, conversion functions for @Data.IntSet@ are provided.
 
 -}
 
@@ -35,7 +36,9 @@ import Data.List
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
+-- | A single difference between two integers.
 type Diff = Word16
+-- | A list of differences.
 type DiffList = [Diff]
 
 -- | Convert a set of integers into a list of difference encoded values.

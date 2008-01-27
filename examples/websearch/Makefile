@@ -2,7 +2,7 @@
 
 HOME	= ../..
 
-GHC_FLAGS	= -Wall -O2 -fno-warn-type-defaults -farrows
+GHC_FLAGS	= -Wall -O2
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf

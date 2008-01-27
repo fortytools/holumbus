@@ -28,8 +28,8 @@ import qualified Data.IntMap as IM
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted
-import Holumbus.Index.Documents
+import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
 import Holumbus.Query.Syntax
@@ -56,27 +56,39 @@ type StatusResult = (String, Result)
 _shader_config_index :: JanusPath
 _shader_config_index = jp "/shader/config/@index"
 
+_shader_config_documents :: JanusPath
+_shader_config_documents = jp "/shader/config/@documents"
+
+loadIndex :: FilePath -> IO InvIndex
+loadIndex = loadFromFile
+
+loadDocuments :: FilePath -> IO Documents
+loadDocuments = loadFromFile
+
 websearchShader :: ShaderCreator
 websearchShader = J.mkDynamicCreator $ proc (conf, _) -> do
-  tmp <- (arrIO $ loadFromBinFile) <<< (getValDef _shader_config_index "") -< conf
-  mix <- arrIO $ newMVar -< tmp
-  returnA -< websearchService mix
+  idx <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "") -< conf
+  doc <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "") -< conf
+  mix <- arrIO $ newMVar -< idx
+  moc <- arrIO $ newMVar -< doc
+  returnA -< websearchService mix moc
 
-websearchService :: HolIndex i => MVar i -> Shader
-websearchService mix = proc inTxn -> do
+websearchService :: (HolIndex i, HolDocuments d) => MVar i -> MVar d -> Shader
+websearchService mix moc = proc inTxn -> do
   idx      <- arrIO $ readMVar                                             -< mix
+  doc      <- arrIO $ readMVar                                             -< moc
   request  <- getValDef (_transaction_http_request_cgi_ "@query") ""       -< inTxn
   arrLogRequest                                                            -< inTxn
-  response <- writeString <<< (genError ||| genResult) <<< (arrParseQuery) -< (request, idx)
+  response <- writeString <<< (genError ||| genResult) <<< (arrParseQuery) -< (request, (idx, doc))
   setVal _transaction_http_response_body response                          -<< inTxn    
     where
     writeString = pickleStatusResult >>> (writeDocumentToString [(a_no_xml_pi, v_1), (a_output_encoding, utf8)])
     pickleStatusResult = xpickleVal xpStatusResult
 
-arrParseQuery :: (HolIndex i, ArrowXml a) => a (String, i) (Either (String, i) (Query, i))
+arrParseQuery :: (HolIndex i, HolDocuments d, ArrowXml a) => a (String, (i, d)) (Either (String, (i, d)) (Query, (i, d)))
 arrParseQuery = (first arrDecode)
                 >>>
-                (arr $ (\(r, i) -> either (\m -> Left (m, i)) (\q -> Right (q, i)) (parseQuery r)))
+                (arr $ (\(r, ind) -> either (\m -> Left (m, ind)) (\q -> Right (q, ind)) (parseQuery r)))
 
 arrDecode :: Arrow a => a String String
 arrDecode = arr $ fst . utf8ToUnicode . urlDecode
@@ -90,13 +102,13 @@ arrLogRequest = proc inTxn -> do
   currTime <- arr $ calendarTimeToString . toUTCTime                   -< unixTime
   arrIO $ putStrLn -< (currTime ++ " - " ++ remHost ++ " - " ++ rawRequest ++ " - " ++ decodedRequest)
 
-genResult :: (HolIndex i, ArrowXml a) => a (Query, i) (String, Result)
+genResult :: (HolIndex i, HolDocuments d, ArrowXml a) => a (Query, (i, d)) (String, Result)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
               weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
             in
             ifP (\(q, _) -> checkWith ((> 1) . length) q)
-              ((arr $ (\(q, i) -> (makeQuery i q, i)))
+              ((arr $ (\(q, ind) -> (makeQuery ind q, ind)))
               >>>
               (first $ arr $ rank rankCfg)
               >>>
@@ -114,12 +126,12 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
                  cs = if sw == 1 then "completion" else "completions"
 
 -- | This is where the magic happens!
-makeQuery :: HolIndex i => i -> Query -> Result
-makeQuery i q = processQuery cfg i (optimize q)
-                  where
-                  cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+makeQuery :: (HolIndex i, HolDocuments d) => (i, d) -> Query -> Result
+makeQuery (i, d) q = processQuery cfg i d (optimize q)
+                       where
+                       cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
 
-genError :: (HolIndex i, ArrowXml a) => a (String, i) (String, Result)
+genError :: (HolIndex i, HolDocuments d, ArrowXml a) => a (String, (i, d)) (String, Result)
 genError = arr $ (\(msg, _) -> (msg, emptyResult))
 
 xpStatusResult :: PU StatusResult

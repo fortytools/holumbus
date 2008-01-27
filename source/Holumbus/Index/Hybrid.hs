@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The hybrid index for Holumbus.
 
@@ -30,13 +30,10 @@ import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
-import Holumbus.Index.Documents
 
 import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 
-data HybIndex      = HybIndex { docTable   :: !Documents
-                              , indexParts :: !Parts 
-                              } deriving (Show, Eq)
+newtype HybIndex = HybIndex { indexParts :: Parts } deriving (Show, Eq)
 
 type Parts         = Map Context Part
 data Part          = Part { dictionary :: !Dictionary
@@ -60,9 +57,7 @@ type WordId        = Int
 type BlockId       = Int
 
 instance HolIndex HybIndex where
-  sizeDocs = IM.size . idToDoc . docTable
   sizeWords _ = 0
-  documents = docTable
   contexts = map fst . M.toList . indexParts
 
   allWords _ _ = [] -- TODO: This is just a dummy
@@ -71,12 +66,13 @@ instance HolIndex HybIndex where
   lookupCase _ _ _ = [] -- TODO: This is just a dummy
   lookupNoCase _ _ _ = [] -- TODO: This is just a dummy
 
-  insert _ _ _ _ _ = empty -- TODO: This is just a dummy
-  update _ _ _ _ _ = empty -- TODO: This is just a dummy
+  mergeIndexes _ _ = emptyHybrid
+
+  insertOccurrences _ _ _ _ = emptyHybrid
 
 -- | Create an empty index.
-empty :: HybIndex
-empty = HybIndex emptyDocuments M.empty
+emptyHybrid :: HybIndex
+emptyHybrid = HybIndex M.empty
 
 -- | Load Index from XML file
 loadFromXmlFile :: String -> IO HybIndex

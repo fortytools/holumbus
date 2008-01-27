@@ -29,28 +29,39 @@ import qualified Data.List as L
 
 import Text.XML.HXT.DOM.Unicode
 
-import qualified Holumbus.Index.Inverted as INV
-import qualified Holumbus.Index.Hybrid as HYB
-import Holumbus.Index.Common hiding (contexts)
+import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Documents (Documents)
+import Holumbus.Index.Common
 
-data Flag = Inv String | Hyb String | Con Context | Version deriving (Show, Eq)
+data Flag = Index String 
+          | Documents String 
+          | Con Context 
+          | Version 
+          | Help deriving (Show, Eq)
 
 version :: String
-version = "0.1"
+version = "0.2"
 
 main :: IO ()
 main = do
        argv <- getArgs
        flags <- commandLineOpts argv
+
        if Version `elem` flags then (putStrLn version) >> (exitWith ExitSuccess) else return ()
-       contexts <- return (filter isContext flags)
-       if null contexts then usage ["No context given!\n"] else return ()
-       if length contexts > 1 then usage ["Only one context allowed!\n"] else return ()
-       indexes <- return (filter isIndex flags)
-       if null indexes then usage ["No index file given!\n"] else return ()
-       if length indexes > 1 then usage ["Only one index file allowed!\n"] else return ()
-       context <- fromContext $ head contexts
-       startup context (head indexes)
+       if Help `elem` flags then usage [] >> (exitWith ExitSuccess) else return ()
+
+       ctx <- return (filter isContext flags)
+       if null ctx then usage ["No context given!\n"] else return ()
+
+       idx <- return (filter isIndex flags)
+       if L.null idx then usage ["No index file given!\n"] else return ()
+       if length idx > 1 then usage ["Only one index file allowed!\n"] else return ()
+
+       doc <- return (filter isDocuments flags)
+       if L.null doc then usage ["No documents file given!\n"] else return ()
+       if length doc > 1 then usage ["Only one documents file allowed!\n"] else return ()
+
+       startup (map fromContext ctx) (head idx) (head doc)
        return ()
 
 isContext :: Flag -> Bool
@@ -58,32 +69,38 @@ isContext (Con _) = True
 isContext _ = False
 
 isIndex :: Flag -> Bool
-isIndex (Inv _) = True
-isIndex (Hyb _) = True
+isIndex (Index _) = True
 isIndex _ = False
 
-fromContext :: Flag -> IO (Context)
-fromContext (Con s) = return s
-fromContext _ = do
-                usage ["Internal error!\n"]
+isDocuments :: Flag -> Bool
+isDocuments (Documents _) = True
+isDocuments _ = False
+
+fromContext :: Flag -> Context
+fromContext (Con s) = s
+fromContext _ = ""
 
 -- | Decide between hybrid and inverted and then fire up!
-startup :: Context -> Flag -> IO ()
-startup c (Inv file) = do
-                       idx <- INV.loadFromXmlFile file
-                       return (rnf idx)
-                       printWords c idx
-startup c (Hyb file) = do
-                       idx <- HYB.loadFromXmlFile file
-                       printWords c idx
-startup _ _ = do
-              usage ["Internal error!\n"]
+startup :: [Context] -> Flag -> Flag -> IO ()
+startup c (Index idxFile) (Documents docFile) = do
+                                                putStrLn "Loading index..."
+                                                idx <- (loadFromFile idxFile) :: IO InvIndex
+                                                return (rnf idx)
+                                                putStrLn "Loading documents..."
+                                                doc <- (loadFromFile docFile) :: IO Documents
+                                                return (rnf doc)
+                                                printWords c idx doc
+startup _ _ _ = usage ["Internal error!\n"]
 
-printWords :: HolIndex i => Context -> i -> IO ()
-printWords c idx = do
-                   w <- return (concat $ L.sort $ map (\(w, _) -> unicodeToUtf8 w ++ "\n") (allWords c idx))
-                   putStrLn w
-                   exitWith ExitSuccess
+printWords :: (HolIndex i, HolDocuments d) => [Context] -> i -> d -> IO ()
+printWords [] _ _ = exitWith ExitSuccess
+printWords (c:cs) i d = do
+                        printWords' c
+                        printWords cs i d
+  where
+  printWords' c' = do
+                    w <- return (concat $ L.sort $ map (\(w, _) -> unicodeToUtf8 w ++ "\n") (allWords i c'))
+                    putStrLn w
 
 usage :: [String] -> IO a
 usage errs = if null errs then do
@@ -103,8 +120,9 @@ commandLineOpts argv = case getOpt Permute options argv of
                        (_, _, errs) -> usage errs
 
 options :: [OptDescr Flag]
-options = [ Option ['i'] ["inverted"] (ReqArg Inv "FILE") "Loads inverted index from FILE"
-          , Option ['h'] ["hybrid"]   (ReqArg Hyb "FILE") "Loads hybrid index from FILE"
-          , Option ['c'] ["context"]  (ReqArg Con "CONTEXT") "Show words from context CONTEXT"
-          , Option ['V'] ["version"]  (NoArg Version)     "Output version and exit"
+options = [ Option ['i'] ["index"]     (ReqArg Index "FILE")     "Loads index from FILE"
+          , Option ['d'] ["documents"] (ReqArg Documents "FILE") "Loads documents from FILE"
+          , Option ['c'] ["context"]   (ReqArg Con "CONTEXT")    "Show words from context CONTEXT"
+          , Option ['V'] ["version"]   (NoArg Version)           "Output version and exit"
+          , Option ['?'] ["help"]      (NoArg Help)           "Output this help and exit"
           ]

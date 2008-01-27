@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
 
   The ranking mechanism for Holumbus.
 
@@ -44,7 +44,6 @@ import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
 import Holumbus.Query.Result
-import Holumbus.Index.Documents
 import Holumbus.Index.Common
 
 data RankConfig = RankConfig { docRanking :: DocRanking

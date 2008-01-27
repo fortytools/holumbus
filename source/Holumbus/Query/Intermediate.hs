@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The data type for intermediate results occuring during query processing.
 
@@ -50,8 +50,6 @@ import qualified Data.IntMap as IM
 
 import qualified Data.IntSet as IS
 
-import qualified Holumbus.Index.Documents as D
-
 import Holumbus.Query.Result hiding (null, merge)
 
 import Holumbus.Index.Common
@@ -88,14 +86,14 @@ fromList t c os = IM.unionsWith combineContexts (map createIntermediate' os)
   createIntermediate' (w, o) = IM.map (\p -> M.singleton c (M.singleton w (WordInfo [t] 0.0, p))) o
 
 -- | Convert to a @Result@ by generating the @WordHits@ structure.
-toResult :: HolIndex i => i -> Intermediate -> Result
-toResult i im = Result (createDocHits i im) (createWordHits i im)
+toResult :: (HolIndex i, HolDocuments d) => i -> d -> Intermediate -> Result
+toResult i d im = Result (createDocHits d im) (createWordHits i im)
 
 -- | Create the doc hits structure from an intermediate result.
-createDocHits :: HolIndex i => i -> Intermediate -> DocHits
-createDocHits i im = IM.mapWithKey transformDocs im
+createDocHits :: HolDocuments d => d -> Intermediate -> DocHits
+createDocHits d im = IM.mapWithKey transformDocs im
   where
-  transformDocs d ic = let doc = fromMaybe ("", "") (D.lookupId d (documents i)) in
+  transformDocs did ic = let doc = fromMaybe ("", "") (lookupById d did) in
                        (DocInfo doc 0.0, M.map (M.map (\(_, p) -> p)) ic)
 
 -- | Create the word hits structure from an intermediate result.

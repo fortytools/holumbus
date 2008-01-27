@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
 
   The Holumbus query processor. Supports exact word or phrase queries as well
   as fuzzy word and case-insensitive word and phrase queries. Boolean
@@ -36,7 +36,7 @@ import Data.Maybe
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Holumbus.Index.Common (HolIndex, Context, Occurrences, Positions)
+import Holumbus.Index.Common (HolIndex, HolDocuments, Context, Occurrences, Positions)
 import qualified Holumbus.Index.Common as IDX
 
 import Holumbus.Query.Syntax
@@ -78,12 +78,12 @@ forAllContexts f cs = foldr I.union I.empty $ map f cs
 
 -- | Just everything.
 allDocuments :: HolIndex i => ProcessState i -> Intermediate
-allDocuments s = forAllContexts (\c -> I.fromList "" c $ IDX.allWords c (index s)) (contexts s)
+allDocuments s = forAllContexts (\c -> I.fromList "" c $ IDX.allWords (index s) c) (contexts s)
 
 -- | Process a query on a specific index with regard to the configuration. Before processing,
 -- the query will be automatically optimized.
-processQuery :: HolIndex i => ProcessConfig -> i -> Query -> Result
-processQuery cfg i q = I.toResult i (process (initState cfg i) (optimize q))
+processQuery :: (HolIndex i, HolDocuments d) => ProcessConfig -> i -> d -> Query -> Result
+processQuery cfg i d q = I.toResult i d (process (initState cfg i) (optimize q))
 
 -- | Continue processing a query by deciding what to do depending on the current query element.
 process :: HolIndex i => ProcessState i -> Query -> Intermediate
@@ -100,25 +100,25 @@ process s (Specifier cs q)   = process (setContexts cs s) q
 processWord :: HolIndex i => ProcessState i -> String -> Intermediate
 processWord s q = forAllContexts wordNoCase (contexts s)
   where
-  wordNoCase c = I.fromList q c $ IDX.prefixNoCase c (index s) q
+  wordNoCase c = I.fromList q c $ IDX.prefixNoCase (index s) c q
 
 -- | Process a single, case-sensitive word by finding all documents which contain the word as prefix.
 processCaseWord :: HolIndex i => ProcessState i -> String -> Intermediate
 processCaseWord s q = forAllContexts wordCase (contexts s)
   where
-  wordCase c = I.fromList q c $ IDX.prefixCase c (index s) q
+  wordCase c = I.fromList q c $ IDX.prefixCase (index s) c q
 
 -- | Process a phrase case-insensitive.
 processPhrase :: HolIndex i => ProcessState i -> String -> Intermediate
 processPhrase s q = forAllContexts phraseNoCase (contexts s)
   where
-  phraseNoCase c = processPhraseInternal (IDX.lookupNoCase c (index s)) c q
+  phraseNoCase c = processPhraseInternal (IDX.lookupNoCase (index s) c) c q
 
 -- | Process a phrase case-sensitive.
 processCasePhrase :: HolIndex i => ProcessState i -> String -> Intermediate
 processCasePhrase s q = forAllContexts phraseCase (contexts s)
   where
-  phraseCase c = processPhraseInternal (IDX.lookupCase c (index s)) c q
+  phraseCase c = processPhraseInternal (IDX.lookupCase (index s) c) c q
 
 -- | Process a phrase query by searching for every word of the phrase and comparing their positions.
 processPhraseInternal :: (String -> [Occurrences]) -> Context -> String -> Intermediate

@@ -16,6 +16,8 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fno-warn-type-defaults  #-}
+
 module BiMapTest (allTests) where
 
 import qualified Holumbus.Data.BiMap as BM

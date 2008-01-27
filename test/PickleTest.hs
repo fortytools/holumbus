@@ -18,6 +18,7 @@
 
 module PickleTest (allTests) where
 
+import Holumbus.Index.Documents
 import Holumbus.Index.Inverted
 import Holumbus.Query.Result
 
@@ -30,12 +31,16 @@ import Test.HUnit
 import SampleData
 
 testIndex1, testIndex2 :: InvIndex
-testIndex1 = empty
+testIndex1 = emptyInverted
 testIndex2 = sampleIndex1
 
 testResult1, testResult2 :: Result
 testResult1 = emptyResult
 testResult2 = sampleResult1
+
+testDocs1, testDocs2 :: Documents
+testDocs1 = emptyDocuments
+testDocs2 = sampleDocs1
 
 -- Stolen from the HXT pickle tests. Thanks :)
 pickleUnpickleTests :: (XmlPickler p, Eq p, Show p) => [p] -> PU p -> String -> Test
@@ -97,6 +102,7 @@ FIXME TH 15.01.2008: Adding a DTD automatically does not work yet, because we us
 --}
 
 allTests :: Test  
-allTests = TestList [ pickleUnpickleTests [testIndex1, testIndex2] xpInvIndex "InvIndex"
-                    , pickleUnpickleTests [testResult1, testResult2] xpResult "Result"
+allTests = TestList [ pickleUnpickleTests [testIndex1, testIndex2] xpickle "InvIndex"
+                    , pickleUnpickleTests [testResult1, testResult2] xpickle "Result"
+                    , pickleUnpickleTests [testDocs1, testDocs2] xpickle "Documents"
                     ]
