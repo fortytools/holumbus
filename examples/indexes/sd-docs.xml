@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<documents>
+  <doc id="1" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/design.html" title="Softwaredesign"/>
+  <doc id="2" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Gebrauchsanweisung.html" title="Softwaredesign: Gebrauchsanweisung"/>
+  <doc id="3" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Literatur/Buecher.html" title="Softwaredesign: Bücher"/>
+  <doc id="4" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Literatur/WWW.html" title="Softwaredesign: WWW-Adressen"/>
+  <doc id="5" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Literatur/inhalt.html" title="Softwaredesign: Literatur"/>
+  <doc id="6" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Design/inhalt.html" title="Softwaredesign: Methoden, Techniken, Werkzeuge"/>
+  <doc id="7" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Design/Klassifikation.html" title="Softwaredesign: Klassifikation von Software"/>
+  <doc id="8" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Design/Methoden.html" title="Softwaredesign: Methodenübersicht"/>
+  <doc id="9" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Design/Spezifikationsphase.html" title="Softwaredesign: Spezifikationsphase"/>
+  <doc id="10" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/inhalt.html" title="Softwaredesign: Entwurfsmuster: Einführung"/>
+  <doc id="11" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/inhalt.html" title="Softwaredesign: Abstrakte Syntax"/>
+  <doc id="12" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/EinfacheDatentypen.html" title="Softwaredesign: Einfache Datentypen"/>
+  <doc id="13" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/Polymorphie.html" title="Softwaredesign: Parametrische Polymorphie"/>
+  <doc id="14" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/SetMap.html" title="Softwaredesign: Mengen und Verzeichnisse"/>
+  <doc id="15" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/SummenDatentypen.html" title="Softwaredesign: Neue selbstdefinierte Wertebereiche und Summen-Datentypen"/>
+  <doc id="16" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/TupelListen.html" title="Softwaredesign: Tupel, Listen und Funktionen"/>
+  <doc id="17" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/AbstrakteSyntax/TypDeklarationen.html" title="Softwaredesign: Typdeklarationen"/>
+  <doc id="18" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/Beschreibung.html" title="Softwaredesign: Beschreibung eines Entwurfsmusters"/>
+  <doc id="19" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/Klassifizierung.html" title="Softwaredesign: Klassifizierung von Mustern"/>
+  <doc id="20" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/OMT.html" title="Softwaredesign: UML/OMT Notation"/>
+  <doc id="21" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/Problemloesung.html" title="Softwaredesign: Problemlösung mit Entwurfsmustern"/>
+  <doc id="22" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/Semantik.html" title="Softwaredesign: Semantik von Entwürfen mit UML/OMT"/>
+  <doc id="23" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Einleitung/VererbungKomposition.html" title="Softwaredesign: Vererbung &lt;--&gt; Komposition"/>
+  <doc id="24" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Abstraktefabrik.html" title="Softwaredesign: Abstrakte Fabrik"/>
+  <doc id="25" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Erbauer.html" title="Softwaredesign: Erbauer"/>
+  <doc id="26" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Fabrikmethode.html" title="Softwaredesign: Fabrikmethode"/>
+  <doc id="27" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Einleitung.html" title="Softwaredesign: Motivation"/>
+  <doc id="28" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Fabrikmethode.einfach/index.html" title="Softwaredesign: Beispiel: Vereinfachte Variante"/>
+  <doc id="29" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Fabrikmethode/index.html" title="Softwaredesign: Beispiel: Fabrikmethode"/>
+  <doc id="30" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Prototyp.html" title="Softwaredesign: Prototyp"/>
+  <doc id="31" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Prototyp.0/index.html" title="Softwaredesign: Beispiel: Prototyp"/>
+  <doc id="32" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Prototyp.0/index1.html" title="Softwaredesign: Beispiel: Fabrik mit Prototypen"/>
+  <doc id="33" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Prototyp.1/index.html" title="Softwaredesign: Beispiel: Tiefes Kopieren eines binären Baumes"/>
+  <doc id="34" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Singleton.html" title="Softwaredesign: Singleton"/>
+  <doc id="35" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Singleton.0/index.html" title="Softwaredesign: Beispiel: Einfache Implementierung eines Singletons"/>
+  <doc id="36" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Singleton.0/index2.html" title="Softwaredesign: Beispiel: Implementierungen eines modifizierbaren Singletons"/>
+  <doc id="37" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/Singleton.0/index3.html" title="Softwaredesign: Beispiel: Dynamisches Laden eines Singletons"/>
+  <doc id="38" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Erzeugungsmuster/inhalt.html" title="Softwaredesign: Erzeugungsmuster"/>
+  <doc id="39" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Adapter.html" title="Softwaredesign: Adapter"/>
+  <doc id="40" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Adapter.0/index.html" title="Softwaredesign: Beispiel: Adapter für eine Liste"/>
+  <doc id="41" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Adapter.1/index.html" title="Softwaredesign: Beispiel: Adapter in zwei Richtungen"/>
+  <doc id="42" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Bruecke.html" title="Softwaredesign: Brücke"/>
+  <doc id="43" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Bruecke.0/index.html" title="Softwaredesign: Beispiel: Brückenmuster nicht geeignet"/>
+  <doc id="44" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Bruecke.0/instanceof.html" title="Softwaredesign: Beispiel: Brückenmuster nicht geeignet"/>
+  <doc id="45" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Bruecke.0/spezi.html" title="Softwaredesign: Beispiel: Brückenmuster nicht geeignet"/>
+  <doc id="46" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Bruecke.1/index.html" title="Softwaredesign: Beispiel: Brückenmuster"/>
+  <doc id="47" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Dekorierer.html" title="Softwaredesign: Dekorierer"/>
+  <doc id="48" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Fassade.html" title="Softwaredesign: Fassade"/>
+  <doc id="49" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Fliegengewicht.html" title="Softwaredesign: Fliegengewicht"/>
+  <doc id="50" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Kompositum.0/index.html" title="Softwaredesign: Beispiel: Binärer Baum als Kompositum"/>
+  <doc id="51" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/ArithmeticExpression.html" title="Softwaredesign: Beispiel: Arithmetische Ausdrücke als Kompositum"/>
+  <doc id="52" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/XMLSyntaxTree.html" title="Softwaredesign: Beispiel: XML-Strukturbaum als Kompositum: Haskell Spezifikation"/>
+  <doc id="53" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Kompositum.1/index.html" title="Softwaredesign: Beispiel: XML-Strukturbaum als Kompositum: Java Implementierung"/>
+  <doc id="54" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Kompositum.html" title="Softwaredesign: Kompositum"/>
+  <doc id="55" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Proxy.html" title="Softwaredesign: Proxy"/>
+  <doc id="56" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Proxy.0/index.html" title="Softwaredesign: Beispiel: Proxy"/>
+  <doc id="57" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Proxy.0/index2.html" title="Softwaredesign: Beispiel: Trace Proxy"/>
+  <doc id="58" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/Proxy.1/index.html" title="Softwaredesign: Beispiel: Funktionen"/>
+  <doc id="59" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Strukturmuster/inhalt.html" title="Softwaredesign: Strukturmuster"/>
+  <doc id="60" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Befehl.html" title="Softwaredesign: Befehl"/>
+  <doc id="61" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Befehl.0/index.html" title="Softwaredesign: Beispiel: Befehlsmuster für die Ereignisbehandlung in Java"/>
+  <doc id="62" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Beobachter.html" title="Softwaredesign: Beobachter"/>
+  <doc id="63" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Beobachter.0/index.html" title="Softwaredesign: Beispiel: Beobachter"/>
+  <doc id="64" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Besucher.html" title="Softwaredesign: Besucher"/>
+  <doc id="65" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Besucher.0/index.html" title="Softwaredesign: Beispiel: Binärer Baum mit Besucher"/>
+  <doc id="66" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Besucher.1/index.html" title="Softwaredesign: Beispiel: Figuren verarbeiten mit Besucher"/>
+  <doc id="67" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Interpretierer.html" title="Softwaredesign: Interpretierer"/>
+  <doc id="68" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/ProgLang.html" title="Softwaredesign: Interpretierer für eine Programmiersprache"/>
+  <doc id="69" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/WebFragebogen.html" title="Softwaredesign: Web-Fragebogen-Generator"/>
+  <doc id="70" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/WebProfiler.html" title="Softwaredesign: Web-Roboter zum Analysieren von HTML-Dokumenten"/>
+  <doc id="71" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/CDArchiv.html" title="Softwaredesign: Datenmodell für einen CD-Katalog"/>
+  <doc id="72" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/OMTCaseTool.html" title="Softwaredesign: OMT CASE Tool für Klassendiagramme"/>
+  <doc id="73" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/PraefixSuche.html" title="Softwaredesign: Datenstruktur für effiziente Suche"/>
+  <doc id="74" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Indexer.html" title="Softwaredesign: Indexierer für Freitextsuche"/>
+  <doc id="75" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/HTMLSyntaxBaum.html" title="Softwaredesign: Datenmodell: XML Strukturbaum"/>
+  <doc id="76" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/Adressen.html" title="Softwaredesign: Modellierung von Adressen"/>
+  <doc id="77" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/ProjektTagebuch.html" title="Softwaredesign: Projekttagebuch"/>
+  <doc id="78" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/Index.html" title="Softwaredesign: Datenmodell"/>
+  <doc id="79" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/IndexExample.html" title="Softwaredesign: Suchen im Zitatenschatz"/>
+  <doc id="80" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/IndexQuery.html" title="Softwaredesign: Komplexe Anfragen"/>
+  <doc id="81" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/IndexQueryLang.html" title="Softwaredesign: Eine konkrete Syntax für eine Anfragesprache"/>
+  <doc id="82" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/ProjektTagebuch.html" title="Softwaredesign: Datenmodell"/>
+  <doc id="83" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/RadixSearch.html" title="Softwaredesign: Datenmodell und Funktionen"/>
+  <doc id="84" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/RadixSearch2.html" title="Softwaredesign: Vereinfachtes Datenmodell"/>
+  <doc id="85" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/Prototypen/RadixSearch3.html" title="Softwaredesign: Das minimale Datenmodell"/>
+  <doc id="86" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Fallstudien/inhalt.html" title="Softwaredesign: Fallstudien"/>
+  <doc id="87" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Interpretierer.0/index.html" title="Softwaredesign: Beispiel: Programmiersprache mit Interpretierer und Compiler"/>
+  <doc id="88" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Iterator.html" title="Softwaredesign: Iterator"/>
+  <doc id="89" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Iterator.0/index.html" title="Softwaredesign: Beispiel: Filter-Iterator mit Dekorierer"/>
+  <doc id="90" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Iterator.1/index.html" title="Softwaredesign: Beispiel: Iterator zum Implementieren von default-Methoden für Container"/>
+  <doc id="91" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Schablonenmethode.html" title="Softwaredesign: Schablonenmethode"/>
+  <doc id="92" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Schablonenmethode.0/index.html" title="Softwaredesign: Beispiel: Schablonenmethode"/>
+  <doc id="93" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Strategie.3/index.html" title="Softwaredesign: Beispiel: Strategie zum Implementieren von default-Methoden für Container"/>
+  <doc id="94" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Strategie.2/index.html" title="Softwaredesign: Beispiel: Parametrisierbares Sortieren eines Feldes"/>
+  <doc id="95" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Strategie.1/index.html" title="Softwaredesign: Beispiel: Sortieren eines Feldes"/>
+  <doc id="96" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Strategie.0/index.html" title="Softwaredesign: Beispiel: Strategie"/>
+  <doc id="97" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/Strategie.html" title="Softwaredesign: Strategie"/>
+  <doc id="98" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/Verhaltensmuster/inhalt.html" title="Softwaredesign: Verhaltensmuster"/>
+  <doc id="99" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/inhalt.html" title="Softwaredesign: Kapitelübersicht"/>
+  <doc id="100" href="http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/roadmap.html" title="Softwaredesign: Inhaltsverzeichnis"/>
+</documents>
