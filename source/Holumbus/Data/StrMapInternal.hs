@@ -29,6 +29,8 @@ import Data.Maybe
 import Data.Char
 import Data.Binary
 
+import Control.Monad
+
 import qualified Data.List as L
 import qualified Data.Map as M
 
@@ -55,29 +57,14 @@ instance NFData v => NFData (StrMap v) where
   rnf (Seq k t)   = rnf k `seq` rnf t
 
 instance (Binary a) => Binary (StrMap a) where
-  put (End k v t) = do
-                    put (0 :: Word8)
-                    put k
-                    put v
-                    put t
-  put (Seq k t) = do
-                  put (1 :: Word8)
-                  put k
-                  put t
+  put (End k v t) = put (0 :: Word8) >> put k >> put v >> put t 
+  put (Seq k t)   = put (1 :: Word8) >> put k >> put t
 
-  get = do
-        n <- get :: Get Word8
-        case n of
-          0 -> do 
-               k <- get
-               v <- get
-               t <- get
-               return (End k v t)
-          1 -> do
-               k <- get
-               t <- get
-               return (Seq k t)
-          _ -> fail "Error while decoding StrMap"                       
+  get = do tag <- getWord8
+           case tag of
+             0 -> liftM3 End get get get
+             1 -> liftM2 Seq get get
+             _ -> fail "Error while decoding StrMap"                       
 
 -- | /O(1)/ Create an empty trie.
 empty :: StrMap a
