@@ -16,7 +16,9 @@
 
 -- ----------------------------------------------------------------------------
 
-module DiffListTest (allTests) where
+{-# OPTIONS -fno-warn-missing-signatures #-}
+
+module DiffListTest (allTests, allProperties) where
 
 import Data.List
 
@@ -25,6 +27,8 @@ import qualified Data.IntSet as IS
 import qualified Holumbus.Data.DiffList as DL
 
 import Test.HUnit
+import Test.QuickCheck
+import Test.QuickCheck.Batch
 
 tests :: [(String, [Int])]
 tests = 
@@ -66,6 +70,21 @@ intSetTests = TestList $ map makeIntSetTest tests
   where
   makeIntSetTest (desc, values) = TestCase 
     (assertEqual desc (sort values) ((IS.toList . DL.toIntSet . DL.fromIntSet . IS.fromList) values))
+
+valid :: (Ord a, Num a) => [a] -> Bool
+valid [] = True
+valid (x:xs) = (x <= 65535) && (x >= 0) && (valid xs)
+
+prop_FromToList xs = valid xs ==> DL.toList (DL.fromList xs) == (sort xs)
+prop_FromToIntSet xs = valid xs ==> DL.toIntSet (DL.fromIntSet (IS.fromList xs)) == (IS.fromList xs)
+prop_EqListSet xs = valid xs ==> DL.toIntSet (DL.fromList $ nub xs) == IS.fromList xs
+
+allProperties :: (String, [TestOptions -> IO TestResult])
+allProperties = ("DiffList tests",
+                [ run prop_FromToList
+                , run prop_FromToIntSet
+                , run prop_EqListSet
+                ])
 
 allTests :: Test  
 allTests = TestLabel "DiffList tests" $ 

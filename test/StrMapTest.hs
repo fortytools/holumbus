@@ -16,16 +16,22 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fno-warn-type-defaults  #-}
+{-# OPTIONS -fno-warn-type-defaults  -fno-warn-orphans -fno-warn-missing-signatures #-}
 
-module StrMapTest (allTests) where
+module StrMapTest (allTests, allProperties) where
 
 import Data.List
+import Data.Char
+import Data.Binary
+
+import qualified Data.Map as M
 
 import Holumbus.Data.StrMapInternal (StrMap (..))
 import qualified Holumbus.Data.StrMapInternal as SM
 
 import Test.HUnit
+import Test.QuickCheck
+import Test.QuickCheck.Batch
 
 emptyTests :: Test
 emptyTests  = TestList 
@@ -121,6 +127,41 @@ findTests = TestList
   (SM.prefixFindNoCaseWithKey "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
   ]
 
+instance Arbitrary Char where
+    arbitrary     = choose ('\32', '\128')
+    coarbitrary c = variant (ord c `rem` 4)
+
+valid :: [(String, Int)] -> Bool
+valid [] = True
+valid ((k, _):xs) = k /= "" && valid xs
+
+clean :: [(String, a)] -> [(String, a)]
+clean = (nubBy (\(k1, _) (k2, _) -> k1 == k2)) . normal
+
+normal :: [(String, a)] -> [(String, a)]
+normal = sortBy (compare `on` fst)
+
+prop_FromToList xs = valid xs ==> normal (SM.toList (SM.fromList $ clean xs)) == clean xs
+prop_FromToMap xs = valid xs ==> SM.toMap (SM.fromMap (M.fromList xs)) == M.fromList xs
+prop_EqMapList xs = valid xs ==> (SM.fromList $ clean xs) == (SM.fromMap $ M.fromList xs)
+prop_InsertLookup xs k v = (valid xs) && k /= "" ==> SM.lookup k (SM.insert k v (SM.fromList xs)) == Just v
+prop_Equal xs = valid xs ==> SM.fromList (reverse $ clean xs) == SM.fromList (clean xs)
+prop_Binary xs = valid xs ==> ((decode . encode) $ (SM.fromList xs)) == (SM.fromList xs)
+prop_Map xs = valid xs ==> (SM.map ((*) 2) (SM.fromList $ clean xs)) == SM.fromList (map (\(k, v) -> (k, v * 2)) (clean xs))
+prop_Fold xs = valid xs ==> (SM.fold (+) 0 (SM.fromList $ clean xs)) == (foldr (\(_, v) r -> v + r) 0 (clean xs)) 
+
+allProperties :: (String, [TestOptions -> IO TestResult])
+allProperties = ("StrMap tests",
+                [ run prop_FromToList
+                , run prop_FromToMap
+                , run prop_EqMapList
+                , run prop_InsertLookup
+                , run prop_Equal
+                , run prop_Binary
+                , run prop_Map
+                , run prop_Fold
+                ])
+
 allTests :: Test  
 allTests = TestLabel "StrMap tests" $ 
   TestList
@@ -128,3 +169,8 @@ allTests = TestLabel "StrMap tests" $
   , TestLabel "Insert tests" insertTests
   , TestLabel "Find tests" findTests
   ]
+  
+-- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
+on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
+op `on` f = \x y -> f x `op` f y
+ 

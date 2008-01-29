@@ -26,7 +26,7 @@ build :
 test :
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Running Holumbus tests..."
-	./$(PROG)
+	./$(PROG) -u -q
 
 wc :
 	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`

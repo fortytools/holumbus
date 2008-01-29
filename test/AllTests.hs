@@ -20,6 +20,7 @@ module Main where
 
 import System
 import Test.HUnit
+import Test.QuickCheck.Batch
 
 import qualified StrMapTest as StrMap
 import qualified BiMapTest as BiMap
@@ -40,15 +41,45 @@ allTests = TestList
            , Binary.allTests
            ]
 
+allProperties :: [(String, [TestOptions -> IO TestResult])]
+allProperties = [ DiffList.allProperties
+                , StrMap.allProperties
+                ]
+
+testOptions :: TestOptions
+testOptions = TestOptions 250 10 False
+
+runUnitTests :: IO Bool
+runUnitTests = do
+               putStrLn "=== Running Unit tests ==="
+               c <- runTestTT allTests
+               putStrLn $ show c
+               let errs = errors c
+                   fails = failures c
+               return (errs == 0 && fails == 0)
+
+runQuickCheckTests :: IO Bool
+runQuickCheckTests = do
+                     putStrLn "=== Runnig QuickCheck tests ==="
+                     quickCheckList allProperties
+                     return True
+                     where
+                       quickCheckList [] = return ()
+                       quickCheckList ((d, t):ts) = do
+                                                    runTests d testOptions t
+                                                    quickCheckList ts
+
 main :: IO ()
 main = do
-         c <- runTestTT allTests
-         putStrLn $ show c
-         let errs = errors c
-             fails = failures c
-         System.exitWith (codeGet errs fails)
+       argv <- getArgs
+       if null argv || (not ("-u" `elem` argv) && not ("-q" `elem` argv)) then usage else return ()
+       ut <- if "-u" `elem` argv then runUnitTests else return True
+       qt <- if "-q" `elem` argv then runQuickCheckTests else return True
+       if ut && qt then return () else exitFailure
 
-codeGet :: Int -> Int -> ExitCode
-codeGet errs fails | fails > 0 = ExitFailure 2
-                   | errs > 0  = ExitFailure 1
-                   | otherwise = ExitSuccess
+usage :: IO ()
+usage = do
+        putStrLn "AllTests - Execute all Holumbus tests\n"
+        putStrLn "Usage: AllTests [OPTIONS]"
+        putStrLn "  -u  Run HUnit tests"
+        putStrLn "  -q  Run QuickCheck tests\n"

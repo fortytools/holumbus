@@ -19,7 +19,7 @@
 module ParserTest (allTests) where
 
 import qualified Holumbus.Query.Parser as P
-import Holumbus.Query.Syntax
+import Holumbus.Query.Language
 
 import Test.HUnit
 
