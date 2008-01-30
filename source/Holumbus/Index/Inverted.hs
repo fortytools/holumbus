@@ -76,11 +76,9 @@ instance XmlPickler InvIndex where
   xpickle =  xpElem "indexes" $ xpWrap (\p -> InvIndex p, \(InvIndex p) -> p) xpParts
 
 instance Binary InvIndex where
-  put (InvIndex parts) = do
-                              put parts
-  get = do
-        parts <- get
-        return (InvIndex parts)
+  put (InvIndex parts) = put parts
+  get = do parts <- get
+           return (InvIndex parts)
 
 -- | Convert the differences back to a set of integers.
 inflate :: IntMap DiffList -> Occurrences

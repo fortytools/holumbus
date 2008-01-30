@@ -17,18 +17,37 @@ flag splitBase
 
 library
   if flag(splitBase)
-    build-depends: base >= 3, haskell98, containers, parallel, parsec, hxt, bytestring, binary
+    build-depends: base >= 3
+                 , haskell98
+                 , containers
+                 , parallel
+                 , parsec
+                 , hxt
+                 , bytestring
+                 , binary
+                 , HTTP
+                 , network
+                 , bzlib
   else
-    build-depends: base < 3, haskell98, parsec, hxt, bytestring, binary
+    build-depends: base < 3
+                 , haskell98
+                 , parsec
+                 , hxt
+                 , bytestring
+                 , binary
+                 , HTTP
+                 , network
+                 , bzlib
   exposed-modules:
     Holumbus.Control.Sequence,
     Holumbus.Data.StrMap,
     Holumbus.Data.BiMap,
     Holumbus.Data.DiffList,
     Holumbus.Query.Parser,
-    Holumbus.Query.Syntax,
+    Holumbus.Query.Language,
     Holumbus.Query.Processor,
     Holumbus.Query.Intermediate,
+    Holumbus.Query.Distribution,
     Holumbus.Query.Result,
     Holumbus.Query.Fuzzy,
     Holumbus.Query.Ranking,

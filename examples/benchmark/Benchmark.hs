@@ -35,7 +35,7 @@ import qualified Data.List as L
 import Holumbus.Index.Inverted (InvIndex)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
-import Holumbus.Query.Syntax
+import Holumbus.Query.Language
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
@@ -85,10 +85,7 @@ isDocuments _ = False
 getTimes :: [Flag] -> IO (Int)
 getTimes [] = return 1
 getTimes ((Times n):_) = return (read n)
-getTimes ((Index _):fs) = getTimes fs
-getTimes ((Documents _):fs) = getTimes fs
-getTimes ((Version):fs) = getTimes fs
-getTimes ((Help):fs) = getTimes fs
+getTimes (_:fs) = getTimes fs
 
 -- | Decide between hybrid and inverted and then fire up!
 startup :: [Query] -> Flag -> Flag -> IO ()
@@ -184,7 +181,7 @@ runQuery q i d = do
                  rr <- return (rank rankCfg r)
                  return (sizeDocHits rr + sizeWordHits rr)
                    where
-                   procCfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+                   procCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements)
                    rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
                      where
                      weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]

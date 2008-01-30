@@ -18,7 +18,7 @@
 
 module Holumbus.Query.Parser (parseQuery) where
 
-import Holumbus.Query.Syntax
+import Holumbus.Query.Language
 import Text.ParserCombinators.Parsec
 import Data.Either
 

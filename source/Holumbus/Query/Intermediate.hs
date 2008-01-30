@@ -22,7 +22,7 @@ module Holumbus.Query.Intermediate
   Intermediate 
 
   -- * Construction
-  , empty
+  , emptyIntermediate
 
   -- * Query
   , null
@@ -31,6 +31,7 @@ module Holumbus.Query.Intermediate
   , union
   , difference
   , intersection  
+  , unions
   
   -- * Conversion
   , fromList
@@ -60,12 +61,16 @@ type IntermediateContexts = Map Context IntermediateWords
 type IntermediateWords = Map Word (WordInfo, Positions)
 
 -- | Create an empty intermediate result.
-empty :: Intermediate
-empty = IM.empty
+emptyIntermediate :: Intermediate
+emptyIntermediate = IM.empty
 
 -- | Check if the intermediate result is empty.
 null :: Intermediate -> Bool
 null = IM.null
+
+-- | Merges a bunch of intermediate results into one intermediate result by unioning them.
+unions :: [Intermediate] -> Intermediate
+unions = foldr union emptyIntermediate
 
 -- | Intersect two sets of intermediate results.
 intersection :: Intermediate -> Intermediate -> Intermediate
@@ -86,8 +91,8 @@ fromList t c os = IM.unionsWith combineContexts (map createIntermediate' os)
   createIntermediate' (w, o) = IM.map (\p -> M.singleton c (M.singleton w (WordInfo [t] 0.0, p))) o
 
 -- | Convert to a @Result@ by generating the @WordHits@ structure.
-toResult :: (HolIndex i, HolDocuments d) => i -> d -> Intermediate -> Result
-toResult i d im = Result (createDocHits d im) (createWordHits i im)
+toResult :: HolDocuments d => d -> Intermediate -> Result
+toResult d im = Result (createDocHits d im) (createWordHits im)
 
 -- | Create the doc hits structure from an intermediate result.
 createDocHits :: HolDocuments d => d -> Intermediate -> DocHits
@@ -97,8 +102,8 @@ createDocHits d im = IM.mapWithKey transformDocs im
                        (DocInfo doc 0.0, M.map (M.map (\(_, p) -> p)) ic)
 
 -- | Create the word hits structure from an intermediate result.
-createWordHits :: HolIndex i => i -> Intermediate -> WordHits
-createWordHits _ im = IM.foldWithKey transformDoc M.empty im
+createWordHits :: Intermediate -> WordHits
+createWordHits im = IM.foldWithKey transformDoc M.empty im
   where
   transformDoc d ic wh = M.foldWithKey transformContext wh ic
     where

@@ -23,6 +23,8 @@ import System.IO
 import System.Environment
 import System.Console.GetOpt
 
+import Data.Maybe
+
 import Control.Parallel.Strategies
 
 import qualified Data.List as L
@@ -59,23 +61,20 @@ main = do
        if null output then usage ["No output file given!\n"] else return ()
        if length output > 1 then usage ["Only one output file allowed!\n"] else return ()
 
-       outputFormat <- return (filter isFormatOut flags)
-       if null outputFormat then usage ["No output format given!\n"] else return ()
-       if length outputFormat > 1 then usage ["Only one output format allowed!\n"] else return ()
-       if checkFormat (head outputFormat) then return () else usage ["Unknown format!\n"]
-       formatOut <- return $ getFormat (head outputFormat)
+       format <- return (filter isFormat flags)
+       if null format then usage ["No output format given!\n"] else return ()
+       if length format > 1 then usage ["Only one output format allowed!\n"] else return ()
+       
+       fmt <- return $ getFormat (head format)
+       if isNothing fmt then usage ["Unknown format!\n"] else return ()
 
-       startup (head input) (head output) formatOut
+       startup (head input) (head output) (fromJust fmt)
        return ()
 
-checkFormat :: Flag -> Bool
-checkFormat (Format f) = f == "xml" || f == "binary"
-checkFormat _ = error "Internal error!"
-
-getFormat :: Flag -> Format
-getFormat (Format "xml") = Xml
-getFormat (Format "binary") = Binary
-getFormat _ = error "Internal error!"
+getFormat :: Flag -> Maybe Format
+getFormat (Format "xml") = Just Xml
+getFormat (Format "binary") = Just Binary
+getFormat _ = Nothing
 
 isInput :: Flag -> Bool
 isInput (Index _) = True
@@ -86,9 +85,9 @@ isOutput :: Flag -> Bool
 isOutput (Output _) = True
 isOutput _ = False
 
-isFormatOut :: Flag -> Bool
-isFormatOut (Format _) = True
-isFormatOut _ = False
+isFormat :: Flag -> Bool
+isFormat (Format _) = True
+isFormat _ = False
 
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Flag -> Flag -> Format -> IO ()
@@ -143,3 +142,4 @@ options = [ Option "i" ["index"] (ReqArg Index "FILE") "Loads index from FILE"
           , Option ['V'] ["version"]  (NoArg Version)     "Output version and exit"
           , Option ['?'] ["help"]  (NoArg Help)     "Output this help and exit"
           ]
+          

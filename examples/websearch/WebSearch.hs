@@ -25,6 +25,8 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 
+import Network.HTTP (urlDecode)
+
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
@@ -32,7 +34,7 @@ import Holumbus.Index.Inverted (InvIndex)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
-import Holumbus.Query.Syntax
+import Holumbus.Query.Language
 import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
@@ -47,8 +49,6 @@ import Network.Server.Janus.JanusPaths
 import System.Time
 
 import Control.Concurrent  -- For the global MVar
-
-import Network.CGI         -- For decoding URI-encoded strings
 
 -- Status information of query processing.
 type StatusResult = (String, Result)
@@ -129,7 +129,7 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 makeQuery :: (HolIndex i, HolDocuments d) => (i, d) -> Query -> Result
 makeQuery (i, d) q = processQuery cfg i d (optimize q)
                        where
-                       cfg = ProcessConfig [] (FuzzyConfig True True 1.0 germanReplacements)
+                       cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements)
 
 genError :: (HolIndex i, HolDocuments d, ArrowXml a) => a (String, (i, d)) (String, Result)
 genError = arr $ (\(msg, _) -> (msg, emptyResult))

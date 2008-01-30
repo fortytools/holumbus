@@ -28,10 +28,13 @@ module Holumbus.Query.Processor
   
   -- * Processing
   , processQuery
+  , processPartial
   )
 where
 
 import Data.Maybe
+
+import Control.Parallel.Strategies
 
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
@@ -39,7 +42,7 @@ import qualified Data.IntSet as IS
 import Holumbus.Index.Common (HolIndex, HolDocuments, Context, Occurrences, Positions)
 import qualified Holumbus.Index.Common as IDX
 
-import Holumbus.Query.Syntax
+import Holumbus.Query.Language
 
 import Holumbus.Query.Fuzzy (FuzzyScore, FuzzyConfig)
 import qualified Holumbus.Query.Fuzzy as F
@@ -51,15 +54,14 @@ import Holumbus.Query.Intermediate (Intermediate)
 import qualified Holumbus.Query.Intermediate as I
 
 -- | The configuration for the query processor.
-data ProcessConfig = ProcessConfig { queryServers  :: ![String]
-                                   , fuzzyConfig   :: !FuzzyConfig
-                                   }
+data ProcessConfig  = ProcessConfig { fuzzyConfig   :: !FuzzyConfig
+                                    }
 
 -- | The internal state of the query processor.
-data HolIndex i => ProcessState i = ProcessState { config   :: !ProcessConfig
-                                                 , contexts :: ![Context]
-                                                 , index    :: !i
-                                                 }
+data ProcessState i = ProcessState { config   :: !ProcessConfig
+                                   , contexts :: ![Context]
+                                   , index    :: !i
+                                   }
 
 -- | Get the fuzzy config out of the process state.
 getFuzzyConfig :: HolIndex i => ProcessState i -> FuzzyConfig
@@ -73,17 +75,23 @@ setContexts cs (ProcessState cfg _ i) = ProcessState cfg cs i
 initState :: HolIndex i => ProcessConfig -> i -> ProcessState i
 initState cfg i = ProcessState cfg (IDX.contexts i) i
 
+-- | Try to evaluate the query for all contexts in parallel.
 forAllContexts :: (Context -> Intermediate) -> [Context] -> Intermediate
-forAllContexts f cs = foldr I.union I.empty $ map f cs
+forAllContexts f cs = foldr I.union I.emptyIntermediate $ parMap rnf f cs
 
 -- | Just everything.
 allDocuments :: HolIndex i => ProcessState i -> Intermediate
 allDocuments s = forAllContexts (\c -> I.fromList "" c $ IDX.allWords (index s) c) (contexts s)
 
+-- | Process a query only partially in terms of a distributed index. No optimizing is performed
+-- on the query and only the intermediate result will be returned.
+processPartial :: (HolIndex i) => ProcessConfig -> i -> Query -> Intermediate
+processPartial cfg i q = process (initState cfg i) q
+
 -- | Process a query on a specific index with regard to the configuration. Before processing,
 -- the query will be automatically optimized.
 processQuery :: (HolIndex i, HolDocuments d) => ProcessConfig -> i -> d -> Query -> Result
-processQuery cfg i d q = I.toResult i d (process (initState cfg i) (optimize q))
+processQuery cfg i d q = I.toResult d (process (initState cfg i) (optimize q))
 
 -- | Continue processing a query by deciding what to do depending on the current query element.
 process :: HolIndex i => ProcessState i -> Query -> Intermediate
@@ -125,7 +133,7 @@ processPhraseInternal :: (String -> [Occurrences]) -> Context -> String -> Inter
 processPhraseInternal f c q = let
   w = words q 
   m = mergeOccurrences $ f (head w) in
-  if m == IM.empty then I.empty
+  if m == IM.empty then I.emptyIntermediate
   else I.fromList "" c [(q, processPhrase' (tail w) 1 m)]
   where
   processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
