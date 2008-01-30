@@ -25,7 +25,6 @@ library
                  , hxt
                  , bytestring
                  , binary
-                 , HTTP
                  , network
                  , bzlib
   else
@@ -35,7 +34,6 @@ library
                  , hxt
                  , bytestring
                  , binary
-                 , HTTP
                  , network
                  , bzlib
   exposed-modules:
