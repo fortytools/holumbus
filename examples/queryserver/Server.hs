@@ -143,8 +143,8 @@ logRequest h p q s e r l =
     ++ " - " ++ h ++ ":" ++ (show p)
     ++ " - " ++ (show q)
     ++ " - " ++ (printf "%.4f" f) ++ " sec"
-    ++ " - " ++ (show $ IM.size r)
-    ++ " - " ++ l
+    ++ " - " ++ (show $ IM.size r) ++ " hits"
+    ++ " - " ++ l ++ " bytes"
     )
 
 usage :: [String] -> IO a
