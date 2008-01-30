@@ -49,11 +49,13 @@ import Holumbus.Query.Result (Result)
 import Holumbus.Query.Language
 
 -- | The configuration for distributed query processing.
-data DistributedConfig = DistributedConfig { queryServers   :: ![Server] 
-                                           , compressResult :: !Bool
-                                           }
+data DistributedConfig = DistributedConfig
+  { queryServers   :: ![Server] -- ^ The list of query server to use for processing a query.
+  , compressResult :: !Bool     -- ^ Indicates whether compression should be used when transmitting a result.
+  }
 
--- | The identification of a query server.
+-- | The identification of a query server. Should take the form @hostname:port@ or just 
+-- @hostname@ if the default port (4242) should be used.
 type Server = String
 
 -- | A global registry for worker threads.
@@ -85,11 +87,13 @@ sendQuery i c q s =
     sendQuery' hdl = 
       do
       hSetBuffering hdl NoBuffering
-      B.hPutStr hdl (encode q)
-      r <- B.hGetContents hdl
-      -- Using seq here to remove laziness. Otherwise the server will 
-      -- close the handle before we have read any data.
-      raw <- B.length r `seq` return r
+      enc <- return (encode q)
+      -- Tell the server the length of the ByteString to expect.
+      hPutStrLn hdl (show $ B.length enc)
+      B.hPut hdl enc
+      -- Get the length of the ByteString to expect.
+      len <- liftM read $ hGetLine hdl   
+      raw <- B.hGet hdl len
       -- Decode (and possibly decompress) the result
       result <- if c then return (decode . decompress $ raw) else return (decode raw)
       -- Merge with the global result.
@@ -136,3 +140,4 @@ waitForWorkers ws =
             putMVar ws ms      -- Make the list of remaining workers avaliable again.
             takeMVar m         -- Wait for the first worker from the list.
             waitForWorkers ws  -- Wait for all remaining workers.
+

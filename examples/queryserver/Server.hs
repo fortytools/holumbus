@@ -119,19 +119,22 @@ answerRequest v i c client =
       idx <- readMVar i
 
       start <- getCPUTime
-      raw <- B.hGetContents hdl
+      len <- liftM read $ hGetLine hdl
+      raw <- B.hGet hdl len
       query <- return (decode raw)
       result <- return (processPartial cfg idx query)
       enc <- if c then return (compress . encode $ result) else return (encode result)
-      B.hPutStr hdl enc
+      size <- return (show $ B.length enc)
+      hPutStrLn hdl size
+      B.hPut hdl enc
       end <- getCPUTime
 
-      if v then logRequest host port query start end result else return ()                  
+      if v then logRequest host port query start end result size else return ()                  
         where
         cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements)
 
-logRequest :: HostName -> PortNumber -> Query -> Integer -> Integer -> Intermediate -> IO ()
-logRequest h p q s e r = 
+logRequest :: HostName -> PortNumber -> Query -> Integer -> Integer -> Intermediate -> String -> IO ()
+logRequest h p q s e r l = 
   do
   c <- getClockTime
   f <- return ((((fromIntegral e) - (fromIntegral s)) / 1000000000000) :: Float)
@@ -141,6 +144,7 @@ logRequest h p q s e r =
     ++ " - " ++ (show q)
     ++ " - " ++ (printf "%.4f" f) ++ " sec"
     ++ " - " ++ (show $ IM.size r)
+    ++ " - " ++ l
     )
 
 usage :: [String] -> IO a
