@@ -120,10 +120,10 @@ findTests = TestList
   , TestCase (assertEqual "Prefix find case insensitive" [3, 5, 6, 7, 8]
   $ sort (SM.prefixFindNoCase "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
 
-  , TestCase (assertEqual "Prefix find case insensitive with key" [("aCf", 5), ("aCE", 4), ("aC", 2), ("Aceg", 8), ("Acef", 7), ("Ace", 6), ("Ac", 3)]
+  , TestCase (assertEqual "Prefix find case insensitive with key" [("Aceg", 8), ("Acef", 7), ("Ace", 6), ("Ac", 3), ("aCf", 5), ("aCE", 4), ("aC", 2)]
   (SM.prefixFindNoCaseWithKey "ac" (SM.fromList [("a", 1), ("aC", 2), ("Ac", 3), ("aCE", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
 
-  , TestCase (assertEqual "Prefix find case insensitive with key" [("aCf", 5), ("Aceg", 8), ("Acef", 7), ("Ace", 6), ("Ac", 3)]
+  , TestCase (assertEqual "Prefix find case insensitive with key" [("Aceg", 8), ("Acef", 7), ("Ace", 6), ("Ac", 3), ("aCf", 5)]
   (SM.prefixFindNoCaseWithKey "ac" (SM.fromList [("a", 1), ("aB", 2), ("Ac", 3), ("Ab", 4), ("aCf", 5), ("Ace", 6), ("Acef", 7), ("Aceg", 8)])))
   ]
 
@@ -141,14 +141,45 @@ clean = (nubBy (\(k1, _) (k2, _) -> k1 == k2)) . normal
 normal :: [(String, a)] -> [(String, a)]
 normal = sortBy (compare `on` fst)
 
-prop_FromToList xs = valid xs ==> normal (SM.toList (SM.fromList $ clean xs)) == clean xs
-prop_FromToMap xs = valid xs ==> SM.toMap (SM.fromMap (M.fromList xs)) == M.fromList xs
-prop_EqMapList xs = valid xs ==> (SM.fromList $ clean xs) == (SM.fromMap $ M.fromList xs)
-prop_InsertLookup xs k v = (valid xs) && k /= "" ==> SM.lookup k (SM.insert k v (SM.fromList xs)) == Just v
-prop_Equal xs = valid xs ==> SM.fromList (reverse $ clean xs) == SM.fromList (clean xs)
-prop_Binary xs = valid xs ==> ((decode . encode) $ (SM.fromList xs)) == (SM.fromList xs)
-prop_Map xs = valid xs ==> (SM.map ((*) 2) (SM.fromList $ clean xs)) == SM.fromList (map (\(k, v) -> (k, v * 2)) (clean xs))
-prop_Fold xs = valid xs ==> (SM.fold (+) 0 (SM.fromList $ clean xs)) == (foldr (\(_, v) r -> v + r) 0 (clean xs)) 
+prop_FromToList xs = valid xs
+  ==> normal (SM.toList (SM.fromList $ clean xs)) == clean xs
+
+prop_FromToMap xs = valid xs 
+  ==> SM.toMap (SM.fromMap (M.fromList xs)) == M.fromList xs
+
+prop_EqMapList xs = valid xs 
+  ==> (SM.fromList $ clean xs) == (SM.fromMap $ M.fromList xs)
+
+prop_InsertLookup xs k v = (valid xs) && k /= "" 
+  ==> SM.lookup k (SM.insert k v (SM.fromList xs)) == Just v
+
+prop_Equal xs = valid xs
+  ==> SM.fromList (reverse $ clean xs) == SM.fromList (clean xs)
+
+prop_Binary xs = let sm = (SM.fromList xs) in 
+  valid xs 
+  ==> ((decode . encode) sm) == sm
+
+prop_Map xs = valid xs 
+  ==> (SM.map ((*) 2) (SM.fromList $ clean xs)) == SM.fromList (map (\(k, v) -> (k, v * 2)) (clean xs))
+
+prop_Fold xs = valid xs 
+  ==> (SM.fold (+) 0 (SM.fromList $ clean xs)) == (foldr (\(_, v) r -> v + r) 0 (clean xs)) 
+
+prop_DeleteEmpty k = k /= "" 
+  ==> (SM.delete k (SM.insert k 1 SM.empty)) == (SM.empty)
+
+prop_DeleteInsert k xs = let sm = (SM.fromList xs) in 
+  valid xs && k /= "" && (SM.member k sm == False) 
+  ==> SM.delete k (SM.insert k 1 sm) == sm
+
+prop_DeleteLookup k xs = let sm = (SM.fromList xs) in
+  valid xs && k /= ""
+  ==> SM.lookup k (SM.delete k sm) == Nothing
+  
+prop_Delete k xs = let sm = (SM.fromList xs) in
+  valid xs && k /= "" && (SM.member k sm == False)
+  ==> SM.delete k sm == sm
 
 allProperties :: (String, [TestOptions -> IO TestResult])
 allProperties = ("StrMap tests",
@@ -160,6 +191,10 @@ allProperties = ("StrMap tests",
                 , run prop_Binary
                 , run prop_Map
                 , run prop_Fold
+                , run prop_Delete
+                , run prop_DeleteEmpty
+                , run prop_DeleteInsert
+                , run prop_DeleteLookup
                 ])
 
 allTests :: Test  

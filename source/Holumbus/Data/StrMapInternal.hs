@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.3
+  Version    : 0.4
 
   This module just exists to ease the testing of the trie internals. 
   For further information, see Holumbus.Data.StrMap.
@@ -110,33 +110,58 @@ setSucc :: [StrMap a] -> StrMap a -> StrMap a
 setSucc t (End k v _) = End k v t
 setSucc t (Seq k _)   = Seq k t
 
--- | /O(L)/ Find the value at a key. Calls error when the element can not be found.
+-- | /O(min(n,L))/ Find the value at a key. Calls error when the element can not be found.
 (!) :: StrMap a -> String -> a
 (!) m k = if isNothing r then error ("Key " ++ k ++ " is not an element of the map!")
           else fromJust r
           where r = lookup k m
 
--- | /O(L)/ Is the key a member of the map?
+-- | /O(min(n,L))/ Is the key a member of the map?
 member :: String -> StrMap a -> Bool
 member k m = maybe False (\_ -> True) (lookup k m)
 
--- | /O(L)/ Insert with a combining function. If the key is already present in the map, the
--- value of @f key new_value old_value@ will be inserted.
+-- | /O(min(n,L))/ Delete an element from the map. If no element exists for the key, the map 
+-- remains unchanged.
+delete :: String -> StrMap a -> StrMap a
+delete = (fromMaybe empty .) . delete'
+
+-- | The internal delete function.
+delete' :: String -> StrMap a -> Maybe (StrMap a)
+delete' d n | dr == "" && kr == "" = deleteNode n
+            | dr /= "" && kr == "" = Just (mergeNode n (mapMaybe (delete' dr) (succ n)))
+            | otherwise            = Just n
+            where (_, dr, kr) = split d (key n)
+
+-- | Merge a node with its successor if only one successor is left.
+mergeNode :: StrMap a -> [StrMap a] -> StrMap a
+mergeNode (End k v _) t = End k v t
+mergeNode (Seq k _) [t] = if k /= "" then setKey (k ++ (key t)) t else Seq k [t]
+mergeNode (Seq k _) t   = Seq k t
+
+-- | Delete a node by either merging it with its successors or removing it completely.
+deleteNode :: StrMap a -> Maybe (StrMap a)
+deleteNode (End _ _ [])  = Nothing
+deleteNode (End k _ [t]) = Just (setKey (k ++ key t) t)
+deleteNode (End k _ t)   = Just (Seq k t)
+deleteNode n             = Just n
+
+-- | /O(min(n,L))/ Insert with a combining function. If the key is already present in the map,
+-- the value of @f key new_value old_value@ will be inserted.
 insertWithKey :: (String -> a -> a -> a) -> String -> a -> StrMap a -> StrMap a
 insertWithKey f nk nv n = insert' f nk nv nk n
 
--- | /O(L)/ Insert with a combining function. If the key is already present in the map, the
--- value of @f new_value old_value@ will be inserted.
+-- | /O(min(n,L))/ Insert with a combining function. If the key is already present in the map,
+-- the value of @f new_value old_value@ will be inserted.
 insertWith :: (a -> a -> a) -> String -> a -> StrMap a -> StrMap a
 insertWith f nk nv n = insert' (\_ new old -> f new old) nk nv nk n
 
--- | /O(L)/ Insert a new key and value into the map. If the key is already present in the map,
--- the associated value will be replaced with the new value.
+-- | /O(min(n,L))/ Insert a new key and value into the map. If the key is already present in
+-- the map, the associated value will be replaced with the new value.
 insert :: String -> a -> StrMap a -> StrMap a
 insert nk nv n = insertWith const nk nv n
 
--- | /O(L)/ The internal insert function which does the real work. The original new key has to be
--- put through because otherwise it will be shortened on every recursive call.
+-- | The internal insert function which does the real work. The original new key has to
+-- be put through because otherwise it will be shortened on every recursive call.
 insert' :: (String -> a -> a -> a) -> String -> a -> String -> StrMap a -> StrMap a
 insert' f nk nv ok n | nk == ""             = error "Empty key!"
                      -- Key already exists, the current value will be replaced with the new value.
@@ -181,7 +206,7 @@ elems t   = L.map snd (toList t)
 
 -- | /O(n)/ Creates a trie from a list of key\/value pairs.
 fromList :: [(String, a)] -> StrMap a
-fromList xs = foldr (\(k, v) p -> insert k v p) empty xs
+fromList xs = L.foldl' (\p (k, v) -> insert k v p) empty xs
 
 -- | /O(n)/ Returns all elements as list of key value pairs,
 toList :: StrMap a -> [(String, a)]
@@ -191,23 +216,24 @@ toList = foldWithKey (\k v r -> (k, v):r) []
 size :: StrMap a -> Int
 size = fold (\_ r -> r + 1) 0
 
--- | /O(L)/ Find all values where the string is a prefix of the key.
+-- | /O(max(L,R))/ Find all values where the string is a prefix of the key.
 prefixFind :: String -> StrMap a -> [a] 
 prefixFind q n = L.map snd (prefixFindInternal split q n)
 
--- | /O(L)/ Find all values where the string is a prefix of the key and include the keys in the result.
+-- | /O(max(L,R))/ Find all values where the string is a prefix of the key and include the keys 
+-- in the result.
 prefixFindWithKey :: String -> StrMap a -> [(String, a)]
 prefixFindWithKey = prefixFindInternal split
 
--- | /O(L)/ Same as prefixFind, but case insensitive.
+-- | /O(max(L,R))/ Same as prefixFind, but case insensitive.
 prefixFindNoCase :: String -> StrMap a -> [a]
 prefixFindNoCase q n = L.map snd (prefixFindInternal splitNoCase q n)
 
--- | /O(L)/ Same as prefixFindWithKey, but case insensitive
+-- | /O(max(L,R))/ Same as prefixFindWithKey, but case insensitive
 prefixFindNoCaseWithKey :: String -> StrMap a -> [(String, a)]
 prefixFindNoCaseWithKey = prefixFindInternal splitNoCase
 
--- | /O(L)/ Internal prefix find function which is used to implement every other prefix find function.
+-- | Internal prefix find function which is used to implement every other prefix find function.
 prefixFindInternal :: (String -> String -> (String, String, String)) -> String -> StrMap a -> [(String, a)]
 prefixFindInternal f = prefixFindInternal' f ""
   where
@@ -216,14 +242,14 @@ prefixFindInternal f = prefixFindInternal' f ""
                                  | otherwise = []
                                  where (_, pr, kr) = sf p (key n)
 
--- | /O(L)/ Find the value associated with a key. The function will @return@ the result in
+-- | /O(min(n,L))/ Find the value associated with a key. The function will @return@ the result in
 -- the monad or @fail@ in it if the key isn't in the map.
 lookup :: Monad m => String -> StrMap a -> m a
 lookup q n = case lookup' q n of
              Just v -> return v
              Nothing -> fail "Holumbus.Data.StrMapInternal: Key not found"
 
--- | /O(L)/ Internal lookup function which is generalised for arbitrary monads above.
+-- | Internal lookup function which is generalised for arbitrary monads above.
 lookup' :: String -> StrMap a -> Maybe a
 lookup' q n | pr == "" = if kr == "" then value n else Nothing
             | kr == "" = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
@@ -231,14 +257,15 @@ lookup' q n | pr == "" = if kr == "" then value n else Nothing
             | otherwise = Nothing
             where (_, pr, kr) = split q (key n)
 
--- | /O(L)/ Search for values matching a key case insensitive.
+-- | /O(max(L,R))/ Search for values matching a key case insensitive.
 lookupNoCase :: String -> StrMap a -> [a]
 lookupNoCase q n | pr == "" = if kr == "" then maybeToList (value n) else []
                  | kr == "" = concat (L.map (lookupNoCase pr) (succ n))
                  | otherwise = []
                  where (_, pr, kr) = splitNoCase q (key n)
 
--- | /O(L)/ Find the value associated with a key or return a default value if nothing was found.
+-- | /O(min(n,L))/ Find the value associated with a key or return a default value if nothing 
+-- was found.
 findWithDefault :: a -> String -> StrMap a -> a
 findWithDefault d q n = maybe d id (lookup q n)
 
