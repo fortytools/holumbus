@@ -78,12 +78,14 @@ valid (x:xs) = (x <= 65535) && (x >= 0) && (valid xs)
 prop_FromToList xs = valid xs ==> DL.toList (DL.fromList xs) == (sort xs)
 prop_FromToIntSet xs = valid xs ==> DL.toIntSet (DL.fromIntSet (IS.fromList xs)) == (IS.fromList xs)
 prop_EqListSet xs = valid xs ==> DL.toIntSet (DL.fromList $ nub xs) == IS.fromList xs
+prop_EqSetList xs = valid xs ==> DL.toList (DL.fromIntSet (IS.fromList xs)) == (sort $ nub xs)
 
 allProperties :: (String, [TestOptions -> IO TestResult])
 allProperties = ("DiffList tests",
                 [ run prop_FromToList
                 , run prop_FromToIntSet
                 , run prop_EqListSet
+                , run prop_EqSetList
                 ])
 
 allTests :: Test  
