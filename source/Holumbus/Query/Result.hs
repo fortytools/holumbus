@@ -77,22 +77,25 @@ import Text.XML.HXT.Arrow
 import Holumbus.Index.Common
 
 -- | The combined result type for Holumbus queries.
-data Result = Result        { docHits  :: !DocHits
-                            , wordHits :: !WordHits
-                            }
-                            deriving (Eq, Show)
+data Result = Result        
+  { docHits  :: !DocHits   -- ^ The documents matching the query.
+  , wordHits :: !WordHits  -- ^ The words which are completions of the query terms.
+  }
+  deriving (Eq, Show)
 
 -- | Information about an document, either just the document id or the whole document information.
-data DocInfo = DocInfo { document :: !Document
-                       , docScore :: !Score
-                       }
-                       deriving (Eq, Show)
+data DocInfo = DocInfo 
+  { document :: !Document  -- ^ The document itself (title and URI).
+  , docScore :: !Score     -- ^ The score for the document (initial score for all documents is @0.0@).
+  }
+  deriving (Eq, Show)
 
 -- | Information about a word.
-data WordInfo = WordInfo { terms     :: ![String]
-                         , wordScore :: !Score 
-                         }
-                         deriving (Eq, Show)
+data WordInfo = WordInfo 
+  { terms     :: ![String] -- ^ The query terms that can be extended by this word.
+  , wordScore :: !Score    -- ^ The score for the word (initial score for all words is @0.0@).
+  }
+  deriving (Eq, Show)
 
 -- | A mapping from a document to it's score and the contexts where it was found.
 type DocHits = IntMap (DocInfo, DocContextHits)

@@ -35,18 +35,21 @@ import Control.Monad
 import Holumbus.Index.Common (Context)
 
 -- | The query language.
-data Query = Word       String
-           | Phrase     String
-           | CaseWord   String
-           | CasePhrase String
-           | FuzzyWord  String
-           | Specifier  [Context] Query
-           | Negation   Query
-           | BinQuery   BinOp Query Query
+data Query = Word       String            -- ^ Single case-insensitive word.
+           | Phrase     String            -- ^ Single case-insensitive phrase.
+           | CaseWord   String            -- ^ Single case-sensitive word.
+           | CasePhrase String            -- ^ Single case-sensitive phrase.
+           | FuzzyWord  String            -- ^ Single fuzzy word.
+           | Specifier  [Context] Query   -- ^ Restrict query to a list of contexts.
+           | Negation   Query             -- ^ Negate the query.
+           | BinQuery   BinOp Query Query -- ^ Combine two queries through a binary operation.
            deriving (Eq, Show)
 
 -- | A binary operation.
-data BinOp = And | Or | But deriving (Eq, Show)
+data BinOp = And  -- ^ Intersect two queries.
+           | Or   -- ^ Union two queries.
+           | But  -- ^ Filter a query by another, @q1 BUT q2@ is equivalent to @q1 AND NOT q2@.
+           deriving (Eq, Show)
 
 instance Binary Query where
   put (Word s)           = put (0 :: Word8) >> put s

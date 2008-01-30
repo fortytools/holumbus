@@ -55,12 +55,13 @@ type Replacement = ((String, String), FuzzyScore)
 type FuzzyScore = Float
 
 -- | The configuration of a fuzzy query.
-data FuzzyConfig = FuzzyConfig { applyReplacements  :: Bool
-                               , applySwappings     :: Bool
-                               , maxFuzziness       :: FuzzyScore
-                               , customReplacements :: Replacements
-                               }
-                               deriving (Show)
+data FuzzyConfig = FuzzyConfig 
+  { applyReplacements  :: Bool         -- ^ Indicates whether the replacements should be applied.
+  , applySwappings     :: Bool         -- ^ Indicates whether the swapping of adjacent characters should be applied.
+  , maxFuzziness       :: FuzzyScore   -- ^ The maximum allowed fuzziness.
+  , customReplacements :: Replacements -- ^ The replacements that should be applied.
+  }
+  deriving (Show)
 
 -- | Some default replacements for the english language.
 englishReplacements :: Replacements

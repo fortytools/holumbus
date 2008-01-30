@@ -54,14 +54,16 @@ import Holumbus.Query.Intermediate (Intermediate)
 import qualified Holumbus.Query.Intermediate as I
 
 -- | The configuration for the query processor.
-data ProcessConfig  = ProcessConfig { fuzzyConfig   :: !FuzzyConfig
-                                    }
+data ProcessConfig  = ProcessConfig 
+  { fuzzyConfig   :: !FuzzyConfig  -- ^ The configuration for fuzzy queries.
+  }
 
 -- | The internal state of the query processor.
-data ProcessState i = ProcessState { config   :: !ProcessConfig
-                                   , contexts :: ![Context]
-                                   , index    :: !i
-                                   }
+data ProcessState i = ProcessState 
+  { config   :: !ProcessConfig   -- ^ The configuration for the query processor.
+  , contexts :: ![Context]       -- ^ The current list of contexts.
+  , index    :: !i               -- ^ The index to search.
+  }
 
 -- | Get the fuzzy config out of the process state.
 getFuzzyConfig :: HolIndex i => ProcessState i -> FuzzyConfig

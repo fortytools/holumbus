@@ -20,6 +20,8 @@ module Holumbus.Query.Ranking
   (
   -- * Ranking types
   RankConfig (..)
+  , DocRanking
+  , WordRanking
   
   -- * Ranking
   , rank
@@ -46,11 +48,15 @@ import qualified Data.IntSet as IS
 import Holumbus.Query.Result
 import Holumbus.Index.Common
 
-data RankConfig = RankConfig { docRanking :: DocRanking
-                             , wordRanking :: WordRanking
-                             }
+-- | The configuration of the ranking mechanism.
+data RankConfig = RankConfig 
+  { docRanking :: DocRanking   -- ^ A function to determine the score of a document.
+  , wordRanking :: WordRanking -- ^ A funciton to determine the score of a word.
+  }
 
+-- | The signature of a function to determine the score of a document.
 type DocRanking = DocId -> DocContextHits -> Score
+-- | The signature of a function to determine the score of a word.
 type WordRanking = Word -> WordContextHits -> Score
 
 -- | Rank the result with custom ranking functions.
@@ -82,7 +88,7 @@ wordRankWeightedByCount ws _ h = M.foldWithKey (calcWeightedScore ws) 0.0 h
 calcWeightedScore :: (Foldable f) => [(Context, Score)] -> Context -> (f IS.IntSet) -> Score -> Score
 calcWeightedScore ws c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight c ws)
   where
-  count = fromIntegral $ foldr ((+) . IS.size) 0 h
+  count = fromIntegral $ foldl' (flip $ (+) . IS.size) 0 h
   mw = snd $ L.maximumBy (compare `on` snd) ws
 
 -- | Find the weight of a context in a list of weights. If the context was not found or it's
