@@ -59,6 +59,9 @@ where
 
 import Prelude hiding (null)
 
+import Data.Binary (Binary (..))
+import Control.Monad (liftM2)
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -66,6 +69,8 @@ import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
 import qualified Data.List as L
+
+import Control.Parallel.Strategies
 
 import Text.XML.HXT.Arrow
 
@@ -105,6 +110,27 @@ type WordDocHits = Occurrences -- IntMap Positions (docId -> positions)
 
 -- | The score of a hit (either a document hit or a word hit).
 type Score = Float
+
+instance Binary Result where
+  put (Result dh wh) = put dh >> put wh
+  get = liftM2 Result get get
+
+instance Binary DocInfo where
+  put (DocInfo d s) = put d >> put s
+  get = liftM2 DocInfo get get
+
+instance Binary WordInfo where
+  put (WordInfo t s) = put t >> put s
+  get = liftM2 WordInfo get get
+
+instance NFData Result where
+  rnf (Result dh wh) = rnf dh `seq` rnf wh
+
+instance NFData DocInfo where
+  rnf (DocInfo d s) = rnf d `seq` rnf s
+
+instance NFData WordInfo where
+  rnf (WordInfo t s) = rnf t `seq` rnf s
 
 instance XmlPickler Result where
   xpickle = xpElem "result" $ 
