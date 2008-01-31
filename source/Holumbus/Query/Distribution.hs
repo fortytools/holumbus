@@ -67,13 +67,14 @@ type Worker = MVar ()
 defaultPort :: PortNumber
 defaultPort = 4242
 
--- | Process a query in distributed manner.
+-- | Process a query in distributed manner. The query will be optimized before sending to
+-- the query servers.
 processDistributed :: (HolDocuments d) => DistributedConfig -> d -> Query -> IO Result
 processDistributed cfg d q = 
   do
   result <- newMVar emptyIntermediate
 
-  workers <- startWorkers (sendQuery result (compressResult cfg) q) (queryServers cfg)
+  workers <- startWorkers (sendQuery result (compressResult cfg) (optimize q)) (queryServers cfg)
   waitForWorkers workers
 
   combined <- takeMVar result
