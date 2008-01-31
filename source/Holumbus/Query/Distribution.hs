@@ -47,12 +47,19 @@ import Holumbus.Index.Common
 import Holumbus.Query.Intermediate hiding (null)
 import Holumbus.Query.Result (Result)
 import Holumbus.Query.Language
+import Holumbus.Query.Processor
+import Holumbus.Query.Fuzzy
 
 -- | The configuration for distributed query processing.
 data DistributedConfig = DistributedConfig
-  { queryServers   :: ![Server] -- ^ The list of query server to use for processing a query.
-  , compressResult :: !Bool     -- ^ Indicates whether compression should be used when transmitting a result.
+  { queryServers   :: ![Server]      -- ^ The list of query server to use for processing a query.
+  , compressResult :: !Bool          -- ^ Indicates whether compression should be used when transmitting a result.
+  , processConfig  :: !ProcessConfig -- ^ The configuration for processing a query.
   }
+
+-- | The configuration that will be sent to the server. It contains the query itself, a flag
+-- indicating whether compression is requested or not and the configuration for the processor.
+type Request = (Query, Bool, FuzzyConfig)
 
 -- | The identification of a query server. Should take the form @hostname:port@ or just 
 -- @hostname@ if the default port (4242) should be used.
@@ -74,21 +81,24 @@ processDistributed cfg d q =
   do
   result <- newMVar emptyIntermediate
 
-  workers <- startWorkers (sendQuery result (compressResult cfg) (optimize q)) (queryServers cfg)
+  workers <- startWorkers (sendQuery result request) (queryServers cfg)
   waitForWorkers workers
 
   combined <- takeMVar result
   return (toResult d combined)
+    where
+    request = (oq, (compressResult cfg), fuzzyConfig $ processConfig cfg)
+    oq = if optimizeQuery $ processConfig cfg then optimize q else q
 
 -- | Send the query to a server and merge the result with the global result.
-sendQuery :: MVar Intermediate -> Bool -> Query -> Server -> IO ()
-sendQuery i c q s = 
+sendQuery :: MVar Intermediate -> Request -> Server -> IO ()
+sendQuery i r@(_, c, _) s = 
   withSocketsDo $ do bracket (connectTo (getHost s) (getPort s)) (hClose) (sendQuery')
     where
     sendQuery' hdl = 
       do
       hSetBuffering hdl NoBuffering
-      enc <- return (encode q)
+      enc <- return (encode r)
       -- Tell the server the length of the ByteString to expect.
       hPutStrLn hdl (show $ B.length enc)
       B.hPut hdl enc
@@ -99,7 +109,7 @@ sendQuery i c q s =
       result <- if c then return (decode . decompress $ raw) else return (decode raw)
       -- Merge with the global result.
       current <- takeMVar i
-      combined <- return (union current result)
+      combined <- return $! (union current result)
       putMVar i combined
 
 -- | Extract a host name from the server string.

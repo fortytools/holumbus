@@ -46,12 +46,10 @@ import Holumbus.Index.Inverted (InvIndex)
 import Holumbus.Query.Intermediate hiding (null)
 import Holumbus.Index.Common
 import Holumbus.Query.Processor
-import Holumbus.Query.Fuzzy
 import Holumbus.Query.Language
 
 data Flag = Index String 
           | Port String 
-          | Compress
           | Verbose 
           | Version 
           | Help deriving (Show, Eq)
@@ -70,13 +68,12 @@ main =
 
   verbose <- return (Verbose `elem` flags)
   port <- return (getPort flags)
-  compr <- return (Compress `elem` flags)
 
   idx <- return (filter isIndex flags)
   if null idx then usage ["No index file given!\n"] else return ()
   if length idx > 1 then usage ["Only one index file allowed!\n"] else return ()
 
-  startup verbose (head idx) compr port
+  startup verbose (head idx) port
 
 isIndex :: Flag -> Bool
 isIndex (Index _) = True
@@ -88,8 +85,8 @@ getPort ((Port p):_) = fromIntegral (read p)
 getPort (_:ps) = getPort ps
 
 -- | Decide between hybrid and inverted and then fire up!
-startup :: Bool -> Flag -> Bool -> PortNumber -> IO ()
-startup v (Index idxFile) c p = 
+startup :: Bool -> Flag -> PortNumber -> IO ()
+startup v (Index idxFile) p = 
   withSocketsDo $ do
   if v then putStrLn ("Loading index from " ++ idxFile) else return ()
   i <- (loadFromFile idxFile) :: IO InvIndex
@@ -98,19 +95,19 @@ startup v (Index idxFile) c p =
   
   socket <- listenOn (PortNumber p)
   if v then putStrLn ("Listening on port " ++ (show p)) else return ()
-  waitForRequests v idx c socket
+  waitForRequests v idx socket
                               
-startup _ _ _ _ = usage ["Internal error!\n"]
+startup _ _ _ = usage ["Internal error!\n"]
 
-waitForRequests :: HolIndex i => Bool -> MVar i -> Bool -> Socket -> IO ()
-waitForRequests v idx c socket = 
+waitForRequests :: HolIndex i => Bool -> MVar i -> Socket -> IO ()
+waitForRequests v idx socket = 
   do
   client <- accept socket
-  forkIO $ answerRequest v idx c client  -- Spawn new thread to answer the current request.
-  waitForRequests v idx c socket         -- Wait for more requests.
+  forkIO $ answerRequest v idx client  -- Spawn new thread to answer the current request.
+  waitForRequests v idx socket         -- Wait for more requests.
 
-answerRequest :: HolIndex i => Bool -> MVar i -> Bool -> (Handle, HostName, PortNumber) -> IO ()
-answerRequest v i c client = 
+answerRequest :: HolIndex i => Bool -> MVar i -> (Handle, HostName, PortNumber) -> IO ()
+answerRequest v i client = 
   bracket (return client) (\(h, _, _) -> hClose h) (\cl -> answerRequest' cl)
     where
     answerRequest' (hdl, host, port) = 
@@ -119,19 +116,23 @@ answerRequest v i c client =
       idx <- readMVar i
 
       start <- getCPUTime
+      -- Read the length of what to expect.
       len <- liftM read $ hGetLine hdl
+      -- Red and decode the request.
       raw <- B.hGet hdl len
-      query <- return (decode raw)
-      result <- return (processPartial cfg idx query)
+      (query, c, fuzzyCfg) <- return (decode raw)
+      -- Process the query
+      result <- return (processPartial (ProcessConfig fuzzyCfg False) idx query)
+      -- Encode and compress (if requested) the result.
       enc <- if c then return (compress . encode $ result) else return (encode result)
+      -- Tell the client the size of the result to expect.
       size <- return (show $ B.length enc)
       hPutStrLn hdl size
+      -- Push the result over to the client.
       B.hPut hdl enc
       end <- getCPUTime
 
       if v then logRequest host port query start end result size else return ()                  
-        where
-        cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements)
 
 logRequest :: HostName -> PortNumber -> Query -> Integer -> Integer -> Intermediate -> String -> IO ()
 logRequest h p q s e r l = 
@@ -168,7 +169,6 @@ commandLineOpts argv = case getOpt Permute options argv of
 options :: [OptDescr Flag]
 options = [ Option "i" ["index"] (ReqArg Index "FILE") "Loads index from FILE"
           , Option "p" ["port"] (ReqArg Port "PORT") "Listen on PORT (defaults to 4242)"
-          , Option "c" ["compress"] (NoArg Compress) "Use compression for transmitting results"
           , Option "v" ["verbose"] (NoArg Verbose) "Be more verbose"
           , Option "V" ["version"] (NoArg Version) "Output version and exit"
           , Option "?" ["help"] (NoArg Help) "Output this help and exit"

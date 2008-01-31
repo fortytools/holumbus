@@ -37,7 +37,10 @@ module Holumbus.Query.Fuzzy
   )
 where
 
+import Data.Binary
 import Data.List
+
+import Control.Monad
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -62,6 +65,10 @@ data FuzzyConfig = FuzzyConfig
   , customReplacements :: Replacements -- ^ The replacements that should be applied.
   }
   deriving (Show)
+
+instance Binary FuzzyConfig where
+  put (FuzzyConfig r s m f) = put r >> put s >> put m >> put f
+  get = liftM4 FuzzyConfig get get get get
 
 -- | Some default replacements for the english language.
 englishReplacements :: Replacements

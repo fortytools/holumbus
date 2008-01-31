@@ -56,6 +56,7 @@ import qualified Holumbus.Query.Intermediate as I
 -- | The configuration for the query processor.
 data ProcessConfig  = ProcessConfig 
   { fuzzyConfig   :: !FuzzyConfig  -- ^ The configuration for fuzzy queries.
+  , optimizeQuery :: !Bool         -- ^ Optimize the query before processing.
   }
 
 -- | The internal state of the query processor.
@@ -93,7 +94,9 @@ processPartial cfg i q = process (initState cfg i) q
 -- | Process a query on a specific index with regard to the configuration. Before processing,
 -- the query will be automatically optimized.
 processQuery :: (HolIndex i, HolDocuments d) => ProcessConfig -> i -> d -> Query -> Result
-processQuery cfg i d q = I.toResult d (process (initState cfg i) (optimize q))
+processQuery cfg i d q = I.toResult d (process (initState cfg i) oq)
+  where
+  oq = if optimizeQuery cfg then optimize q else q
 
 -- | Continue processing a query by deciding what to do depending on the current query element.
 process :: HolIndex i => ProcessState i -> Query -> Intermediate

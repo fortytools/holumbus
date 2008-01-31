@@ -137,17 +137,19 @@ startupDistributed qs (Documents docFile) srvs compr =
   runQueries (distributedQuery doc srvs compr) qs
 startupDistributed _ _ _ _ = usage ["Internal error!\n"]                     
 
+-- | Create the configuration for the query processor.
+processCfg :: ProcessConfig
+processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True
+
 -- | Perform a query on a local index.
 localQuery :: (HolIndex i, HolDocuments d) => i -> d -> Query -> IO Result
-localQuery i d q = return (processQuery cfg i d q)
-  where
-  cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements)
+localQuery i d q = return (processQuery processCfg i d q)
 
 -- | Perform a query on a remote index.
 distributedQuery :: HolDocuments d => d -> [Server] -> Bool -> Query -> IO Result
 distributedQuery d s c q = processDistributed cfg d q
   where
-  cfg = DistributedConfig s c
+  cfg = DistributedConfig s c processCfg
                           
 usage :: [String] -> IO a
 usage errs = 
