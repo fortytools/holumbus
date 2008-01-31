@@ -122,7 +122,7 @@ startupLocal qs (Index idxFile) (Documents docFile) =
   putStrLn "Loading documents..."
   doc <- (loadFromFile docFile) :: IO Documents
   return (rnf doc)
-  putStr ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
+  putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   runQueries (localQuery idx doc) qs
 startupLocal _ _ _ = usage ["Internal error!\n"]
 
@@ -133,7 +133,7 @@ startupDistributed qs (Documents docFile) srvs compr =
   putStrLn "Loading documents..."
   doc <- (loadFromFile docFile) :: IO Documents
   return (rnf doc)
-  putStr ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
+  putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   runQueries (distributedQuery doc srvs compr) qs
 startupDistributed _ _ _ _ = usage ["Internal error!\n"]                     
 
@@ -233,7 +233,7 @@ runQuery :: (Query -> IO Result) -> Query -> IO (Int)
 runQuery f q = 
   do
   r <- f q -- This is where the magic happens!
-  rr <- return $! (rank rankCfg r)
+  rr <- return (rank rankCfg r)
   return (sizeDocHits rr + sizeWordHits rr)
     where
     rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)

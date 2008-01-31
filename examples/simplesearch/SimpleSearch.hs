@@ -121,7 +121,7 @@ startupLocal v (Index idxFile) (Documents docFile) =
   putStrLn "Loading documents..."
   doc <- (loadFromFile docFile) :: IO Documents
   return (rnf doc)
-  putStr ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
+  putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (localQuery idx doc) v
 startupLocal _ _ _ = usage ["Internal error!\n"]
 
@@ -132,7 +132,7 @@ startupDistributed v (Documents docFile) srvs compr =
   putStrLn "Loading documents..."
   doc <- (loadFromFile docFile) :: IO Documents
   return (rnf doc)
-  putStr ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
+  putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (distributedQuery doc srvs compr) v
 startupDistributed _ _ _ _ = usage ["Internal error!\n"]                     
 
