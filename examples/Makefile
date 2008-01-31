@@ -1,6 +1,6 @@
 # Making all examples
 
-EXAMPLES	= simplesearch benchmark utilities
+EXAMPLES	= simplesearch benchmark utilities queryserver
 
 all :
 	$(foreach i,$(EXAMPLES),$(MAKE) -C $i all ;)

@@ -62,36 +62,37 @@ version :: String
 version = "0.5"
 
 main :: IO ()
-main = do
-       argv <- getArgs
-       flags <- commandLineOpts argv
+main = 
+  do
+  argv <- getArgs
+  flags <- commandLineOpts argv
 
-       if Version `elem` flags then (putStrLn version) >> (exitWith ExitSuccess) else return ()
-       if Help `elem` flags then usage [] >> (exitWith ExitSuccess) else return ()
+  if Version `elem` flags then (putStrLn version) >> (exitWith ExitSuccess) else return ()
+  if Help `elem` flags then usage [] >> (exitWith ExitSuccess) else return ()
 
-       verbose <- return (Verbose `elem` flags)
-       compress <- return (Compress `elem` flags)
+  verbose <- return (Verbose `elem` flags)
+  compress <- return (Compress `elem` flags)
 
-       doc <- return (filter isDocuments flags)
-       if L.null doc then usage ["No documents file given!\n"] else return ()
-       if length doc > 1 then usage ["Only one documents file allowed!\n"] else return ()
+  doc <- return (filter isDocuments flags)
+  if L.null doc then usage ["No documents file given!\n"] else return ()
+  if length doc > 1 then usage ["Only one documents file allowed!\n"] else return ()
 
-       idx <- return (filter isIndex flags)
-       srv <- return (filter isServer flags)
+  idx <- return (filter isIndex flags)
+  srv <- return (filter isServer flags)
 
-       if not (L.null idx) && not (L.null srv) then usage ["Cannot use local index and remote index at the same time!\n"] else return ()
+  if not (L.null idx) && not (L.null srv) then usage ["Cannot use local index and remote index at the same time!\n"] else return ()
 
-       if L.null idx then do
-         if L.null srv then usage ["No query server specified!\n"] else return ()
-         
-         startupDistributed verbose (head doc) (map fromServer srv) compress
-         else do
-           if L.null idx then usage ["No index file given!\n"] else return ()
-           if length idx > 1 then usage ["Only one index file allowed!\n"] else return ()
-  
-           if compress then usage ["Compression not avaliable for local index!\n"] else return ()
-  
-           startupLocal verbose (head idx) (head doc)
+  if L.null idx then do
+    if L.null srv then usage ["No query server specified!\n"] else return ()
+     
+    startupDistributed verbose (head doc) (map fromServer srv) compress
+    else do
+      if L.null idx then usage ["No index file given!\n"] else return ()
+      if length idx > 1 then usage ["Only one index file allowed!\n"] else return ()
+
+      if compress then usage ["Compression not avaliable for local index!\n"] else return ()
+
+      startupLocal verbose (head idx) (head doc)
 
 isIndex :: Flag -> Bool
 isIndex (Index _) = True
@@ -116,10 +117,11 @@ startupLocal v (Index idxFile) (Documents docFile) =
   putStrLn "Loading index..."
   idx <- (loadFromFile idxFile) :: IO InvIndex
   return (rnf idx)
+  putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."
   doc <- (loadFromFile docFile) :: IO Documents
   return (rnf doc)
-  printStats idx doc
+  putStr ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (localQuery idx doc) v
 startupLocal _ _ _ = usage ["Internal error!\n"]
 
@@ -202,9 +204,7 @@ answerQueries f verbose =
           makeQuery pq = 
             do
             t1 <- getCPUTime
-            oq <- return (optimize pq)
-            if verbose then putStrLn ("Optimized: \n" ++ (show oq) ++ "\n") else return ()
-            r <- f oq -- This is where the magic happens!
+            r <- f pq -- This is where the magic happens!
             rr <- return (rank rankCfg r)
             t2 <- getCPUTime
             printDocHits (docHits rr)
@@ -273,12 +273,6 @@ printHelp =
   putStrLn ""
   putStrLn "Use :q to exit and :? to show this help."
   return ()
-
-printStats :: (HolIndex i, HolDocuments d) => i -> d -> IO ()
-printStats i d = 
-  do
-  putStr ("Loaded " ++ show (sizeDocs d) ++ " documents ")
-  putStrLn ("containing " ++ show (sizeWords i) ++ " words")
 
 -- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
 on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
