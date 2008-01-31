@@ -201,15 +201,14 @@ runQueries ::(Query -> IO Result) -> [Query] -> IO ()
 runQueries f qs = 
   do
   putStrLn "Running queries ..."
-  tmp1 <-getCPUTime
-  t1 <- return (fromIntegral tmp1)
+  t1 <-getCPUTime
 
   count <- (runner f qs 0) -- Fire!
   putStrLn $ "Total number of hits: " ++ (show count)
 
-  tmp2 <- getCPUTime
-  t2 <- return (fromIntegral tmp2)
-  d <- return (((t2 - t1) / 1000000000000) :: Float)
+  t2 <- getCPUTime
+
+  d <- return ((fromIntegral (t2 - t1) / 1000000000000) :: Float)
   a <- return (d / l)
   p <- return (l / d)
 

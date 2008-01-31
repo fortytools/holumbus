@@ -23,13 +23,18 @@ module Holumbus.Query.Distribution
   -- * Distribution types
   DistributedConfig (..)
   , Server
+  , Hook
   
-  -- * Processing
+  -- * Client
   , processDistributed
+  
+  -- * Server
+  , listenForRequests
   )
 where
 
 import System.IO
+import System.CPUTime
 
 import Control.Concurrent
 import Control.Exception
@@ -57,6 +62,8 @@ data DistributedConfig = DistributedConfig
   , processConfig  :: !ProcessConfig -- ^ The configuration for processing a query.
   }
 
+type Hook = HostName -> PortNumber -> Query -> Integer -> Integer -> Intermediate -> String -> IO ()
+
 -- | The configuration that will be sent to the server. It contains the query itself, a flag
 -- indicating whether compression is requested or not and the configuration for the processor.
 type Request = (Query, Bool, FuzzyConfig)
@@ -74,8 +81,9 @@ type Worker = MVar ()
 defaultPort :: PortNumber
 defaultPort = 4242
 
--- | Process a query in distributed manner. The query will be optimized before sending to
--- the query servers.
+-- | This function represents the client side. Processes a query in distributed manner. 
+-- The query will be optimized before sending to the query servers. The queries will be sent
+-- in parallel, by spawning a dedicated thread for each server.
 processDistributed :: (HolDocuments d) => DistributedConfig -> d -> Query -> IO Result
 processDistributed cfg d q = 
   do
@@ -152,3 +160,47 @@ waitForWorkers ws =
             takeMVar m         -- Wait for the first worker from the list.
             waitForWorkers ws  -- Wait for all remaining workers.
 
+-- | This function represents the server side. It opens a socket on the provided port and 
+-- starts listening for requests. A post-processing hook is provided to allow some actions on
+-- the processing results, e.g. some logging functionality.
+listenForRequests :: HolIndex i => i -> PortNumber -> Hook -> IO ()
+listenForRequests i p h =
+  do
+  idx <- newMVar i
+  socket <- listenOn (PortNumber p)
+  waitForRequests idx socket h
+
+waitForRequests :: HolIndex i => MVar i -> Socket -> Hook -> IO ()
+waitForRequests idx socket h = 
+  do
+  client <- accept socket
+  forkIO $ answerRequest idx client h  -- Spawn new thread to answer the current request.
+  waitForRequests idx socket h         -- Wait for more requests.
+
+answerRequest :: HolIndex i => MVar i -> (Handle, HostName, PortNumber) -> Hook -> IO ()
+answerRequest i client h = 
+  bracket (return client) (\(hdl, _, _) -> hClose hdl) (\cl -> answerRequest' cl)
+    where
+    answerRequest' (hdl, host, port) = 
+      do
+      hSetBuffering hdl NoBuffering
+      idx <- readMVar i
+
+      start <- getCPUTime
+      -- Read the length of what to expect.
+      len <- liftM read $ hGetLine hdl
+      -- Red and decode the request.
+      raw <- B.hGet hdl len
+      (query, c, fuzzyCfg) <- return (decode raw)
+      -- Process the query
+      result <- return (processPartial (ProcessConfig fuzzyCfg False) idx query)
+      -- Encode and compress (if requested) the result.
+      enc <- if c then return (compress . encode $ result) else return (encode result)
+      -- Tell the client the size of the result to expect.
+      size <- return (show $ B.length enc)
+      hPutStrLn hdl size
+      -- Push the result over to the client.
+      B.hPut hdl enc
+      end <- getCPUTime
+      -- Call the hook provided by the user.
+      h host port query start end result size

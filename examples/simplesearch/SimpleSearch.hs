@@ -28,6 +28,8 @@ import System.Console.Readline
 import System.Console.GetOpt
 import System.CPUTime
 
+import Text.Printf
+
 import Control.Parallel.Strategies
 
 import Char
@@ -195,7 +197,7 @@ answerQueries f verbose =
         do
         internalCommand xs
         answerQueries f verbose
-      answerQueries' q        = 
+      answerQueries' q = 
         do
         pr <- return (parseQuery q)
         if verbose then putStrLn ("Query: \n" ++ (show pr) ++ "\n") else return ()
@@ -208,14 +210,17 @@ answerQueries f verbose =
             t1 <- getCPUTime
             r <- f pq -- This is where the magic happens!
             rr <- return (rank rankCfg r)
-            t2 <- getCPUTime
+
             printDocHits (docHits rr)
             putStrLn ""
             printWordHits (wordHits rr)
-            s <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000000)
-            m <- return (show $ round $ (fromIntegral $ (t2 - t1)) / 1000000000)
+            t2 <-  getCPUTime
+            
+            d <- return ((fromIntegral (t2 - t1) / 1000000000000) :: Float)
+
+            ds <- return (printf "%.4f" d)
             putStrLn ""
-            putStrLn ("Query processed in " ++ s ++ "." ++ m ++ " sec")
+            putStrLn ("Query processed in " ++ ds ++ " sec")
               where
               rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
                where
