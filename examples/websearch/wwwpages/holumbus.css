@@ -7,7 +7,7 @@ body {
 
 a {
 	font-weight:bold;
-	color:gray;
+	color:grey;
 }
 a:link {
 	text-decoration:none;
@@ -129,6 +129,6 @@ p.cloud {
 	text-decoration:underline;
 }
 .title { font-size:10pt; }
-.contexts { color:gray; }
+.contexts { color:grey; }
 .context { font-weight:bold; }
 .uri { color:green; }
