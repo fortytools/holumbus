@@ -63,7 +63,7 @@ import qualified Data.IntMap as IM
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
--- | A document consists of a title and it's unique identifier.
+-- | A document consists of a title and its unique identifier.
 type Document      = (Title, URI)
 
 -- | The unique identifier of a document (created upon insertion into the document table).
@@ -104,11 +104,6 @@ class HolIndex i where
   lookupCase    :: i -> Context -> String -> [Occurrences]
   -- | Searches for and exact word in a given context (case-insensitive).
   lookupNoCase  :: i -> Context -> String -> [Occurrences]
-
-    -- | Inserts an occurrence of a word for a given context.
-  -- insert        :: Context -> Word -> Position -> Document -> i -> i
-  -- | Updates an occurrence of a word for a given context.
-  -- update        :: Context -> Word -> Position -> Document -> i -> i
   
   -- | Insert occurrences.
   insertOccurrences :: Context -> String -> Occurrences -> i -> i
@@ -117,9 +112,9 @@ class HolIndex i where
   -- exists in both indexes, the one from the first argument will appear in the result.
   mergeIndexes  :: i -> i -> i
   
-  -- | Splits an Index into two indexes. The result will be a pair where the 
-  --   first element is the original index without the removed Documents and the
-  --   second element will be  an index over the removed Documents
+  -- Splits an Index into two indexes. The result will be a pair where the 
+  -- first element is the original index without the removed Documents and the
+  -- second element will be  an index over the removed Documents
   -- splitIndex    :: i -> [Int] -> (i, i) 
 
 class HolDocuments d where
@@ -168,7 +163,7 @@ emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty
 
 -- | Try to determine the file type automatically. The file is loaded as XML if the filename
--- ends with \".xml\" and otherwise it is loaded as binary file.
+-- ends with \".xml\" and otherwise is loaded as binary file.
 loadFromFile :: (XmlPickler a, Binary a) => FilePath -> IO a
 loadFromFile f = if L.isSuffixOf ".xml" f then loadFromXmlFile f else loadFromBinFile f
  
@@ -176,7 +171,7 @@ loadFromFile f = if L.isSuffixOf ".xml" f then loadFromXmlFile f else loadFromBi
 loadFromXmlFile :: XmlPickler a => FilePath -> IO a
 loadFromXmlFile f = do
                     r <- runX (xunpickleDocument xpickle options f)
-                    return $ head r
+                    return $! head r
                     where
                     options = [ (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]     
 
@@ -188,10 +183,10 @@ writeToXmlFile f i = do
                      where
                      options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]     
 
--- | Load documents from a binary file.
+-- | Load from a binary file.
 loadFromBinFile :: Binary a => FilePath -> IO a
 loadFromBinFile f = B.decodeFile f
 
--- | Write documents to a binary file.
+-- | Write to a binary file.
 writeToBinFile :: Binary a => FilePath -> a -> IO ()
 writeToBinFile =  B.encodeFile 

@@ -88,6 +88,6 @@ emptyDocuments = Documents IM.empty M.empty 0
 idToDoc2docToId :: IntMap Document -> Map URI DocId
 idToDoc2docToId = IM.foldWithKey (\i (_, s2) r -> M.insert s2 i r) M.empty
 
--- | Query the @idToDoc@ part of the document table for the last id.
+-- | Query the 'idToDoc' part of the document table for the last id.
 lastId :: IntMap Document -> Int
 lastId = (IM.foldWithKey (\k _ r -> max k r) 0)

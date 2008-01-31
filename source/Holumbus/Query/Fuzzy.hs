@@ -47,7 +47,7 @@ import qualified Data.Map as M
 
 -- | A set of string which have been "fuzzed" with an associated score.
 type FuzzySet = Map String FuzzyScore
--- | Some replacements which can be applied to a string to generate a @FuzzySet@. The scores of
+-- | Some replacements which can be applied to a string to generate a 'FuzzySet'. The scores of
 -- the replacements will be normalized to a maximum of 1.0.
 type Replacements = [ Replacement ]
 -- | A single replacements, where the first will be replaced by the second and vice versa in

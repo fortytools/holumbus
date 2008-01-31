@@ -90,7 +90,7 @@ fromList t c os = IM.unionsWith combineContexts (map createIntermediate' os)
   where
   createIntermediate' (w, o) = IM.map (\p -> M.singleton c (M.singleton w (WordInfo [t] 0.0, p))) o
 
--- | Convert to a @Result@ by generating the @WordHits@ structure.
+-- | Convert to a @Result@ by generating the 'WordHits' structure.
 toResult :: HolDocuments d => d -> Intermediate -> Result
 toResult d im = Result (createDocHits d im) (createWordHits im)
 

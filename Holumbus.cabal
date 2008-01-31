@@ -4,7 +4,7 @@ license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
 copyright:     Copyright (c) 2007, 2008 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
-maintainer:    Timo B. Hübel <t.h@gmx.info>
+maintainer:    Timo B. Hübel <tbh@holumbus.org>
 stability:     experimental
 category:      Unclassified
 synopsis:      A distributed search and indexing engine.
@@ -13,7 +13,7 @@ description:   The Holumbus library provides a document indexer and crawler to b
 cabal-version: >=1.2
 
 flag splitBase
-  description: Chose the new smaller, split-up base package.
+  description: Choose the new smaller, split-up base package.
 
 library
   if flag(splitBase)
@@ -22,19 +22,19 @@ library
                  , containers
                  , parallel
                  , parsec
-                 , hxt
-                 , bytestring
-                 , binary
                  , network
+                 , bytestring
+                 , hxt
+                 , binary
                  , bzlib
   else
     build-depends: base < 3
                  , haskell98
                  , parsec
-                 , hxt
-                 , bytestring
-                 , binary
                  , network
+                 , bytestring
+                 , hxt
+                 , binary
                  , bzlib
   exposed-modules:
     Holumbus.Control.Sequence,

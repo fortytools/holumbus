@@ -11,7 +11,7 @@
   Version    : 0.1
   
   Providing space efficient difference encoding for lists of integers. For
-  convenience, conversion functions for @Data.IntSet@ are provided.
+  convenience, conversion functions for "Data.IntSet" are provided.
 
 -}
 

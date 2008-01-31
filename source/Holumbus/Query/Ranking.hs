@@ -92,7 +92,7 @@ calcWeightedScore ws c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeigh
   mw = snd $ L.maximumBy (compare `on` snd) ws
 
 -- | Find the weight of a context in a list of weights. If the context was not found or it's
--- weight is equal to zero, @Nothing@ will be returned.
+-- weight is equal to zero, 'Nothing' will be returned.
 lookupWeight :: Context -> [(Context, Score)] -> Maybe Score
 lookupWeight _ [] = Nothing
 lookupWeight c (x:xs) = if fst x == c then
