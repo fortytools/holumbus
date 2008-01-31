@@ -14,7 +14,7 @@
   used for the Holumbus indexes.
 
   Values can associated with a string key. Searching for keys is very fast, but
-  the trie probably consumes more memory. The main difference to "Data.Map" are the special
+  the trie probably consumes more memory than "Data.Map". The main differences are the special
   'prefixFind' functions, which can be used to perform prefix queries.
 
   Most other function names clash with "Prelude" names, therefore this module is usually

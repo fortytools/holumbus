@@ -31,6 +31,9 @@ import Data.Binary
 
 import Control.Monad
 
+import Data.Foldable (Foldable)
+import qualified Data.Foldable as F
+
 import qualified Data.List as L
 import qualified Data.Map as M
 
@@ -40,22 +43,46 @@ import Control.Parallel.Strategies
 data StrMap a 
   = End !String !a ![StrMap a]
   | Seq !String ![StrMap a] 
-  deriving (Show)
 
--- | Just deriving Eq will not work, because equality on the lists of successors takes the order 
---   into account, whereas the order does not matter here.
-instance (Eq a) => Eq (StrMap a) where 
+-- Just deriving Eq will not work, because equality on the lists of successors takes the order 
+-- into account, whereas the order does not matter here.
+instance Eq a => Eq (StrMap a) where 
   (==) (End k1 v1 s1) (End k2 v2 s2) = k1 == k2 && v1 == v2 && s1 L.\\ s2 == []
   (==) (Seq k1 s1) (Seq k2 s2)       = k1 == k2 && s1 L.\\ s2 == []
   (==) (Seq _ _) (End _ _ _)         = False
   (==) (End _ _ _) (Seq _ _)         = False
   (/=) m1 m2                         = not (m1 == m2)
 
--- | Providing strict evaluation for @StrMap@.
+-- Compare based on to-/fromList
+instance Ord a => Ord (StrMap a) where
+  compare m1 m2 = compare (toList m1) (toList m2)
+
+-- Simple instance of Functor.
+instance Functor StrMap where
+  fmap = map
+
+-- Simple instance of Data.Foldable
+instance Foldable StrMap where
+  foldr = fold
+
+-- Stolen from Data.IntMap
+instance Show a => Show (StrMap a) where
+  showsPrec d m   = showParen (d > 10) $
+    showString "fromList " . shows (toList m)
+
+-- Stolen from Data.IntMap
+instance Read a => Read (StrMap a) where
+  readsPrec p = readParen (p > 10) $ \ r -> do
+    ("fromList",s) <- lex r
+    (xs,t) <- reads s
+    return (fromList xs,t)
+
+-- Providing strict evaluation for 'StrMap'.
 instance NFData v => NFData (StrMap v) where
   rnf (End k v t) = rnf k `seq` rnf v `seq` rnf t
   rnf (Seq k t)   = rnf k `seq` rnf t
 
+-- Provide native binary serialization (not via to-/fromList).
 instance (Binary a) => Binary (StrMap a) where
   put (End k v t) = put (0 :: Word8) >> put k >> put v >> put t 
   put (Seq k t)   = put (1 :: Word8) >> put k >> put t
