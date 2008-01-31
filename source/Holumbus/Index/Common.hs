@@ -105,12 +105,22 @@ class HolIndex i where
   -- | Searches for and exact word in a given context (case-insensitive).
   lookupNoCase  :: i -> Context -> String -> [Occurrences]
 
+    -- | Inserts an occurrence of a word for a given context.
+  -- insert        :: Context -> Word -> Position -> Document -> i -> i
+  -- | Updates an occurrence of a word for a given context.
+  -- update        :: Context -> Word -> Position -> Document -> i -> i
+  
+  -- | Insert occurrences.
+  insertOccurrences :: Context -> String -> Occurrences -> i -> i
+
   -- | Merges two indexes. The merge operation is left-biased, this means, if a document
   -- exists in both indexes, the one from the first argument will appear in the result.
   mergeIndexes  :: i -> i -> i
-
-  -- | Insert occurrences.
-  insertOccurrences :: Context -> String -> Occurrences -> i -> i
+  
+  -- | Splits an Index into two indexes. The result will be a pair where the 
+  --   first element is the original index without the removed Documents and the
+  --   second element will be  an index over the removed Documents
+  -- splitIndex    :: i -> [Int] -> (i, i) 
 
 class HolDocuments d where
   -- | Returns the number of unique documents in the table.
@@ -132,6 +142,7 @@ class HolDocuments d where
 -- new table. If a document with the same URI is already present, its id will be returned 
 -- and the table is returned unchanged.
   insertDoc     :: d -> Document -> (DocId, d)
+
 
 -- | The XML pickler for a single document.
 xpDocument :: PU Document
