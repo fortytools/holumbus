@@ -129,7 +129,7 @@ allocate _ _ [] = []
 allocate _ [] ys = map snd ys
 allocate f (x:xs) (y:ys) = allocate f xs (L.sortBy (compare `on` fst) ((combine x y):ys))
   where
-  combine (s1, x) (s2, y) = (s1 + s2, f x y)
+  combine (s1, v1) (s2, v2) = (s1 + s2, f v1 v2)
 
 -- | Create empty buckets for allocating indexes.  
 createBuckets :: Int -> [(Int, InvIndex)]
