@@ -16,12 +16,27 @@
 
 -- ----------------------------------------------------------------------------
 
-module ParserTest (allTests) where
+{-# OPTIONS 
+    -fno-warn-orphans 
+    -fno-warn-missing-signatures 
+    -fno-warn-missing-methods 
+    -fno-warn-unused-matches 
+    -fno-warn-type-defaults
+#-}
+
+module ParserTest (allTests, allProperties) where
+
+import Data.List
+import Data.Char
+
+import Control.Monad
 
 import qualified Holumbus.Query.Parser as P
 import Holumbus.Query.Language
 
 import Test.HUnit
+import Test.QuickCheck
+import Test.QuickCheck.Batch
 
 a :: Query -> Query -> Query
 a = BinQuery And
@@ -217,6 +232,64 @@ phraseTests = TestList
   (Right (cp "wurst schinken batzen"))
   (P.parseQuery "  \t \n ! \"wurst schinken batzen\" \t "))
   ]
+
+instance Arbitrary Char where
+  arbitrary     = oneof [choose ('\65', '\90') ,choose ('\97', '\122')]
+  coarbitrary c = variant (ord c `rem` 4)
+
+instance Arbitrary Query where
+  arbitrary = sized query
+
+query :: Int -> Gen Query
+query num | num == 0 = liftM Word word
+          | num < 0 = query (abs num)
+          | num > 0 = frequency [ (4, liftM Word word)
+                                , (1, liftM CaseWord word)
+                                , (2, liftM Phrase phrase)
+                                , (1, liftM CasePhrase phrase)
+                                , (1, liftM FuzzyWord word)
+                                , (1, liftM2 Specifier specs subQuery)
+                                , (2, liftM Negation subQuery)
+                                , (4, liftM3 BinQuery op subQuery subQuery)
+                                ]
+query _ = error "Error in query generator!"
+
+op = frequency [(3, return (And)), (1, return (Or))]
+subQuery = sized (\num -> query (num `div` 2))
+specs = sequence [ word | i <- [1..2] ]
+word = sequence [ arbitrary | i <- [1..5] ]
+phrase = do
+         ws <- sequence [ word | i <- [1..3] ]
+         return (intercalate " " ws)
+
+showQuery :: (BinOp -> String) -> Query -> String
+showQuery _ (Word st) = st
+showQuery _ (Phrase st) = "\"" ++ st ++ "\""
+showQuery _ (CaseWord st) = "!" ++ st
+showQuery _ (CasePhrase st) = "!\"" ++ st ++ "\""
+showQuery _ (FuzzyWord st) = "~" ++ st 
+showQuery f (Specifier c q) = (intercalate "," c) ++ ":(" ++ (showQuery f q) ++ ")"
+showQuery f (Negation q)= "(NOT " ++ (showQuery f q) ++ ")"
+showQuery f (BinQuery opr q1 q2) = "(" ++ (showQuery f q1) ++ 
+                                   " " ++ (f opr) ++ 
+                                   " " ++ (showQuery f q2) ++ ")"
+
+showOpAnd And = "AND"
+showOpAnd Or = "OR"
+showOpAnd But = error "But not allowed!"
+
+showOpSpace And = " "
+showOpSpace Or = "OR"
+showOpSpace But = error "But not allowed!"
+
+prop_ParseAnd q = P.parseQuery (showQuery showOpAnd q) == Right q
+prop_ParseSpace q = P.parseQuery (showQuery showOpSpace q) == Right q
+
+allProperties :: (String, [TestOptions -> IO TestResult])
+allProperties = ("Parser tests",
+                [ run prop_ParseAnd
+                , run prop_ParseSpace
+                ])
   
 allTests :: Test
 allTests = TestLabel "Parser tests" $

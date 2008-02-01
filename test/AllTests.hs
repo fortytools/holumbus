@@ -44,9 +44,10 @@ allTests = TestList
            ]
 
 allProperties :: [(String, [TestOptions -> IO TestResult])]
-allProperties = [ DiffList.allProperties
-                , StrMap.allProperties
+allProperties = [ Parser.allProperties
+                , DiffList.allProperties
                 , Inverted.allProperties
+                , StrMap.allProperties
                 ]
 
 testOptions :: TestOptions
