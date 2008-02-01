@@ -36,6 +36,9 @@ module Holumbus.Index.Common
   -- * Construction
   , emptyOccurrences
 
+  -- * Combine
+  , mergeOccurrences
+
   -- * Pickling
   , xpDocument
   , xpOccurrences
@@ -108,8 +111,7 @@ class HolIndex i where
   -- | Insert occurrences.
   insertOccurrences :: Context -> String -> Occurrences -> i -> i
 
-  -- | Merges two indexes. The merge operation is left-biased, this means, if a document
-  -- exists in both indexes, the one from the first argument will appear in the result.
+  -- | Merges two indexes. 
   mergeIndexes  :: i -> i -> i
   
   -- Splits an Index into two indexes. The result will be a pair where the 
@@ -129,8 +131,7 @@ class HolDocuments d where
   -- | Retrieves the full text of a document.
   getText       :: d -> DocId -> Content
 
-  -- | Merge two document tables. The merge operation is left-biased, this means, if a document
-  -- exists in both indexes, the one from the first argument will appear in the result.
+  -- | Merge two document tables. 
   mergeDocs     :: d -> d -> d
 
 -- | Insert a document into the table. Returns a tuple of the id for that document and the 
@@ -138,6 +139,9 @@ class HolDocuments d where
 -- and the table is returned unchanged.
   insertDoc     :: d -> Document -> (DocId, d)
 
+-- | Merge two occurrences.
+mergeOccurrences :: Occurrences -> Occurrences -> Occurrences
+mergeOccurrences = IM.unionWith (IS.union)
 
 -- | The XML pickler for a single document.
 xpDocument :: PU Document

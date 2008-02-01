@@ -78,7 +78,7 @@ instance Read a => Read (StrMap a) where
     return (fromList xs,t)
 
 -- Providing strict evaluation for 'StrMap'.
-instance NFData v => NFData (StrMap v) where
+instance NFData a => NFData (StrMap a) where
   rnf (End k v t) = rnf k `seq` rnf v `seq` rnf t
   rnf (Seq k t)   = rnf k `seq` rnf t
 

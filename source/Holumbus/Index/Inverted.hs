@@ -22,6 +22,7 @@ module Holumbus.Index.Inverted
   InvIndex (..)
   
   -- * Construction
+  , singleton
   , emptyInverted
 )
 where
@@ -65,9 +66,9 @@ instance HolIndex InvIndex where
   lookupCase i c q = map inflate $ maybeToList (SM.lookup q $ getPart c i)
   lookupNoCase i c q = map inflate $ SM.lookupNoCase q $ getPart c i
 
-  mergeIndexes _ _ = emptyInverted
+  mergeIndexes i1 i2 = InvIndex (mergeParts (indexParts i1) (indexParts i2))
 
-  insertOccurrences _ _ _ _ = emptyInverted
+  insertOccurrences c w o i = mergeIndexes (singleton c w o) i
 
 instance NFData InvIndex where
   rnf (InvIndex parts) = rnf parts
@@ -80,6 +81,21 @@ instance Binary InvIndex where
   get = do parts <- get
            return (InvIndex parts)
 
+-- | Create an index with just one word in one context.
+singleton :: Context -> String -> Occurrences -> InvIndex
+singleton c w o = InvIndex (M.singleton c (SM.singleton w (deflate o)))
+
+-- | Merge two sets of index parts.
+mergeParts :: Parts -> Parts -> Parts
+mergeParts = M.unionWith mergePart
+
+-- | Merge two index parts.
+mergePart :: Part -> Part -> Part
+mergePart = SM.foldWithKey (mergeWords)
+  where
+  mergeWords :: String -> IntMap DiffList -> Part -> Part
+  mergeWords w o p = SM.insertWith ((deflate .) . (. inflate) . mergeOccurrences . inflate) w o p
+  
 -- | Convert the differences back to a set of integers.
 inflate :: IntMap DiffList -> Occurrences
 inflate = IM.map DL.toIntSet
