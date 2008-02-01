@@ -8,7 +8,7 @@ GHC				= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM				= rm $(RM_FLAGS)
 
-PROGS			= Words Stats Convert
+PROGS			= Words Stats Convert Split
 
 OUTPUT    = output
 

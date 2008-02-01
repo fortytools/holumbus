@@ -24,13 +24,20 @@ module Holumbus.Index.Inverted
   -- * Construction
   , singleton
   , emptyInverted
+  
+  -- * Splitting
+  , splitByWords
+  , splitByDocuments
+  , splitByContexts
 )
 where
 
 import Text.XML.HXT.Arrow
 
+import Data.Function
 import Data.Maybe
 import Data.Binary
+import qualified Data.List as L
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -95,6 +102,38 @@ mergePart = SM.foldWithKey (mergeWords)
   where
   mergeWords :: String -> IntMap DiffList -> Part -> Part
   mergeWords w o p = SM.insertWith ((deflate .) . (. inflate) . mergeOccurrences . inflate) w o p
+
+-- | Split the index by words into a number of smaller indexes. The function tries to make the
+-- resulting indexes equal size.
+splitByWords :: InvIndex -> Int -> [InvIndex]
+splitByWords _ _ = error "Not yet implemented!"
+
+-- | Split the index by documents into a number of smaller indexes. The function tries to make the
+-- resulting indexes equal size.
+splitByDocuments :: InvIndex -> Int -> [InvIndex]
+splitByDocuments _ _ = error "Not yet implemented!" 
+
+-- | Split the index by contexts into a number of smaller indexes. The function tries to make the
+-- resulting indexes equal size.
+splitByContexts :: InvIndex -> Int -> [InvIndex]
+splitByContexts (InvIndex parts) n = allocate mergeIndexes stack buckets 
+    where
+    buckets = take (length stack) (createBuckets n)
+    stack = reverse (L.sortBy (compare `on` fst) (map annotate $ M.toList parts))
+      where
+      annotate (c, p) = let i = InvIndex (M.singleton c p) in (sizeWords i, i)
+
+-- | Allocates values from the first list to the buckets in the second list.
+allocate :: (a -> a -> a) -> [(Int, a)] -> [(Int, a)] -> [a]
+allocate _ _ [] = []
+allocate _ [] ys = map snd ys
+allocate f (x:xs) (y:ys) = allocate f xs (L.sortBy (compare `on` fst) ((combine x y):ys))
+  where
+  combine (s1, x) (s2, y) = (s1 + s2, f x y)
+
+-- | Create empty buckets for allocating indexes.  
+createBuckets :: Int -> [(Int, InvIndex)]
+createBuckets n = (replicate n (0, emptyInverted))
   
 -- | Convert the differences back to a set of integers.
 inflate :: IntMap DiffList -> Occurrences
