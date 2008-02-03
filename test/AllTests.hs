@@ -30,6 +30,7 @@ import qualified FuzzyTest as Fuzzy
 import qualified PickleTest as Pickle
 import qualified BinaryTest as Binary
 import qualified InvertedTest as Inverted
+import qualified DocumentsTest as Documents
 
 allTests :: Test
 allTests = TestList
@@ -41,11 +42,13 @@ allTests = TestList
            , Pickle.allTests
            , Binary.allTests
            , Inverted.allTests
+           , Documents.allTests
            ]
 
 allProperties :: [(String, [TestOptions -> IO TestResult])]
 allProperties = [ Parser.allProperties
                 , DiffList.allProperties
+                , Documents.allProperties
                 , Inverted.allProperties
                 , StrMap.allProperties
                 ]

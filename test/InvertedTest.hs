@@ -21,7 +21,6 @@
     -fno-warn-missing-signatures 
     -fno-warn-missing-methods 
     -fno-warn-type-defaults
-    -fno-warn-unused-matches
 #-}
 
 module InvertedTest (allTests, allProperties) where
@@ -65,13 +64,13 @@ instance Arbitrary IS.IntSet where
     return (IS.fromList (map (\x -> abs (if x > 65535 then 65535 else x)) ps))
 
 genWord :: Gen [Char]
-genWord = sequence [ arbitrary | i <- [1..50] ]
+genWord = sequence [ arbitrary | _ <- [1..50] ]
 
 genPart :: Gen [(String, Occurrences)]
-genPart = sized (\n -> sequence [ (liftM2 (,) genWord arbitrary) | i <- [1..n] ])
+genPart = sized (\n -> sequence [ (liftM2 (,) genWord arbitrary) | _ <- [1..n] ])
 
 genParts :: Gen [(String, [(String, Occurrences)])]
-genParts = sequence [ (liftM2 (,) genWord genPart) | i <- [1..10] ]
+genParts = sequence [ (liftM2 (,) genWord genPart) | _ <- [1..10] ]
 
 deflate = IM.map DL.fromIntSet
 
