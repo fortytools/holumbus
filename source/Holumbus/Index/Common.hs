@@ -129,7 +129,7 @@ class HolDocuments d where
   lookupByURI   :: Monad m => d -> URI -> m DocId
   
   -- | Retrieves the full text of a document.
-  getText       :: d -> DocId -> Content
+  getDocText       :: d -> DocId -> Content
 
   -- | Merge two document tables. 
   mergeDocs     :: d -> d -> d

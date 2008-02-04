@@ -52,7 +52,7 @@ instance HolDocuments Documents where
   lookupById = (flip IM.lookup) . idToDoc
   lookupByURI = (flip M.lookup) . docToId
 
-  getText _ _ = ""
+  getDocText _ _ = ""
 
   mergeDocs _ _ = emptyDocuments
 
