@@ -29,6 +29,8 @@ module Holumbus.Query.Language
   )
 where
 
+import Data.Char
+import Data.List
 import Data.Binary
 import Control.Monad
 
@@ -88,15 +90,24 @@ instance Binary BinOp where
 -- | Transforms all @(BinQuery And q1 q2)@ where one of @q1@ or @q2@ is a @Negation@ into
 -- @BinQuery Filter q1 q2@ or @BinQuery Filter q2 q1@ respectively.
 optimize :: Query -> Query
---optimize (BinQuery And (Word q1) (Word q2)) = 
---optimize (BinQuery And (CaseWord q1) (CaseWord q2)) =
+
+optimize q@(BinQuery And (Word q1) (Word q2)) = 
+  if (map toLower q1) `isPrefixOf` (map toLower q2) then Word q2 else
+  if (map toLower q2) `isPrefixOf` (map toLower q1) then Word q1 else q
+
+optimize q@(BinQuery And (CaseWord q1) (CaseWord q2)) = 
+  if q1 `isPrefixOf` q2 then CaseWord q2 else
+  if q2 `isPrefixOf` q1 then CaseWord q1 else q
+
 optimize (BinQuery And q1 (Negation q2)) = BinQuery But (optimize q1) (optimize q2)
 optimize (BinQuery And (Negation q1) q2) = BinQuery But (optimize q2) (optimize q1)
+
 optimize (BinQuery And q1 q2) = BinQuery And (optimize q1) (optimize q2)
 optimize (BinQuery Or q1 q2) = BinQuery Or (optimize q1) (optimize q2)
 optimize (BinQuery But q1 q2) = BinQuery Or (optimize q1) (optimize q2)
 optimize (Negation q) = Negation (optimize q)
 optimize (Specifier cs q) = Specifier cs (optimize q)
+
 optimize q = q
 
 -- | Check if the query complies with some custom predicate.
