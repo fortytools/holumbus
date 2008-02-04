@@ -29,6 +29,10 @@ module Holumbus.Index.Inverted
   , splitByWords
   , splitByDocuments
   , splitByContexts
+  
+  -- *  {In,De}flating
+  , deflate
+  , inflate
 )
 where
 
