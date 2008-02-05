@@ -72,12 +72,12 @@ genPart = sized (\n -> sequence [ (liftM2 (,) genWord arbitrary) | _ <- [1..n] ]
 genParts :: Gen [(String, [(String, Occurrences)])]
 genParts = sequence [ (liftM2 (,) genWord genPart) | _ <- [1..10] ]
 
-deflate = IM.map DL.fromIntSet
+deflate' = IM.map DL.fromIntSet
 
 createInverted :: [(String, [(String, Occurrences)])] -> InvIndex
 createInverted x = InvIndex (parts x)
   where
-  parts = M.fromList . (map (\(c, p) -> (c, SM.fromList (map (\(w, o) -> (w, deflate o)) p))))
+  parts = M.fromList . (map (\(c, p) -> (c, SM.fromList (map (\(w, o) -> (w, deflate' o)) p))))
 
 prop_SingletonInsert c w o = c /= "" && w /= ""
   ==> singleton c w o == insertOccurrences c w o emptyInverted
