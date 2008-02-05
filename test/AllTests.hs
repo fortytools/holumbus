@@ -23,7 +23,6 @@ import Test.HUnit
 import Test.QuickCheck.Batch
 
 import qualified StrMapTest as StrMap
-import qualified BiMapTest as BiMap
 import qualified DiffListTest as DiffList
 import qualified ParserTest as Parser
 import qualified FuzzyTest as Fuzzy
@@ -35,7 +34,6 @@ import qualified DocumentsTest as Documents
 allTests :: Test
 allTests = TestList
            [ StrMap.allTests
-           , BiMap.allTests
            , DiffList.allTests
            , Parser.allTests
            , Fuzzy.allTests

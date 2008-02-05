@@ -39,7 +39,6 @@ library
   exposed-modules:
     Holumbus.Control.Sequence,
     Holumbus.Data.StrMap,
-    Holumbus.Data.BiMap,
     Holumbus.Data.DiffList,
     Holumbus.Query.Parser,
     Holumbus.Query.Language,
