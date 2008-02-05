@@ -129,7 +129,7 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 makeQuery :: (HolIndex i, HolDocuments d) => (i, d) -> Query -> Result
 makeQuery (i, d) q = processQuery cfg i d (optimize q)
                        where
-                       cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements)
+                       cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True
 
 genError :: (HolIndex i, HolDocuments d, ArrowXml a) => a (String, (i, d)) (String, Result)
 genError = arr $ (\(msg, _) -> (msg, emptyResult))
