@@ -39,6 +39,7 @@ where
 
 import Data.Binary
 import Data.List
+import Data.Function
 
 import Control.Monad
 
@@ -180,7 +181,3 @@ replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then
 -- | Transform a fuzzy set into a list (ordered by score).
 toList :: FuzzySet -> [ (String, FuzzyScore) ]
 toList = sortBy (compare `on` snd) . M.toList
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y

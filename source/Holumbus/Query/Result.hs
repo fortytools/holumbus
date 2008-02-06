@@ -59,6 +59,8 @@ where
 
 import Prelude hiding (null)
 
+import Data.Function
+
 import Data.Binary (Binary (..))
 import Control.Monad (liftM2)
 
@@ -228,29 +230,10 @@ merge (Result dh1 wh1) (Result dh2 wh2) = Result (mergeDocHits dh1 dh2) (mergeWo
 -- | Split a string into seperate strings at a specific character.
 split :: Eq a => [a] -> [a] -> [[a]]
 split _ []       = [[]] 
-split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (stripPrefix at w)
+split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (L.stripPrefix at w)
                     where (r:rs) = split at xs
  
 -- | Join with a seperating character.
 join :: Eq a => [a] -> [[a]] -> [a]
-join = intercalate
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.List)
-intercalate :: [a] -> [[a]] -> [a]
-intercalate xs xss = concat (intersperse xs xss)
-  where
-  intersperse _   []      = []
-  intersperse _   [y]     = [y]
-  intersperse sep (y:ys)  = y : sep : intersperse sep ys
-  
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.List)
-stripPrefix :: Eq a => [a] -> [a] -> Maybe [a]
-stripPrefix [] ys = Just ys
-stripPrefix (x:xs) (y:ys)
- | x == y = stripPrefix xs ys
-stripPrefix _ _ = Nothing
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y
+join = L.intercalate
   

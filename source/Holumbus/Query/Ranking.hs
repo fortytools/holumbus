@@ -38,6 +38,7 @@ where
 
 import Prelude hiding (foldr)
 
+import Data.Function
 import Data.Foldable
 
 import qualified Data.List as L
@@ -100,7 +101,3 @@ lookupWeight c (x:xs) = if fst x == c then
                           then Just (snd x)
                           else Nothing
                         else lookupWeight c xs
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y
