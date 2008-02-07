@@ -21,6 +21,8 @@
 
 module Network.Server.Janus.Shader.WebSearch where
 
+import Data.Function
+
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
@@ -221,7 +223,3 @@ scoreToHtml (v, top) = "cloud" ++ (show $ round (weightScore 1 9 top v))
 
 scoreFromHtml :: String -> (Score, Score)
 scoreFromHtml _ = (0.0, 0.0)
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y

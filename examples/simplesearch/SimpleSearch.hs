@@ -34,6 +34,7 @@ import Control.Parallel.Strategies
 
 import Char
 import Data.Maybe
+import Data.Function
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -280,7 +281,3 @@ printHelp =
   putStrLn ""
   putStrLn "Use :q to exit and :? to show this help."
   return ()
-
--- This is a fix for GHC 6.6.1 (from 6.8.1 on, this is avaliable in module Data.Function)
-on :: (b -> b -> c) -> (a -> b) -> a -> a -> c
-op `on` f = \x y -> f x `op` f y
