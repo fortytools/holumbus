@@ -8,33 +8,14 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.4
+  Version    : 0.5
 
   An efficient implementation of maps from string keys to arbitrary values, 
   used for the Holumbus indexes.
 
-  Values can associated with a string key. Searching for keys is very fast, but
-  the trie probably consumes more memory than "Data.Map". The main differences are the special
-  'prefixFind' functions, which can be used to perform prefix queries.
-
-  Most other function names clash with "Prelude" names, therefore this module is usually
-  imported @qualified@, e.g.
-  
-  > import Holumbus.Data.StrMap (StrMap)
-  > import qualified Holumbus.Data.StrMap as SM
-
-  See also
-  
-    * Donald R. Morrison, 
-      \"/PATRICIA - Practical Algorithm To Retrieve Information Coded In Alphanumeric/\",
-      Journal of the ACM, 15 (4), 1968, pages 514-534.
-  
-  Many functions have a worst-case complexity of /O(min(n,L))/. This means that the operation
-  can become linear with the number of elements with a maximum of /L/, the length of the
-  key (the number of characters in the string). The functions for searching a prefix have a
-  worst-case complexity of /O(max(L,R))/. This means that the operation can become linear with
-  /R/, the number of elements found for the prefix, with a minimum of /L/.
-
+  The implementation uses UTF-8 encoding for saving space and is based upon 
+  the arbitrary byte trie in "Holumbus.Data.Trie". See this module for
+  extensive documentation on most of the functions.
 -}
 
 -- ----------------------------------------------------------------------------
@@ -83,4 +64,99 @@ module Holumbus.Data.StrMap
 where
 
 import Prelude hiding (lookup, map, null)
-import Holumbus.Data.StrMapInternal
+
+import Control.Arrow
+
+import Codec.Binary.UTF8.String
+
+import Data.Char
+
+import qualified Data.Map as M
+import qualified Data.List as L
+
+import Holumbus.Data.Trie (Trie, Key)
+import qualified Holumbus.Data.Trie as T
+
+-- | A map from strings to values a.
+type StrMap a = Trie a
+
+(!) :: StrMap a -> String -> a
+(!) m k = (T.!) m (encode k)
+
+null :: StrMap a -> Bool
+null = T.null
+
+size :: StrMap a -> Int
+size = T.size
+
+member :: String -> StrMap a -> Bool
+member k m = T.member (encode k) m
+
+empty :: StrMap a
+empty = T.empty
+
+singleton :: String -> a -> StrMap a
+singleton k v = T.singleton (encode k) v
+
+insertWithKey :: (String -> a -> a -> a) -> String -> a -> StrMap a -> StrMap a
+insertWithKey f k v m = T.insertWithKey (f . decode) (encode k) v m
+
+insertWith :: (a -> a -> a) -> String -> a -> StrMap a -> StrMap a
+insertWith f k v m = T.insertWith f (encode k) v m
+
+insert :: String -> a -> StrMap a -> StrMap a
+insert k v m = T.insert (encode k) v m
+
+delete :: String -> StrMap a -> Trie a
+delete k m = T.delete (encode k) m
+
+elems :: StrMap a -> [a]
+elems = T.elems
+
+fromList :: [(String, a)] -> StrMap a
+fromList = T.fromList . (L.map (first encode))
+
+toList :: StrMap a -> [(String, a)]
+toList = (L.map (first decode)) . T.toList
+
+fromMap :: M.Map String a -> StrMap a
+fromMap = T.fromMap . (M.mapKeys encode)
+
+toMap :: StrMap a -> M.Map String a
+toMap = (M.mapKeys decode) . T.toMap
+
+map :: (a -> b) -> StrMap a -> StrMap b
+map = T.map
+
+mapWithKey :: (String -> a -> b) -> StrMap a -> StrMap b
+mapWithKey f m = T.mapWithKey (f . decode) m
+
+fold :: (a -> b -> b) -> b -> StrMap a -> b
+fold = T.fold
+
+foldWithKey :: (String -> a -> b -> b) -> b -> StrMap a -> b
+foldWithKey f r m = T.foldWithKey (f . decode) r m
+
+prefixFind :: String -> StrMap a -> [a] 
+prefixFind = T.prefixFind . encode
+
+prefixFindNoCase :: String -> StrMap a -> [a]
+prefixFindNoCase = (T.prefixFindBy lower) . encode
+
+prefixFindWithKey :: String -> StrMap a -> [(String, a)]
+prefixFindWithKey = ((L.map (first decode)) .) . T.prefixFindWithKey . encode
+
+prefixFindNoCaseWithKey :: String -> StrMap a -> [(String, a)]
+prefixFindNoCaseWithKey = ((L.map (first decode)) .) . (T.prefixFindWithKeyBy lower) . encode
+
+lookup :: Monad m => String -> StrMap a -> m a
+lookup = T.lookup . encode
+
+lookupNoCase :: String -> StrMap a -> [(String, a)]
+lookupNoCase = ((L.map (first decode)) .) . (T.lookupBy lower) . encode
+
+lower :: Key -> Key
+lower = encode . (L.map toLower) . decode
+
+findWithDefault :: a -> String -> StrMap a -> a
+findWithDefault v k m = T.findWithDefault v (encode k) m

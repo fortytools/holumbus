@@ -37,7 +37,7 @@ import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
 -- | A single difference between two integers.
-type Diff = Word16
+type Diff = Word32
 -- | A list of differences.
 type DiffList = [Diff]
 

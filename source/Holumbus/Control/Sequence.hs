@@ -27,9 +27,6 @@ import Control.Strategies.DeepSeq
 
 import Data.Word
 
-import Holumbus.Data.StrMap (StrMap)
-import qualified Holumbus.Data.StrMap as SM
-
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -50,8 +47,5 @@ instance (DeepSeq a) => DeepSeq (IntMap a) where
 instance (DeepSeq a, DeepSeq b) => DeepSeq (Map a b) where  
   deepSeq m y = deepSeq (M.toList m) y
   
-instance (DeepSeq a) => DeepSeq (StrMap a) where
-  deepSeq m y = deepSeq (SM.toList m) y
-
 instance DeepSeq IntSet where
   deepSeq s y = deepSeq (IS.toList s) y
