@@ -27,6 +27,8 @@ module Holumbus.Index.Documents
 )
 where
 
+import Data.Maybe
+
 import Text.XML.HXT.Arrow
 
 import Data.Map (Map)
@@ -55,7 +57,14 @@ instance HolDocuments Documents where
 
   getDocText _ _ = ""
 
-  mergeDocs _ _ = emptyDocuments
+  mergeDocs d1 d2 = (conflicts, Documents merged (idToDoc2docToId merged) lid)
+    where
+    (conflicts, merged, lid) = IM.foldWithKey checkDoc ([], (idToDoc d1), (lastDocId d1)) (idToDoc d2)
+      where
+      checkDoc i (u, t) (c, d, l) = maybe checkId (\ni -> ((i, ni):c, d, l)) (lookupByURI d1 u)
+        where
+        checkId = if IM.member i d then ((i, l + 1):c, IM.insert (l + 1) (u, t) d, l + 1)
+                  else (c, IM.insert i (u, t) d, l)
 
   insertDoc ds d@(_, u) = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds u)
     where

@@ -57,18 +57,26 @@ type WordId        = Int
 type BlockId       = Int
 
 instance HolIndex HybIndex where
-  sizeWords _ = 0
+  sizeWords _ = undefined
   contexts = map fst . M.toList . indexParts
 
-  allWords _ _ = [] -- TODO: This is just a dummy
-  prefixCase _ _ _ = [] -- TODO: This is just a dummy
-  prefixNoCase _ _ _ = [] -- TODO: This is just a dummy
-  lookupCase _ _ _ = [] -- TODO: This is just a dummy
-  lookupNoCase _ _ _ = [] -- TODO: This is just a dummy
+  allWords _ _ = undefined -- TODO: This is just a dummy
+  prefixCase _ _ _ = undefined -- TODO: This is just a dummy
+  prefixNoCase _ _ _ = undefined -- TODO: This is just a dummy
+  lookupCase _ _ _ = undefined -- TODO: This is just a dummy
+  lookupNoCase _ _ _ = undefined -- TODO: This is just a dummy
 
-  mergeIndexes _ _ = emptyHybrid
+  mergeIndexes _ _ = undefined
+  substractIndexes _ _ = undefined
 
-  insertOccurrences _ _ _ _ = emptyHybrid
+  insertOccurrences _ _ _ _ = undefined
+  deleteOccurrences _ _ _ _ = undefined
+  
+  splitByContexts _ _ = undefined
+  splitByDocuments _ _ = undefined
+  splitByWords _ _ = undefined
+  
+  updateDocuments _ _ = undefined
 
 -- | Create an empty index.
 emptyHybrid :: HybIndex

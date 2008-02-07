@@ -125,13 +125,13 @@ processCaseWord s q = forAllContexts wordCase (contexts s)
 processPhrase :: HolIndex i => ProcessState i -> String -> Intermediate
 processPhrase s q = forAllContexts phraseNoCase (contexts s)
   where
-  phraseNoCase c = processPhraseInternal (IDX.lookupNoCase (index s) c) c q
+  phraseNoCase c = processPhraseInternal (map snd . IDX.lookupNoCase (index s) c) c q
 
 -- | Process a phrase case-sensitive.
 processCasePhrase :: HolIndex i => ProcessState i -> String -> Intermediate
 processCasePhrase s q = forAllContexts phraseCase (contexts s)
   where
-  phraseCase c = processPhraseInternal (IDX.lookupCase (index s) c) c q
+  phraseCase c = processPhraseInternal (map snd . IDX.lookupCase (index s) c) c q
 
 -- | Process a phrase query by searching for every word of the phrase and comparing their positions.
 processPhraseInternal :: (String -> [Occurrences]) -> Context -> String -> Intermediate

@@ -24,13 +24,8 @@ module Holumbus.Index.Inverted
   -- * Construction
   , singleton
   , emptyInverted
-  
-  -- * Splitting
-  , splitByWords
-  , splitByDocuments
-  , splitByContexts
-  
-  -- *  {In,De}flating
+   
+  -- *  Compression
   , deflate
   , inflate
 )
@@ -48,6 +43,8 @@ import qualified Data.Map as M
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
+
+import qualified Data.IntSet as IS
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
@@ -74,12 +71,37 @@ instance HolIndex InvIndex where
   allWords i c = map (\(w, o) -> (w, inflate o)) $ SM.toList $ getPart c i
   prefixCase i c q = map (\(w, o) -> (w, inflate o)) $ SM.prefixFindWithKey q $ getPart c i
   prefixNoCase i c q = map (\(w, o) -> (w, inflate o)) $ SM.prefixFindNoCaseWithKey q $ getPart c i
-  lookupCase i c q = map inflate $ maybeToList (SM.lookup q $ getPart c i)
-  lookupNoCase i c q = map inflate $ SM.lookupNoCase q $ getPart c i
+  lookupCase i c q = map (\o -> (q, inflate o)) $ maybeToList (SM.lookup q $ getPart c i)
+  lookupNoCase i c q = map (\(w, o) -> (w, inflate o)) $ SM.lookupNoCase q $ getPart c i
 
   mergeIndexes i1 i2 = InvIndex (mergeParts (indexParts i1) (indexParts i2))
+  substractIndexes _ _ = undefined
 
   insertOccurrences c w o i = mergeIndexes (singleton c w o) i
+  deleteOccurrences c w o i = substractIndexes i (singleton c w o)
+
+  splitByContexts (InvIndex parts) n = allocate mergeIndexes stack buckets 
+    where
+    buckets = zipWith const (createBuckets n) stack
+    stack = reverse (L.sortBy (compare `on` fst) (map annotate $ M.toList parts))
+      where
+      annotate (c, p) = let i = InvIndex (M.singleton c p) in (sizeWords i, i)
+
+  splitByDocuments _ _ = undefined
+
+  splitByWords i n = allocate mergeIndexes stack buckets
+    where
+    buckets = zipWith const (createBuckets n) stack
+    stack = reverse (L.sortBy (compare `on` fst) (map annotate $ foldr (\c r -> r ++ map (\(w, o) -> (w, c, o)) (allWords i c)) [] (contexts i)))
+      where
+      annotate (w, c, o) = (sizeOccurrences o, singleton c w o)
+
+  updateDocuments f (InvIndex parts) = InvIndex (M.mapWithKey updatePart parts)
+    where
+    updatePart c p = SM.mapWithKey (\w o -> IM.foldWithKey (updateDocument c w) IM.empty o) p
+    updateDocument c w d p r = IM.insertWith mergePositions (f c w d) p r
+      where
+      mergePositions p1 p2 = DL.fromIntSet $ IS.union (DL.toIntSet p1) (DL.toIntSet p2)
 
 instance NFData InvIndex where
   rnf (InvIndex parts) = rnf parts
@@ -104,28 +126,9 @@ mergeParts = M.unionWith mergePart
 mergePart :: Part -> Part -> Part
 mergePart = SM.foldWithKey (mergeWords)
   where
-  mergeWords :: String -> IntMap DiffList -> Part -> Part
-  mergeWords w o p = SM.insertWith ((deflate .) . (. inflate) . mergeOccurrences . inflate) w o p
-
--- | Split the index by words into a number of smaller indexes. The function tries to make the
--- resulting indexes equal size.
-splitByWords :: InvIndex -> Int -> [InvIndex]
-splitByWords _ _ = error "Not yet implemented!"
-
--- | Split the index by documents into a number of smaller indexes. The function tries to make the
--- resulting indexes equal size.
-splitByDocuments :: InvIndex -> Int -> [InvIndex]
-splitByDocuments _ _ = error "Not yet implemented!" 
-
--- | Split the index by contexts into a number of smaller indexes. The function tries to make the
--- resulting indexes equal size.
-splitByContexts :: InvIndex -> Int -> [InvIndex]
-splitByContexts (InvIndex parts) n = allocate mergeIndexes stack buckets 
+  mergeWords w o p = SM.insertWith mergeDiffLists w o p
     where
-    buckets = take (length stack) (createBuckets n)
-    stack = reverse (L.sortBy (compare `on` fst) (map annotate $ M.toList parts))
-      where
-      annotate (c, p) = let i = InvIndex (M.singleton c p) in (sizeWords i, i)
+    mergeDiffLists o1 o2 = deflate $ mergeOccurrences (inflate o1) (inflate o2)
 
 -- | Allocates values from the first list to the buckets in the second list.
 allocate :: (a -> a -> a) -> [(Int, a)] -> [(Int, a)] -> [a]

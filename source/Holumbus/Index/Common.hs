@@ -33,10 +33,12 @@ module Holumbus.Index.Common
   , HolIndex (..)
   , HolDocuments (..)
 
-  -- * Construction
-  , emptyOccurrences
+  -- * Indexes and Documents
+  , mergeAll
 
-  -- * Combine
+  -- * Occurrences
+  , emptyOccurrences
+  , sizeOccurrences
   , mergeOccurrences
 
   -- * Pickling
@@ -46,6 +48,7 @@ module Holumbus.Index.Common
   
   -- * Persistent storage
   , loadFromFile
+
   , loadFromXmlFile
   , loadFromBinFile
   , writeToXmlFile
@@ -54,6 +57,8 @@ module Holumbus.Index.Common
 where
 
 import Text.XML.HXT.Arrow
+
+import Data.Maybe
 
 import qualified Data.List as L
 
@@ -95,7 +100,7 @@ class HolIndex i where
   -- | Returns the number of unique words in the index.
   sizeWords     :: i -> Int
   -- | Returns a list of all contexts avaliable in the index.
-  contexts      :: i -> [ Context ]
+  contexts      :: i -> [Context]
 
   -- | Returns the occurrences for every word. A potentially expensive operation.
   allWords      :: i -> Context -> [(String, Occurrences)]
@@ -104,20 +109,31 @@ class HolIndex i where
   -- | Searches for words beginning with the prefix in a given context (case-insensitive).
   prefixNoCase  :: i -> Context -> String -> [(String, Occurrences)]
   -- | Searches for and exact word in a given context (case-sensitive).
-  lookupCase    :: i -> Context -> String -> [Occurrences]
+  lookupCase    :: i -> Context -> String -> [(String, Occurrences)]
   -- | Searches for and exact word in a given context (case-insensitive).
-  lookupNoCase  :: i -> Context -> String -> [Occurrences]
+  lookupNoCase  :: i -> Context -> String -> [(String, Occurrences)]
   
   -- | Insert occurrences.
   insertOccurrences :: Context -> String -> Occurrences -> i -> i
+  -- | Delete occurrences.
+  deleteOccurrences :: Context -> String -> Occurrences -> i -> i
 
   -- | Merges two indexes. 
   mergeIndexes  :: i -> i -> i
-  
-  -- Splits an Index into two indexes. The result will be a pair where the 
-  -- first element is the original index without the removed Documents and the
-  -- second element will be  an index over the removed Documents
-  -- splitIndex    :: i -> [Int] -> (i, i) 
+  -- | Substract one index from another.
+  substractIndexes :: i -> i -> i
+
+  -- | Splitting an index by its contexts.
+  splitByContexts :: i -> Int -> [i]
+  -- | Splitting an index by its documents.
+  splitByDocuments :: i -> Int -> [i]
+  -- | Splitting an index by its words.
+  splitByWords :: i -> Int -> [i]
+
+  -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
+  -- to the same new id, the two sets of word positions will be merged if both old id's are present
+  -- in the occurrences for a word in a specific context.
+  updateDocuments :: (Context -> Word -> DocId -> DocId) -> i -> i
 
 class HolDocuments d where
   -- | Returns the number of unique documents in the table.
@@ -129,19 +145,16 @@ class HolDocuments d where
   lookupByURI   :: Monad m => d -> URI -> m DocId
   
   -- | Retrieves the full text of a document.
-  getDocText       :: d -> DocId -> Content
+  getDocText    :: d -> DocId -> Content
 
-  -- | Merge two document tables. 
-  mergeDocs     :: d -> d -> d
+  -- | Merge two document tables. The returned tuple contains a list of id's from the second
+  -- table that were replaced with new id's to avoid collisions.
+  mergeDocs     :: d -> d -> ([(DocId, DocId)] ,d)
 
 -- | Insert a document into the table. Returns a tuple of the id for that document and the 
 -- new table. If a document with the same URI is already present, its id will be returned 
 -- and the table is returned unchanged.
   insertDoc     :: d -> Document -> (DocId, d)
-
--- | Merge two occurrences.
-mergeOccurrences :: Occurrences -> Occurrences -> Occurrences
-mergeOccurrences = IM.unionWith (IS.union)
 
 -- | The XML pickler for a single document.
 xpDocument :: PU Document
@@ -162,9 +175,26 @@ xpOccurrences = xpWrap (IM.fromList, IM.toList) (xpList xpOccurrence)
   where
   xpOccurrence = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) xpPositions)
 
+-- | Merges an index with its documents table with another index and its documents table. 
+-- Conflicting id's for documents will be resolved automatically.
+mergeAll :: (HolDocuments d, HolIndex i) => d -> i -> d -> i -> (d, i)
+mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocuments replaceIds i2))
+  where
+  (ud, md) = mergeDocs d1 d2
+  idTable = IM.fromList ud
+  replaceIds _ _ d = fromMaybe d (IM.lookup d idTable)
+
 -- | Create an empty set of positions.
 emptyOccurrences :: Occurrences
 emptyOccurrences = IM.empty
+
+-- | Determine the number of positions in a set of occurrences.
+sizeOccurrences :: Occurrences -> Int
+sizeOccurrences = IM.fold ((+) . IS.size) 0
+
+-- | Merge two occurrences.
+mergeOccurrences :: Occurrences -> Occurrences -> Occurrences
+mergeOccurrences = IM.unionWith (IS.union)
 
 -- | Try to determine the file type automatically. The file is loaded as XML if the filename
 -- ends with \".xml\" and otherwise is loaded as binary file.
