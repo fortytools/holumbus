@@ -16,30 +16,23 @@ flag splitBase
   description: Choose the new smaller, split-up base package.
 
 library
-  if flag(splitBase)
-    build-depends: base >= 3
-                 , haskell98
-                 , containers
-                 , parallel
-                 , parsec
-                 , network
-                 , bytestring
-                 , hxt
-                 , binary
-                 , bzlib
-  else
-    build-depends: base < 3
-                 , haskell98
-                 , parsec
-                 , network
-                 , bytestring
-                 , hxt
-                 , binary
-                 , bzlib
+  build-depends: base >= 3
+               , haskell98
+               , containers
+               , parallel
+               , parsec
+               , network
+               , bytestring
+               , utf8-string
+               , hxt
+               , binary
+               , bzlib
   exposed-modules:
     Holumbus.Control.Sequence,
+    Holumbus.Data.Trie,
     Holumbus.Data.StrMap,
     Holumbus.Data.DiffList,
+    Holumbus.Data.Crunch,
     Holumbus.Query.Parser,
     Holumbus.Query.Language,
     Holumbus.Query.Processor,
@@ -52,7 +45,5 @@ library
     Holumbus.Index.Hybrid,
     Holumbus.Index.Common,
     Holumbus.Index.Documents
-  other-modules:
-    Holumbus.Data.StrMapInternal
   hs-source-dirs: source
   ghc-options:    -Wall -O
