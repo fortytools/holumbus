@@ -86,10 +86,10 @@ prop_InsertMerge c w o i = (c /= "") && (w /= "")
   ==> insertOccurrences c w o i == mergeIndexes (singleton c w o) i
   
 prop_LookupInsert c w o i = (c /= "") && (w /= "")  
-  ==> lookupCase (insertOccurrences c w o i :: InvIndex) c w == [o]
+  ==> lookupCase (insertOccurrences c w o i :: InvIndex) c w == [(w, o)]
 
 prop_LookupMerge c w o i = (c /= "") && (w /= "")
-  ==> lookupCase (mergeIndexes (singleton c w o) i) c w == [o]
+  ==> lookupCase (mergeIndexes (singleton c w o) i) c w == [(w, o)]
 
 prop_PrefixInsert c w o i = (c /= "") && (w /= "")
   ==> (w, o) `elem` (prefixCase (insertOccurrences c w o i :: InvIndex) c w)

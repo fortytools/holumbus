@@ -50,22 +50,6 @@ insertTests = TestList
   [ TestCase (assertEqual "Inserting into empty map" [("a",1)] 
   (SM.toList (SM.insert "a" 1 SM.empty)))
 
---  , TestCase (assertEqual "1. case: Existing key"
---  (Seq "" [End "abc" 2 []])
---  (SM.insert "abc" 2 (SM.singleton "abc" 1)))
---
---  , TestCase (assertEqual "2. case: Insert into list of successors"
---  (Seq "" [End "ab" 1 [End "c" 2 []]])
---  (SM.insert "abc" 2 (SM.singleton "ab" 1)))
---  
---  , TestCase (assertEqual "3. case: New intermediate End node"
---  (Seq "" [End "ab" 2 [End "c" 1 []]])
---  (SM.insert "ab" 2 (SM.singleton "abc" 1)))
---
---  , TestCase (assertEqual "4. case: New intermediate End node"
---  (Seq "" [Seq "ab" [End "c" 1 [], End "d" 2 []]])
---  (SM.insert "abd" 2 (SM.singleton "abc" 1)))
-
   , TestCase (assertEqual "Inserting should split correctly" [("ac",1),("a",2)] 
   (SM.toList (SM.insert "a" 2 (SM.insert "ac" 1 SM.empty))))
 
@@ -105,13 +89,13 @@ findTests = TestList
   , TestCase (assertEqual "Finding some elements by prefix" [5, 6, 7]
   $ sort (SM.prefixFind "ac" (SM.fromList [("a", 1), ("b", 2), ("ab", 3), ("ad", 4), ("acd", 5), ("ace", 6), ("ac", 7)])))
 
-  , TestCase (assertEqual "Finding some elements by case insensitive match" [2, 5]
+  , TestCase (assertEqual "Finding some elements by case insensitive match" [("Ac", 5), ("ac", 2)]
   $ sort (SM.lookupNoCase "aC" (SM.fromList [("a", 1), ("ac", 2), ("ab", 3), ("ad", 4), ("Ac", 5), ("ace", 6)])))
 
-  , TestCase (assertEqual "Finding some elements by case insensitive match" [2, 5, 6]
+  , TestCase (assertEqual "Finding some elements by case insensitive match" [("AcE", 5), ("aCe", 2), ("ace", 6)]
   $ sort (SM.lookupNoCase "ACE" (SM.fromList [("Acg", 1), ("aCe", 2), ("acd", 3), ("AcF", 4), ("AcE", 5), ("ace", 6)])))
 
-  , TestCase (assertEqual "Finding some elements by case insensitive match" [5, 6]
+  , TestCase (assertEqual "Finding some elements by case insensitive match" [("AcE", 5), ("aCe", 6)]
   $ sort (SM.lookupNoCase "ACE" (SM.fromList [("a", 1), ("A", 2), ("aC", 3), ("Ac", 4), ("AcE", 5), ("aCe", 6), ("aCef", 7), ("AcEf", 8)])))
 
   , TestCase (assertEqual "Prefix find case insensitive" [2, 3, 4, 5, 6, 7, 8]
@@ -182,7 +166,7 @@ prop_Delete k xs = let sm = (SM.fromList xs) in
   ==> SM.delete k sm == sm
 
 prop_LookupNoCase xs k v = (valid xs) && k /= ""
-  ==> v `elem` (SM.lookupNoCase k (SM.insert (map toLower k) v (SM.fromList xs)))
+  ==> (map toLower k, v) `elem` (SM.lookupNoCase k (SM.insert (map toLower k) v (SM.fromList xs)))
 
 allProperties :: (String, [TestOptions -> IO TestResult])
 allProperties = ("StrMap tests",
