@@ -10,11 +10,21 @@ RM				= rm $(RM_FLAGS)
 
 PROG			= Server
 
-all : $(PROG).o
+OUTPUT    = output
 
-$(PROG).o : $(PROG).hs
-	$(GHC) --make $(PROG).hs
+all : $(PROG)
+
+start : $(PROG)
+	./$(PROG) -i ../indexes/vl-index.bin
+
+prof : $(PROG).hs
+	[ -d $(OUTPUT) ] || mkdir -p $(OUTPUT)
+	$(GHC) -prof -auto-all -ignore-package Holumbus -i../../source/ -hidir $(OUTPUT) -odir $(OUTPUT) --make -o $(PROG) $(PROG).hs
+
+$(PROG) : $(PROG).hs
+	[ -d $(OUTPUT) ] || mkdir -p $(OUTPUT)
+	$(GHC) --make -o $(PROG) $(PROG).hs -hidir $(OUTPUT) -odir $(OUTPUT)
 
 clean :
-	$(RM) $(PROG).hi $(PROG).o
+	$(RM) $(PROG) $(OUTPUT)
 	

@@ -19,5 +19,5 @@ all : $(PROGS)
 	$(GHC) --make -o $@ $< -hidir $(OUTPUT)/$@ -odir $(OUTPUT)/$@
 
 clean :
-	$(RM) $(PROGS) *.hi *.o $(OUTPUT)
+	$(RM) $(PROGS) $(OUTPUT)
 	
