@@ -96,7 +96,7 @@ type Occurrences   = IntMap Positions
 type Positions     = IntSet
 
 -- | This class provides a generic interface to different types of index implementations.
-class HolIndex i where
+class Binary i => HolIndex i where
   -- | Returns the number of unique words in the index.
   sizeWords     :: i -> Int
   -- | Returns a list of all contexts avaliable in the index.
@@ -135,7 +135,7 @@ class HolIndex i where
   -- in the occurrences for a word in a specific context.
   updateDocuments :: (Context -> Word -> DocId -> DocId) -> i -> i
 
-class HolDocuments d where
+class Binary d => HolDocuments d where
   -- | Returns the number of unique documents in the table.
   sizeDocs      :: d -> Int
   

@@ -19,6 +19,7 @@
 module Holumbus.Index.Hybrid where
 
 import Data.Maybe
+import Data.Binary
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -77,6 +78,10 @@ instance HolIndex HybIndex where
   splitByWords _ _ = undefined
   
   updateDocuments _ _ = undefined
+
+instance Binary HybIndex where
+  put _ = undefined
+  get = undefined
 
 -- | Create an empty index.
 emptyHybrid :: HybIndex
