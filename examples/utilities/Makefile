@@ -2,7 +2,7 @@
 
 HOME	= ../..
 
-GHC_FLAGS	= -Wall -O2
+GHC_FLAGS	= -Wall -O2 -threaded
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
