@@ -4,7 +4,7 @@ HOME			= ..
 
 # Make GHC compile everything seperatly for the tests, to be able to 
 # execute them without installing the library first.
-GHC_FLAGS	= -Wall -O2 -threaded -ignore-package Holumbus -i$(SOURCE) -odir . -hidir .
+GHC_FLAGS	= -Wall -O2 -threaded -ignore-package Holumbus -i$(SOURCE) -odir $(OUTPUT) -hidir $(OUTPUT)
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
@@ -21,7 +21,7 @@ all : build test
 
 build :
 	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
-	$(GHC) --make -o $(PROG) $(PROG).hs -odir $(OUTPUT) -hidir $(OUTPUT)
+	$(GHC) --make -o $(PROG) $(PROG).hs
 
 test :
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
