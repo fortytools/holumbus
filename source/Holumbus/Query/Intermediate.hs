@@ -26,6 +26,7 @@ module Holumbus.Query.Intermediate
 
   -- * Query
   , null
+  , sizeIntermediate
 
   -- * Combine
   , union
@@ -67,6 +68,10 @@ emptyIntermediate = IM.empty
 -- | Check if the intermediate result is empty.
 null :: Intermediate -> Bool
 null = IM.null
+
+-- | Returns the number of documents in the intermediate result.
+sizeIntermediate :: Intermediate -> Int
+sizeIntermediate = IM.size
 
 -- | Merges a bunch of intermediate results into one intermediate result by unioning them.
 unions :: [Intermediate] -> Intermediate

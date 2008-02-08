@@ -24,6 +24,7 @@ library
                , parsec
                , network
                , bytestring
+               , unix
                , utf8-string
                , hxt
                , binary

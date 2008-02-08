@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (t.h@gmx.info)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The Holumbus query server for processing distributed queries.
 
@@ -28,17 +28,11 @@ import System.Exit
 import System.IO
 import System.Time
 
-import qualified Data.IntMap as IM
-
-import Text.Printf
-
 import Control.Monad
 import Control.Parallel.Strategies
 
 import Holumbus.Index.Inverted (InvIndex)
-import Holumbus.Query.Intermediate hiding (null)
 import Holumbus.Index.Common
-import Holumbus.Query.Language
 import Holumbus.Query.Distribution
 
 data Flag = Index String 
@@ -48,7 +42,7 @@ data Flag = Index String
           | Help deriving (Show, Eq)
 
 version :: String
-version = "0.1"
+version = "0.2"
 
 main :: IO ()
 main = 
@@ -60,7 +54,7 @@ main =
   if Help `elem` flags then usage [] >> (exitWith ExitSuccess) else return ()
 
   verbose <- return (Verbose `elem` flags)
-  port <- return (getPort flags)
+  prt <- return (getPort flags)
 
   idx <- return (filter isIndex flags)
   if null idx then usage ["No index file given!\n"] else return ()
@@ -68,15 +62,13 @@ main =
 
   file <- return (fromIndex (head idx))
 
-  withSocketsDo $
-    do
-    time <- liftM toUTCTime getClockTime
-    if verbose then putStrLn ("Server started at " ++ (calendarTimeToString time)) else return ()
-    if verbose then putStrLn ("Loading index from " ++ file) else return ()
-    i <- (loadFromFile file) :: IO InvIndex
-    return (rnf i)
-    if verbose then putStrLn ("Listening on port " ++ (show port)) else return ()
-    listenForRequests i port logRequest                              
+  time <- liftM toUTCTime getClockTime
+  if verbose then putStrLn ("Server started at " ++ (calendarTimeToString time)) else return ()
+  if verbose then putStrLn ("Loading index from " ++ file) else return ()
+  i <- (loadFromFile file) :: IO InvIndex
+  return (rnf i)
+  if verbose then putStrLn ("Listening on port " ++ (show prt)) else return ()
+  listenForRequests i prt logRequest
 
 isIndex :: Flag -> Bool
 isIndex (Index _) = True
@@ -91,21 +83,6 @@ getPort [] = 4242
 getPort ((Port p):_) = fromIntegral (read p)
 getPort (_:ps) = getPort ps
 
--- | Log a request through the hook provided by @listenForRequests@.
-logRequest :: HostName -> PortNumber -> Query -> Integer -> Integer -> Intermediate -> String -> IO ()
-logRequest h p q s e r l = 
-  do
-  c <- getClockTime
-  f <- return ((fromIntegral (e - s) / 1000000000000) :: Float)
-  putStrLn (
-    (calendarTimeToString . toUTCTime $ c)
-    ++ " - " ++ h ++ ":" ++ (show p)
-    ++ " - " ++ (show q)
-    ++ " - " ++ (printf "%.4f" f) ++ " sec"
-    ++ " - " ++ (show $ IM.size r) ++ " hits"
-    ++ " - " ++ l ++ " bytes"
-    )
-
 usage :: [String] -> IO a
 usage errs = 
   if null errs then do
@@ -115,7 +92,7 @@ usage errs =
   hPutStrLn stderr (concat errs ++ "\n" ++ use)
   exitWith (ExitFailure (-1))
     where
-    header = "Standalone - The Holumbus query server.\n\n" ++
+    header = "Server - The Holumbus query server.\n\n" ++
              "Usage: Standalone [OPTIONS]"
     use    = usageInfo header options
 
