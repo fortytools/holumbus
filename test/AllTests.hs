@@ -30,6 +30,7 @@ import qualified PickleTest as Pickle
 import qualified BinaryTest as Binary
 import qualified InvertedTest as Inverted
 import qualified DocumentsTest as Documents
+import qualified CrunchTest as Crunch
 
 allTests :: Test
 allTests = TestList
@@ -41,10 +42,12 @@ allTests = TestList
            , Binary.allTests
            , Inverted.allTests
            , Documents.allTests
+           , Crunch.allTests
            ]
 
 allProperties :: [(String, [TestOptions -> IO TestResult])]
 allProperties = [ Parser.allProperties
+                , Crunch.allProperties
                 , DiffList.allProperties
                 , Documents.allProperties
                 , Inverted.allProperties

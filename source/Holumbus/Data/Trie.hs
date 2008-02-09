@@ -134,12 +134,12 @@ null (End _ _ _)   = error "Trie.null: root node should be Seq"
 
 -- | /O(1)/ Create a map with a single element.
 singleton :: Key -> a -> Trie a
-singleton k v = Seq [] [End (crunch k) v []]
+singleton k v = Seq [] [End (crunch8 k) v []]
 
 -- | /O(1)/ Extract the key of a node
 key :: Trie a -> Key
-key (End k _ _) = (decrunch k)
-key (Seq k _)   = (decrunch k)
+key (End k _ _) = (decrunch8 k)
+key (Seq k _)   = (decrunch8 k)
 
 -- | /O(1)/ Extract the value of a node (if there is one)
 value :: Monad m => Trie a -> m a
@@ -158,8 +158,8 @@ succ (Seq _ t)   = t
 
 -- | /O(1)/ Sets the key of a node.
 setKey :: Key -> Trie a -> Trie a
-setKey k (End _ v t) = End (crunch k) v t
-setKey k (Seq _ t)   = Seq (crunch k) t
+setKey k (End _ v t) = End (crunch8 k) v t
+setKey k (Seq _ t)   = Seq (crunch8 k) t
 
 -- | /O(1)/ Sets the successors of a node.
 setSucc :: [Trie a] -> Trie a -> Trie a
@@ -191,13 +191,13 @@ delete' d n | L.null dr && L.null kr       = deleteNode n
 -- | Merge a node with its successor if only one successor is left.
 mergeNode :: Trie a -> [Trie a] -> Trie a
 mergeNode (End k v _) t = End k v t
-mergeNode (Seq k _) [t] = if not (L.null k) then setKey ((decrunch k) ++ (key t)) t else Seq k [t]
+mergeNode (Seq k _) [t] = if not (L.null k) then setKey ((decrunch8 k) ++ (key t)) t else Seq k [t]
 mergeNode (Seq k _) t   = Seq k t
 
 -- | Delete a node by either merging it with its successors or removing it completely.
 deleteNode :: Trie a -> Maybe (Trie a)
 deleteNode (End _ _ [])  = Nothing
-deleteNode (End k _ [t]) = Just (setKey ((decrunch k) ++ key t) t)
+deleteNode (End k _ [t]) = Just (setKey ((decrunch8 k) ++ key t) t)
 deleteNode (End k _ t)   = Just (Seq k t)
 deleteNode n             = Just n
 
@@ -221,15 +221,15 @@ insert nk nv n = insertWith const nk nv n
 insert' :: (Key -> a -> a -> a) -> Key -> a -> Key -> Trie a -> Trie a
 insert' f nk nv ok n | L.null nk                    = error "Empty key!"
                      -- Key already exists, the current value will be replaced with the new value.
-                     | L.null cr && L.null nr       = End (crunch s) (maybe nv (f ok nv) (value n)) (succ n) 
+                     | L.null cr && L.null nr       = End (crunch8 s) (maybe nv (f ok nv) (value n)) (succ n) 
                      -- Insert into list of successors.
                      | L.null cr && not (L.null nr) = setSucc (insertSub f nr nv ok (succ n)) n
                      -- New intermediate End node with the new value and the current node with the
                      -- remainder of the key as successor.
-                     | L.null nr && not (L.null cr) = End (crunch s) nv [setKey cr n]
+                     | L.null nr && not (L.null cr) = End (crunch8 s) nv [setKey cr n]
                      -- New intermediate Seq node which shares the prefix of the new key and the 
                      -- key of the current node.
-                     | otherwise = Seq (crunch s) [setKey cr n, (End (crunch nr) nv [])]
+                     | otherwise = Seq (crunch8 s) [setKey cr n, (End (crunch8 nr) nv [])]
                      where (s, nr, cr) = split nk (key n)
 
 -- | Internal support function for insert which searches the correct successor to insert into
@@ -238,7 +238,7 @@ insertSub :: (Key -> a -> a -> a) -> Key -> a -> Key -> [Trie a] -> [Trie a]
 insertSub f k v o t = insertSub' f k v t []
   where
     insertSub' :: (Key -> a -> a -> a) -> Key -> a -> [Trie a] -> [Trie a] -> [Trie a]
-    insertSub' _ nk nv [] r     = (End (crunch nk) nv []):r
+    insertSub' _ nk nv [] r     = (End (crunch8 nk) nv []):r
     insertSub' cf nk nv (x:xs) r = if head (key x) == head nk then (insert' cf nk nv o x):r ++ xs else 
                                   insertSub' cf nk nv xs (x:r)
 
@@ -334,8 +334,8 @@ findWithDefault d q n = maybe d id (lookup q n)
 foldWithKey :: (Key -> a -> b -> b) -> b -> Trie a -> b
 foldWithKey f n m = fold' [] m n
   where
-  fold' ck (End k v t) r = let nk = ck ++ (decrunch k) in foldr (fold' nk) (f nk v r) t
-  fold' ck (Seq k t) r   = let nk = ck ++ (decrunch k) in foldr (fold' nk) r t
+  fold' ck (End k v t) r = let nk = ck ++ (decrunch8 k) in foldr (fold' nk) (f nk v r) t
+  fold' ck (Seq k t) r   = let nk = ck ++ (decrunch8 k) in foldr (fold' nk) r t
 
 -- | /O(n)/ Fold over all values in the map.
 fold :: (a -> b -> b) -> b -> Trie a -> b
@@ -345,8 +345,8 @@ fold f = foldWithKey (\_ v r -> f v r)
 mapWithKey :: (Key -> a -> b) -> Trie a -> Trie b
 mapWithKey f m = map' [] m
   where
-  map' ck (End k v t) = let nk = ck ++ (decrunch k) in End k (f nk v) (L.map (map' nk) t)
-  map' ck (Seq k t)   = let nk = ck ++ (decrunch k) in Seq k (L.map (map' nk) t)
+  map' ck (End k v t) = let nk = ck ++ (decrunch8 k) in End k (f nk v) (L.map (map' nk) t)
+  map' ck (Seq k t)   = let nk = ck ++ (decrunch8 k) in Seq k (L.map (map' nk) t)
 
 -- | /O(n)/ Map over all values in the map.
 map :: (a -> b) -> Trie a -> Trie b
