@@ -2,7 +2,7 @@
 
 HOME	= ../..
 
-GHC_FLAGS	= -Wall -O2 -threaded -hidir $(OUTPUT) -odir $(OUTPUT)
+GHC_FLAGS	= -Wall -O2 -hidir $(OUTPUT) -odir $(OUTPUT)
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
@@ -23,7 +23,7 @@ prof : $(PROG).hs
 
 $(PROG) : $(PROG).hs
 	[ -d $(OUTPUT) ] || mkdir -p $(OUTPUT)
-	$(GHC) --make -o $(PROG) $(PROG).hs
+	$(GHC) -threaded --make -o $(PROG) $(PROG).hs
 
 clean :
 	$(RM) $(PROG) $(OUTPUT)
