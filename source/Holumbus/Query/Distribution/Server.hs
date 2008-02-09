@@ -67,20 +67,24 @@ data LogData = LogData
 
 -- | Specific information about a request.
 data SpecificLogData 
-  = QueryLogData             -- ^ Specific log data from a query request.
+    -- | Specific log data from a query request.
+  = QueryLogData
     { query  :: Query        -- ^ The incoming query recieved by the server.
     , result :: Intermediate -- ^ The partial result returned to the client.
     , size   :: Int64        -- ^ The length of the binary encoded result.
     }
-  | AddLogData                        -- ^ Specific log data from a merge request.
+    -- | Specific log data from a merge request.
+  | AddLogData
     { addedContexts :: [Context]     -- ^ The contexts in the index.
     , addedNoWords  :: Int           -- ^ The number of words in the index.
     }
-  | RemoveLogData                    -- ^ Specific log data from a remove request.
+    -- | Specific log data from a remove request.
+  | RemoveLogData
     { removedContexts :: [Context]   -- ^ The contexts in the index.
     , removedNoWords  :: Int         -- ^ The number of words in the index.
     }
-  | ReplaceLogData                   -- ^ Specific log data from a replace request.
+    -- | Specific log data from a replace request.
+  | ReplaceLogData
     { replacedContexts :: [Context]  -- ^ The contexts in the index.
     , replacedNoWords  :: Int        -- ^ The number of words in the index.
     }
