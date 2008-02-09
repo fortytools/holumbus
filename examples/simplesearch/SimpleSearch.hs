@@ -51,7 +51,8 @@ import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
 import Holumbus.Query.Result
-import Holumbus.Query.Distribution
+import Holumbus.Query.Distribution.Protocol
+import Holumbus.Query.Distribution.Client
 
 data Flag = Index String 
           | Documents String 

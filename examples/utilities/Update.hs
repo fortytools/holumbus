@@ -29,7 +29,8 @@ import Data.Maybe
 
 import Holumbus.Index.Common
 import Holumbus.Index.Inverted
-import Holumbus.Query.Distribution
+import Holumbus.Query.Distribution.Protocol
+import Holumbus.Query.Distribution.Client
 
 data Flag = Index String 
           | Server String
