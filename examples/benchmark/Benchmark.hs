@@ -236,7 +236,7 @@ runQuery f q =
   do
   r <- f q -- This is where the magic happens!
   rr <- return (rank rankCfg r)
-  return (sizeDocHits rr + sizeWordHits rr)
+  return $! sizeDocHits rr + sizeWordHits rr
     where
     rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
       where
