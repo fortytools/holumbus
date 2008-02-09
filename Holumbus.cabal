@@ -31,6 +31,7 @@ library
                , bzlib
   exposed-modules:
     Holumbus.Control.Sequence,
+    Holumbus.Control.Registry,
     Holumbus.Data.Trie,
     Holumbus.Data.StrMap,
     Holumbus.Data.DiffList,
@@ -39,10 +40,12 @@ library
     Holumbus.Query.Language,
     Holumbus.Query.Processor,
     Holumbus.Query.Intermediate,
-    Holumbus.Query.Distribution,
     Holumbus.Query.Result,
     Holumbus.Query.Fuzzy,
     Holumbus.Query.Ranking,
+    Holumbus.Query.Distribution.Protocol,
+    Holumbus.Query.Distribution.Client,
+    Holumbus.Query.Distribution.Server,
     Holumbus.Index.Inverted,
     Holumbus.Index.Hybrid,
     Holumbus.Index.Common,
