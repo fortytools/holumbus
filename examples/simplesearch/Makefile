@@ -19,7 +19,7 @@ start : $(PROG)
 
 prof : $(PROG).hs
 	[ -d $(OUTPUT) ] || mkdir -p $(OUTPUT)
-	$(GHC) -prof -auto-all -ignore-package Holumbus -i../../source/ --make -o $(PROG) $(PROG).hs
+	$(GHC) -prof -auto-all -ignore-package Holumbus -i../../source/ --make -o $(PROG)_p $(PROG).hs
 
 $(PROG) : $(PROG).hs
 	[ -d $(OUTPUT) ] || mkdir -p $(OUTPUT)
