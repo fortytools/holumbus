@@ -123,14 +123,14 @@ encode w (x:xs) = rotateR (encode w xs .|. fromIntegral x) (width w)
 -- Decrunch a list of crunched values.
 decrunch64 :: [Word64] -> [Word64]
 decrunch64 [] = []
-decrunch64 (x:xs) = (decode (width w) (count w) (rotateL x (width w))) ++ (decrunch64 xs)
+decrunch64 (x:xs) = (decode (width w) (count w) (value w) (rotateL x (width w))) ++ (decrunch64 xs)
                    where
                      w = toEnum $ fromIntegral (x .&. 15)  -- Extract the 4 selector bits.
 
 -- Decode some numbers with a given width.
-decode :: Int -> Int -> Word64 -> [Word64]
-decode _ 0 _ = []
-decode w n x = (x .&. (2 ^ w - 1)):(decode w (n - 1) (rotateL x w))
+decode :: Int -> Int -> Word64 -> Word64 -> [Word64]
+decode _ 0 _ _ = []
+decode w n m x = (x .&. m):(decode w (n - 1) m (rotateL x w))
 
 -- | Crunching 'Word8' values, defined in terms of 'crunch64'.
 crunch8 :: [Word8] -> [Word64]
