@@ -98,9 +98,9 @@ width W30 = 30
 width W60 = 60
 
 -- | Crunch some values by encoding several values into one 'Word64'. The values may not exceed
--- the upper limit of @2 ^ 60 - 1@. This precondition is not checked! The compression works
--- best on small values, therefore a difference encoding (like the one in "DiffList") prior to 
--- compression pays off well.
+-- the upper limit of @(2 ^ 60) - 1@. This precondition is not checked! The compression works
+-- best on small values, therefore a difference encoding (like the one in 
+-- "Holumbus.Data.DiffList") prior to compression pays off well.
 crunch64 :: [Word64] -> [Word64]
 crunch64 [] = []
 crunch64 s = crunch' s (count W01) W01 []
@@ -120,7 +120,8 @@ encode :: Width -> [Word64] -> Word64
 encode w [] = rotateR (fromIntegral (fromEnum w)) (64 - (width w * count w))
 encode w (x:xs) = rotateR (encode w xs .|. fromIntegral x) (width w)
 
--- Decrunch a list of crunched values.
+-- | Decrunch a list of crunched values. No checking for properly encoded values is done, weird
+-- results have to bee expected if calling this function on a list of arbitrary values.
 decrunch64 :: [Word64] -> [Word64]
 decrunch64 [] = []
 decrunch64 (x:xs) = (decode (width w) (count w) (value w) (rotateL x (width w))) ++ (decrunch64 xs)
