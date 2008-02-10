@@ -91,9 +91,11 @@ difference = IM.difference
 
 -- | Create an intermediate result from a list of words and their occurrences.
 fromList :: Word -> Context -> [(String, Occurrences)] -> Intermediate
-fromList t c os = IM.unionsWith combineContexts (map createIntermediate' os)
+-- Beware! This is extremly optimized and will not work for merging arbitrary intermedite results!
+fromList t c os = IM.map transform $ IM.unionsWith (flip $ (:) . head) (map insertWords os)
   where
-  createIntermediate' (w, o) = IM.map (\p -> M.singleton c (M.singleton w (WordInfo [t] 0.0, p))) o
+  insertWords (w, o) = IM.map (\p -> [(w, (WordInfo [t] 0.0 , p))]) o   
+  transform w = M.singleton c (M.fromList w)
 
 -- | Convert to a @Result@ by generating the 'WordHits' structure.
 toResult :: HolDocuments d => d -> Intermediate -> Result
