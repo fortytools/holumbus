@@ -2,7 +2,7 @@
 
 {- |
   Module     : Holumbus.Index.Inverted
-  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
   
   Maintainer : Timo B. Huebel (t.h@gmx.info)
@@ -24,10 +24,6 @@ module Holumbus.Index.Inverted
   -- * Construction
   , singleton
   , emptyInverted
-   
-  -- *  Compression
-  , deflate
-  , inflate
 )
 where
 
@@ -41,18 +37,14 @@ import qualified Data.List as L
 import Data.Map (Map)
 import qualified Data.Map as M
 
-import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
-
 import qualified Data.IntSet as IS
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
-import Holumbus.Data.DiffList (DiffList)
-import qualified Holumbus.Data.DiffList as DL
-
 import Holumbus.Index.Common
+import Holumbus.Index.Compression
 
 import Control.Parallel.Strategies
 
@@ -62,17 +54,17 @@ newtype InvIndex = InvIndex { indexParts :: Parts } deriving (Show, Eq)
 -- | The index parts are identified by a name, which should denote the context of the words.
 type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to their occurrences.
-type Part        = StrMap (IntMap DiffList)
+type Part        = StrMap CompressedOccurrences
 
 instance HolIndex InvIndex where
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts
   contexts = map fst . M.toList . indexParts
 
-  allWords i c = map (\(w, o) -> (w, inflate o)) $ SM.toList $ getPart c i
-  prefixCase i c q = map (\(w, o) -> (w, inflate o)) $ SM.prefixFindWithKey q $ getPart c i
-  prefixNoCase i c q = map (\(w, o) -> (w, inflate o)) $ SM.prefixFindNoCaseWithKey q $ getPart c i
-  lookupCase i c q = map (\o -> (q, inflate o)) $ maybeToList (SM.lookup q $ getPart c i)
-  lookupNoCase i c q = map (\(w, o) -> (w, inflate o)) $ SM.lookupNoCase q $ getPart c i
+  allWords i c = map (\(w, o) -> (w, inflateOcc o)) $ SM.toList $ getPart c i
+  prefixCase i c q = map (\(w, o) -> (w, inflateOcc o)) $ SM.prefixFindWithKey q $ getPart c i
+  prefixNoCase i c q = map (\(w, o) -> (w, inflateOcc o)) $ SM.prefixFindNoCaseWithKey q $ getPart c i
+  lookupCase i c q = map (\o -> (q, inflateOcc o)) $ maybeToList (SM.lookup q $ getPart c i)
+  lookupNoCase i c q = map (\(w, o) -> (w, inflateOcc o)) $ SM.lookupNoCase q $ getPart c i
 
   mergeIndexes i1 i2 = InvIndex (mergeParts (indexParts i1) (indexParts i2))
   substractIndexes _ _ = undefined
@@ -101,7 +93,7 @@ instance HolIndex InvIndex where
     updatePart c p = SM.mapWithKey (\w o -> IM.foldWithKey (updateDocument c w) IM.empty o) p
     updateDocument c w d p r = IM.insertWith mergePositions (f c w d) p r
       where
-      mergePositions p1 p2 = DL.fromIntSet $ IS.union (DL.toIntSet p1) (DL.toIntSet p2)
+      mergePositions p1 p2 = deflatePos $ IS.union (inflatePos p1) (inflatePos p2)
 
 instance NFData InvIndex where
   rnf (InvIndex parts) = rnf parts
@@ -116,7 +108,7 @@ instance Binary InvIndex where
 
 -- | Create an index with just one word in one context.
 singleton :: Context -> String -> Occurrences -> InvIndex
-singleton c w o = InvIndex (M.singleton c (SM.singleton w (deflate o)))
+singleton c w o = InvIndex (M.singleton c (SM.singleton w (deflateOcc o)))
 
 -- | Merge two sets of index parts.
 mergeParts :: Parts -> Parts -> Parts
@@ -128,7 +120,7 @@ mergePart = SM.foldWithKey (mergeWords)
   where
   mergeWords w o p = SM.insertWith mergeDiffLists w o p
     where
-    mergeDiffLists o1 o2 = deflate $ mergeOccurrences (inflate o1) (inflate o2)
+    mergeDiffLists o1 o2 = deflateOcc $ mergeOccurrences (inflateOcc o1) (inflateOcc o2)
 
 -- | Allocates values from the first list to the buckets in the second list.
 allocate :: (a -> a -> a) -> [(Int, a)] -> [(Int, a)] -> [a]
@@ -142,14 +134,6 @@ allocate f (x:xs) (y:ys) = allocate f xs (L.sortBy (compare `on` fst) ((combine 
 createBuckets :: Int -> [(Int, InvIndex)]
 createBuckets n = (replicate n (0, emptyInverted))
   
--- | Convert the differences back to a set of integers.
-inflate :: IntMap DiffList -> Occurrences
-inflate = IM.map DL.toIntSet
-
--- | Save some memory on the positions by just saving their differences.
-deflate :: Occurrences -> IntMap DiffList
-deflate = IM.map DL.fromIntSet
-
 -- | Create an empty index.
 emptyInverted :: InvIndex
 emptyInverted = InvIndex M.empty
@@ -168,4 +152,4 @@ xpParts = xpWrap (M.fromList, M.toList) (xpList xpContext)
 xpPart :: PU Part
 xpPart = xpElem "index" (xpWrap (SM.fromList, SM.toList) (xpList xpWord))
   where
-  xpWord = xpElem "word" (xpPair (xpAttr "w" xpText) (xpWrap (deflate, inflate) xpOccurrences))
+  xpWord = xpElem "word" (xpPair (xpAttr "w" xpText) (xpWrap (deflateOcc, inflateOcc) xpOccurrences))
