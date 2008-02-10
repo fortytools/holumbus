@@ -373,3 +373,16 @@ stats t = (total, minimum ls, maximum ls , lowquart, upquart, median, mean)
             median = ls !! round (fromIntegral total * 0.5)
             mean = round ((fromIntegral (sum ls)) / (fromIntegral total))
             getLengths n = (length (key n)):(foldr (flip (++) . getLengths) [] (succ n))
+
+-- | /O(n+m)/ Left-biased union of two maps. It prefers the first map when duplicate keys are 
+-- encountered, i.e. ('union' == 'unionWith' 'const').
+union :: Trie a -> Trie a -> Trie a
+union = unionWith const
+
+-- | /O(n+m)/ Union with a combining function.
+unionWith :: (a -> a -> a) -> Trie a -> Trie a -> Trie a
+unionWith f t1 t2 = unionWithKey (\_ v1 v2 -> f v1 v2) t1 t2
+
+-- | /O(n+m)/ Union with a combining function, including the key.
+unionWithKey :: (Key -> a -> a -> a) -> Trie a -> Trie a -> Trie a
+unionWithKey f t1 t2 = foldWithKey (\k v t -> insertWithKey f k v t) t1 t2

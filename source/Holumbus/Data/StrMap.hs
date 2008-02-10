@@ -54,6 +54,11 @@ module Holumbus.Data.StrMap
   , fold
   , foldWithKey
 
+  -- * Combine
+  , union
+  , unionWith
+  , unionWithKey
+
   -- * Conversion
   , elems
   , toList
@@ -160,3 +165,12 @@ lower = encode . (L.map toLower) . decode
 
 findWithDefault :: a -> String -> StrMap a -> a
 findWithDefault v k m = T.findWithDefault v (encode k) m
+
+union :: StrMap a -> StrMap a -> StrMap a
+union = T.union
+
+unionWith :: (a -> a -> a) -> StrMap a -> StrMap a -> StrMap a
+unionWith = T.unionWith
+
+unionWithKey :: (String -> a -> a -> a) -> StrMap a -> StrMap a -> StrMap a
+unionWithKey f = T.unionWithKey (f. decode)
