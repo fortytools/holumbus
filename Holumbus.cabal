@@ -52,4 +52,4 @@ library
     Holumbus.Index.Common,
     Holumbus.Index.Documents
   hs-source-dirs: source
-  ghc-options: -Wall -O2 -threaded
+  ghc-options: -Wall
