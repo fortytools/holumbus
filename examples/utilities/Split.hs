@@ -92,17 +92,20 @@ isNumber :: Flag -> Bool
 isNumber (Number _) = True
 isNumber _ = False
 
--- | Decide between hybrid and inverted and then fire up!
+-- | Decide between split options and fire up!
 startup :: Flag -> Split -> Int -> IO ()
 startup (Index inp) Words n = do
+                              putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by words...")
                               idx <- (loadFromFile inp) :: IO InvIndex
                               return (rnf idx)
                               writeIndexes (splitByWords idx n) inp
 startup (Index inp) Documents n = do
+                                  putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by documents...")
                                   idx <- (loadFromFile inp) :: IO InvIndex
                                   return (rnf idx)
                                   writeIndexes (splitByDocuments idx n) inp
 startup (Index inp) Contexts n = do
+                                 putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by contexts...")
                                  idx <- (loadFromFile inp) :: IO InvIndex
                                  return (rnf idx)
                                  writeIndexes (splitByContexts idx n) inp
@@ -125,7 +128,7 @@ usage errs = if null errs then do
   header = "Split - Split an index into a number of (smaller) indexes.\n\n" ++
            "Usage: Split [OPTIONS] where SPLIT is one of the following:\n\n" ++
            "documents - Splitting by documents\n" ++
-           "words - Splitting by words\n\n" ++
+           "words - Splitting by words\n" ++
            "contexts - Splitting by contexts\n\n" ++
            "Avaliable options:" 
   use    = usageInfo header options
