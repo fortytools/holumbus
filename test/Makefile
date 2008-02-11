@@ -14,6 +14,7 @@ SOURCE		= ../source
 
 TESTDATA  = data
 OUTPUT    = output
+COVERAGE  = coverage
 
 PROG			= AllTests
 
@@ -28,8 +29,19 @@ test :
 	@echo "Running Holumbus tests..."
 	./$(PROG) -u -q
 
+hpc : clean
+	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
+	$(GHC) -fhpc --make -o $(PROG) $(PROG).hs
+	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
+	@echo "Gathering coverage..."
+	./$(PROG) -u -q
+	@echo "Generating markup..."
+	@hpc markup $(PROG)
+	[ -d $(COVERAGE) ] || mkdir $(COVERAGE)
+	@mv *.html $(COVERAGE)
+
 wc :
 	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`
 
 clean :
-	$(RM) $(PROG) *.hi *.o $(OUTPUT) $(TESTDATA)
+	$(RM) $(PROG) *.hi *.o .hpc $(OUTPUT) $(TESTDATA) $(COVERAGE)
