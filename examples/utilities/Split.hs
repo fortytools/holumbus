@@ -99,16 +99,19 @@ startup (Index inp) Words n = do
                               idx <- (loadFromFile inp) :: IO InvIndex
                               return (rnf idx)
                               writeIndexes (splitByWords idx n) inp
+                              putStrLn "Finished!"
 startup (Index inp) Documents n = do
                                   putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by documents...")
                                   idx <- (loadFromFile inp) :: IO InvIndex
                                   return (rnf idx)
                                   writeIndexes (splitByDocuments idx n) inp
+                                  putStrLn "Finished!"
 startup (Index inp) Contexts n = do
                                  putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by contexts...")
                                  idx <- (loadFromFile inp) :: IO InvIndex
                                  return (rnf idx)
                                  writeIndexes (splitByContexts idx n) inp
+                                 putStrLn "Finished!"
 startup _ _ _ = usage ["Internal error!\n"]
 
 writeIndexes :: [InvIndex] -> FilePath -> IO ()

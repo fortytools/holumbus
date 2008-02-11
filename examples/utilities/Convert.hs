@@ -92,25 +92,29 @@ isFormat _ = False
 -- | Decide between hybrid and inverted and then fire up!
 startup :: Flag -> Flag -> Format -> IO ()
 startup (Index inp) (Output out) Binary = do
+                                          putStrLn $ "Converting " ++ inp ++ " to binary..."
                                           idx <- (loadFromFile inp) :: IO InvIndex
                                           return (rnf idx)
                                           writeToBinFile out idx
-                                          exitWith ExitSuccess
+                                          putStrLn "Finished!"
 startup (Documents inp) (Output out) Binary = do
+                                              putStrLn $ "Converting " ++ inp ++ " to binary..."
                                               doc <- (loadFromFile inp) :: IO Documents
                                               return (rnf doc)
                                               writeToBinFile out doc
-                                              exitWith ExitSuccess
+                                              putStrLn "Finished!"
 startup (Index inp) (Output out) Xml = do
+                                       putStrLn $ "Converting " ++ inp ++ " to XML..."
                                        idx <- (loadFromFile inp) :: IO InvIndex
                                        return (rnf idx)
                                        writeToXmlFile out idx
-                                       exitWith ExitSuccess
+                                       putStrLn "Finished!"
 startup (Documents inp) (Output out) Xml = do
+                                           putStrLn $ "Converting " ++ inp ++ " to XML..."
                                            doc <- (loadFromFile inp) :: IO Documents
                                            return (rnf doc)
                                            writeToXmlFile out doc
-                                           exitWith ExitSuccess
+                                           putStrLn "Finished!"
 startup _ _ _ = do
                 usage ["Internal error!\n"]
 
