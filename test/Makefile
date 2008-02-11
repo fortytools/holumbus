@@ -16,32 +16,34 @@ TESTDATA  = data
 OUTPUT    = output
 COVERAGE  = coverage
 
+TESTS     = BinaryTest CrunchTest DocumentsTest FuzzyTest InvertedTest \
+            ParserTest PickleTest StrMapTest DiffListTest
+
 PROG			= AllTests
 
 all : build test
 
 build :
 	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
-	$(GHC) --make -o $(PROG) $(PROG).hs
+	$(GHC) -odir $(OUTPUT) -hidir $(OUTPUT) --make -o $(PROG) $(PROG).hs
 
 test :
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Running Holumbus tests..."
 	./$(PROG) -u -q
 
-hpc : clean
-	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
-	$(GHC) -fhpc --make -o $(PROG) $(PROG).hs
+hpc :
+	[ -d $(OUTPUT)_hpc ] || mkdir $(OUTPUT)_hpc
+	$(GHC) -odir $(OUTPUT)_hpc -hidir $(OUTPUT)_hpc -fhpc --make -o $(PROG)_hpc $(PROG).hs
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Gathering coverage..."
-	./$(PROG) -u -q
-	@echo "Generating markup..."
-	@hpc markup $(PROG)
+	./$(PROG)_hpc -u -q
 	[ -d $(COVERAGE) ] || mkdir $(COVERAGE)
-	@mv *.html $(COVERAGE)
+	@echo "Generating markup..."
+	@hpc markup --destdir=$(COVERAGE) $(TESTS:%=--exclude=%) --exclude=Main --exclude=SampleData $(PROG)_hpc
 
 wc :
 	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`
 
 clean :
-	$(RM) $(PROG) *.hi *.o .hpc $(OUTPUT) $(TESTDATA) $(COVERAGE)
+	$(RM) $(PROG) $(PROG)_hpc *.hi *.o *.tix .hpc $(OUTPUT) $(OUTPUT)_hpc $(TESTDATA) $(COVERAGE)
