@@ -6,7 +6,7 @@
 TEST_BASE			= test
 EXAMPLES_BASE	= examples
 
-all : configure build alltests allexamples doc
+all : configure build doc
 	
 configure :
 	@runhaskell Setup.hs configure
