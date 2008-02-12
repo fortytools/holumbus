@@ -50,6 +50,7 @@ library
     Holumbus.Index.Inverted,
     Holumbus.Index.Hybrid,
     Holumbus.Index.Common,
+    Holumbus.Index.Cache,
     Holumbus.Index.Documents
   hs-source-dirs: source
   ghc-options: -Wall
