@@ -2,10 +2,10 @@
 
 {- |
   Module     : Holumbus.Index.Common
-  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.2
@@ -32,6 +32,7 @@ module Holumbus.Index.Common
   , Positions
   , HolIndex (..)
   , HolDocuments (..)
+  , HolCache (..)
 
   -- * Indexes and Documents
   , mergeAll
@@ -40,6 +41,7 @@ module Holumbus.Index.Common
   , emptyOccurrences
   , sizeOccurrences
   , mergeOccurrences
+  , substractOccurrences
 
   -- * Pickling
   , xpDocument
@@ -144,9 +146,6 @@ class Binary d => HolDocuments d where
   -- | Lookup the id of a document by an URI.
   lookupByURI   :: Monad m => d -> URI -> m DocId
   
-  -- | Retrieves the full text of a document.
-  getDocText    :: d -> DocId -> Content
-
   -- | Merge two document tables. The returned tuple contains a list of id's from the second
   -- table that were replaced with new id's to avoid collisions.
   mergeDocs     :: d -> d -> ([(DocId, DocId)] ,d)
@@ -155,6 +154,12 @@ class Binary d => HolDocuments d where
 -- new table. If a document with the same URI is already present, its id will be returned 
 -- and the table is returned unchanged.
   insertDoc     :: d -> Document -> (DocId, d)
+
+class HolCache c where
+  -- | Retrieves the full text of a document.
+  getDocText    :: c -> DocId -> Content
+  -- | Store the full text of a document.
+  putDocText    :: c -> DocId -> Content -> c
 
 -- | The XML pickler for a single document.
 xpDocument :: PU Document
@@ -195,6 +200,14 @@ sizeOccurrences = IM.fold ((+) . IS.size) 0
 -- | Merge two occurrences.
 mergeOccurrences :: Occurrences -> Occurrences -> Occurrences
 mergeOccurrences = IM.unionWith (IS.union)
+
+-- | Substract occurrences from some other occurrences.
+substractOccurrences :: Occurrences -> Occurrences -> Occurrences
+substractOccurrences = IM.differenceWith substractPositions
+  where
+  substractPositions p1 p2 = if IS.null diffPos then Nothing else Just diffPos
+    where
+    diffPos = IS.difference p1 p2
 
 -- | Try to determine the file type automatically. The file is loaded as XML if the filename
 -- ends with \".xml\" and otherwise is loaded as binary file.

@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2007, 2008 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
   
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.2
@@ -67,7 +67,7 @@ instance HolIndex InvIndex where
   lookupNoCase i c q = map (\(w, o) -> (w, inflateOcc o)) $ SM.lookupNoCase q $ getPart c i
 
   mergeIndexes i1 i2 = InvIndex (mergeParts (indexParts i1) (indexParts i2))
-  substractIndexes _ _ = undefined
+  substractIndexes i1 i2 = InvIndex (substractParts (indexParts i1) (indexParts i2))
 
   insertOccurrences c w o i = mergeIndexes (singleton c w o) i
   deleteOccurrences c w o i = substractIndexes i (singleton c w o)
@@ -116,11 +116,23 @@ mergeParts = M.unionWith mergePart
 
 -- | Merge two index parts.
 mergePart :: Part -> Part -> Part
-mergePart = SM.foldWithKey (mergeWords)
+mergePart = SM.unionWith mergeDiffLists
   where
-  mergeWords w o p = SM.insertWith mergeDiffLists w o p
+  mergeDiffLists o1 o2 = deflateOcc $ mergeOccurrences (inflateOcc o1) (inflateOcc o2)
+
+-- | Substract a set of index parts from another.
+substractParts :: Parts -> Parts -> Parts
+substractParts = M.differenceWith substractPart
+
+-- | Substract one index part from another.
+substractPart :: Part -> Part -> Maybe Part
+substractPart p1 p2 = if SM.null diffPart then Nothing else Just diffPart
+  where
+  diffPart = SM.differenceWith substractDiffLists p1 p2
     where
-    mergeDiffLists o1 o2 = deflateOcc $ mergeOccurrences (inflateOcc o1) (inflateOcc o2)
+    substractDiffLists o1 o2 = if diffOcc == emptyOccurrences then Nothing else Just (deflateOcc diffOcc)
+      where
+      diffOcc = substractOccurrences (inflateOcc o1) (inflateOcc o2)
 
 -- | Allocates values from the first list to the buckets in the second list.
 allocate :: (a -> a -> a) -> [(Int, a)] -> [(Int, a)] -> [a]

@@ -2,10 +2,10 @@
 
 {- |
   Module     : Holumbus.Index.Documents
-  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007, 2008 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.2
@@ -54,8 +54,6 @@ instance HolDocuments Documents where
   
   lookupById = (flip IM.lookup) . idToDoc
   lookupByURI = (flip M.lookup) . docToId
-
-  getDocText _ _ = ""
 
   mergeDocs d1 d2 = (conflicts, Documents merged (idToDoc2docToId merged) lid)
     where
