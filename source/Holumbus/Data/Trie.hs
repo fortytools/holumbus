@@ -16,7 +16,8 @@
 
   Values can associated with an arbitrary byte key. Searching for keys is very fast, but
   the trie probably consumes more memory than "Data.Map". The main differences are the special
-  'prefixFind' functions, which can be used to perform prefix queries.
+  'prefixFind' functions, which can be used to perform prefix queries. The interface is
+  heavily borrowed from "Data.Map" and "Data.IntMap".
 
   Most other function names clash with "Prelude" names, therefore this module is usually
   imported @qualified@, e.g.
@@ -381,8 +382,36 @@ union = unionWith const
 
 -- | /O(n+m)/ Union with a combining function.
 unionWith :: (a -> a -> a) -> Trie a -> Trie a -> Trie a
-unionWith f t1 t2 = unionWithKey (\_ v1 v2 -> f v1 v2) t1 t2
+unionWith f = unionWithKey (const f)
 
 -- | /O(n+m)/ Union with a combining function, including the key.
 unionWithKey :: (Key -> a -> a -> a) -> Trie a -> Trie a -> Trie a
 unionWithKey f t1 t2 = foldWithKey (\k v t -> insertWithKey f k v t) t1 t2
+
+-- | (O(n+m)/ Difference between two tries (based on keys).
+difference :: Trie a -> Trie b -> Trie a
+difference = differenceWith (const (const Nothing))
+
+-- | (O(n+m)/ Difference with a combining function. If the combining function always returns
+-- 'Nothing', this is equal to proper set difference.
+differenceWith :: (a -> b -> Maybe a) -> Trie a -> Trie b -> Trie a
+differenceWith f = differenceWithKey (const f)
+
+-- | /O(n+m)/ Difference with a combining function, including the key. If two equal keys are
+-- encountered, the combining function is applied to the key and both values. If it returns
+-- 'Nothing', the element is discarded, if it returns 'Just' a value, the element is updated
+-- with the new value.
+differenceWithKey :: (Key -> a -> b -> Maybe a) -> Trie a -> Trie b -> Trie a
+differenceWithKey f t1 t2 = foldWithKey (\k v t -> updateWithKey (\k' v' -> f k' v' v) k t) t1 t2
+
+-- | /O(min(n,L))/ Updates a value at a given key (if that key is in the trie) or deletes the 
+-- element if the result of the updating function is 'Nothing'. If the key is not found, the trie
+-- is returned unchanged.
+update :: (a -> Maybe a) -> Key -> Trie a -> Trie a
+update f = updateWithKey (const f)
+
+-- | /O(min(n,L))/ Updates a value at a given key (if that key is in the trie) or deletes the 
+-- element if the result of the updating function is 'Nothing'. If the key is not found, the trie
+-- is returned unchanged.
+updateWithKey :: (Key -> a -> Maybe a) -> Key -> Trie a -> Trie a
+updateWithKey f k t = maybe t (\v -> maybe (delete k t) (flip (insert k) t) (f k v)) (lookup k t)

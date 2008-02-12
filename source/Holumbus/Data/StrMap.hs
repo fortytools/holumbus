@@ -47,6 +47,8 @@ module Holumbus.Data.StrMap
   , insertWith
   , insertWithKey
   , delete
+  , update
+  , updateWithKey
 
   -- * Traversal
   , map
@@ -58,6 +60,9 @@ module Holumbus.Data.StrMap
   , union
   , unionWith
   , unionWithKey
+  , difference
+  , differenceWith
+  , differenceWithKey
 
   -- * Conversion
   , elems
@@ -112,8 +117,14 @@ insertWith f k v m = T.insertWith f (encode k) v m
 insert :: String -> a -> StrMap a -> StrMap a
 insert k v m = T.insert (encode k) v m
 
-delete :: String -> StrMap a -> Trie a
+delete :: String -> StrMap a -> StrMap a
 delete k m = T.delete (encode k) m
+
+update :: (a -> Maybe a) -> String -> StrMap a -> StrMap a
+update f k m = T.update f (encode k) m
+
+updateWithKey :: (String -> a -> Maybe a) -> String -> StrMap a -> StrMap a
+updateWithKey f k m = T.updateWithKey (f . decode) (encode k) m
 
 elems :: StrMap a -> [a]
 elems = T.elems
@@ -173,4 +184,13 @@ unionWith :: (a -> a -> a) -> StrMap a -> StrMap a -> StrMap a
 unionWith = T.unionWith
 
 unionWithKey :: (String -> a -> a -> a) -> StrMap a -> StrMap a -> StrMap a
-unionWithKey f = T.unionWithKey (f. decode)
+unionWithKey f = T.unionWithKey (f . decode)
+
+difference :: StrMap a -> StrMap b -> StrMap a
+difference = T.difference
+
+differenceWith :: (a -> b -> Maybe a) -> StrMap a -> StrMap b -> StrMap a
+differenceWith = T.differenceWith
+
+differenceWithKey :: (String -> a -> b -> Maybe a) -> StrMap a -> StrMap b -> StrMap a
+differenceWithKey f = T.differenceWithKey (f . decode)
