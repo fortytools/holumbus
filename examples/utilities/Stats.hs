@@ -1,16 +1,16 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Words
+  Module     : Stats
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
 
-  Outputs all unique words of an index.
+  Outputs some statistics about an index and its documents.
 
 -}
 
