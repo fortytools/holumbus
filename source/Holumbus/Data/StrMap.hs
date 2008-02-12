@@ -5,10 +5,10 @@
   Copyright  : Copyright (C) 2007 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.5
+  Version    : 0.6
 
   An efficient implementation of maps from string keys to arbitrary values, 
   used for the Holumbus indexes.
