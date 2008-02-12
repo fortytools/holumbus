@@ -34,6 +34,7 @@ import System.IO
 import System.IO.Unsafe
 
 import Control.Exception
+import Control.Monad
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
@@ -45,7 +46,7 @@ data Cache = Cache FilePath deriving (Show, Eq)
 
 instance HolCache Cache where
   getDocText (Cache s) c d = 
-    unsafePerformIO (handle (\_ -> return "") (readFile (s ++ "/" ++ getName c d)))
+    unsafePerformIO (handle (\_ -> return Nothing) (liftM Just $ readFile (s ++ "/" ++ getName c d)))
 
   putDocText (Cache s) c d t = 
     unsafePerformIO (handle (\_ -> return ()) (writeFile (s ++ "/" ++ getName c d) t)) `seq` Cache s   

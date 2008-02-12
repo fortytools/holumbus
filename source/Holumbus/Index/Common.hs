@@ -157,7 +157,7 @@ class Binary d => HolDocuments d where
 
 class HolCache c where
   -- | Retrieves the full text of a document for a given context.
-  getDocText  :: c -> Context -> DocId -> Content
+  getDocText  :: c -> Context -> DocId -> Maybe Content
   -- | Store the full text of a document for a given context.
   putDocText  :: c -> Context -> DocId -> Content -> c
 
