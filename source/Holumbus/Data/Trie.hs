@@ -388,11 +388,11 @@ unionWith f = unionWithKey (const f)
 unionWithKey :: (Key -> a -> a -> a) -> Trie a -> Trie a -> Trie a
 unionWithKey f t1 t2 = foldWithKey (\k v t -> insertWithKey f k v t) t1 t2
 
--- | (O(n+m)/ Difference between two tries (based on keys).
+-- | /(O(n+m)/ Difference between two tries (based on keys).
 difference :: Trie a -> Trie b -> Trie a
 difference = differenceWith (const (const Nothing))
 
--- | (O(n+m)/ Difference with a combining function. If the combining function always returns
+-- | /(O(n+m)/ Difference with a combining function. If the combining function always returns
 -- 'Nothing', this is equal to proper set difference.
 differenceWith :: (a -> b -> Maybe a) -> Trie a -> Trie b -> Trie a
 differenceWith f = differenceWithKey (const f)
