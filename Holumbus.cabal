@@ -30,7 +30,6 @@ library
                , binary
                , bzlib
   exposed-modules:
-    Holumbus.Control.Sequence,
     Holumbus.Control.Registry,
     Holumbus.Data.Trie,
     Holumbus.Data.StrMap,
