@@ -361,20 +361,6 @@ toMap = foldWithKey M.insert M.empty
 fromMap :: M.Map Key a -> Trie a
 fromMap = M.foldWithKey insert empty
 
--- | /O(n)/ Calculate some statistics about the Trie for debugging purposes.
--- The returned numbers, in order: minimum key length, maximum key length, the
--- median and the arithmetic mean of the key lenghts.
-stats :: Trie a -> (Int, Int, Int, Int, Int, Int, Int)
-stats t = (total, minimum ls, maximum ls , lowquart, upquart, median, mean)
-          where
-            ls = L.sort (getLengths t)
-            total = length ls
-            lowquart = ls !! round (fromIntegral total * 0.25)
-            upquart = ls !! round (fromIntegral total * 0.75)
-            median = ls !! round (fromIntegral total * 0.5)
-            mean = round ((fromIntegral (sum ls)) / (fromIntegral total))
-            getLengths n = (length (key n)):(foldr (flip (++) . getLengths) [] (succ n))
-
 -- | /O(n+m)/ Left-biased union of two maps. It prefers the first map when duplicate keys are 
 -- encountered, i.e. ('union' == 'unionWith' 'const').
 union :: Trie a -> Trie a -> Trie a
@@ -415,3 +401,8 @@ update f = updateWithKey (const f)
 -- is returned unchanged.
 updateWithKey :: (Key -> a -> Maybe a) -> Key -> Trie a -> Trie a
 updateWithKey f k t = maybe t (\v -> maybe (delete k t) (flip (insert k) t) (f k v)) (lookup k t)
+
+-- | /O(n)/ Returns the lengths of all keys (including keys of intermediate nodes). For 
+-- debugging purposes.
+lengths :: Trie a -> [Int]
+lengths t = (length (key t)):(foldr (flip (++) . lengths) [] (succ t))

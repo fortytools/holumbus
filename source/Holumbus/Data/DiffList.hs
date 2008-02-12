@@ -5,13 +5,14 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
   
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
   
   Providing space efficient difference encoding for lists of integers. For
-  convenience, conversion functions for "Data.IntSet" are provided.
+  convenience, conversion functions for "Data.IntSet" are provided. Only works
+  for non-negative integers.
 
 -}
 
@@ -27,6 +28,9 @@ module Holumbus.Data.DiffList
   , toIntSet
   , fromList
   , toList
+  
+  -- * Debug
+  , diffs
   )
 where
 
@@ -79,3 +83,7 @@ decode = decode' 0
   decode' l (x:xs) = n:(decode' n xs)
     where
     n = (fromIntegral x) + l 
+
+-- | Returns all differences. Used for debugging purposes.
+diffs :: DiffList -> [Word32]
+diffs = decrunch32

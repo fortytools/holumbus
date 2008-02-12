@@ -70,6 +70,9 @@ module Holumbus.Data.StrMap
   , fromList
   , toMap
   , fromMap
+  
+  -- * Debug
+  , lengths
   )
 where
 
@@ -194,3 +197,6 @@ differenceWith = T.differenceWith
 
 differenceWithKey :: (String -> a -> b -> Maybe a) -> StrMap a -> StrMap b -> StrMap a
 differenceWithKey f = T.differenceWithKey (f . decode)
+
+lengths :: StrMap a -> [Int]
+lengths = T.lengths
