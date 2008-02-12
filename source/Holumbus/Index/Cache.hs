@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
@@ -35,9 +35,6 @@ import System.IO.Unsafe
 
 import Control.Exception
 import Control.Monad
-
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
 
 import Holumbus.Index.Common
 
