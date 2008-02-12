@@ -19,6 +19,7 @@
 module Main where
 
 import System
+import System.IO
 import Test.HUnit
 import Test.QuickCheck.Batch
 
@@ -60,8 +61,7 @@ testOptions = TestOptions 100 300 False
 runUnitTests :: IO Bool
 runUnitTests = do
                putStrLn "=== Running Unit tests ==="
-               c <- runTestTT allTests
-               putStrLn $ show c
+               (c, _) <- runTestText (putTextToHandle stderr False) allTests
                let errs = errors c
                    fails = failures c
                return (errs == 0 && fails == 0)
