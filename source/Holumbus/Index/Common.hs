@@ -156,10 +156,10 @@ class Binary d => HolDocuments d where
   insertDoc     :: d -> Document -> (DocId, d)
 
 class HolCache c where
-  -- | Retrieves the full text of a document.
-  getDocText    :: c -> DocId -> Content
-  -- | Store the full text of a document.
-  putDocText    :: c -> DocId -> Content -> c
+  -- | Retrieves the full text of a document for a given context.
+  getDocText  :: c -> Context -> DocId -> Content
+  -- | Store the full text of a document for a given context.
+  putDocText  :: c -> Context -> DocId -> Content -> c
 
 -- | The XML pickler for a single document.
 xpDocument :: PU Document
