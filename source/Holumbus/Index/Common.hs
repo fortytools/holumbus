@@ -8,7 +8,7 @@
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
 
   Common data types shared by all index types and a unified interface for
   all different index types.
@@ -30,12 +30,15 @@ module Holumbus.Index.Common
   , Word
   , Occurrences
   , Positions
+  , RawResult
   , HolIndex (..)
   , HolDocuments (..)
   , HolCache (..)
 
   -- * Indexes and Documents
   , mergeAll
+  , resultByDocument
+  , resultByWord
 
   -- * Occurrences
   , emptyOccurrences
@@ -70,6 +73,9 @@ import qualified Data.Binary as B
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
+import Data.Map (Map)
+import qualified Data.Map as M
+
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
@@ -97,6 +103,9 @@ type Occurrences   = IntMap Positions
 -- | The positions of the word in the document.
 type Positions     = IntSet
 
+-- | The raw result returned when searching the index.
+type RawResult     = [(String, Occurrences)]
+
 -- | This class provides a generic interface to different types of index implementations.
 class Binary i => HolIndex i where
   -- | Returns the number of unique words in the index.
@@ -105,15 +114,15 @@ class Binary i => HolIndex i where
   contexts      :: i -> [Context]
 
   -- | Returns the occurrences for every word. A potentially expensive operation.
-  allWords      :: i -> Context -> [(String, Occurrences)]
+  allWords      :: i -> Context -> RawResult
   -- | Searches for words beginning with the prefix in a given context (case-sensitive).
-  prefixCase    :: i -> Context -> String -> [(String, Occurrences)]
+  prefixCase    :: i -> Context -> String -> RawResult
   -- | Searches for words beginning with the prefix in a given context (case-insensitive).
-  prefixNoCase  :: i -> Context -> String -> [(String, Occurrences)]
+  prefixNoCase  :: i -> Context -> String -> RawResult
   -- | Searches for and exact word in a given context (case-sensitive).
-  lookupCase    :: i -> Context -> String -> [(String, Occurrences)]
+  lookupCase    :: i -> Context -> String -> RawResult
   -- | Searches for and exact word in a given context (case-insensitive).
-  lookupNoCase  :: i -> Context -> String -> [(String, Occurrences)]
+  lookupNoCase  :: i -> Context -> String -> RawResult
   
   -- | Insert occurrences.
   insertOccurrences :: Context -> String -> Occurrences -> i -> i
@@ -208,6 +217,17 @@ substractOccurrences = IM.differenceWith substractPositions
   substractPositions p1 p2 = if IS.null diffPos then Nothing else Just diffPos
     where
     diffPos = IS.difference p1 p2
+
+-- | Transform the raw result into a tree structure ordered by word.
+resultByWord :: Context -> RawResult -> Map Word (Map Context Occurrences)
+resultByWord c = M.fromList . map (\(w, o) -> (w, M.singleton c o))
+
+-- | Transform the raw result into a tree structure ordered by document.
+resultByDocument :: Context -> RawResult -> IntMap (Map Context (Map Word Positions))
+resultByDocument c os = IM.map transform $ IM.unionsWith (flip $ (:) . head) (map insertWords os)
+  where
+  insertWords (w, o) = IM.map (\p -> [(w, p)]) o   
+  transform w = M.singleton c (M.fromList w)
 
 -- | Try to determine the file type automatically. The file is loaded as XML if the filename
 -- ends with \".xml\" and otherwise is loaded as binary file.
