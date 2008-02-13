@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.3
@@ -36,13 +36,14 @@ import Data.Maybe
 
 import Control.Parallel.Strategies
 
+import qualified Data.List as L
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
 import Holumbus.Index.Common (HolIndex, HolDocuments, Context, Occurrences, Positions)
 import qualified Holumbus.Index.Common as IDX
 
-import Holumbus.Query.Language
+import Holumbus.Query.Language.Grammar
 
 import Holumbus.Query.Fuzzy (FuzzyScore, FuzzyConfig)
 import qualified Holumbus.Query.Fuzzy as F
@@ -80,7 +81,7 @@ initState cfg i = ProcessState cfg (IDX.contexts i) i
 
 -- | Try to evaluate the query for all contexts in parallel.
 forAllContexts :: (Context -> Intermediate) -> [Context] -> Intermediate
-forAllContexts f cs = foldr I.union I.emptyIntermediate $ parMap rnf f cs
+forAllContexts f cs = L.foldl' I.union I.emptyIntermediate $ parMap rnf f cs
 
 -- | Just everything.
 allDocuments :: HolIndex i => ProcessState i -> Intermediate

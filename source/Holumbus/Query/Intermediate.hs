@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.2
@@ -44,6 +44,8 @@ import Prelude hiding (null)
 
 import Data.Maybe
 
+import qualified Data.List as L
+
 import Data.Map (Map)
 import qualified Data.Map as M
 
@@ -75,7 +77,7 @@ sizeIntermediate = IM.size
 
 -- | Merges a bunch of intermediate results into one intermediate result by unioning them.
 unions :: [Intermediate] -> Intermediate
-unions = foldr union emptyIntermediate
+unions = L.foldl' union emptyIntermediate
 
 -- | Intersect two sets of intermediate results.
 intersection :: Intermediate -> Intermediate -> Intermediate
@@ -90,8 +92,9 @@ difference :: Intermediate -> Intermediate -> Intermediate
 difference = IM.difference
 
 -- | Create an intermediate result from a list of words and their occurrences.
-fromList :: Word -> Context -> [(String, Occurrences)] -> Intermediate
--- Beware! This is extremly optimized and will not work for merging arbitrary intermedite results!
+fromList :: Word -> Context -> RawResult -> Intermediate
+-- Beware! This is extremly optimized and will not work for merging arbitrary intermediate results!
+-- Based on resultByDocument from Holumbus.Index.Common
 fromList t c os = IM.map transform $ IM.unionsWith (flip $ (:) . head) (map insertWords os)
   where
   insertWords (w, o) = IM.map (\p -> [(w, (WordInfo [t] 0.0 , p))]) o   
