@@ -159,9 +159,9 @@ class Binary d => HolDocuments d where
   -- table that were replaced with new id's to avoid collisions.
   mergeDocs     :: d -> d -> ([(DocId, DocId)] ,d)
 
--- | Insert a document into the table. Returns a tuple of the id for that document and the 
--- new table. If a document with the same URI is already present, its id will be returned 
--- and the table is returned unchanged.
+  -- | Insert a document into the table. Returns a tuple of the id for that document and the 
+  -- new table. If a document with the same URI is already present, its id will be returned 
+  -- and the table is returned unchanged.
   insertDoc     :: d -> Document -> (DocId, d)
 
   -- | Removes the document with the specified id from the table.
