@@ -72,6 +72,10 @@ instance HolDocuments Documents where
       newDocToId = M.insert u newId (docToId ds)
       newId = (lastDocId ds) + 1
 
+  removeById ds d = maybe ds reallyRemove (lookupById ds d)
+    where
+    reallyRemove (_, u) = Documents (IM.delete d (idToDoc ds)) (M.delete u (docToId ds)) (lastDocId ds)
+
 instance NFData Documents where
   rnf (Documents i2d d2i lid) = rnf i2d `seq` rnf d2i `seq` rnf lid
 
