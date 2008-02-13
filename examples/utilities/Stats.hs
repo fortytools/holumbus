@@ -96,8 +96,8 @@ printStats i d = do
                  where
                   noUniqueDocs = sizeDocs d
                   noUniqueWords = sizeWords i
-                  noDocs = foldr (\c r -> foldr (\(_, o) n -> n + IM.size o) r (allWords i c)) 0 (contexts i)
-                  noWords = foldr (\c r -> foldr (\(_, o) n -> IM.fold ((+) . IS.size) n o) r (allWords i c)) 0 (contexts i)
+                  noDocs = L.foldl' (\r c -> L.foldl' (\n (_, o) -> n + IM.size o) r (allWords i c)) 0 (contexts i)
+                  noWords = L.foldl' (\r c -> L.foldl' (\n (_, o) -> IM.fold ((+) . IS.size) n o) r (allWords i c)) 0 (contexts i)
 
 printContextStats :: HolIndex i => [Context] -> i -> IO ()
 printContextStats [] _ = return ()
@@ -109,7 +109,7 @@ printContextStats (c:cs) i = do
                              printContextStats cs i
                              where
                                noUniqueWords = length $ allWords i c
-                               noWords = foldr (\(_, o) r -> IM.fold ((+) . IS.size) r o) 0 (allWords i c)
+                               noWords = L.foldl' (\r (_, o) -> IM.fold ((+) . IS.size) r o) 0 (allWords i c)
 
 usage :: [String] -> IO a
 usage errs = if null errs then do
