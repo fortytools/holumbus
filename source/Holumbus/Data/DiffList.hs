@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
   
-  Providing space efficient difference encoding for lists of integers. For
+  Providing space efficient difference encoding for lists of integers. The encoded
+  lists are compressed using "Holumbus.Data.Crunch" to save even more space. For
   convenience, conversion functions for "Data.IntSet" are provided. Only works
   for non-negative integers.
 

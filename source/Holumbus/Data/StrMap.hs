@@ -13,9 +13,10 @@
   An efficient implementation of maps from string keys to arbitrary values, 
   used for the Holumbus indexes.
 
-  The implementation uses UTF-8 encoding for saving space and is based upon 
-  the arbitrary byte trie in "Holumbus.Data.Trie". See this module for
-  extensive documentation on most of the functions.
+  The implementation uses UTF-8 encoding for saving space on large text
+  quantaties of latin characters and is based upon the arbitrary byte trie in 
+  "Holumbus.Data.Trie". See this module for extensive documentation on most 
+  of the functions.
 -}
 
 -- ----------------------------------------------------------------------------

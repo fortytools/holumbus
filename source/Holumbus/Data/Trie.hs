@@ -37,14 +37,75 @@
   complexity of /O(max(L,R))/. This means that the operation can become linear with
   /R/, the number of elements found for the prefix, with a minimum of /L/.
   
-  The module is completely exported for ultimate flexibility. Derived modules should only
-  export a restricted interface (as shown in "Holumbus.Data.StrMap").
+  The module exports include the internal data types, their constructors and access
+  functions for ultimate flexibility. Derived modules should not export these 
+  (as shown in "Holumbus.Data.StrMap") to provide only a restricted interface.
   
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Data.Trie where
+module Holumbus.Data.Trie 
+  (
+  -- * Trie types
+  Trie (..)
+  , Key
+  , PackedKey
+
+  -- * Operators
+  , (!)
+
+  -- * Query
+  , key
+  , succ
+  , value
+  , valueWithDefault
+  , null
+  , size
+  , member
+  , lookup
+  , lookupBy
+  , findWithDefault  
+  , prefixFind
+  , prefixFindWithKey
+  , prefixFindBy
+  , prefixFindWithKeyBy
+
+  -- * Construction
+  , empty
+  , singleton
+  , insert
+  , insertWith
+  , insertWithKey
+  , delete
+  , update
+  , updateWithKey
+
+  -- * Traversal
+  , map
+  , mapWithKey
+  , fold
+  , foldWithKey
+
+  -- * Combine
+  , union
+  , unionWith
+  , unionWithKey
+  , difference
+  , differenceWith
+  , differenceWithKey
+
+  -- * Conversion
+  , elems
+  , toList
+  , fromList
+  , toMap
+  , fromMap
+  
+  -- * Debug
+  , lengths
+  )
+where
 
 import Prelude hiding (succ, lookup, map, null)
 

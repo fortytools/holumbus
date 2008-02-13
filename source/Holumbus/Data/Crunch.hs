@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
   
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
