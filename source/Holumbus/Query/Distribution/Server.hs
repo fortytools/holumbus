@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
@@ -53,7 +53,7 @@ import qualified Data.List as L
 import Holumbus.Index.Common
 import Holumbus.Query.Distribution.Protocol
 import Holumbus.Query.Intermediate hiding (null)
-import Holumbus.Query.Language
+import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Processor hiding (processQuery)
 
 -- | General information about a request.
@@ -133,15 +133,15 @@ dispatchRequest i hdl =
   handle (\_ -> processFailure hdl "UNKNOWN" "processing failure") $ do   
     -- Read the header and extract the command.
     hdr <- liftM words $ hGetLine hdl
-    cmd <- return (head hdr)
     -- Redirect processing depending on the command.
-    res <- case cmd of
-             "QUERY"   -> processQuery i hdl (tail hdr)
-             "ADD"     -> processAdd i hdl (tail hdr)
-             "REMOVE"  -> processRemove i hdl (tail hdr)
-             "REPLACE" -> processReplace i hdl (tail hdr)
-             _         -> processFailure hdl cmd "unknown command"   
+    res <- dispatch (head hdr) (tail hdr)
     return res
+      where
+      dispatch cmd hdr | cmd == queryCmd   = processQuery i hdl hdr
+                       | cmd == addCmd     = processAdd i hdl hdr
+                       | cmd == removeCmd  = processRemove i hdl hdr
+                       | cmd == replaceCmd = processReplace i hdl hdr
+                       | otherwise         = processFailure hdl cmd "unknown command"   
 
 -- | Send a failure response.
 processFailure :: Handle -> String -> String -> IO SpecificLogData

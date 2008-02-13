@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
@@ -54,7 +54,7 @@ import Holumbus.Index.Common
 import Holumbus.Query.Distribution.Protocol
 import Holumbus.Query.Intermediate hiding (null)
 import Holumbus.Query.Result (Result)
-import Holumbus.Query.Language
+import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Processor hiding (processQuery)
 import Holumbus.Query.Fuzzy
 
@@ -88,7 +88,7 @@ updateAdd :: HolIndex i => [(Server, i)] -> IO [(Server, Maybe String)]
 updateAdd srv = 
   do
   res <- newMVar []
-  workers <- startWorkers (sendRequest (sendUpdate res "ADD")) input
+  workers <- startWorkers (sendRequest (sendUpdate res addCmd)) input
   waitForWorkers workers
   takeMVar res
     where
@@ -101,7 +101,7 @@ updateRemove :: HolIndex i => [(Server, i)] -> IO [(Server, Maybe String)]
 updateRemove srv = 
   do
   res <- newMVar []
-  workers <- startWorkers (sendRequest (sendUpdate res "REMOVE")) input
+  workers <- startWorkers (sendRequest (sendUpdate res removeCmd)) input
   waitForWorkers workers
   takeMVar res
     where
@@ -114,7 +114,7 @@ updateReplace :: HolIndex i => [(Server, i)] -> IO [(Server, Maybe String)]
 updateReplace srv = 
   do
   res <- newMVar []
-  workers <- startWorkers (sendRequest (sendUpdate res "REPLACE")) input
+  workers <- startWorkers (sendRequest (sendUpdate res replaceCmd)) input
   waitForWorkers workers
   takeMVar res
     where
@@ -135,7 +135,7 @@ sendQuery i r@(_, c, _) hdl =
   do
   enc <- return (encode r)
   -- Tell the server the type of the request and the length of the ByteString to expect.
-  hPutStrLn hdl ("QUERY " ++ (show $ B.length enc))
+  hPutStrLn hdl (queryCmd ++ " " ++ (show $ B.length enc))
   B.hPut hdl enc
   -- Get the length of the ByteString to expect.
   rsp <- getResponse hdl
