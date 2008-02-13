@@ -31,8 +31,8 @@ import Data.Char
 
 import Control.Monad
 
-import qualified Holumbus.Query.Parser as P
-import Holumbus.Query.Language
+import qualified Holumbus.Query.Language.Parser as P
+import Holumbus.Query.Language.Grammar
 
 import Test.HUnit
 import Test.QuickCheck

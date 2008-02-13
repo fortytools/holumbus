@@ -47,10 +47,10 @@ library
     Holumbus.Query.Distribution.Client,
     Holumbus.Query.Distribution.Protocol,
     Holumbus.Query.Distribution.Server,
+    Holumbus.Query.Language.Parser,
+    Holumbus.Query.Language.Grammar,
     Holumbus.Query.Fuzzy,
     Holumbus.Query.Intermediate,
-    Holumbus.Query.Language,
-    Holumbus.Query.Parser,
     Holumbus.Query.Processor,
     Holumbus.Query.Ranking,
     Holumbus.Query.Result

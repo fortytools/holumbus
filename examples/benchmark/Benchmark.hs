@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.3
@@ -28,6 +28,7 @@ import System.CPUTime
 
 import Text.Printf
 
+import Control.Monad
 import Control.Parallel.Strategies
 
 import qualified Data.List as L
@@ -35,11 +36,11 @@ import qualified Data.List as L
 import Holumbus.Index.Inverted (InvIndex)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
-import Holumbus.Query.Language
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
 import Holumbus.Query.Result
+import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Distribution.Protocol
 import Holumbus.Query.Distribution.Client
 
@@ -144,7 +145,7 @@ processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True
 
 -- | Perform a query on a local index.
 localQuery :: (HolIndex i, HolDocuments d) => i -> d -> Query -> IO Result
-localQuery i d q = return (processQuery processCfg i d q)
+localQuery i d q = return $! processQuery processCfg i d q
 
 -- | Perform a query on a remote index.
 distributedQuery :: HolDocuments d => d -> [Server] -> Bool -> Query -> IO Result
@@ -229,14 +230,15 @@ runner _ [] a = return a
 runner f (q:qs) a = 
   do
   l <- runQuery f q
-  runner f qs (a + fromIntegral l)
+  runner f qs $! (a + fromIntegral l)
                
 runQuery :: (Query -> IO Result) -> Query -> IO (Int)
 runQuery f q = 
   do
-  r <- f q -- This is where the magic happens!
-  rr <- return (rank rankCfg r)
-  return $! sizeDocHits rr + sizeWordHits rr
+  r <- liftM (rank rankCfg) $! f q -- This is where the magic happens!
+  ds <- return $! sizeDocHits r
+  ws <- return $! sizeWordHits r
+  return $! (ds + ws)
     where
     rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
       where

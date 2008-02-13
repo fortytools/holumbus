@@ -36,8 +36,8 @@ import Holumbus.Index.Inverted (InvIndex)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
-import Holumbus.Query.Language
-import Holumbus.Query.Parser
+import Holumbus.Query.Language.Grammar
+import Holumbus.Query.Language.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
 import Holumbus.Query.Ranking

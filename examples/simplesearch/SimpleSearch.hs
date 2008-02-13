@@ -39,18 +39,19 @@ import Data.Function
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
+import qualified Data.IntSet as IS
 
 import Text.XML.HXT.DOM.Unicode
 
 import Holumbus.Index.Inverted (InvIndex)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
-import Holumbus.Query.Language
-import Holumbus.Query.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
 import Holumbus.Query.Result
+import Holumbus.Query.Language.Grammar
+import Holumbus.Query.Language.Parser
 import Holumbus.Query.Distribution.Protocol
 import Holumbus.Query.Distribution.Client
 
@@ -114,6 +115,12 @@ fromServer :: Flag -> Server
 fromServer (Server s) = s
 fromServer _ = ""
 
+-- | Walk through the whole index to remove laziness.
+walkIndex :: HolIndex i => i -> Integer
+walkIndex i = L.foldl' (\r c -> L.foldl' sumPositions r (allWords i c)) 0 (contexts i)
+  where
+  sumPositions r (_, o) = IM.fold (\d r' -> IS.fold (\p r'' -> r'' + fromIntegral p) r' d) r o
+  
 -- | Startup using local index.
 startupLocal :: Bool -> Flag -> Flag -> IO ()
 startupLocal v (Index idxFile) (Documents docFile) = 
@@ -121,6 +128,7 @@ startupLocal v (Index idxFile) (Documents docFile) =
   putStrLn "Loading index..."
   idx <- (loadFromFile idxFile) :: IO InvIndex
   return (rnf idx)
+  if v  then putStrLn ("Collected position total of " ++ (show $ walkIndex idx)) else return ()
   putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."
   doc <- (loadFromFile docFile) :: IO Documents
