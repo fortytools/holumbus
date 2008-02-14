@@ -32,7 +32,7 @@ import Text.XML.HXT.Arrow
 import Data.Function
 import Data.Maybe
 import Data.Binary
-import qualified Data.List as L
+import Data.List
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -72,21 +72,28 @@ instance HolIndex InvIndex where
   insertOccurrences c w o i = mergeIndexes (singleton c w o) i
   deleteOccurrences c w o i = substractIndexes i (singleton c w o)
 
-  splitByContexts (InvIndex parts) n = allocate mergeIndexes stack buckets 
+  splitByContexts (InvIndex parts) = splitInternal (map annotate $ M.toList parts)
     where
-    buckets = zipWith const (createBuckets n) stack
-    stack = reverse (L.sortBy (compare `on` fst) (map annotate $ M.toList parts))
-      where
-      annotate (c, p) = let i = InvIndex (M.singleton c p) in (sizeWords i, i)
+    annotate (c, p) = let i = InvIndex (M.singleton c p) in (sizeWords i, i)
 
-  splitByDocuments _ _ = undefined
-
-  splitByWords i n = allocate mergeIndexes stack buckets
+  splitByDocuments i = splitInternal (map convert $ IM.toList $ IM.unionsWith unionDocs docResults)
     where
-    buckets = zipWith const (createBuckets n) stack
-    stack = reverse (L.sortBy (compare `on` fst) (map annotate $ foldr (\c r -> r ++ map (\(w, o) -> (w, c, o)) (allWords i c)) [] (contexts i)))
+    unionDocs = M.unionWith (M.unionWith IS.union)
+    docResults = map (\c -> resultByDocument c (allWords i c)) (contexts i)
+    convert (d, cs) = foldl' makeIndex (0, emptyInverted) (M.toList cs)
       where
-      annotate (w, c, o) = (sizeOccurrences o, singleton c w o)
+      makeIndex r (c, ws) = foldl' makeOcc r (M.toList ws)
+        where
+        makeOcc (rs, ri) (w, p) = (IS.size p + rs , insertOccurrences c w (IM.singleton d p) ri)
+
+  splitByWords i = splitInternal indexes
+    where
+    indexes = map convert $ M.toList $ M.unionsWith (M.unionWith mergeOccurrences) wordResults
+      where
+      wordResults = map (\c -> resultByWord c (allWords i c)) (contexts i)
+      convert (w, cs) = foldl' makeIndex (0, emptyInverted) (M.toList cs)
+        where
+        makeIndex (rs, ri) (c, o) = (rs + sizeOccurrences o, insertOccurrences c w o ri)
 
   updateDocuments f (InvIndex parts) = InvIndex (M.mapWithKey updatePart parts)
     where
@@ -134,11 +141,18 @@ substractPart p1 p2 = if SM.null diffPart then Nothing else Just diffPart
       where
       diffOcc = substractOccurrences (inflateOcc o1) (inflateOcc o2)
 
+-- | Internal split function used by the split functions from the HolIndex interface (above).
+splitInternal :: [(Int, InvIndex)] -> Int -> [InvIndex]
+splitInternal inp n = allocate mergeIndexes stack buckets
+  where
+  buckets = zipWith const (createBuckets n) stack
+  stack = reverse (sortBy (compare `on` fst) inp)
+
 -- | Allocates values from the first list to the buckets in the second list.
 allocate :: (a -> a -> a) -> [(Int, a)] -> [(Int, a)] -> [a]
 allocate _ _ [] = []
 allocate _ [] ys = map snd ys
-allocate f (x:xs) (y:ys) = allocate f xs (L.sortBy (compare `on` fst) ((combine x y):ys))
+allocate f (x:xs) (y:ys) = allocate f xs (sortBy (compare `on` fst) ((combine x y):ys))
   where
   combine (s1, v1) (s2, v2) = (s1 + s2, f v1 v2)
 
