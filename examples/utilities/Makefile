@@ -2,7 +2,7 @@
 
 HOME	= ../..
 
-GHC_FLAGS	= -Wall -O2 -threaded
+GHC_FLAGS	= -Wall -O2 
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
@@ -14,10 +14,16 @@ OUTPUT    = output
 
 all : $(PROGS)
 
-% : %.hs
+prof : $(PROGS:%=%_p)
+
+%_p :%.hs
 	[ -d $(OUTPUT)/$@ ] || mkdir -p $(OUTPUT)/$@
-	$(GHC) --make -o $@ $< -hidir $(OUTPUT)/$@ -odir $(OUTPUT)/$@
+	$(GHC) -prof -auto-all -ignore-package Holumbus -i../../source/ --make -o $@ $< -hidir $(OUTPUT)/$@ -odir $(OUTPUT)/$@
+
+% : %.hs
+	[ -d $(OUTPUT)/$@ ] || mkdir -p $(OUTPUT)/$@ 
+	$(GHC) -threaded --make -o $@ $< -hidir $(OUTPUT)/$@ -odir $(OUTPUT)/$@
 
 clean :
-	$(RM) $(PROGS) $(OUTPUT)
+	$(RM) $(PROGS) $(PROGS:%=%_p) $(OUTPUT)
 	
