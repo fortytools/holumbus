@@ -8,9 +8,10 @@
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
   
-  The inverted index for Holumbus.
+  The inverted index for Holumbus. For extensive documentation of the index
+  interface, see class 'HolIndex' in "Holumbus.Index.Common".
 
 -}
 
@@ -20,6 +21,8 @@ module Holumbus.Index.Inverted
 (
   -- * Inverted index types
   InvIndex (..)
+  , Parts
+  , Part
   
   -- * Construction
   , singleton
@@ -49,7 +52,9 @@ import Holumbus.Index.Compression
 import Control.Parallel.Strategies
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
-newtype InvIndex = InvIndex { indexParts :: Parts } deriving (Show, Eq)
+newtype InvIndex = InvIndex 
+  { indexParts :: Parts  -- ^ The parts of the index, each representing one context.
+  } deriving (Show, Eq)
 
 -- | The index parts are identified by a name, which should denote the context of the words.
 type Parts       = Map Context Part

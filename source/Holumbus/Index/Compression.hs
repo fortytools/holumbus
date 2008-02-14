@@ -5,14 +5,14 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
   
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
   
   This module provides several specific compression mechanisms for different
   parts of indexes. Right now, just a general compression scheme for 
-  the 'Occurrences' and 'Positions' is provided.
+  the 'Occurrences' and 'Positions' are provided.
 
 -}
 
@@ -45,16 +45,18 @@ import Holumbus.Index.Common
 type CompressedOccurrences = IntMap CompressedPositions
 type CompressedPositions = DiffList
 
--- | Convert the differences back to a set of integers.
+-- | Decompressing the occurrences by just decompressing all contained positions.
 inflateOcc :: CompressedOccurrences -> Occurrences
 inflateOcc = IM.map inflatePos
 
--- | Save some memory on the positions by just saving their differences.
+-- | Compress the occurrences by just compressing all contained positions.
 deflateOcc :: Occurrences -> CompressedOccurrences
 deflateOcc = IM.map deflatePos
 
+-- | Convert the compressed differences back to a set of integers.
 inflatePos :: CompressedPositions -> Positions
 inflatePos = DL.toIntSet
 
+-- | Save some memory on the positions by just saving their differences and compressing these.
 deflatePos :: Positions -> CompressedPositions
 deflatePos = DL.fromIntSet

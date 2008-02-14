@@ -5,18 +5,29 @@
   Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.2
 
-  The hybrid index for Holumbus.
+  The hybrid index for Holumbus. For extensive documentation of the index
+  interface, see class 'HolIndex' in "Holumbus.Index.Common".
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Hybrid where
+{-# OPTIONS -fno-warn-unused-binds -fno-warn-unused-imports #-}
+
+module Holumbus.Index.Hybrid 
+  (
+  -- * Hybrid index type
+  HybIndex
+  
+  -- * Construction
+  , emptyHybrid
+  )
+where
 
 import Data.Maybe
 import Data.Binary

@@ -5,12 +5,12 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
 
-  This module provides a simple registry facility for worker threads.
+  This module provides a simple registration facility for worker threads.
   Every worker thread registeres itself with the registry and reregisteres
   when finished. This allowes a controlling thread to be able to wait for
   a number of worker threads to finish.
@@ -21,8 +21,9 @@
 
 module Holumbus.Control.Registry 
   (
-  -- * Registry type
+  -- * Registry types
   Registry
+  , Worker
   
   -- * Starting workers
   , startWorkers
@@ -38,7 +39,7 @@ import Control.Monad
 
 -- | A global registry for worker threads.
 type Registry = MVar [Worker]
--- | A single worker thread.
+-- | The representation of a single worker thread.
 type Worker = MVar ()
 
 -- | Start a worker for every value of a list of input data. The workers will register

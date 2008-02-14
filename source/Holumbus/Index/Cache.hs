@@ -11,10 +11,10 @@
   Version    : 0.1
 
   A persistent full-text cache for arbitrary documents. Implemented on 
-  top of @unsafePerformIO@ to be able to provide a purely functional
+  top of 'unsafePerformIO' to be able to provide a purely functional
   interface but still be able to store the documents on some persistent
-  memory. This could bee seen as a map with its storage capacity being
-  extended by persistent storage.
+  memory. The cache could also be seen as a map with its storage capacity 
+  being extended by persistent storage.
 
 -}
 

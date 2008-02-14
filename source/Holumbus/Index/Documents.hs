@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.2
 
-  A bijective table between documents and their id's.
+  A bijective table between documents and their id's. Implemented on top of
+  
 
 -}
 
@@ -44,10 +45,11 @@ import Control.Parallel.Strategies
 import Holumbus.Index.Common
 
 -- | The table which is used to map a document to an artificial id and vice versa.
-data Documents     = Documents { idToDoc   :: !(IntMap Document)
-                               , docToId   :: !(Map URI DocId) 
-                               , lastDocId :: !DocId
-                               } deriving (Show, Eq)
+data Documents = Documents 
+  { idToDoc   :: !(IntMap Document) -- ^ A mapping from a document id to the document itself.
+  , docToId   :: !(Map URI DocId)   -- ^ A mapping from the URI of a document to its id.
+  , lastDocId :: !DocId             -- ^ The last used document id.
+  } deriving (Show, Eq)
 
 instance HolDocuments Documents where
   sizeDocs d = IM.size (idToDoc d)

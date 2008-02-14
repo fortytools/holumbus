@@ -11,7 +11,8 @@
   Version    : 0.3
 
   Common data types shared by all index types and a unified interface for
-  all different index types.
+  all different index types. This module defines the common interfaces of
+  indexes and their document tables as well as full-text caches.
 
 -}
 
