@@ -23,7 +23,7 @@ function processQuery () {
 	var query = $("querytext").value;
 	if (query.length > 1) {
 		$("throbber").show();
-		new Ajax.Request("result.html?query=" + query,
+		new Ajax.Request("results/holumbus.html?query=" + query,
 		{
 			method:'get',
 			onSuccess: function(transport) {

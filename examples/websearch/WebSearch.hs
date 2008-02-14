@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.3
@@ -106,7 +106,7 @@ arrLogRequest = proc inTxn -> do
 
 genResult :: (HolIndex i, HolDocuments d, ArrowXml a) => a (Query, (i, d)) (String, Result)
 genResult = let 
-              rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
+              rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
               weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
             in
             ifP (\(q, _) -> checkWith ((> 1) . length) q)
