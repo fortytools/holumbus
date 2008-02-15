@@ -131,6 +131,11 @@ p.cloud {
 .cloud8 { font-size:21pt; }
 .cloud9 { font-size:22pt; }
 
+.document {
+	padding-top:5px;
+	padding-bottom:5px;
+}
+
 .link { color:navy; }
 .link:hover { 
 	color:navy; 

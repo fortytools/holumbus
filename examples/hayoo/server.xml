@@ -114,7 +114,7 @@
         <like>
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
       	  <case match="^/results/hayoo.html$" >
-      	    <shader type="holumbus">
+      	    <shader type="hayoo">
       	    	<config index="indexes/hayoo-index.bin" documents="indexes/hayoo-docs.bin"/>
       	    </shader>
       	  </case>

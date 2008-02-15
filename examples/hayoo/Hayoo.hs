@@ -151,6 +151,10 @@ xpResultHtml = xpWrap (\((_, wh), dh) -> Result dh wh, \r -> ((maxScoreWordHits 
 xpDivId :: String -> PU a -> PU a
 xpDivId i p = xpElem "div" (xpAddFixedAttr "id" i p)
 
+-- | Wrapping something in a <div> element with class attribute.
+xpDivClass :: String -> PU a -> PU a
+xpDivClass c p = xpElem "div" (xpAddFixedAttr "class" c p)
+
 -- | Set the class of the surrounding element.
 xpClass :: String -> PU a -> PU a
 xpClass c p = xpAddFixedAttr "class" c p
@@ -166,7 +170,7 @@ xpDocHitsHtml :: PU DocHits
 xpDocHitsHtml = xpDivId "documents" (xpWrap (IM.fromList, toListSorted) (xpList xpDocHitHtml))
   where
   toListSorted = reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
-  xpDocHitHtml = xpElem "p" $ xpClass "document" $ xpDocInfoHtml
+  xpDocHitHtml = xpDivClass "document" $ xpDocInfoHtml
 
 xpDocInfoHtml :: PU (DocId, (DocInfo, DocContextHits))
 xpDocInfoHtml = xpWrap (docFromHtml, docToHtml) (xpTriple xpTitleHtml xpContextsHtml xpURIHtml)
@@ -178,10 +182,10 @@ docFromHtml :: (Document, DocContextHits, URI) -> (DocId, (DocInfo, DocContextHi
 docFromHtml ((uri, title), dch, _) = (0, (DocInfo (title, uri) 0.0, dch))
 
 xpTitleHtml :: PU (URI, Title)
-xpTitleHtml = xpElem "div" $ xpClass "title" $ xpElem "a" $ xpClass "link" $ (xpPair (xpAttr "href" xpText) xpText)
+xpTitleHtml = xpDivClass "title" $ xpElem "a" $ xpClass "link" $ (xpPair (xpAttr "href" xpText) xpText)
 
 xpContextsHtml :: PU DocContextHits
-xpContextsHtml = xpElem "div" $ xpClass "contexts" $ xpWrap (M.fromList, M.toList) (xpList xpContextHtml)
+xpContextsHtml = xpDivClass "contexts" $ xpWrap (M.fromList, M.toList) (xpList xpContextHtml)
 
 xpContextHtml :: PU (Context, DocWordHits)
 xpContextHtml = xpPair (xpElem "span" $ xpClass "context" $ xpAppend ": " $ xpText) xpWordsHtml
@@ -190,7 +194,7 @@ xpWordsHtml :: PU DocWordHits
 xpWordsHtml = xpWrap (M.fromList, M.toList) (xpList (xpPair (xpAppend " " $ xpText) xpZero))
 
 xpURIHtml :: PU String
-xpURIHtml = xpElem "div" $ xpClass "uri" $ xpText
+xpURIHtml = xpDivClass "uri" $ xpText
 
 xpWordHitsHtml :: PU (Score, WordHits)
 xpWordHitsHtml = xpDivId "words" $ xpElem "p" $ xpClass "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)

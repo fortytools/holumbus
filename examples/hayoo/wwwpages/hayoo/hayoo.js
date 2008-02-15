@@ -2,7 +2,18 @@ var lastPress = (new Date()).getTime();
 
 document.observe("dom:loaded", function() {
 	$("throbber").hide();
+	
+	checkForQuery();
 });
+
+function checkForQuery () {
+	var argument = window.location.search.toQueryParams()["query"];
+	
+	if (argument) {
+		$("querytext").value = argument;
+		processQuery();
+	}
+}
 
 function tryProcessQuery () {
 	currentPress = (new Date()).getTime();
