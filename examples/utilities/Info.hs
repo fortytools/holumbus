@@ -79,26 +79,40 @@ startup _ = usage ["Internal error!\n"]
 printInvIndexStats :: InvIndex -> IO ()
 printInvIndexStats (InvIndex parts) = 
   do
-  totals <- printContextStats (M.toList parts) ([], [])
+  totals <- printContextStats (M.toList parts) ([], [], [])
   putStrLn "=== Total: ===\n"
-  putStrLn "Trie stats:"
-  outputStats (L.sort $ fst totals)
-  putStrLn "\nDiffList stats:"
-  outputStats (L.sort $ snd totals)
+  putStrLn "Trie length stats:"
+  outputStats (L.sort $ fstTrip totals)
+  putStrLn "\nDiffList difference stats:"
+  outputStats (L.sort $ sndTrip totals)
+  putStrLn "\nDiffList length stats:"
+  outputStats (L.sort $ thdTrip totals)
     where
     printContextStats [] t = return t
     printContextStats ((c, w):xs) t =
       do
-      putStrLn ("=== " ++ c ++ ": ===\n")
+      putStrLn ("=== Context: " ++ c ++ " ===\n")
       tl <- return (L.sort $ SM.lengths w)
       dd <- return (L.sort $ map fromIntegral $ SM.fold (flip $ IM.fold (\p r -> DL.diffs p ++ r)) [] w)
-      putStrLn "Trie stats:"
+      dl <- return (L.sort $ SM.fold (flip $ IM.fold (\p r -> [length p] ++ r)) [] w)
+      putStrLn "Trie length stats:"
       outputStats tl
-      putStrLn "\nDiffList stats:"
+      putStrLn "\nDiffList difference stats:"
       outputStats dd
+      putStrLn "\nDiffList length stats:"
+      outputStats dl
       putStrLn ""
-      printContextStats xs (tl ++ fst t, dd ++ snd t)
-      
+      printContextStats xs (tl ++ fstTrip t, dd ++ sndTrip t, dl ++ thdTrip t)
+
+fstTrip :: (a, a, a) -> a
+fstTrip (x, _, _) = x
+
+sndTrip :: (a, a, a) -> a
+sndTrip (_, x, _) = x
+
+thdTrip :: (a, a, a) -> a
+thdTrip (_, _, x) = x
+
 outputStats :: [Int] -> IO ()
 outputStats l = 
   do      
