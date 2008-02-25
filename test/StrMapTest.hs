@@ -168,6 +168,25 @@ prop_Delete k xs = let sm = (SM.fromList xs) in
 prop_LookupNoCase xs k v = (valid xs) && k /= ""
   ==> (map toLower k, v) `elem` (SM.lookupNoCase k (SM.insert (map toLower k) v (SM.fromList xs)))
 
+prop_Null k = k /= ""
+  ==> SM.null (SM.delete k (SM.insert k 1 SM.empty)) == True
+
+prop_IndexOperator xs k = let sm = (SM.fromList xs) in
+  valid xs && k /= "" 
+  ==> ((SM.insert k 1 sm) SM.! k) == 1
+
+prop_InsertWith xs k = let sm = (SM.fromList xs) in
+  valid xs && k /= ""
+  ==> SM.insertWith (flip const) k 2 (SM.insert k 1 sm) == SM.insert k 1 sm
+
+prop_UpdateDelete xs k = let sm = (SM.fromList xs) in
+  valid xs && k /= ""
+  ==> SM.update (const Nothing) k sm == SM.delete k sm
+
+prop_UpdateInsert xs k = let sm = (SM.fromList xs) in
+  valid xs && k /= ""
+  ==> SM.update (const (Just 2)) k sm == (if SM.member k sm then SM.insert k 2 sm else sm)
+
 allProperties :: (String, [TestOptions -> IO TestResult])
 allProperties = ("StrMap tests",
                 [ run prop_FromToList
@@ -183,6 +202,11 @@ allProperties = ("StrMap tests",
                 , run prop_DeleteInsert
                 , run prop_DeleteLookup
                 , run prop_LookupNoCase
+                , run prop_Null
+                , run prop_IndexOperator
+                , run prop_InsertWith
+                , run prop_UpdateDelete
+                , run prop_UpdateInsert
                 ])
 
 allTests :: Test  
