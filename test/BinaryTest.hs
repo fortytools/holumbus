@@ -35,7 +35,7 @@ testIndex1, testIndex2 :: InvIndex
 testIndex1 = emptyInverted
 testIndex2 = sampleIndex1
 
-testDocs1, testDocs2 :: Documents
+testDocs1, testDocs2 :: Documents Int
 testDocs1 = emptyDocuments
 testDocs2 = sampleDocs1
 

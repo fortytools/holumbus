@@ -18,12 +18,14 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
+
 module Holumbus.Index.Common 
   (
   -- * Common index types and classes
   Position
   , Context
-  , Document
+  , Document (..)
   , DocId
   , URI
   , Title
@@ -48,7 +50,6 @@ module Holumbus.Index.Common
   , substractOccurrences
 
   -- * Pickling
-  , xpDocument
   , xpOccurrences
   , xpPositions
   
@@ -68,8 +69,10 @@ import Data.Maybe
 
 import qualified Data.List as L
 
-import Data.Binary (Binary)
+import Data.Binary (Binary (..))
 import qualified Data.Binary as B
+
+import Control.Monad (liftM3)
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
@@ -80,8 +83,28 @@ import qualified Data.Map as M
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IS
 
+import Control.Parallel.Strategies
+
 -- | A document consists of a title and its unique identifier.
-type Document      = (Title, URI)
+data Document a = Document
+  { title  :: !Title
+  , uri    :: !URI
+  , custom :: !(Maybe a)
+  }
+  deriving (Show, Eq, Ord)
+
+instance Binary a => Binary (Document a) where
+  put (Document t u c) = put t >> put u >> put c
+  get = liftM3 Document get get get
+
+instance XmlPickler a => XmlPickler (Document a) where
+  xpickle = xpWrap (\(t, u, i) -> Document t u i, \(Document t u i) -> (t, u, i)) (xpTriple xpTitle xpURI xpickle)
+    where
+    xpURI           = xpAttr "href" xpText0
+    xpTitle         = xpAttr "title" xpText0
+
+instance NFData a => NFData (Document a) where
+  rnf (Document t u c) = rnf t `seq` rnf u `seq` rnf c
 
 -- | The unique identifier of a document (created upon insertion into the document table).
 type DocId         = Int
@@ -147,28 +170,28 @@ class Binary i => HolIndex i where
   -- in the occurrences for a word in a specific context.
   updateDocuments :: (Context -> Word -> DocId -> DocId) -> i -> i
 
-class Binary d => HolDocuments d where
+class Binary (d c) => HolDocuments d c where
   -- | Returns the number of unique documents in the table.
-  sizeDocs      :: d -> Int
+  sizeDocs      :: d c -> Int
   
   -- | Lookup a document by its id.
-  lookupById    :: Monad m => d -> DocId -> m Document
+  lookupById    :: Monad m => d c -> DocId -> m (Document c)
   -- | Lookup the id of a document by an URI.
-  lookupByURI   :: Monad m => d -> URI -> m DocId
+  lookupByURI   :: Monad m => d c -> URI -> m DocId
   
   -- | Merge two document tables. The returned tuple contains a list of id's from the second
   -- table that were replaced with new id's to avoid collisions.
-  mergeDocs     :: d -> d -> ([(DocId, DocId)] ,d)
+  mergeDocs     :: d c -> d c -> ([(DocId, DocId)], d c)
 
   -- | Insert a document into the table. Returns a tuple of the id for that document and the 
   -- new table. If a document with the same URI is already present, its id will be returned 
   -- and the table is returned unchanged.
-  insertDoc     :: d -> Document -> (DocId, d)
+  insertDoc     :: d c -> (Document c) -> (DocId, d c)
 
   -- | Removes the document with the specified id from the table.
-  removeById     :: d -> DocId -> d
+  removeById     :: d c -> DocId -> d c
   -- | Removes the document with the specified URI from the table.
-  removeByURI    :: d -> URI -> d
+  removeByURI    :: d c -> URI -> d c
 
   removeByURI ds u = maybe ds (removeById ds) (lookupByURI ds u)
 
@@ -177,13 +200,6 @@ class HolCache c where
   getDocText  :: c -> Context -> DocId -> Maybe Content
   -- | Store the full text of a document for a given context.
   putDocText  :: c -> Context -> DocId -> Content -> c
-
--- | The XML pickler for a single document.
-xpDocument :: PU Document
-xpDocument = xpPair xpTitle xpURI
-  where
-  xpURI           = xpAttr "href" xpText
-  xpTitle         = xpAttr "title" xpText
 
 -- | The XML pickler for a set of positions.
 xpPositions :: PU Positions
@@ -199,7 +215,7 @@ xpOccurrences = xpWrap (IM.fromList, IM.toList) (xpList xpOccurrence)
 
 -- | Merges an index with its documents table with another index and its documents table. 
 -- Conflicting id's for documents will be resolved automatically.
-mergeAll :: (HolDocuments d, HolIndex i) => d -> i -> d -> i -> (d, i)
+mergeAll :: (HolDocuments d c, HolIndex i) => d c -> i -> d c -> i -> (d c, i)
 mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocuments replaceIds i2))
   where
   (ud, md) = mergeDocs d1 d2

@@ -25,6 +25,7 @@ module SampleData
 )
 where
 
+import Holumbus.Index.Common
 import Holumbus.Index.Inverted
 import Holumbus.Index.Documents
 import Holumbus.Query.Result
@@ -36,9 +37,12 @@ import qualified Data.IntSet as IS
 import qualified Holumbus.Data.StrMap as SM
 import qualified Holumbus.Data.DiffList as DL
 
-sampleDocs1 :: Documents
+sampleDocs1 :: Documents Int
 sampleDocs1 = Documents
-             (IM.fromList [(1, ("doc1","uri1")), (2, ("doc2","uri2")), (3, ("doc3","uri3"))])
+             (IM.fromList [ (1, (Document "doc1" "uri1" Nothing))
+                          , (2, (Document "doc2" "uri2" Nothing))
+                          , (3, (Document "doc3" "uri3" Nothing))
+                          ])
              (M.fromList [("uri1", 1), ("uri2", 2), ("uri3", 3)])
              3
 
@@ -58,10 +62,13 @@ sampleIndex1 = InvIndex parts
                          , ("word5", IM.fromList [(3, DL.fromList [86,78,35])])
                          ]
 
-sampleResult1 :: Result
+sampleResult1 :: Result Int
 sampleResult1 = Result dh wh
   where
-  dh = IM.fromList [(1, (DocInfo ("", "") 1.0, dch1)), (2, (DocInfo ("doc2", "uri2") 2.0, dch2)), (3, (DocInfo ("doc3", "uri3") 3.0, dch3))]
+  dh = IM.fromList [(1, (DocInfo (Document "" "" Nothing) 1.0, dch1))
+                   , (2, (DocInfo (Document "doc2" "uri2" Nothing) 2.0, dch2))
+                   , (3, (DocInfo (Document "doc3" "uri3" Nothing) 3.0, dch3))
+                   ]
   dch1 =  M.fromList [ ("context1", M.fromList [("word1", IS.fromList [12,23,43]), ("word2", IS.fromList [15,33,45])]) 
                      , ("context2", M.fromList [("word3", IS.fromList [86,78,35]), ("word4", IS.fromList [21,26,25])])
                      ]

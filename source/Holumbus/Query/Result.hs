@@ -5,10 +5,10 @@
   Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.4
+  Version    : 0.5
 
   The data type for results of Holumbus queries.
 
@@ -43,9 +43,6 @@ module Holumbus.Query.Result
   , sizeWordHits
   , maxScoreDocHits
   , maxScoreWordHits
-
-  -- * Combine
-  , merge
   
   -- * Transform
   , setDocScore
@@ -79,28 +76,28 @@ import Text.XML.HXT.Arrow
 import Holumbus.Index.Common
 
 -- | The combined result type for Holumbus queries.
-data Result = Result        
-  { docHits  :: !DocHits   -- ^ The documents matching the query.
-  , wordHits :: !WordHits  -- ^ The words which are completions of the query terms.
+data Result a = Result        
+  { docHits  :: !(DocHits a)  -- ^ The documents matching the query.
+  , wordHits :: !WordHits     -- ^ The words which are completions of the query terms.
   }
   deriving (Eq, Show)
 
--- | Information about an document, either just the document id or the whole document information.
-data DocInfo = DocInfo 
-  { document :: !Document  -- ^ The document itself (title and URI).
-  , docScore :: !Score     -- ^ The score for the document (initial score for all documents is @0.0@).
+-- | Information about an document.
+data DocInfo a = DocInfo 
+  { document :: !(Document a) -- ^ The document itself.
+  , docScore :: !Score        -- ^ The score for the document (initial score for all documents is @0.0@).
   }
   deriving (Eq, Show)
 
 -- | Information about a word.
 data WordInfo = WordInfo 
-  { terms     :: ![String] -- ^ The query terms that can be extended by this word.
-  , wordScore :: !Score    -- ^ The score for the word (initial score for all words is @0.0@).
+  { terms     :: !Terms    -- ^ The search terms that led to this very word.
+  , wordScore :: !Score    -- ^ The frequency of the word in the document for a context.
   }
   deriving (Eq, Show)
 
 -- | A mapping from a document to it's score and the contexts where it was found.
-type DocHits = IntMap (DocInfo, DocContextHits)
+type DocHits a = IntMap (DocInfo a, DocContextHits)
 -- | A mapping from a context to the words of the document that were found in this context.
 type DocContextHits = Map Context DocWordHits
 -- | A mapping from a word of the document in a specific context to it's positions.
@@ -116,11 +113,14 @@ type WordDocHits = Occurrences -- IntMap Positions (docId -> positions)
 -- | The score of a hit (either a document hit or a word hit).
 type Score = Float
 
-instance Binary Result where
+-- | The original search terms entered by the user.
+type Terms = [String]
+
+instance Binary a => Binary (Result a) where
   put (Result dh wh) = put dh >> put wh
   get = liftM2 Result get get
 
-instance Binary DocInfo where
+instance Binary a => Binary (DocInfo a) where
   put (DocInfo d s) = put d >> put s
   get = liftM2 DocInfo get get
 
@@ -128,23 +128,23 @@ instance Binary WordInfo where
   put (WordInfo t s) = put t >> put s
   get = liftM2 WordInfo get get
 
-instance NFData Result where
+instance NFData a => NFData (Result a) where
   rnf (Result dh wh) = rnf dh `seq` rnf wh
 
-instance NFData DocInfo where
+instance NFData a => NFData (DocInfo a) where
   rnf (DocInfo d s) = rnf d `seq` rnf s
 
 instance NFData WordInfo where
   rnf (WordInfo t s) = rnf t `seq` rnf s
 
-instance XmlPickler Result where
+instance XmlPickler a => XmlPickler (Result a) where
   xpickle = xpElem "result" $ 
             xpWrap (\(dh, wh) -> Result dh wh, \(Result dh wh) -> (dh, wh)) (xpPair xpDocHits xpWordHits)
 
-instance XmlPickler DocInfo where
+instance XmlPickler a => XmlPickler (DocInfo a) where
   xpickle = xpWrap (\(d, s) -> DocInfo d s, \(DocInfo d s) -> (d, s)) xpDocInfo'
     where
-    xpDocInfo' = xpPair (xpPair (xpAttr "title" xpText0) (xpAttr "href" xpText0)) (xpAttr "score" xpPrim)
+    xpDocInfo' = xpPair xpickle (xpAttr "score" xpPrim)
 
 instance XmlPickler WordInfo where
   xpickle = xpWrap (\(t, s) -> WordInfo t s, \(WordInfo t s) -> (t, s)) xpWordInfo
@@ -153,7 +153,7 @@ instance XmlPickler WordInfo where
     xpTerms = xpWrap (split ",", join ",") xpText0
 
 -- | The XML pickler for the document hits. Will be sorted by score.
-xpDocHits :: PU DocHits
+xpDocHits :: XmlPickler a => PU (DocHits a)
 xpDocHits = xpElem "dochits" $ xpWrap (IM.fromList, toListSorted) (xpList xpDocHit)
   where
   toListSorted = L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
@@ -189,43 +189,36 @@ xpWordDocHits :: PU WordDocHits
 xpWordDocHits = xpOccurrences
 
 -- | Create an empty result.
-emptyResult :: Result
+emptyResult :: Result a
 emptyResult = Result IM.empty M.empty
 
 -- | Query the number of documents in a result.
-sizeDocHits :: Result -> Int
+sizeDocHits :: Result a -> Int
 sizeDocHits = IM.size . docHits
 
 -- | Query the number of documents in a result.
-sizeWordHits :: Result -> Int
+sizeWordHits :: Result a -> Int
 sizeWordHits = M.size . wordHits
 
 -- | Query the maximum score of the documents.
-maxScoreDocHits :: Result -> Score
+maxScoreDocHits :: Result a -> Score
 maxScoreDocHits = (IM.fold (\(di, _) r -> max (docScore di) r) 0.0) . docHits
 
 -- | Query the maximum score of the words.
-maxScoreWordHits :: Result -> Score
+maxScoreWordHits :: Result a -> Score
 maxScoreWordHits = (M.fold (\(wi, _) r -> max (wordScore wi) r) 0.0) . wordHits
 
 -- | Test if the result contains anything.
-null :: Result -> Bool
+null :: Result a -> Bool
 null = IM.null . docHits
 
 -- | Set the score in a document info.
-setDocScore :: Score -> DocInfo -> DocInfo
+setDocScore :: Score -> DocInfo a -> DocInfo a
 setDocScore s (DocInfo d _) = DocInfo d s
 
 -- | Set the score in a word info.
 setWordScore :: Score -> WordInfo -> WordInfo
 setWordScore s (WordInfo t _) = WordInfo t s
-
--- | Merge two results.
-merge :: Result -> Result -> Result
-merge (Result dh1 wh1) (Result dh2 wh2) = Result (mergeDocHits dh1 dh2) (mergeWordHits wh1 wh2)
-  where
-  mergeDocHits _ _ = IM.empty
-  mergeWordHits _ _ = M.empty
 
 -- | Split a string into seperate strings at a specific character.
 split :: Eq a => [a] -> [a] -> [[a]]

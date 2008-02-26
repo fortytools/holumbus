@@ -40,43 +40,46 @@ instance Arbitrary Char where
   arbitrary     = choose ('\32', '\128')
   coarbitrary c = variant (ord c `rem` 4)
 
-instance Arbitrary Documents where
+instance Arbitrary (Document c) where
+  arbitrary = liftM3 Document arbitrary arbitrary (return Nothing)
+
+instance Arbitrary (Documents c) where
   arbitrary =
     do
     ids <- sized (\n -> sequence [ (choose (1, (n + 1))) | _ <- [0..n] ])
     docs <- liftM (nubBy (\(i1, _) (i2, _) -> i1 == i2)) (mapM (\d -> liftM2 (,) (return d) arbitrary) ids)
     i2d <- return (IM.fromList docs)
-    d2i <- return (M.fromList (map (\(i, (_, u)) -> (u, i)) docs))
+    d2i <- return (M.fromList (map (\(i, d) -> (uri d, i)) docs))
     l <- return (fst $ maximumBy (compare `on` fst) docs)
     return (Documents i2d d2i l)
 
-prop_InsertLookupId d di = (snd d) /= ""
-  ==> let (i, ds) = insertDoc (di :: Documents) d in
+prop_InsertLookupId d di = (uri d) /= ""
+  ==> let (i, ds) = insertDoc (di :: Documents Int) d in
       lookupById ds i == Just d
 
-prop_InsertLookupURI d di = (snd d) /= ""
-  ==> let (i, ds) = insertDoc (di :: Documents) d in
-      lookupByURI ds (snd d) == Just i
+prop_InsertLookupURI d di = (uri d) /= ""
+  ==> let (i, ds) = insertDoc (di :: Documents Int) d in
+      lookupByURI ds (uri d) == Just i
 
-prop_InsertLastId d di = (snd d) /= ""
-  ==> let (i, ds) = insertDoc (di :: Documents) d in
+prop_InsertLastId d di = (uri d) /= ""
+  ==> let (i, ds) = insertDoc (di :: Documents Int) d in
       (IM.foldWithKey (\k _ r -> max k r) 0 (idToDoc ds)) == i
 
-prop_InsertLookupIdEmpty d = (snd d) /= ""
-  ==> let (i, ds) = insertDoc emptyDocuments d in
+prop_InsertLookupIdEmpty d = (uri d) /= ""
+  ==> let (i, ds) = insertDoc emptyDocuments (d :: Document Int) in
       lookupById ds i == Just d
 
-prop_InsertLookupURIEmpty d = (snd d) /= ""
-  ==> let (i, ds) = insertDoc emptyDocuments d in
-      lookupByURI ds (snd d) == Just i
+prop_InsertLookupURIEmpty d = (uri d) /= ""
+  ==> let (i, ds) = insertDoc emptyDocuments (d :: Document Int) in
+      lookupByURI ds (uri d) == Just i
 
-prop_InsertSize d di = (snd d) /= ""
-  ==> let (_, ds) = insertDoc (di :: Documents) d in
+prop_InsertSize d di = (uri d) /= ""
+  ==> let (_, ds) = insertDoc (di :: Documents Int) d in
       sizeDocs ds == (sizeDocs di) + 1
 
-prop_InsertSizeEmpty d = (snd d) /= ""
-  ==> let (_, ds) = insertDoc emptyDocuments d in
-      sizeDocs ds == (sizeDocs emptyDocuments) + 1
+prop_InsertSizeEmpty d = (uri d) /= ""
+  ==> let (_, ds) = insertDoc emptyDocuments (d :: Document Int) in
+      sizeDocs ds == (sizeDocs (emptyDocuments :: Documents Int)) + 1
 
 allProperties :: (String, [TestOptions -> IO TestResult])
 allProperties = ("Documents tests",

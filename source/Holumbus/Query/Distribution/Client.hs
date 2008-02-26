@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
 
-  Process a Holumbus query in distributed (concurrent) manner.
+  Process a Holumbus query in distributed (concurrent) manner. Note that
+  this currently only works for indexes which are splitted by document.
 
 -}
 
@@ -56,7 +57,6 @@ import Holumbus.Query.Intermediate hiding (null)
 import Holumbus.Query.Result (Result)
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Processor hiding (processQuery)
-import Holumbus.Query.Fuzzy
 
 -- | The configuration for distributed query processing.
 data DistributedConfig = DistributedConfig
@@ -65,10 +65,9 @@ data DistributedConfig = DistributedConfig
   , processConfig  :: !ProcessConfig -- ^ The configuration for processing a query.
   }
 
--- | Processes a query in distributed manner. The query will be optimized before sending 
--- to the query servers. The queries will be sent in parallel, by spawning a dedicated 
--- thread for each server.
-processDistributed :: (HolDocuments d) => DistributedConfig -> d -> Query -> IO Result
+-- | Processes a query in distributed manner. The queries will be sent in parallel, by spawning 
+-- a dedicated worker thread for each server.
+processDistributed :: (HolDocuments d c) => DistributedConfig -> d c -> Query -> IO (Result c)
 processDistributed cfg d q = 
   do
   res <- newMVar emptyIntermediate
@@ -77,9 +76,7 @@ processDistributed cfg d q =
   combined <- takeMVar res
   return (toResult d combined)
     where
-    request = (oq, (compressResult cfg), fuzzyConfig $ processConfig cfg)
-      where
-      oq = if optimizeQuery $ processConfig cfg then optimize q else q
+    request = (q, (compressResult cfg), processConfig cfg)
 
 -- | Updates the server's index by adding another index. Several servers can be updated at once,
 -- sending the updates in parallel. A list with an error message for every server is returned.
@@ -130,7 +127,7 @@ sendRequest f (s, d) =
     send hdl = hSetBuffering hdl NoBuffering >> f d hdl
 
 -- | Send out a query request over the specified handle.
-sendQuery :: MVar Intermediate -> (Query, Bool, FuzzyConfig) -> Handle -> IO ()
+sendQuery :: MVar Intermediate -> (Query, Bool, ProcessConfig) -> Handle -> IO ()
 sendQuery i r@(_, c, _) hdl =
   do
   enc <- return (encode r)

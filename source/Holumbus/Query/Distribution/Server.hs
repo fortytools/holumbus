@@ -10,7 +10,8 @@
   Portability: portable
   Version    : 0.1
 
-  The server part for processing queries in distributed manner.
+  The server part for processing queries in distributed manner. Note that
+  this currently only works for indexes which are splitted by document.
 
 -}
 
@@ -157,11 +158,11 @@ processQuery i hdl hdr =
   inlen <- return (read $ head hdr)
   -- Read and decode the request.
   raw <- B.hGet hdl inlen
-  (q, c, fc) <- return (decode raw)
+  (q, c, pc) <- return (decode raw)
   -- Get the index.
   idx <- readMVar i
   -- Process the query
-  res <- return (processPartial (ProcessConfig fc False) idx q)
+  res <- return (processPartial pc idx q)
   -- Encode and compress (if requested) the result.
   enc <- if c then return (compress . encode $ res) else return (encode res)
   -- Tell the client the size of the result to expect.

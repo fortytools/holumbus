@@ -33,7 +33,9 @@ module Holumbus.Query.Processor
 where
 
 import Data.Maybe
+import Data.Binary
 
+import Control.Monad
 import Control.Parallel.Strategies
 
 import qualified Data.List as L
@@ -59,6 +61,10 @@ data ProcessConfig  = ProcessConfig
   { fuzzyConfig   :: !FuzzyConfig  -- ^ The configuration for fuzzy queries.
   , optimizeQuery :: !Bool         -- ^ Optimize the query before processing.
   }
+
+instance Binary ProcessConfig where
+  put (ProcessConfig fc o) = put fc >> put o
+  get = liftM2 ProcessConfig get get
 
 -- | The internal state of the query processor.
 data ProcessState i = ProcessState 
@@ -87,14 +93,15 @@ forAllContexts f cs = L.foldl' I.union I.emptyIntermediate $ parMap rnf f cs
 allDocuments :: HolIndex i => ProcessState i -> Intermediate
 allDocuments s = forAllContexts (\c -> I.fromList "" c $ IDX.allWords (index s) c) (contexts s)
 
--- | Process a query only partially in terms of a distributed index. No optimizing is performed
--- on the query and only the intermediate result will be returned.
+-- | Process a query only partially in terms of a distributed index. Only the intermediate 
+-- result will be returned.
 processPartial :: (HolIndex i) => ProcessConfig -> i -> Query -> Intermediate
-processPartial cfg i q = process (initState cfg i) q
+processPartial cfg i q = process (initState cfg i) oq
+  where
+  oq = if optimizeQuery cfg then optimize q else q
 
--- | Process a query on a specific index with regard to the configuration. Before processing,
--- the query will be automatically optimized.
-processQuery :: (HolIndex i, HolDocuments d) => ProcessConfig -> i -> d -> Query -> Result
+-- | Process a query on a specific index with regard to the configuration.
+processQuery :: (HolIndex i, HolDocuments d c) => ProcessConfig -> i -> d c -> Query -> Result c
 processQuery cfg i d q = I.toResult d (process (initState cfg i) oq)
   where
   oq = if optimizeQuery cfg then optimize q else q
@@ -140,7 +147,7 @@ processPhraseInternal f c q = let
   w = words q 
   m = mergeOccurrences $ f (head w) in
   if m == IM.empty then I.emptyIntermediate
-  else I.fromList "" c [(q, processPhrase' (tail w) 1 m)]
+  else I.fromList q c [(q, processPhrase' (tail w) 1 m)]
   where
   processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
   processPhrase' [] _ o = o

@@ -5,7 +5,7 @@
   Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
-  Maintainer : Timo B. Huebel (t.h@gmx.info)
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.3
@@ -61,7 +61,7 @@ type DocRanking = DocId -> DocContextHits -> Score
 type WordRanking = Word -> WordContextHits -> Score
 
 -- | Rank the result with custom ranking functions.
-rank :: RankConfig -> Result -> Result
+rank :: RankConfig -> Result c -> Result c
 rank (RankConfig fd fw) r = Result scoredDocHits scoredWordHits
   where
   scoredDocHits = IM.mapWithKey (\k (di, dch) -> (setDocScore (fd k dch) di, dch)) $ docHits r

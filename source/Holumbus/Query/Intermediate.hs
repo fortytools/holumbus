@@ -8,13 +8,15 @@
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.2
+  Version    : 0.3
 
   The data type for intermediate results occuring during query processing.
 
 -}
 
 -- ----------------------------------------------------------------------------
+
+{-# OPTIONS -fglasgow-exts #-}
 
 module Holumbus.Query.Intermediate 
 (
@@ -54,7 +56,7 @@ import qualified Data.IntMap as IM
 
 import qualified Data.IntSet as IS
 
-import Holumbus.Query.Result hiding (null, merge)
+import Holumbus.Query.Result hiding (null)
 
 import Holumbus.Index.Common
 
@@ -101,14 +103,14 @@ fromList t c os = IM.map transform $ IM.unionsWith (flip $ (:) . head) (map inse
   transform w = M.singleton c (M.fromList w)
 
 -- | Convert to a @Result@ by generating the 'WordHits' structure.
-toResult :: HolDocuments d => d -> Intermediate -> Result
+toResult :: HolDocuments d c => d c -> Intermediate -> Result c
 toResult d im = Result (createDocHits d im) (createWordHits im)
 
 -- | Create the doc hits structure from an intermediate result.
-createDocHits :: HolDocuments d => d -> Intermediate -> DocHits
+createDocHits :: HolDocuments d c => d c -> Intermediate -> DocHits c
 createDocHits d im = IM.mapWithKey transformDocs im
   where
-  transformDocs did ic = let doc = fromMaybe ("", "") (lookupById d did) in
+  transformDocs did ic = let doc = fromMaybe (Document "" "" Nothing) (lookupById d did) in
                        (DocInfo doc 0.0, M.map (M.map (\(_, p) -> p)) ic)
 
 -- | Create the word hits structure from an intermediate result.
@@ -137,4 +139,4 @@ combineWordInfo (WordInfo t1 s1) (WordInfo t2 s2) = WordInfo (t1 ++ t2) (combine
 
 -- | Combine two scores (just average between them).
 combineScore :: Score -> Score -> Score
-combineScore = flip flip 2.0 . ((/) .) . (+)
+combineScore s1 s2 = (s1 + s2) / 2.0
