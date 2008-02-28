@@ -83,7 +83,7 @@ td.example { text-align: center; }
 	padding:10px;
 	clear:both;
 	background-color:white;
-	min-height:600px;
+	min-height:550px;
 }
 
 #words {
@@ -105,6 +105,35 @@ td.example { text-align: center; }
 	background-color:#F4F4F4;
 }
 
+#pager {
+	text-align:center;
+	width:100%;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+a.page {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+.current {
+	font-weight:bold;
+	color:silver;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.next {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.previous {
+	padding-left:5px;
+	padding-right:5px;
+}
+
 a.cloud {
 	font-weight:normal;
 }
@@ -122,6 +151,11 @@ p.cloud {
 .cloud7 { font-size:20pt; }
 .cloud8 { font-size:21pt; }
 .cloud9 { font-size:22pt; }
+
+.document {
+	padding-top:5px;
+	padding-bottom:5px;
+}
 
 .link { color:navy; }
 .link:hover { 

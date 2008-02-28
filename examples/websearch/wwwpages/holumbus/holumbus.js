@@ -9,21 +9,21 @@ function tryProcessQuery () {
 	delay = currentPress - lastPress;
 	lastPress = currentPress;
 	if (delay > 500) {
-		processQuery();
+		processQuery(0);
 	}
 }
 
 function forceProcessQuery () {
-	processQuery();
+	processQuery(0);
 	
 	return false;
 }
 
-function processQuery () {
+function processQuery (start) {
 	var query = $("querytext").value;
 	if (query.length > 1) {
 		$("throbber").show();
-		new Ajax.Request("results/holumbus.html?query=" + query,
+		new Ajax.Request("results/holumbus.html?query=" + query + "&start=" + start,
 		{
 			method:'get',
 			onSuccess: function(transport) {
@@ -45,4 +45,8 @@ function displayResult (result) {
 	$("result").replace(result);
 	
 	$("throbber").hide();
+}
+
+function showPage (page) {
+	processQuery (page);
 }
