@@ -128,7 +128,7 @@ type Occurrences   = IntMap Positions
 type Positions     = IntSet
 
 -- | The raw result returned when searching the index.
-type RawResult     = [(String, Occurrences)]
+type RawResult     = [(Word, Occurrences)]
 
 -- | This class provides a generic interface to different types of index implementations.
 class Binary i => HolIndex i where
@@ -196,10 +196,12 @@ class Binary (d c) => HolDocuments d c where
   removeByURI ds u = maybe ds (removeById ds) (lookupByURI ds u)
 
 class HolCache c where
-  -- | Retrieves the full text of a document for a given context.
-  getDocText  :: c -> Context -> DocId -> Maybe Content
-  -- | Store the full text of a document for a given context.
-  putDocText  :: c -> Context -> DocId -> Content -> c
+  -- | Retrieves the full text of a document for a given context. Will never throw any exception,
+  -- upon failure or if no text found for the document, @Nothing@ is returned.
+  getDocText  :: c -> Context -> DocId -> IO (Maybe Content)
+  -- | Store the full text of a document for a given context. May throw an exception if the 
+  -- storage of the text failed.
+  putDocText  :: c -> Context -> DocId -> Content -> IO ()
 
 -- | The XML pickler for a set of positions.
 xpPositions :: PU Positions

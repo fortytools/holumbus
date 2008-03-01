@@ -31,7 +31,6 @@ module Holumbus.Index.Cache
 where
 
 import System.IO
-import System.IO.Unsafe
 
 import Control.Exception
 import Control.Monad
@@ -42,11 +41,9 @@ import Holumbus.Index.Common
 data Cache = Cache FilePath deriving (Show, Eq)
 
 instance HolCache Cache where
-  getDocText (Cache s) c d = 
-    unsafePerformIO (handle (\_ -> return Nothing) (liftM Just $ readFile (s ++ "/" ++ getName c d)))
+  getDocText (Cache s) c d = handle (\_ -> return Nothing) (liftM Just $ readFile (s ++ "/" ++ getName c d))
 
-  putDocText (Cache s) c d t = 
-    unsafePerformIO (handle (\_ -> return ()) (writeFile (s ++ "/" ++ getName c d) t)) `seq` Cache s   
+  putDocText (Cache s) c d t = writeFile (s ++ "/" ++ getName c d) t
     
 -- | Creates a new document cache from the given directory. Depending on the directory contents,
 -- the cache contains some documents or is empty.
