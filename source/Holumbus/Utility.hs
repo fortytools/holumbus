@@ -33,6 +33,11 @@ normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" 
     where
     replace = let ut = [head t] in maybe (M.insert x ut v, tail t, ut) (\n -> (v, t, n)) (M.lookup x v)
 
+-- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
+-- to @String->Map k a->Int@.
+stripSignature :: String -> String
+stripSignature = join "->" . map strip . split "->"
+
 -- | Split a string into seperate strings at a specific character sequence.
 split :: Eq a => [a] -> [a] -> [[a]]
 split _ []       = [[]] 
@@ -42,3 +47,11 @@ split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (L.stripPrefix at w)
 -- | Join with a seperating character sequence.
 join :: Eq a => [a] -> [[a]] -> [a]
 join = L.intercalate
+
+-- | Removes leading and trailing whitespace from a string.
+strip :: String -> String
+strip = stripWith isSpace
+
+-- | Strip leading and trailing elements matching a predicate.
+stripWith :: (a -> Bool) -> [a] -> [a]
+stripWith f = reverse . dropWhile f . reverse . dropWhile f
