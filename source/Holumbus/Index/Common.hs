@@ -170,28 +170,28 @@ class Binary i => HolIndex i where
   -- in the occurrences for a word in a specific context.
   updateDocuments :: (Context -> Word -> DocId -> DocId) -> i -> i
 
-class Binary (d c) => HolDocuments d c where
+class Binary (d a) => HolDocuments d a where
   -- | Returns the number of unique documents in the table.
-  sizeDocs      :: d c -> Int
+  sizeDocs      :: d a -> Int
   
   -- | Lookup a document by its id.
-  lookupById    :: Monad m => d c -> DocId -> m (Document c)
+  lookupById    :: Monad m => d a -> DocId -> m (Document a)
   -- | Lookup the id of a document by an URI.
-  lookupByURI   :: Monad m => d c -> URI -> m DocId
+  lookupByURI   :: Monad m => d a -> URI -> m DocId
   
   -- | Merge two document tables. The returned tuple contains a list of id's from the second
   -- table that were replaced with new id's to avoid collisions.
-  mergeDocs     :: d c -> d c -> ([(DocId, DocId)], d c)
+  mergeDocs     :: d a -> d a -> ([(DocId, DocId)], d a)
 
   -- | Insert a document into the table. Returns a tuple of the id for that document and the 
   -- new table. If a document with the same URI is already present, its id will be returned 
   -- and the table is returned unchanged.
-  insertDoc     :: d c -> (Document c) -> (DocId, d c)
+  insertDoc     :: d a -> (Document a) -> (DocId, d a)
 
   -- | Removes the document with the specified id from the table.
-  removeById     :: d c -> DocId -> d c
+  removeById     :: d a -> DocId -> d a
   -- | Removes the document with the specified URI from the table.
-  removeByURI    :: d c -> URI -> d c
+  removeByURI    :: d a -> URI -> d a
 
   removeByURI ds u = maybe ds (removeById ds) (lookupByURI ds u)
 
@@ -217,7 +217,7 @@ xpOccurrences = xpWrap (IM.fromList, IM.toList) (xpList xpOccurrence)
 
 -- | Merges an index with its documents table with another index and its documents table. 
 -- Conflicting id's for documents will be resolved automatically.
-mergeAll :: (HolDocuments d c, HolIndex i) => d c -> i -> d c -> i -> (d c, i)
+mergeAll :: (HolDocuments d a, HolIndex i) => d a -> i -> d a -> i -> (d a, i)
 mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocuments replaceIds i2))
   where
   (ud, md) = mergeDocs d1 d2

@@ -66,8 +66,8 @@ data DistributedConfig = DistributedConfig
   }
 
 -- | Processes a query in distributed manner. The queries will be sent in parallel, by spawning 
--- a dedicated worker thread for each server.
-processDistributed :: (HolDocuments d c) => DistributedConfig -> d c -> Query -> IO (Result c)
+-- a dedicated worker thread for each server. See also 'processQuery' and 'processPartial'.
+processDistributed :: (HolDocuments d a) => DistributedConfig -> d a -> Query -> IO (Result a)
 processDistributed cfg d q = 
   do
   res <- newMVar emptyIntermediate

@@ -46,14 +46,14 @@ import Control.Parallel.Strategies
 import Holumbus.Index.Common
 
 -- | The table which is used to map a document to an artificial id and vice versa.
-data Documents c = Documents
-  { idToDoc   :: !(IntMap (Document c)) -- ^ A mapping from a document id to the document itself.
+data Documents a = Documents
+  { idToDoc   :: !(IntMap (Document a)) -- ^ A mapping from a document id to the document itself.
   , docToId   :: !(Map URI DocId)       -- ^ A mapping from the URI of a document to its id.
   , lastDocId :: !DocId                 -- ^ The last used document id.
   }
   deriving (Show, Eq)
 
-instance Binary c => HolDocuments Documents c where
+instance Binary a => HolDocuments Documents a where
   sizeDocs d = IM.size (idToDoc d)
   
   lookupById = (flip IM.lookup) . idToDoc
