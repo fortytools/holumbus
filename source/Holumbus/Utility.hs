@@ -18,13 +18,15 @@
 
 module Holumbus.Utility where
 
+import Data.Char
+
 import qualified Data.List as L
 import qualified Data.Map as M
 
--- | Normalizes a Haskell signature, e.g. @String->Int->Int@ will be transformed to 
--- @a->b->b@. All whitespace has to be removed from the input string.
+-- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
+-- @a->b->b@. All whitespace will be removed from the resulting string.
 normalizeSignature :: String -> String
-normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->"
+normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" . filter (not . isSpace)
   where
   replaceTypes _ _ [] = []
   replaceTypes v t (x:xs) = let (nv, ut, rx) = replace in rx:(replaceTypes nv ut xs)
