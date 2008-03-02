@@ -30,6 +30,7 @@ library
                , binary
                , bzlib
   exposed-modules:
+    Holumbus.Utility,
     Holumbus.Build.Crawl,
     Holumbus.Build.Tokenize,
     Holumbus.Control.MapReduce.Parallel,
