@@ -73,6 +73,7 @@ import Control.Parallel.Strategies
 
 import Text.XML.HXT.Arrow
 
+import Holumbus.Utility
 import Holumbus.Index.Common
 
 -- | The combined result type for Holumbus queries.
@@ -220,13 +221,4 @@ setDocScore s (DocInfo d _) = DocInfo d s
 setWordScore :: Score -> WordInfo -> WordInfo
 setWordScore s (WordInfo t _) = WordInfo t s
 
--- | Split a string into seperate strings at a specific character.
-split :: Eq a => [a] -> [a] -> [[a]]
-split _ []       = [[]] 
-split at w@(x:xs) = maybe ((x:r):rs) ((:) [] . split at) (L.stripPrefix at w)
-                    where (r:rs) = split at xs
- 
--- | Join with a seperating character.
-join :: Eq a => [a] -> [[a]] -> [a]
-join = L.intercalate
   
