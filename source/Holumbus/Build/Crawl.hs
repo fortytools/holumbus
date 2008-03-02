@@ -16,35 +16,70 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Build.Crawl where
+module Holumbus.Build.Crawl
+  (
+  -- * CrawlerState type
+    CrawlerState (..)
+
+  -- * Crawling
+  , crawl
+  
+  -- * Whatevering
+  , tmpFile
+  )
+where
 
 import           Data.List
 import           Data.Maybe
 import qualified Data.Map    as M
 import qualified Data.Set    as S
+import qualified Data.IntMap as IM
 
 import           Holumbus.Index.Common
+-- import           Holumbus.Index.Documents
 import           Holumbus.Control.MapReduce.Parallel
 
 import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
+import           System.Time
 
-data CrawlerState-- | internal crawler state 
+-- | crawler state
+data CrawlerState 
     = CrawlerState
       { cs_toBeProcessed :: S.Set URI
       , cs_wereProcessed :: S.Set URI
       , cs_unusedDocIds  :: [DocId]
       , cs_readOptions   :: Attributes        -- passed to readDocument
       , cs_crawlFilter   :: (URI -> Bool)     -- decides if a link will be followed
+      , cs_docMap        :: IM.IntMap (Document String)
+      , cs_tempSerialize :: Bool
+      , cs_tempPath      :: String               
       }
+    
+ts = CrawlerState
+  (S.singleton "file:///home/sms/testfiles/l1.html")
+  S.empty
+  [1..]
+  stdOpts4Reading
+  (const True)
+  IM.empty
+  False
+  ""
+-- | some standard options for the readDocument function
+stdOpts4Reading :: [(String, String)]
+stdOpts4Reading = []
+  ++ [ (a_parse_html, v_1)]
+  ++ [ (a_issue_warnings, v_0)]
+  ++ [ (a_use_curl, v_1)]
+  ++ [ (a_options_curl, "--user-agent HolumBot/0.1 --location")]  
+    
+tmpFile :: Show t => t -> URI -> String
+tmpFile docId uri = (show docId) ++ ".xml"
 
--- | Maximal parallel Threads. This will be replaced by configuration parameters
-maxWorkers :: Int
-maxWorkers = 5
 
 -- | crawl a Web Page recursively
 --   signature may change so that a doc table will be the computed result
-crawl :: CrawlerState -> IO CrawlerState
-crawl cs = 
+crawl :: Int -> CrawlerState -> IO CrawlerState
+crawl maxWorkers cs = 
   if S.null ( cs_toBeProcessed cs )
     then return (cs)
     else do
@@ -58,59 +93,94 @@ crawl cs =
                             , cs_toBeProcessed = S.empty
                             }
 
-         mr   <- mapReduce maxWorkers (crawlDoc (cs_readOptions cs)) noReduce d' 
-         cs''<- return $ processCrawlResults (M.toList mr) cs'
+         mr   <- mapReduce 
+                    maxWorkers 
+                    (crawlDoc (cs_readOptions cs) (cs_tempSerialize cs) (cs_tempPath cs) ) 
+                    noReduce'
+                    d' 
+                             
+                    
+         cs''<- return $! processCrawlResults (M.toList mr) cs'
          
-         crawl cs''
+         crawl maxWorkers cs''
+
+crawlDoc :: (Show t) => Attributes -> Bool -> String -> t -> String -> IO [((t, Document String), [String])]
+crawlDoc readOpts tmpSerialize tmpPath docId uri 
+  = do
+    clt <- getClockTime
+    cat <- toCalendarTime clt
+    runX ( traceMsg 1 (calendarTimeToString cat) >>> 
+      crawlDoc' readOpts tmpSerialize tmpPath (docId, uri) )
+  
+noReduce' :: k2 -> [v2] -> IO (Maybe v2)
+noReduce' k vs = do return $ Just (head vs)
 
 -- | Download & read document and compute document title and included refs to
 --   other documents 
-crawlDoc :: (Show t) =>
-     Attributes
-  -> (t, String)
-  -> IOSLA (XIOState s) b ((t, Document), [String])
-crawlDoc opts (docId, uri) =
+crawlDoc' :: (Show t) =>
+     Attributes   -- ^ options for readDocument
+  -> Bool         -- ^ write copies of data to hard disk ?
+  -> String       -- ^ path for serialized tempfiles
+  -> (t, String)  -- ^ DocId, URI
+  -> IOSLA (XIOState s) b ((t, Document String), [String])
+crawlDoc' readOpts tmpSerialize tmpPath (docId, uri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show uri )
-    >>> readDocument opts uri
+    >>> readDocument readOpts uri
     >>> (
-          ( documentStatusOk `guards`
---                writeTmpXmlFile stdOpts4Writing (tmpPath ++ "map/") uri
---            >>> 
+          documentStatusOk `guards`
+          (
+                ( 
+                  (writeDocument [] (tmpPath ++ (tmpFile docId uri)))
+                  `whenP`
+                   (const tmpSerialize ) 
+                ) 
+             >>> 
                 (   
                   (constA docId
                   &&&
-                  (getDocument uri))
+                  (getDocument Nothing uri))
                   &&&
                   (getLinks $< computeDocBase >>> strictA)
                 ) 
-          ) `orElse` ( 
+          )
+          `orElse` ( 
                 clearErrStatus
-            >>> constA ((docId, ("", "_ERR_")), [])             -- TODO error handling
+            >>> traceMsg 0 (  "something went wrong with doc: " ++ uri)    
+            >>> constA ((docId, (Document errID errID Nothing)), [])             -- TODO error handling
           )
         )
 --    >>> strictA
+
+errID :: String
+errID = "__ERR__"   
     
-    
-processCrawlResults :: [(t,  [URI])] -> CrawlerState -> CrawlerState
+processCrawlResults :: [((Int, Document String),  [URI])] -> CrawlerState -> CrawlerState
 processCrawlResults l cs =
-    cs {  
-          cs_toBeProcessed = S.union
+    let
+      newDocs        = S.unions (map S.fromList (map refs l))
+      refs (_, uris) = filter (cs_crawlFilter cs) uris 
+    in      
+     cs { cs_toBeProcessed = S.union
                                 (cs_toBeProcessed cs)
                                 (S.difference newDocs (cs_wereProcessed cs))
+        , cs_docMap      =  (IM.fromList processedDocs )
+                            `IM.union` 
+                            (cs_docMap cs)     
         } 
-    where
-      newDocs = S.unions (map S.fromList (map refs l))
-      refs (_, uris) = filter (cs_crawlFilter cs) uris 
-          
+        where processedDocs = filter (\(_, doc) -> (title doc) /= errID && (uri doc) /= errID ) (map fst l)
+        --where processedDocs = filter (\(_, doc) -> (title doc) /= errID && (uri doc) /= errID ) (map fst l)
+        
 -- | extract the Title of a Document (for web pages the <title> tag) and combine
 --   it with the document uri
-getDocument :: (ArrowXml a) => URI -> a XmlTree Document
-getDocument uri = getTitle &&& constA uri
+getDocument :: (ArrowXml a) => Maybe String -> URI -> a XmlTree (Document String)
+getDocument c uri = getTitle >>> arr mkDoc
   where
-    getTitle :: (ArrowXml a) => a XmlTree String
-    getTitle 
-      =     getXPathTrees "/descendant::a/attribute::href/child::text()"
-        >>> getText     
+  mkDoc :: String -> Document String
+  mkDoc s = Document s uri c
+  getTitle :: (ArrowXml a) => a XmlTree String
+  getTitle 
+    =     getXPathTrees "/html/head/title/text()"
+      >>> getText     
              
 -- | Extract all Hyperlinks from a XmlTree
 -- TODO: beautify & generalize protocol handling
