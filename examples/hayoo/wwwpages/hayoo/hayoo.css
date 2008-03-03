@@ -1,7 +1,12 @@
+html {
+	height:100%;
+}
+
 body {
 	font-family:Tahoma,Verdana,sans-serif;
 	margin:0px;
 	font-size:8pt;
+	height:100%;
 }
 
 a {
@@ -32,21 +37,69 @@ img.logo { border: none; }
 	font-weight: bold;
 }
 
-#help {
+#info {
 	float:right;
 	color:gray;
 	padding:5px;
+}
+
+#shutter {
+	background-color: #000000;
+	height: 100%;
+	width: 100%;
+	left: 0pt;
+	top: 0pt;
+	position: fixed;
+	opacity:0.6;
+	z-index:1000;
+}
+
+.text {
+	background-color: transparent;
+	height: 100%;
+	width: 100%;
+	left: 0pt;
+	top: 0pt;
+	position: fixed;
+	text-align: center;
+	z-index: 1002;
+	opacity:1.0;
+}
+
+.box {
+	margin-left: auto;
+	margin-right: auto;
+	margin-bottom: auto;
+	margin-top: 71px;
+	background-color: white;
+	visibility: visible;
+	opacity:1.0;
+	width: 800px;
+	height: 600px;
+	padding:10px;
+	z-index:1004;
+}
+
+#container {
+	min-height:100%;
+	position:relative;
+}
+
+#result {
+	padding-bottom:80px;
 }
 
 #credits {
 	border-top:1px solid silver;
 	border-bottom:1px solid silver;
 	margin-top:10px;
+	margin-bottom:10px;
 	color:gray;
 	padding-top:10px;
-	padding-bottom:5px;
 	background-color:#F4F4F4;
-	height:40px;
+	bottom:0;
+	position:absolute;
+	width:100%;
 }
 
 #powered {
@@ -55,6 +108,7 @@ img.logo { border: none; }
 }
 
 #authors {
+	text-align:right;
 	margin-right:10px;
 	padding-top:25px;
 	float:right;
@@ -79,11 +133,6 @@ img.logo { border: none; }
 
 #documents {
 	padding:10px;
-	min-height:400px;
-}
-
-#words {
-
 }
 
 #queryinterface {
@@ -99,7 +148,7 @@ img.logo { border: none; }
 
 #querytext {
 	margin-top:5px;
-		border-color:silver;
+	border-color:silver;
 	border-width:1px;
 	border-style:solid;
 	width:300px;
@@ -111,6 +160,35 @@ img.logo { border: none; }
 	border-width:1px;
 	border-style:solid;
 	background-color:#F4F4F4;
+}
+
+#pager {
+	text-align:center;
+	width:100%;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+a.page {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+.current {
+	font-weight:bold;
+	color:silver;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.next {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.previous {
+	padding-left:5px;
+	padding-right:5px;
 }
 
 a.cloud {

@@ -1,13 +1,11 @@
 var lastPress = (new Date()).getTime();
 
 document.observe("dom:loaded", function() {
-	$("throbber").hide();
-	
 	checkForQuery();
 });
 
 function checkForQuery () {
-	var argument = window.location.search.toQueryParams()["query"];
+	var argument = window.location.search.gsub(/\+/, '%20').toQueryParams()['query'];
 	
 	if (argument) {
 		$("querytext").value = argument;
@@ -20,21 +18,21 @@ function tryProcessQuery () {
 	delay = currentPress - lastPress;
 	lastPress = currentPress;
 	if (delay > 500) {
-		processQuery();
+		processQuery(0);
 	}
 }
 
 function forceProcessQuery () {
-	processQuery();
+	processQuery(0);
 	
 	return false;
 }
 
-function processQuery () {
+function processQuery (start) {
 	var query = $("querytext").value;
 	if (query.length > 1) {
 		$("throbber").show();
-		new Ajax.Request("results/hayoo.html?query=" + query,
+		new Ajax.Request("results/hayoo.html?query=" + query + "&start=" + start,
 		{
 			method:'get',
 			onSuccess: function(transport) {
@@ -56,4 +54,8 @@ function displayResult (result) {
 	$("result").replace(result);
 	
 	$("throbber").hide();
+}
+
+function showPage (page) {
+	processQuery (page);
 }
