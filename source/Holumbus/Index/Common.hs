@@ -153,6 +153,13 @@ class Binary i => HolIndex i where
   -- | Delete occurrences.
   deleteOccurrences :: Context -> String -> Occurrences -> i -> i
 
+  -- | Insert a position for a single document.
+  insertPosition :: Context -> String -> DocId -> Position -> i -> i
+  insertPosition c w d p i = insertOccurrences c w (IM.singleton d (IS.singleton p)) i
+  -- | Delete a position for a single document.
+  deletePosition :: Context -> String -> DocId -> Position -> i -> i
+  deletePosition c w d p i = deleteOccurrences c w (IM.singleton d (IS.singleton p)) i
+
   -- | Merges two indexes. 
   mergeIndexes  :: i -> i -> i
   -- | Substract one index from another.
