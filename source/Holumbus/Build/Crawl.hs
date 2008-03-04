@@ -55,25 +55,10 @@ data CrawlerState
       , cs_tempPath      :: String               
       }
     
-ts = CrawlerState
-  (S.singleton "file:///home/sms/testfiles/l1.html")
-  S.empty
-  [1..]
-  stdOpts4Reading
-  (const True)
-  IM.empty
-  False
-  ""
--- | some standard options for the readDocument function
-stdOpts4Reading :: [(String, String)]
-stdOpts4Reading = []
-  ++ [ (a_parse_html, v_1)]
-  ++ [ (a_issue_warnings, v_0)]
-  ++ [ (a_use_curl, v_1)]
-  ++ [ (a_options_curl, "--user-agent HolumBot/0.1 --location")]  
-    
+  
+-- | computes a filename for a local temporary file
 tmpFile :: Show t => t -> URI -> String
-tmpFile docId uri = (show docId) ++ ".xml"
+tmpFile docId _ = (show docId) ++ ".xml"
 
 
 -- | crawl a Web Page recursively
@@ -105,15 +90,15 @@ crawl maxWorkers cs =
          crawl maxWorkers cs''
 
 crawlDoc :: (Show t) => Attributes -> Bool -> String -> t -> String -> IO [((t, Document String), [String])]
-crawlDoc readOpts tmpSerialize tmpPath docId uri 
+crawlDoc readOpts tmpSerialize tmpPath docId theUri 
   = do
     clt <- getClockTime
     cat <- toCalendarTime clt
     runX ( traceMsg 1 (calendarTimeToString cat) >>> 
-      crawlDoc' readOpts tmpSerialize tmpPath (docId, uri) )
+      crawlDoc' readOpts tmpSerialize tmpPath (docId, theUri) )
   
 noReduce' :: k2 -> [v2] -> IO (Maybe v2)
-noReduce' k vs = do return $ Just (head vs)
+noReduce' _ vs = do return $ Just (head vs)
 
 -- | Download & read document and compute document title and included refs to
 --   other documents 
@@ -123,14 +108,14 @@ crawlDoc' :: (Show t) =>
   -> String       -- ^ path for serialized tempfiles
   -> (t, String)  -- ^ DocId, URI
   -> IOSLA (XIOState s) b ((t, Document String), [String])
-crawlDoc' readOpts tmpSerialize tmpPath (docId, uri) =
-        traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show uri )
-    >>> readDocument readOpts uri
+crawlDoc' readOpts tmpSerialize tmpPath (docId, theUri) =
+        traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
+    >>> readDocument readOpts theUri
     >>> (
           documentStatusOk `guards`
           (
                 ( 
-                  (writeDocument [] (tmpPath ++ (tmpFile docId uri)))
+                  (writeDocument [] (tmpPath ++ (tmpFile docId theUri)))
                   `whenP`
                    (const tmpSerialize ) 
                 ) 
@@ -138,14 +123,14 @@ crawlDoc' readOpts tmpSerialize tmpPath (docId, uri) =
                 (   
                   (constA docId
                   &&&
-                  (getDocument Nothing uri))
+                  (getDocument Nothing theUri))
                   &&&
                   (getLinks $< computeDocBase >>> strictA)
                 ) 
           )
           `orElse` ( 
                 clearErrStatus
-            >>> traceMsg 0 (  "something went wrong with doc: " ++ uri)    
+            >>> traceMsg 0 (  "something went wrong with doc: " ++ theUri)    
             >>> constA ((docId, (Document errID errID Nothing)), [])             -- TODO error handling
           )
         )
@@ -173,10 +158,10 @@ processCrawlResults l cs =
 -- | extract the Title of a Document (for web pages the <title> tag) and combine
 --   it with the document uri
 getDocument :: (ArrowXml a) => Maybe String -> URI -> a XmlTree (Document String)
-getDocument c uri = getTitle >>> arr mkDoc
+getDocument c theUri = getTitle >>> arr mkDoc
   where
   mkDoc :: String -> Document String
-  mkDoc s = Document s uri c
+  mkDoc s = Document s theUri c
   getTitle :: (ArrowXml a) => a XmlTree String
   getTitle 
     =     getXPathTrees "/html/head/title/text()"
