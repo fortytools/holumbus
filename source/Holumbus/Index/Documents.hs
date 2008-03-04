@@ -26,6 +26,7 @@ module Holumbus.Index.Documents
   -- * Construction
   , emptyDocuments
   , fromMap
+  , toMap
 )
 where
 
@@ -103,6 +104,10 @@ emptyDocuments = Documents IM.empty M.empty 0
 -- | Create a document table from a single map.
 fromMap :: IntMap (Document a) -> (Documents a)
 fromMap itd = Documents itd (idToDoc2docToId itd) (lastId itd)
+
+-- | Convert document table to a single map
+toMap :: Documents c -> IntMap (Document c)
+toMap = idToDoc
 
 -- | Construct the inverse map from the original map.
 idToDoc2docToId :: IntMap (Document a) -> Map URI DocId
