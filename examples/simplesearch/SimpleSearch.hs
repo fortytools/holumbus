@@ -127,11 +127,13 @@ startupLocal v (Index idxFile) (Documents docFile) =
   do
   putStrLn "Loading index..."
   idx <- (loadFromFile idxFile) :: IO InvIndex
+--  putStrLn "Persisting index..."
+--  idx <- return (makePersistent "tmp.idx" tmp)
   return (rnf idx)
   if v  then putStrLn ("Collected position total of " ++ (show $ walkIndex idx)) else return ()
   putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."
-  doc <- (loadFromFile docFile) :: IO Documents
+  doc <- (loadFromFile docFile) :: IO (Documents Int)
   return (rnf doc)
   putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (localQuery idx doc) v
@@ -142,7 +144,7 @@ startupDistributed :: Bool -> Flag -> [Server] -> Bool -> IO ()
 startupDistributed v (Documents docFile) srvs compr = 
   do
   putStrLn "Loading documents..."
-  doc <- (loadFromFile docFile) :: IO Documents
+  doc <- (loadFromFile docFile) :: IO (Documents Int)
   return (rnf doc)
   putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (distributedQuery doc srvs compr) v
@@ -150,14 +152,14 @@ startupDistributed _ _ _ _ = usage ["Internal error!\n"]
 
 -- | Create the configuration for the query processor.
 processCfg :: ProcessConfig
-processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True
+processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
 
 -- | Perform a query on a local index.
-localQuery :: (HolIndex i, HolDocuments d) => i -> d -> Query -> IO Result
+localQuery :: (HolIndex i, HolDocuments d a) => i -> d a -> Query -> IO (Result a)
 localQuery i d q = return (processQuery processCfg i d q)
 
 -- | Perform a query on a remote index.
-distributedQuery :: HolDocuments d => d -> [Server] -> Bool -> Query -> IO Result
+distributedQuery :: HolDocuments d a => d a -> [Server] -> Bool -> Query -> IO (Result a)
 distributedQuery d s c q = processDistributed cfg d q
   where
   cfg = DistributedConfig s c processCfg
@@ -191,7 +193,7 @@ options = [ Option "i" ["index"] (ReqArg Index "FILE") "Loads index from FILE"
           , Option "?" ["help"] (NoArg Help) "Output this help and exit"
           ]
 
-answerQueries ::(Query -> IO Result) -> Bool -> IO ()
+answerQueries ::(Query -> IO (Result a)) -> Bool -> IO ()
 answerQueries f verbose = 
   do
   q <- readline ("Enter query (type :? for help) > ")
@@ -246,7 +248,7 @@ internalCommand _   =
   do
   putStrLn "Unknown command!"
 
-printDocHits :: DocHits -> IO ()
+printDocHits :: DocHits a -> IO ()
 printDocHits h = 
   do
   putStrLn "Result:"
@@ -257,10 +259,10 @@ printDocHits h =
       printHits' [] = return ()
       printHits' ((_, (di, _)):xs) = 
         do
-        putStr (fst $ document di)
+        putStr (title $ document di)
         putStr " Score: "
         putStrLn (show $ docScore  di)
-        putStrLn (snd $ document di)
+        putStrLn (uri $ document di)
         printHits' xs
         return ()
 
@@ -277,7 +279,7 @@ printHelp :: IO ()
 printHelp = 
   do
   putStrLn "Holumbus treats single words as prefix terms and will give you possible completions."
-  putStrLn "Words are interpreted case insensitive. Phrases and exact matches (case sensitive)"
+  putStrLn "Words are interpreted case insensitive. Phrases and exact matches (case-sensitive)"
   putStrLn "can be specified by using quotes (i.e. \"Foo Bar\" will match this exact sequence)."
   putStrLn "Terms just separated by space will be treated implicitly as AND terms."
   putStrLn "Other operators have to be specified explicitly. Avaliable operators are: AND, OR, NOT"

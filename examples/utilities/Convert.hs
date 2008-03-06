@@ -99,7 +99,7 @@ startup (Index inp) (Output out) Binary = do
                                           putStrLn "Finished!"
 startup (Documents inp) (Output out) Binary = do
                                               putStrLn $ "Converting " ++ inp ++ " to binary..."
-                                              doc <- (loadFromFile inp) :: IO Documents
+                                              doc <- (loadFromFile inp) :: IO (Documents Int)
                                               return (rnf doc)
                                               writeToBinFile out doc
                                               putStrLn "Finished!"
@@ -111,7 +111,7 @@ startup (Index inp) (Output out) Xml = do
                                        putStrLn "Finished!"
 startup (Documents inp) (Output out) Xml = do
                                            putStrLn $ "Converting " ++ inp ++ " to XML..."
-                                           doc <- (loadFromFile inp) :: IO Documents
+                                           doc <- (loadFromFile inp) :: IO (Documents Int)
                                            return (rnf doc)
                                            writeToXmlFile out doc
                                            putStrLn "Finished!"

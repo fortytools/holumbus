@@ -122,7 +122,7 @@ startupLocal qs (Index idxFile) (Documents docFile) =
   return (rnf idx)
   putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."
-  doc <- (loadFromFile docFile) :: IO Documents
+  doc <- (loadFromFile docFile) :: IO (Documents Int)
   return (rnf doc)
   putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   runQueries (localQuery idx doc) qs
@@ -133,7 +133,7 @@ startupDistributed :: [Query] -> Flag -> [Server] -> Bool -> IO ()
 startupDistributed qs (Documents docFile) srvs compr = 
   do
   putStrLn "Loading documents..."
-  doc <- (loadFromFile docFile) :: IO Documents
+  doc <- (loadFromFile docFile) :: IO (Documents Int)
   return (rnf doc)
   putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   runQueries (distributedQuery doc srvs compr) qs
@@ -141,14 +141,14 @@ startupDistributed _ _ _ _ = usage ["Internal error!\n"]
 
 -- | Create the configuration for the query processor.
 processCfg :: ProcessConfig
-processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True
+processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
 
 -- | Perform a query on a local index.
-localQuery :: (HolIndex i, HolDocuments d) => i -> d -> Query -> IO Result
+localQuery :: (HolIndex i, HolDocuments d c) => i -> d c -> Query -> IO (Result c)
 localQuery i d q = return $! processQuery processCfg i d q
 
 -- | Perform a query on a remote index.
-distributedQuery :: HolDocuments d => d -> [Server] -> Bool -> Query -> IO Result
+distributedQuery :: HolDocuments d c => d c -> [Server] -> Bool -> Query -> IO (Result c)
 distributedQuery d s c q = processDistributed cfg d q
   where
   cfg = DistributedConfig s c processCfg
@@ -199,7 +199,7 @@ generateQueries t = allQueries ++ (generateQueries $ t - 1)
              ++ [CasePhrase (w1 ++ " " ++ w2) | w1 <- oneWords, w2 <- oneWords]
              ++ [FuzzyWord w | w <- twoWords]
 
-runQueries ::(Query -> IO Result) -> [Query] -> IO ()
+runQueries ::(Query -> IO (Result c)) -> [Query] -> IO ()
 runQueries f qs = 
   do
   putStrLn "Running queries ..."
@@ -225,14 +225,14 @@ runQueries f qs =
     where
     l = fromIntegral $ length qs
 
-runner :: (Query -> IO Result) -> [Query] -> Integer -> IO (Integer)
+runner :: (Query -> IO (Result c)) -> [Query] -> Integer -> IO (Integer)
 runner _ [] a = return a
 runner f (q:qs) a = 
   do
   l <- runQuery f q
   runner f qs $! (a + fromIntegral l)
                
-runQuery :: (Query -> IO Result) -> Query -> IO (Int)
+runQuery :: (Query -> IO (Result c)) -> Query -> IO (Int)
 runQuery f q = 
   do
   r <- liftM (rank rankCfg) $! f q -- This is where the magic happens!

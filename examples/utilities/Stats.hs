@@ -77,12 +77,12 @@ startup (Index idxFile) (Documents docFile) = do
                                               idx <- (loadFromFile idxFile) :: IO InvIndex
                                               return (rnf idx)
                                               putStrLn "Loading documents..."
-                                              doc <- (loadFromFile docFile) :: IO Documents
+                                              doc <- (loadFromFile docFile) :: IO (Documents Int)
                                               return (rnf doc)
                                               printStats idx doc
 startup _ _ = usage ["Internal error!\n"]
 
-printStats :: (HolIndex i, HolDocuments d) => i -> d -> IO ()
+printStats :: (HolIndex i, HolDocuments d a) => i -> d a -> IO ()
 printStats i d = do
                  putStrLn "General:"
                  putStrLn $ "Contexts:" ++ concatMap ((++) " ") (contexts i)

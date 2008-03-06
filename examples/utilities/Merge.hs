@@ -72,8 +72,8 @@ startup [(Index if1), (Index if2)] [(Documents df1), (Documents df2)] =
   idx1 <- (loadFromFile if1) :: IO InvIndex
   idx2 <- (loadFromFile if2) :: IO InvIndex
   putStrLn "Loading documents..."
-  doc1 <- (loadFromFile df1) :: IO Documents
-  doc2 <- (loadFromFile df2) :: IO Documents
+  doc1 <- (loadFromFile df1) :: IO (Documents Int)
+  doc2 <- (loadFromFile df2) :: IO (Documents Int)
   putStrLn "Merging..."
   (d, i) <- return (mergeAll doc1 idx1 doc2 idx2)
   writeToBinFile "merged-docs.bin" d
