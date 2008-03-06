@@ -179,11 +179,11 @@ notTests = TestList
 
 caseTests :: Test
 caseTests = TestList
-  [ TestCase (assertEqual "Simple case sensitive word"
+  [ TestCase (assertEqual "Simple case-sensitive word"
   (Right (cw "batzen"))
   (P.parseQuery "!batzen"))
 
-  ,TestCase (assertEqual "Simple case sensitive phrase"
+  ,TestCase (assertEqual "Simple case-sensitive phrase"
   (Right (cp "this is a test"))
   (P.parseQuery "!\"this is a test\"")) 
 

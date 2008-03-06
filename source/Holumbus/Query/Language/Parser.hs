@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Holumbus.Query.Parser
+  Module     : Holumbus.Query.Language.Parser
   Copyright  : Copyright (C) 2007, 2008 Timo B. Huebel
   License    : MIT
 
@@ -11,6 +11,9 @@
   Version    : 0.2
 
   The Holumbus query parser, based on the famous Parsec library.
+
+  The parser implements a default syntax for the query grammar which exposes
+  all possible query types and operators to the user.
 
 -}
 
@@ -27,7 +30,7 @@ import Holumbus.Query.Language.Grammar
 import Text.ParserCombinators.Parsec
 import Data.Either
 
--- | Parse a query.
+-- | Parse a query using the default syntax provided by the Holumbus framework.
 parseQuery :: String -> Either String Query
 parseQuery = result . (parse query "")
   where
@@ -85,7 +88,7 @@ parQuery = parQuery' <|> caseQuery
                  char ')'
                  return q
 
--- | Parse a case sensitive query.
+-- | Parse a case-sensitive query.
 caseQuery :: Parser Query
 caseQuery = caseQuery' <|> fuzzyQuery
   where

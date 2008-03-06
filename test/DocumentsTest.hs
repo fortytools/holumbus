@@ -40,10 +40,10 @@ instance Arbitrary Char where
   arbitrary     = choose ('\32', '\128')
   coarbitrary c = variant (ord c `rem` 4)
 
-instance Arbitrary (Document c) where
+instance Arbitrary (Document a) where
   arbitrary = liftM3 Document arbitrary arbitrary (return Nothing)
 
-instance Arbitrary (Documents c) where
+instance Arbitrary (Documents a) where
   arbitrary =
     do
     ids <- sized (\n -> sequence [ (choose (1, (n + 1))) | _ <- [0..n] ])
