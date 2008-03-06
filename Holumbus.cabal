@@ -49,6 +49,7 @@ library
     Holumbus.Index.Documents,
     Holumbus.Index.Hybrid,
     Holumbus.Index.Inverted,
+    Holumbus.Index.Persistent,
     Holumbus.Query.Distribution.Client,
     Holumbus.Query.Distribution.Protocol,
     Holumbus.Query.Distribution.Server,
