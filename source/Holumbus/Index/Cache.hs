@@ -10,11 +10,9 @@
   Portability: portable
   Version    : 0.1
 
-  A persistent full-text cache for arbitrary documents. Implemented on 
-  top of 'unsafePerformIO' to be able to provide a purely functional
-  interface but still be able to store the documents on some persistent
-  memory. The cache could also be seen as a map with its storage capacity 
-  being extended by persistent storage.
+  A persistent full-text cache for arbitrary documents.
+  
+  Implemented using the single file database SQLite.
 
 -}
 
@@ -30,26 +28,50 @@ module Holumbus.Index.Cache
   )
 where
 
+import Prelude hiding (lookup)
+
 import System.IO
 
-import Control.Exception
-import Control.Monad
+import Database.HDBC
+import Database.HDBC.Sqlite3
 
 import Holumbus.Index.Common
 
--- | A simple document cache based on plain text files in a single directory.
-data Cache = Cache FilePath deriving (Show, Eq)
+-- | A simple document cache based on a SQLite database.
+data Cache = Cache Connection
 
 instance HolCache Cache where
-  getDocText (Cache s) c d = handle (\_ -> return Nothing) (liftM Just $ readFile (s ++ "/" ++ getName c d))
+  getDocText (Cache conn) c d = handleSql (\_ -> return Nothing) lookup
+    where
+    lookup = do
+             r <- quickQuery conn lookupQuery [toSql d, toSql c]
+             if null r then return Nothing else return (fromSql $ head $ head r)
 
-  putDocText (Cache s) c d t = writeFile (s ++ "/" ++ getName c d) t
-    
--- | Creates a new document cache from the given directory. Depending on the directory contents,
--- the cache contains some documents or is empty.
-createCache :: FilePath -> Cache
-createCache f = Cache f
+  putDocText (Cache conn) c d t = handleSql (\_ -> return ()) insert
+    where
+    insert = do
+             quickQuery conn insertQuery [toSql d, toSql c, toSql t]
+             commit conn
 
--- | Create a unique file identifier from context and document id.
-getName :: Context -> DocId -> FilePath
-getName c d = (show d) ++ "-" ++ c
+-- | The query for creating the database table.    
+createQuery :: String
+createQuery = "CREATE TABLE holumbus_cache (id INTEGER, context TEXT, content TEXT)"
+
+-- | The query for inserting an entry into the table.
+insertQuery :: String
+insertQuery = "INSERT OR REPLACE INTO holumbus_cache (id, context, content) VALUES (?, ?, ?)"
+
+-- | The query for retrieving an entry from the table.
+lookupQuery :: String
+lookupQuery = "SELECT content FROM holumbus_cache WHERE (id = ?) AND (context = ?)"
+
+-- | Creates a new document cache from a given database file. If the database exists already, 
+-- nothing is changed. If the database does not yet exist, it is properly initialized. The cache
+-- should only be created once for every database file during the lifetime of a program.
+createCache :: FilePath -> IO Cache
+createCache f = do
+                conn <- connectSqlite3 f
+                t <- getTables conn
+                if "holumbus_cache" `elem` t then return () 
+                  else quickQuery conn createQuery [] >> commit conn >> return ()
+                return (Cache conn)

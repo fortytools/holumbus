@@ -6,7 +6,7 @@ author:        Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
 copyright:     Copyright (c) 2007, 2008 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
 maintainer:    Timo B. Hübel <tbh@holumbus.org>
 stability:     experimental
-category:      Unclassified
+category:      Text, Data
 synopsis:      A distributed search and indexing engine.
 homepage:      http://holumbus.org
 description:   The Holumbus library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
@@ -29,6 +29,8 @@ library
                , hxt
                , binary
                , bzlib
+               , HDBC
+               , HDBC-sqlite3
   exposed-modules:
     Holumbus.Utility,
     Holumbus.Build.Crawl,
