@@ -27,6 +27,9 @@ module Holumbus.Index.Documents
   , emptyDocuments
   , fromMap
   , toMap
+  
+  -- * Conversion
+  , simplify
 )
 where
 
@@ -81,6 +84,10 @@ instance Binary a => HolDocuments Documents a where
     where
     reallyRemove (Document _ u _) = Documents (IM.delete d (idToDoc ds)) (M.delete u (docToId ds)) (lastDocId ds)
 
+  updateDocuments f d = Documents updated (idToDoc2docToId updated) (lastId updated)
+    where
+    updated = IM.map f (idToDoc d)
+
 instance NFData a => NFData (Documents a) where
   rnf (Documents i2d d2i lid) = rnf i2d `seq` rnf d2i `seq` rnf lid
 
@@ -108,6 +115,12 @@ fromMap itd = Documents itd (idToDoc2docToId itd) (lastId itd)
 -- | Convert document table to a single map
 toMap :: Documents c -> IntMap (Document c)
 toMap = idToDoc
+
+-- | Simplify a document table by transforming the custom information into a string.
+simplify :: Show a => Documents a -> Documents String
+simplify dt = Documents (simple (idToDoc dt)) (docToId dt) (lastDocId dt)
+  where
+  simple i2d = IM.map (\d -> Document (title d) (uri d) (maybe Nothing (Just . show) (custom d))) i2d
 
 -- | Construct the inverse map from the original map.
 idToDoc2docToId :: IntMap (Document a) -> Map URI DocId

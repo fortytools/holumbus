@@ -100,7 +100,7 @@ instance HolIndex InvIndex where
         where
         makeIndex (rs, ri) (c, o) = (rs + sizeOccurrences o, insertOccurrences c w o ri)
 
-  updateDocuments f (InvIndex parts) = InvIndex (M.mapWithKey updatePart parts)
+  updateDocIds f (InvIndex parts) = InvIndex (M.mapWithKey updatePart parts)
     where
     updatePart c p = SM.mapWithKey (\w o -> IM.foldWithKey (updateDocument c w) IM.empty o) p
     updateDocument c w d p r = IM.insertWith mergePositions (f c w d) p r

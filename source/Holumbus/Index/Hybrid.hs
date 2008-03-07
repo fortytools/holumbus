@@ -88,7 +88,7 @@ instance HolIndex HybIndex where
   splitByDocuments _ _ = undefined
   splitByWords _ _ = undefined
   
-  updateDocuments _ _ = undefined
+  updateDocIds _ _ = undefined
 
 instance Binary HybIndex where
   put _ = undefined

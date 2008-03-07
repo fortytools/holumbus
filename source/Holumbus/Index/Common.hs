@@ -175,7 +175,7 @@ class Binary i => HolIndex i where
   -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
   -- to the same new id, the two sets of word positions will be merged if both old id's are present
   -- in the occurrences for a word in a specific context.
-  updateDocuments :: (Context -> Word -> DocId -> DocId) -> i -> i
+  updateDocIds:: (Context -> Word -> DocId -> DocId) -> i -> i
 
 class Binary (d a) => HolDocuments d a where
   -- | Returns the number of unique documents in the table.
@@ -199,8 +199,10 @@ class Binary (d a) => HolDocuments d a where
   removeById     :: d a -> DocId -> d a
   -- | Removes the document with the specified URI from the table.
   removeByURI    :: d a -> URI -> d a
-
   removeByURI ds u = maybe ds (removeById ds) (lookupByURI ds u)
+
+  -- | Update documents (through mapping over all documents).
+  updateDocuments :: (Document a -> Document b) -> d a -> d b
 
 class HolCache c where
   -- | Retrieves the full text of a document for a given context. Will never throw any exception,
@@ -225,7 +227,7 @@ xpOccurrences = xpWrap (IM.fromList, IM.toList) (xpList xpOccurrence)
 -- | Merges an index with its documents table with another index and its documents table. 
 -- Conflicting id's for documents will be resolved automatically.
 mergeAll :: (HolDocuments d a, HolIndex i) => d a -> i -> d a -> i -> (d a, i)
-mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocuments replaceIds i2))
+mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocIds replaceIds i2))
   where
   (ud, md) = mergeDocs d1 d2
   idTable = IM.fromList ud

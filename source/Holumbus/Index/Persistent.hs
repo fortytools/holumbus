@@ -80,7 +80,7 @@ instance HolIndex PersIndex where
   splitByDocuments _ = undefined
   splitByWords _ = undefined
 
-  updateDocuments _ _ = undefined
+  updateDocIds _ _ = undefined
 
 instance Binary PersIndex where
   put (PersIndex parts occ) = put parts >> put occ
