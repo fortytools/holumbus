@@ -28,6 +28,7 @@ module InvertedTest (allTests, allProperties) where
 import Control.Monad
 
 import Data.Char
+import Data.List
 
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
@@ -43,6 +44,8 @@ import Test.HUnit
 import Test.QuickCheck
 import Test.QuickCheck.Batch
 
+import Debug.Trace
+
 instance Arbitrary Char where
   arbitrary     = choose ('\32', '\128')
   coarbitrary c = variant (ord c `rem` 4)
@@ -53,24 +56,24 @@ instance Arbitrary InvIndex where
 instance Arbitrary a => Arbitrary (IM.IntMap a) where
   arbitrary =
     do
-    ds <- sized (\n -> choose (1, n) >>= vector)
+    ds <- sized (\n -> choose (1, n + 1) >>= vector)
     os <- mapM (\d -> liftM2 (,) (return d) arbitrary) ds
     return (IM.fromList os)
 
 instance Arbitrary IS.IntSet where
   arbitrary =
     do
-    ps <- sized (\n -> (choose (1, n) >>= vector))
+    ps <- sized (\n -> (choose (1, n + 1) >>= vector))
     return (IS.fromList (map (\x -> abs (if x > 65535 then 65535 else x)) ps))
 
 genWord :: Gen [Char]
-genWord = sequence [ arbitrary | _ <- [1..50] ]
+genWord = sequence [ arbitrary | _ <- [1..20] ]
 
 genPart :: Gen [(String, Occurrences)]
-genPart = sized (\n -> sequence [ (liftM2 (,) genWord arbitrary) | _ <- [1..n] ])
+genPart = sized (\n -> sequence [ (liftM2 (,) genWord arbitrary) | _ <- [1..n + 1] ])
 
 genParts :: Gen [(String, [(String, Occurrences)])]
-genParts = sequence [ (liftM2 (,) genWord genPart) | _ <- [1..10] ]
+genParts = sequence [ (liftM2 (,) genWord genPart) | _ <- [1..5] ]
 
 deflate' = IM.map DL.fromIntSet
 
@@ -112,6 +115,21 @@ prop_ContextsInsert c w o i = (c /= "") && (w /= "")
 prop_ContextsMerge c w o i = (c /= "") && (w /= "")
   ==> c `elem` (contexts (mergeIndexes (singleton c w o) i))
 
+-- FIXME TBH 07.03.2008: Does not work due to awkward generated indices.
+--prop_SplitDocuments i =
+--  let [i1, i2] = trace (show $ splitByDocuments i 2) $ splitByDocuments i 2 in mergeIndexes i1 i2 == (i :: InvIndex)
+
+prop_SplitWords i =
+  let [i1, i2] = splitByWords i 2 in mergeIndexes i1 i2 == (i :: InvIndex)
+
+prop_SplitContexts i =
+  let [i1, i2] = splitByContexts i 2 in mergeIndexes i1 i2 == (i :: InvIndex)
+
+prop_Substract i1 i2 = let merged = mergeIndexes i1 i2 :: InvIndex in
+  (substractIndexes merged i1 == i2)
+  &&
+  (substractIndexes merged i2 == i1)
+
 allProperties :: (String, [TestOptions -> IO TestResult])
 allProperties = ("Inverted tests",
                 [ run prop_SingletonInsert
@@ -125,6 +143,9 @@ allProperties = ("Inverted tests",
                 , run prop_SizeMerge
                 , run prop_ContextsInsert
                 , run prop_ContextsMerge
+                , run prop_SplitWords
+                , run prop_SplitContexts
+                , run prop_Substract
                 ])
 
 allTests :: Test  
