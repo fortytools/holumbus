@@ -44,8 +44,6 @@ import Test.HUnit
 import Test.QuickCheck
 import Test.QuickCheck.Batch
 
-import Debug.Trace
-
 instance Arbitrary Char where
   arbitrary     = choose ('\32', '\128')
   coarbitrary c = variant (ord c `rem` 4)
