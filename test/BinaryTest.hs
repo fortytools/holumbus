@@ -31,7 +31,7 @@ import Control.Concurrent
 
 import System.Directory
 
-testIndex1, testIndex2 :: InvIndex
+testIndex1, testIndex2 :: Inverted
 testIndex1 = emptyInverted
 testIndex2 = sampleIndex1
 
@@ -67,6 +67,6 @@ writeToBin =  encodeFile
 allTests :: Test  
 allTests = TestLabel "StrMap tests" $ 
   TestList
-  [ binaryTests [testIndex1, testIndex2] "InvIndex"
+  [ binaryTests [testIndex1, testIndex2] "Inverted"
   , binaryTests [testDocs1, testDocs2] "Documents"
   ]

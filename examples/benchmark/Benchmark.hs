@@ -33,7 +33,7 @@ import Control.Parallel.Strategies
 
 import qualified Data.List as L
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 import Holumbus.Query.Processor
@@ -118,7 +118,7 @@ startupLocal :: [Query] -> Flag -> Flag -> IO ()
 startupLocal qs (Index idxFile) (Documents docFile) = 
   do
   putStrLn "Loading index..."
-  idx <- (loadFromFile idxFile) :: IO InvIndex
+  idx <- (loadFromFile idxFile) :: IO Inverted
   return (rnf idx)
   putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."

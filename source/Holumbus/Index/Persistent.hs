@@ -21,7 +21,7 @@
 module Holumbus.Index.Persistent 
 (
   -- * Persistent index types
-  PersIndex (..)
+  Persistent (..)
   , makePersistent
 )
 where
@@ -44,13 +44,13 @@ import qualified Data.Map as M
 import Holumbus.Index.Common
 import Holumbus.Index.Compression
 
-import Holumbus.Index.Inverted (InvIndex (InvIndex))
+import Holumbus.Index.Inverted (Inverted (Inverted))
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
-data PersIndex = PersIndex 
+data Persistent = Persistent 
   { indexParts :: Parts     -- ^ The parts of the index, each representing one context.
   , occurrences :: FilePath -- ^ Path to a file containing temorary data.
   } deriving (Show, Eq)
@@ -60,7 +60,7 @@ type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to a file pointer.
 type Part        = StrMap (Integer, Int)
 
-instance HolIndex PersIndex where
+instance HolIndex Persistent where
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts
   contexts = map fst . M.toList . indexParts
 
@@ -82,21 +82,21 @@ instance HolIndex PersIndex where
 
   updateDocIds _ _ = undefined
 
-instance Binary PersIndex where
-  put (PersIndex parts occ) = put parts >> put occ
-  get = liftM2 PersIndex get get
+instance Binary Persistent where
+  put (Persistent parts occ) = put parts >> put occ
+  get = liftM2 Persistent get get
 
-instance NFData PersIndex where
-  rnf (PersIndex parts occ) = rnf parts `seq` rnf occ
+instance NFData Persistent where
+  rnf (Persistent parts occ) = rnf parts `seq` rnf occ
 
 -- | Create a persistent index from an inverted index.
-makePersistent :: FilePath -> InvIndex -> PersIndex
-makePersistent f (InvIndex parts) = PersIndex (store parts) f
+makePersistent :: FilePath -> Inverted -> Persistent
+makePersistent f (Inverted parts) = Persistent (store parts) f
   where
   store = M.map (SM.map (storeOcc f . inflateOcc))
 
 -- | Return a part of the index for a given context.
-getPart :: Context -> PersIndex -> Part
+getPart :: Context -> Persistent -> Part
 getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
 
 -- | Read occurrences from disk through unsafe IO.

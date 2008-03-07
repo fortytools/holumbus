@@ -98,17 +98,17 @@ isCommand _ = False
 startup :: [(Server, FilePath)] -> Command -> IO ()
 startup sf Add = do
                  putStrLn "Updating servers using ADD..."
-                 si <- mapM (\(s, f) -> liftM2 (,) (return s) (loadFromFile f :: IO InvIndex)) sf
+                 si <- mapM (\(s, f) -> liftM2 (,) (return s) (loadFromFile f :: IO Inverted)) sf
                  sr <- updateAdd si
                  printResult sr
 startup sf Remove = do
                     putStrLn "Updating servers using REMOVE..."
-                    si <- mapM (\(s, f) -> liftM2 (,) (return s) (loadFromFile f :: IO InvIndex)) sf
+                    si <- mapM (\(s, f) -> liftM2 (,) (return s) (loadFromFile f :: IO Inverted)) sf
                     sr <- updateRemove si
                     printResult sr
 startup sf Replace = do
                      putStrLn "Updating servers using REPLACE..."
-                     si <- mapM (\(s, f) -> liftM2 (,) (return s) (loadFromFile f :: IO InvIndex)) sf
+                     si <- mapM (\(s, f) -> liftM2 (,) (return s) (loadFromFile f :: IO Inverted)) sf
                      sr <- updateReplace si
                      printResult sr
 

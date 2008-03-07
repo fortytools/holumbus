@@ -48,7 +48,7 @@ instance Arbitrary Char where
   arbitrary     = choose ('\32', '\128')
   coarbitrary c = variant (ord c `rem` 4)
 
-instance Arbitrary InvIndex where
+instance Arbitrary Inverted where
   arbitrary = liftM createInverted genParts
 
 instance Arbitrary a => Arbitrary (IM.IntMap a) where
@@ -75,8 +75,8 @@ genParts = sequence [ (liftM2 (,) genWord genPart) | _ <- [1..5] ]
 
 deflate' = IM.map DL.fromIntSet
 
-createInverted :: [(String, [(String, Occurrences)])] -> InvIndex
-createInverted x = InvIndex (parts x)
+createInverted :: [(String, [(String, Occurrences)])] -> Inverted
+createInverted x = Inverted (parts x)
   where
   parts = M.fromList . (map (\(c, p) -> (c, SM.fromList (map (\(w, o) -> (w, deflate' o)) p))))
 
@@ -87,13 +87,13 @@ prop_InsertMerge c w o i = (c /= "") && (w /= "")
   ==> insertOccurrences c w o i == mergeIndexes (singleton c w o) i
   
 prop_LookupInsert c w o i = (c /= "") && (w /= "")  
-  ==> lookupCase (insertOccurrences c w o i :: InvIndex) c w == [(w, o)]
+  ==> lookupCase (insertOccurrences c w o i :: Inverted) c w == [(w, o)]
 
 prop_LookupMerge c w o i = (c /= "") && (w /= "")
   ==> lookupCase (mergeIndexes (singleton c w o) i) c w == [(w, o)]
 
 prop_PrefixInsert c w o i = (c /= "") && (w /= "")
-  ==> (w, o) `elem` (prefixCase (insertOccurrences c w o i :: InvIndex) c w)
+  ==> (w, o) `elem` (prefixCase (insertOccurrences c w o i :: Inverted) c w)
 
 prop_PrefixMerge c w o i = (c /= "") && (w /= "")
   ==> (w, o) `elem` (prefixCase (mergeIndexes (singleton c w o) i) c w)
@@ -102,28 +102,28 @@ prop_SizeSingleton c w o =
   sizeWords (singleton c w o) == 1
 
 prop_SizeAllWords i =
-  foldr (\c r -> r + (length $ allWords i c)) 0 (contexts i) == sizeWords (i :: InvIndex)
+  foldr (\c r -> r + (length $ allWords i c)) 0 (contexts i) == sizeWords (i :: Inverted)
 
 prop_SizeMerge i1 i2 =
-  (sizeWords i1 + sizeWords i2) >= (sizeWords $ mergeIndexes i1 (i2 :: InvIndex))
+  (sizeWords i1 + sizeWords i2) >= (sizeWords $ mergeIndexes i1 (i2 :: Inverted))
 
 prop_ContextsInsert c w o i = (c /= "") && (w /= "")
-  ==> c `elem` (contexts (insertOccurrences c w o i :: InvIndex))
+  ==> c `elem` (contexts (insertOccurrences c w o i :: Inverted))
 
 prop_ContextsMerge c w o i = (c /= "") && (w /= "")
   ==> c `elem` (contexts (mergeIndexes (singleton c w o) i))
 
 -- FIXME TBH 07.03.2008: Does not work due to awkward generated indices.
 --prop_SplitDocuments i =
---  let [i1, i2] = trace (show $ splitByDocuments i 2) $ splitByDocuments i 2 in mergeIndexes i1 i2 == (i :: InvIndex)
+--  let [i1, i2] = trace (show $ splitByDocuments i 2) $ splitByDocuments i 2 in mergeIndexes i1 i2 == (i :: Inverted)
 
 prop_SplitWords i =
-  let [i1, i2] = splitByWords i 2 in mergeIndexes i1 i2 == (i :: InvIndex)
+  let [i1, i2] = splitByWords i 2 in mergeIndexes i1 i2 == (i :: Inverted)
 
 prop_SplitContexts i =
-  let [i1, i2] = splitByContexts i 2 in mergeIndexes i1 i2 == (i :: InvIndex)
+  let [i1, i2] = splitByContexts i 2 in mergeIndexes i1 i2 == (i :: Inverted)
 
-prop_Substract i1 i2 = let merged = mergeIndexes i1 i2 :: InvIndex in
+prop_Substract i1 i2 = let merged = mergeIndexes i1 i2 :: Inverted in
   (substractIndexes merged i1 == i2)
   &&
   (substractIndexes merged i2 == i1)

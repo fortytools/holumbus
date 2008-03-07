@@ -46,8 +46,8 @@ sampleDocs1 = Documents
              (M.fromList [("uri1", 1), ("uri2", 2), ("uri3", 3)])
              3
 
-sampleIndex1 :: InvIndex
-sampleIndex1 = InvIndex parts
+sampleIndex1 :: Inverted
+sampleIndex1 = Inverted parts
   where
   parts = M.fromList [("context1", context1), ("context2", context2), ("context3", context3)]
   context1 = SM.fromList [ ("word1", IM.fromList [(1, DL.fromList [12,23,43]), (2, DL.fromList [10,2,4])])

@@ -31,7 +31,7 @@ import qualified Data.List as L
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
@@ -74,7 +74,7 @@ isDocuments _ = False
 startup ::Flag -> Flag -> IO ()
 startup (Index idxFile) (Documents docFile) = do
                                               putStrLn "Loading index..."
-                                              idx <- (loadFromFile idxFile) :: IO InvIndex
+                                              idx <- (loadFromFile idxFile) :: IO Inverted
                                               return (rnf idx)
                                               putStrLn "Loading documents..."
                                               doc <- (loadFromFile docFile) :: IO (Documents Int)

@@ -29,7 +29,7 @@ import qualified Data.List as L
 
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Common
 
 data Flag = Index String 
@@ -73,7 +73,7 @@ fromContext _ = ""
 -- | Decide between hybrid and inverted and then fire up!
 startup :: [Context] -> Flag -> IO ()
 startup c (Index idxFile) = do
-                            idx <- (loadFromFile idxFile) :: IO InvIndex
+                            idx <- (loadFromFile idxFile) :: IO Inverted
                             return (rnf idx)
                             printWords c idx
 startup _ _ = usage ["Internal error!\n"]

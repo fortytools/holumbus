@@ -20,7 +20,7 @@
 module Holumbus.Index.Inverted 
 (
   -- * Inverted index types
-  InvIndex (..)
+  Inverted (..)
   , Parts
   , Part
   
@@ -52,7 +52,7 @@ import Holumbus.Index.Compression
 import Control.Parallel.Strategies
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
-newtype InvIndex = InvIndex 
+newtype Inverted = Inverted 
   { indexParts :: Parts  -- ^ The parts of the index, each representing one context.
   } deriving (Show, Eq)
 
@@ -61,7 +61,7 @@ type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to their occurrences.
 type Part        = StrMap CompressedOccurrences
 
-instance HolIndex InvIndex where
+instance HolIndex Inverted where
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts
   contexts = map fst . M.toList . indexParts
 
@@ -71,15 +71,15 @@ instance HolIndex InvIndex where
   lookupCase i c q = map (\o -> (q, inflateOcc o)) $ maybeToList (SM.lookup q $ getPart c i)
   lookupNoCase i c q = map (\(w, o) -> (w, inflateOcc o)) $ SM.lookupNoCase q $ getPart c i
 
-  mergeIndexes i1 i2 = InvIndex (mergeParts (indexParts i1) (indexParts i2))
-  substractIndexes i1 i2 = InvIndex (substractParts (indexParts i1) (indexParts i2))
+  mergeIndexes i1 i2 = Inverted (mergeParts (indexParts i1) (indexParts i2))
+  substractIndexes i1 i2 = Inverted (substractParts (indexParts i1) (indexParts i2))
 
   insertOccurrences c w o i = mergeIndexes (singleton c w o) i
   deleteOccurrences c w o i = substractIndexes i (singleton c w o)
 
-  splitByContexts (InvIndex parts) = splitInternal (map annotate $ M.toList parts)
+  splitByContexts (Inverted parts) = splitInternal (map annotate $ M.toList parts)
     where
-    annotate (c, p) = let i = InvIndex (M.singleton c p) in (sizeWords i, i)
+    annotate (c, p) = let i = Inverted (M.singleton c p) in (sizeWords i, i)
 
   splitByDocuments i = splitInternal (map convert $ IM.toList $ IM.unionsWith unionDocs docResults)
     where
@@ -100,27 +100,27 @@ instance HolIndex InvIndex where
         where
         makeIndex (rs, ri) (c, o) = (rs + sizeOccurrences o, insertOccurrences c w o ri)
 
-  updateDocIds f (InvIndex parts) = InvIndex (M.mapWithKey updatePart parts)
+  updateDocIds f (Inverted parts) = Inverted (M.mapWithKey updatePart parts)
     where
     updatePart c p = SM.mapWithKey (\w o -> IM.foldWithKey (updateDocument c w) IM.empty o) p
     updateDocument c w d p r = IM.insertWith mergePositions (f c w d) p r
       where
       mergePositions p1 p2 = deflatePos $ IS.union (inflatePos p1) (inflatePos p2)
 
-instance NFData InvIndex where
-  rnf (InvIndex parts) = rnf parts
+instance NFData Inverted where
+  rnf (Inverted parts) = rnf parts
 
-instance XmlPickler InvIndex where
-  xpickle =  xpElem "indexes" $ xpWrap (\p -> InvIndex p, \(InvIndex p) -> p) xpParts
+instance XmlPickler Inverted where
+  xpickle =  xpElem "indexes" $ xpWrap (\p -> Inverted p, \(Inverted p) -> p) xpParts
 
-instance Binary InvIndex where
-  put (InvIndex parts) = put parts
+instance Binary Inverted where
+  put (Inverted parts) = put parts
   get = do parts <- get
-           return (InvIndex parts)
+           return (Inverted parts)
 
 -- | Create an index with just one word in one context.
-singleton :: Context -> String -> Occurrences -> InvIndex
-singleton c w o = InvIndex (M.singleton c (SM.singleton w (deflateOcc o)))
+singleton :: Context -> String -> Occurrences -> Inverted
+singleton c w o = Inverted (M.singleton c (SM.singleton w (deflateOcc o)))
 
 -- | Merge two sets of index parts.
 mergeParts :: Parts -> Parts -> Parts
@@ -147,7 +147,7 @@ substractPart p1 p2 = if SM.null diffPart then Nothing else Just diffPart
       diffOcc = substractOccurrences (inflateOcc o1) (inflateOcc o2)
 
 -- | Internal split function used by the split functions from the HolIndex interface (above).
-splitInternal :: [(Int, InvIndex)] -> Int -> [InvIndex]
+splitInternal :: [(Int, Inverted)] -> Int -> [Inverted]
 splitInternal inp n = allocate mergeIndexes stack buckets
   where
   buckets = zipWith const (createBuckets n) stack
@@ -162,15 +162,15 @@ allocate f (x:xs) (y:ys) = allocate f xs (sortBy (compare `on` fst) ((combine x 
   combine (s1, v1) (s2, v2) = (s1 + s2, f v1 v2)
 
 -- | Create empty buckets for allocating indexes.  
-createBuckets :: Int -> [(Int, InvIndex)]
+createBuckets :: Int -> [(Int, Inverted)]
 createBuckets n = (replicate n (0, emptyInverted))
   
 -- | Create an empty index.
-emptyInverted :: InvIndex
-emptyInverted = InvIndex M.empty
+emptyInverted :: Inverted
+emptyInverted = Inverted M.empty
                   
 -- | Return a part of the index for a given context.
-getPart :: Context -> InvIndex -> Part
+getPart :: Context -> Inverted -> Part
 getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
 
 -- | The XML pickler for the index parts.

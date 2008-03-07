@@ -30,7 +30,7 @@ import Test.HUnit
 
 import SampleData
 
-testIndex1, testIndex2 :: InvIndex
+testIndex1, testIndex2 :: Inverted
 testIndex1 = emptyInverted
 testIndex2 = sampleIndex1
 
@@ -76,16 +76,16 @@ FIXME TH 15.01.2008: See below
              >>> arrL (maybeToList . unpickleDoc pickler)) i
   
     res4 = runX (constA i
-            >>> arr (pickleDoc pickler)                   -- InvIndex => XmlTree
+            >>> arr (pickleDoc pickler)                   -- Inverted => XmlTree
             >>> writeDocumentToString []                  -- XmlTree => String
             >>> readFromString [(a_validate, v_0)]        -- String => XmlTree
-            >>> arrL (maybeToList . unpickleDoc pickler)) -- XmlTree => InvIndex
+            >>> arrL (maybeToList . unpickleDoc pickler)) -- XmlTree => Inverted
   
-    res5 = runX (constA i                                    -- Take the InvIndex value
-            >>> arr (pickleDoc pickler)                      -- InvIndex => XmlTree
+    res5 = runX (constA i                                    -- Take the Inverted value
+            >>> arr (pickleDoc pickler)                      -- Inverted => XmlTree
             >>> writeDocument [(a_indent, v_1)] "data/pickle.xml" -- XmlTree => formated external XML document
             >>> readDocument  [(a_remove_whitespace, v_1), (a_validate, v_0)] "data/pickle.xml" -- Formated external XML document => XmlTree 
-            >>> arrL (maybeToList . unpickleDoc pickler))    -- XmlTree => InvIndex
+            >>> arrL (maybeToList . unpickleDoc pickler))    -- XmlTree => Inverted
   
     res6 = runX (constA i -- Same as above the convinient way
             >>> xpickleDocument pickler [(a_indent, v_1)] "data/pickle.xml"
@@ -95,14 +95,14 @@ FIXME TH 15.01.2008: See below
 FIXME TH 15.01.2008: Adding a DTD automatically does not work yet, because we use
                      the doc element twice with different meanings: Once as part of the
                      document table and as part of an index, too  
-    res7 :: IO [InvIndex]                                    -- Same as above with validation
+    res7 :: IO [Inverted]                                    -- Same as above with validation
     res7 = runX (constA i
-            >>> xpickleDocument xpInvIndex [(a_indent, v_1), (a_addDTD, v_1)] "data/pickle.xml"
-            >>> xunpickleDocument xpInvIndex [(a_remove_whitespace, v_1), (a_validate, v_1)] "data/pickle.xml")
+            >>> xpickleDocument xpInverted [(a_indent, v_1), (a_addDTD, v_1)] "data/pickle.xml"
+            >>> xunpickleDocument xpInverted [(a_remove_whitespace, v_1), (a_validate, v_1)] "data/pickle.xml")
 --}
 
 allTests :: Test  
-allTests = TestList [ pickleUnpickleTests [testIndex1, testIndex2] xpickle "InvIndex"
+allTests = TestList [ pickleUnpickleTests [testIndex1, testIndex2] xpickle "Inverted"
                     , pickleUnpickleTests [testResult1, testResult2] xpickle "Result"
                     , pickleUnpickleTests [testDocs1, testDocs2] xpickle "Documents"
                     ]

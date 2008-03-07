@@ -22,7 +22,7 @@
 module Holumbus.Index.Hybrid 
   (
   -- * Hybrid index type
-  HybIndex
+  Hybrid
   
   -- * Construction
   , emptyHybrid
@@ -45,7 +45,7 @@ import Holumbus.Index.Common
 
 import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 
-newtype HybIndex = HybIndex { indexParts :: Parts } deriving (Show, Eq)
+newtype Hybrid = Hybrid { indexParts :: Parts } deriving (Show, Eq)
 
 type Parts         = Map Context Part
 data Part          = Part { dictionary :: !Dictionary
@@ -68,7 +68,7 @@ type Occurrence    = ( DocId, WordId, Position )
 type WordId        = Int
 type BlockId       = Int
 
-instance HolIndex HybIndex where
+instance HolIndex Hybrid where
   sizeWords _ = undefined
   contexts = map fst . M.toList . indexParts
 
@@ -90,18 +90,18 @@ instance HolIndex HybIndex where
   
   updateDocIds _ _ = undefined
 
-instance Binary HybIndex where
+instance Binary Hybrid where
   put _ = undefined
   get = undefined
 
 -- | Create an empty index.
-emptyHybrid :: HybIndex
-emptyHybrid = HybIndex M.empty
+emptyHybrid :: Hybrid
+emptyHybrid = Hybrid M.empty
 
 -- | Load Index from XML file
-loadFromXmlFile :: String -> IO HybIndex
+loadFromXmlFile :: String -> IO Hybrid
 loadFromXmlFile f = do
-                    r <- runX (xunpickleDocument xpHybIndex options f)
+                    r <- runX (xunpickleDocument xpHybrid options f)
                     return $ head r
                     where
                     options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
@@ -119,13 +119,13 @@ emptyBlocks :: Blocks
 emptyBlocks = Blocks IM.empty 0
 
 -- | Return a part of the index for a given context.
-getPart :: Context -> HybIndex -> Part
+getPart :: Context -> Hybrid -> Part
 getPart c i = fromMaybe emptyPart (M.lookup c $ indexParts i)
 
 -- | The pickler for an hybrid index.
-xpHybIndex :: PU HybIndex
-xpHybIndex = xpElem "indexes" $
+xpHybrid :: PU Hybrid
+xpHybrid = xpElem "indexes" $
 	    xpickle
 
-instance XmlPickler HybIndex where
+instance XmlPickler Hybrid where
     xpickle =  xpZero

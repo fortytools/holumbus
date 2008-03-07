@@ -29,7 +29,7 @@ import Control.Parallel.Strategies
 
 import qualified Data.List as L
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
@@ -93,7 +93,7 @@ isFormat _ = False
 startup :: Flag -> Flag -> Format -> IO ()
 startup (Index inp) (Output out) Binary = do
                                           putStrLn $ "Converting " ++ inp ++ " to binary..."
-                                          idx <- (loadFromFile inp) :: IO InvIndex
+                                          idx <- (loadFromFile inp) :: IO Inverted
                                           return (rnf idx)
                                           writeToBinFile out idx
                                           putStrLn "Finished!"
@@ -105,7 +105,7 @@ startup (Documents inp) (Output out) Binary = do
                                               putStrLn "Finished!"
 startup (Index inp) (Output out) Xml = do
                                        putStrLn $ "Converting " ++ inp ++ " to XML..."
-                                       idx <- (loadFromFile inp) :: IO InvIndex
+                                       idx <- (loadFromFile inp) :: IO Inverted
                                        return (rnf idx)
                                        writeToXmlFile out idx
                                        putStrLn "Finished!"

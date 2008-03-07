@@ -43,7 +43,7 @@ import qualified Data.IntSet as IS
 
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 import Holumbus.Query.Processor
@@ -126,7 +126,7 @@ startupLocal :: Bool -> Flag -> Flag -> IO ()
 startupLocal v (Index idxFile) (Documents docFile) = 
   do
   putStrLn "Loading index..."
-  idx <- (loadFromFile idxFile) :: IO InvIndex
+  idx <- (loadFromFile idxFile) :: IO Inverted
 --  putStrLn "Persisting index..."
 --  idx <- return (makePersistent "tmp.idx" tmp)
   return (rnf idx)

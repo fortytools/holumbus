@@ -23,7 +23,7 @@ import System.IO
 import System.Environment
 import System.Console.GetOpt
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
@@ -69,8 +69,8 @@ startup ::[Flag] -> [Flag] -> IO ()
 startup [(Index if1), (Index if2)] [(Documents df1), (Documents df2)] = 
   do
   putStrLn "Loading indexes..."
-  idx1 <- (loadFromFile if1) :: IO InvIndex
-  idx2 <- (loadFromFile if2) :: IO InvIndex
+  idx1 <- (loadFromFile if1) :: IO Inverted
+  idx2 <- (loadFromFile if2) :: IO Inverted
   putStrLn "Loading documents..."
   doc1 <- (loadFromFile df1) :: IO (Documents Int)
   doc2 <- (loadFromFile df2) :: IO (Documents Int)

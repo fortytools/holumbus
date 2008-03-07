@@ -96,25 +96,25 @@ isNumber _ = False
 startup :: Flag -> Split -> Int -> IO ()
 startup (Index inp) Words n = do
                               putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by words...")
-                              idx <- (loadFromFile inp) :: IO InvIndex
+                              idx <- (loadFromFile inp) :: IO Inverted
                               return (rnf idx)
                               writeIndexes (splitByWords idx n) inp
                               putStrLn "Finished!"
 startup (Index inp) Documents n = do
                                   putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by documents...")
-                                  idx <- (loadFromFile inp) :: IO InvIndex
+                                  idx <- (loadFromFile inp) :: IO Inverted
                                   return (rnf idx)
                                   writeIndexes (splitByDocuments idx n) inp
                                   putStrLn "Finished!"
 startup (Index inp) Contexts n = do
                                  putStrLn ("Splitting " ++ inp ++ " into " ++ (show n) ++ " parts by contexts...")
-                                 idx <- (loadFromFile inp) :: IO InvIndex
+                                 idx <- (loadFromFile inp) :: IO Inverted
                                  return (rnf idx)
                                  writeIndexes (splitByContexts idx n) inp
                                  putStrLn "Finished!"
 startup _ _ _ = usage ["Internal error!\n"]
 
-writeIndexes :: [InvIndex] -> FilePath -> IO ()
+writeIndexes :: [Inverted] -> FilePath -> IO ()
 writeIndexes [] _ = return ()
 writeIndexes (i:is) f = do
                         writeToBinFile (f ++ "." ++ (show $ length is)) i

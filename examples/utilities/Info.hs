@@ -12,7 +12,7 @@
 
   Outputs some statistics about an an index. This includes 
   highly specific data depending on the index type which can be 
-  used for further optimizing. Right now, only 'InvIndex' is
+  used for further optimizing. Right now, only 'Inverted' is
   supported.
 
   For general statistics about an index, see the Stats program. 
@@ -39,7 +39,7 @@ import qualified Data.IntMap as IM
 import qualified Holumbus.Data.StrMap as SM
 import qualified Holumbus.Data.DiffList as DL
 
-import Holumbus.Index.Inverted (InvIndex (..))
+import Holumbus.Index.Inverted (Inverted (..))
 import Holumbus.Index.Common
 
 data Flag = Index String 
@@ -71,13 +71,13 @@ isIndex _ = False
 startup ::Flag -> IO ()
 startup (Index idxFile) = do
                           putStrLn "Loading index..."
-                          idx <- (loadFromFile idxFile) :: IO InvIndex
+                          idx <- (loadFromFile idxFile) :: IO Inverted
                           return (rnf idx)
-                          printInvIndexStats idx
+                          printInvertedStats idx
 startup _ = usage ["Internal error!\n"]
 
-printInvIndexStats :: InvIndex -> IO ()
-printInvIndexStats (InvIndex parts) = 
+printInvertedStats :: Inverted -> IO ()
+printInvertedStats (Inverted parts) = 
   do
   totals <- printContextStats (M.toList parts) ([], [], [])
   putStrLn "=== Total: ===\n"

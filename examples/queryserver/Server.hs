@@ -31,7 +31,7 @@ import System.Time
 import Control.Monad
 import Control.Parallel.Strategies
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Common
 import Holumbus.Query.Distribution.Server
 
@@ -65,7 +65,7 @@ main =
   time <- liftM toUTCTime getClockTime
   if verbose then putStrLn ("Server started at " ++ (calendarTimeToString time)) else return ()
   if verbose then putStrLn ("Loading index from " ++ file) else return ()
-  i <- (loadFromFile file) :: IO InvIndex
+  i <- (loadFromFile file) :: IO Inverted
   return (rnf i)
   if verbose then putStrLn ("Listening on port " ++ (show prt)) else return ()
   listenForRequests i prt logRequest

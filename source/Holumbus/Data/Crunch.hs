@@ -121,7 +121,7 @@ encode w [] = rotateR (fromIntegral (fromEnum w)) (64 - (width w * count w))
 encode w (x:xs) = rotateR (encode w xs .|. fromIntegral x) (width w)
 
 -- | Decrunch a list of crunched values. No checking for properly encoded values is done, weird
--- results have to bee expected if calling this function on a list of arbitrary values.
+-- results have to be expected if calling this function on a list of arbitrary values.
 decrunch64 :: [Word64] -> [Word64]
 decrunch64 [] = []
 decrunch64 (x:xs) = (decode (width w) (count w) (value w) (rotateL x (width w))) ++ (decrunch64 xs)
