@@ -33,7 +33,8 @@ module Holumbus.Query.Processor
 where
 
 import Data.Maybe
-import Data.Binary
+import Data.Binary (Binary (..))
+import Data.Function
 
 import Control.Monad
 import Control.Parallel.Strategies
@@ -42,7 +43,7 @@ import qualified Data.List as L
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Holumbus.Index.Common (HolIndex, HolDocuments, Context, Occurrences, Positions)
+import Holumbus.Index.Common (HolIndex, HolDocuments, Context, Occurrences, Positions, RawResult, Word)
 import qualified Holumbus.Index.Common as IDX
 
 import Holumbus.Query.Language.Grammar
@@ -58,13 +59,14 @@ import qualified Holumbus.Query.Intermediate as I
 
 -- | The configuration for the query processor.
 data ProcessConfig  = ProcessConfig 
-  { fuzzyConfig   :: !FuzzyConfig  -- ^ The configuration for fuzzy queries.
-  , optimizeQuery :: !Bool         -- ^ Optimize the query before processing.
+  { fuzzyConfig   :: !FuzzyConfig -- ^ The configuration for fuzzy queries.
+  , optimizeQuery :: !Bool        -- ^ Optimize the query before processing.
+  , wordLimit     :: !Int         -- ^ The maximum number of words used from a prefix. Zero switches off limiting.
   }
 
 instance Binary ProcessConfig where
-  put (ProcessConfig fc o) = put fc >> put o
-  get = liftM2 ProcessConfig get get
+  put (ProcessConfig fc o l) = put fc >> put o >> put l
+  get = liftM3 ProcessConfig get get get
 
 -- | The internal state of the query processor.
 data ProcessState i = ProcessState 
@@ -121,13 +123,13 @@ process s (Specifier cs q)   = process (setContexts cs s) q
 processWord :: HolIndex i => ProcessState i -> String -> Intermediate
 processWord s q = forAllContexts wordNoCase (contexts s)
   where
-  wordNoCase c = I.fromList q c $ IDX.prefixNoCase (index s) c q
+  wordNoCase c = I.fromList q c $ limitWords (wordLimit $ config s) $ IDX.prefixNoCase (index s) c q
 
 -- | Process a single, case-sensitive word by finding all documents which contain the word as prefix.
 processCaseWord :: HolIndex i => ProcessState i -> String -> Intermediate
 processCaseWord s q = forAllContexts wordCase (contexts s)
   where
-  wordCase c = I.fromList q c $ IDX.prefixCase (index s) c q
+  wordCase c = I.fromList q c $ limitWords (wordLimit $ config s) $ IDX.prefixCase (index s) c q
 
 -- | Process a phrase case-insensitive.
 processPhrase :: HolIndex i => ProcessState i -> String -> Intermediate
@@ -177,6 +179,19 @@ processBin :: HolIndex i => ProcessState i -> BinOp -> Query -> Query -> Interme
 processBin s And q1 q2 = I.intersection (process s q1) (process s q2)
 processBin s Or q1 q2  = I.union (process s q1) (process s q2)
 processBin s But q1 q2 = I.difference (process s q1) (process s q2)
+
+-- | Limit a 'RawResult' to a fixed amount of the best words. A simple heuristic is used to 
+-- determine the quality of a word: The total number of occurrences divided by the number of 
+-- documents in which the word appears. 
+limitWords :: Int -> RawResult -> RawResult
+limitWords l r = if cut then map snd $ take l $ L.sortBy (compare `on` fst) $ map calcScore r else r
+  where
+  cut = l > 0 && length r > l
+  calcScore :: (Word, Occurrences) -> (Double, (Word, Occurrences))
+  calcScore w@(_, o) = (fromIntegral numPos / fromIntegral numDocs, w)
+    where
+    numPos  = IM.fold ((+) . IS.size) 0 o
+    numDocs = IM.size o
 
 -- | Merge occurrences
 mergeOccurrences :: [Occurrences] -> Occurrences

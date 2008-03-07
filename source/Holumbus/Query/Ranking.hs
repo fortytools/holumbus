@@ -10,7 +10,10 @@
   Portability: portable
   Version    : 0.3
 
-  The ranking mechanism for Holumbus.
+  The ranking mechanism for Holumbus. 
+  
+  Customized ranking functions for both documents and suggested words can be 
+  provided by the user. Some predefined ranking functions are avaliable, too.
 
 -}
 
