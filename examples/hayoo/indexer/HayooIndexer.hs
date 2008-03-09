@@ -19,3 +19,8 @@
 {-# OPTIONS -farrows -fglasgow-exts #-}
 
 module Main where
+
+import HayooHelper
+
+main :: IO ()
+main = putStrLn "Hello world!"
