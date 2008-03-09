@@ -101,6 +101,14 @@ optimize q@(BinQuery And (CaseWord q1) (CaseWord q2)) =
   if q1 `isPrefixOf` q2 then CaseWord q2 else
     if q2 `isPrefixOf` q1 then CaseWord q1 else q
 
+optimize q@(BinQuery Or (Word q1) (Word q2)) =
+  if (map toLower q1) `isPrefixOf` (map toLower q2) then Word q1 else
+    if (map toLower q2) `isPrefixOf` (map toLower q1) then Word q2 else q
+
+optimize q@(BinQuery Or (CaseWord q1) (CaseWord q2)) =
+  if q1 `isPrefixOf` q2 then CaseWord q1 else
+    if q2 `isPrefixOf` q1 then CaseWord q2 else q
+
 optimize (BinQuery And q1 (Negation q2)) = BinQuery But (optimize q1) (optimize q2)
 optimize (BinQuery And (Negation q1) q2) = BinQuery But (optimize q2) (optimize q1)
 
