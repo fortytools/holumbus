@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Hayoo
+  Module     : HayooSearch
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
@@ -18,7 +18,7 @@
 
 {-# OPTIONS -fglasgow-exts -farrows -fno-warn-type-defaults #-}
 
-module Network.Server.Janus.Shader.Hayoo where
+module Network.Server.Janus.Shader.HayooSearch where
 
 import Prelude
 
