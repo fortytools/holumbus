@@ -15,25 +15,25 @@
   <script src="hayoo/prototype.js" type="text/javascript"></script>
   <script src="hayoo/hayoo.js" type="text/javascript"></script>
 
-  <script type="text/javascript">
+  <script type="text/javascript" language="javascript">
   	function showHelp() {
-			document.getElementById("shutter").style.display = "inline";
-			document.getElementById("helptext").style.display = "inline";
+			$('shutter').style.display = "inline";
+			$('helptext').style.display = "inline";
   	}
   	
   	function hideHelp() {
-			document.getElementById("shutter").style.display = "none";
-			document.getElementById("helptext").style.display = "none";
+			$('shutter').style.display = "none";
+			$('helptext').style.display = "none";
   	}
 
   	function showAbout() {
-			document.getElementById("shutter").style.display = "inline";
-			document.getElementById("abouttext").style.display = "inline";
+			$('shutter').style.display = "inline";
+			$('abouttext').style.display = "inline";
   	}
   	
   	function hideAbout() {
-			document.getElementById("shutter").style.display = "none";
-			document.getElementById("abouttext").style.display = "none";
+			$('shutter').style.display = "none";
+			$('abouttext').style.display = "none";
   	}
   </script>
 
@@ -77,7 +77,7 @@
 			</div>
 	
 			<div id="authors">
-			  Hayoo! version 0.1
+			  Hayoo! beta 0.1
 				© 2008 <span class="author">Timo B. Hübel</span> &amp; <span class="author">Sebastian M. Schlatt</span>
 			</div>
 		</div>
@@ -85,15 +85,15 @@
 
 	<div id="shutter" style="display:none;">&nbsp;</div>
 
-	<div id="helptext" class="text" style="display:none;">
-		<div class="box">
-			This is example help text. Click <a href="javascript:hideHelp()">here</a> to close.
+	<div id="helptext" class="text" style="display:none;" onclick="javascript:hideHelp()">
+		<div id="helpbox" class="box" onclick="javascript:event.stop()">
+			This is example help text. Click <a onclick="javascript:hideHelp()">here</a> to close.
 		</div>
 	</div>
 
-	<div id="abouttext" class="text" style="display:none;">
-		<div class="box">
-			This is example about text. Click <a href="javascript:hideAbout()">here</a> to close.
+	<div id="abouttext" class="text" style="display:none;" onclick="javascript:hideAbout()">
+		<div id="aboutbox" class="box" onclick="javascript:event.stop()">
+			This is example about text. Click <a onclick="javascript:hideAbout()">here</a> to close.
 		</div>
 	</div>
 

@@ -115,7 +115,7 @@
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
       	  <case match="^/results/hayoo.html$" >
       	    <shader type="hayoo">
-      	    	<config index="indexes/hayoo-index.bin" documents="indexes/hayoo-docs.bin"/>
+      	    	<config index="indexes/hayoo-index.bin" documents="indexes/hayoo-docs.bin" cache="indexes/hayoo-cache.db"/>
       	    </shader>
       	  </case>
           <default>

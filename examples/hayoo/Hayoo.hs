@@ -20,6 +20,8 @@
 
 module Network.Server.Janus.Shader.Hayoo where
 
+import Prelude
+
 import Data.Function
 import Data.Maybe
 
@@ -32,8 +34,9 @@ import Network.HTTP (urlDecode)
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
+import Holumbus.Index.Cache
 import Holumbus.Index.Common
 
 import Holumbus.Query.Language.Grammar
@@ -52,6 +55,12 @@ import System.Time
 
 import Control.Concurrent  -- For the global MVar
 
+data Core = Core
+  { index :: Inverted
+  , documents :: Documents Int
+  , cache :: Cache
+  }
+
 -- Status information of query processing.
 type StatusResult = (String, Result Int)
 
@@ -63,8 +72,12 @@ _shader_config_index = jp "/shader/config/@index"
 _shader_config_documents :: JanusPath
 _shader_config_documents = jp "/shader/config/@documents"
 
+-- | The place where the filename of the cache file is stored in the server configuration XML file.
+_shader_config_cache :: JanusPath
+_shader_config_cache = jp "/shader/config/@cache"
+
 -- | Just an alias with explicit type.
-loadIndex :: FilePath -> IO InvIndex
+loadIndex :: FilePath -> IO Inverted
 loadIndex = loadFromFile
 
 -- | Just an alias with explicit type.
@@ -74,27 +87,26 @@ loadDocuments = loadFromFile
 hayooShader :: ShaderCreator
 hayooShader = J.mkDynamicCreator $ proc (conf, _) -> do
   -- Load the files and create the indexes.
-  idx <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "") -< conf
-  doc <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "") -< conf
+  inv  <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "") -< conf
+  doc  <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "") -< conf
+  cac  <- (arrIO $ createCache) <<< (getValDef _shader_config_cache "") -< conf
   -- Store the data in MVar's to allow shared access.
-  mix <- arrIO $ newMVar -< idx
-  moc <- arrIO $ newMVar -< doc
-  returnA -< hayooService mix moc
+  midc <- arrIO $ newMVar -< Core inv doc cac
+  returnA -< hayooService midc
 
-hayooService :: (HolIndex i, HolDocuments d Int) => MVar i -> MVar (d Int) -> Shader
-hayooService mix moc = proc inTxn -> do
+hayooService :: MVar Core -> Shader
+hayooService midc = proc inTxn -> do
   -- Because index access is read only, the MVar's are just read to make them avaliable again.
-  idx      <- arrIO $ readMVar                                                   -< mix
-  doc      <- arrIO $ readMVar                                                   -< moc
+  idc      <- arrIO $ readMVar                                                     -< midc
   -- Extract the query from the incoming transaction and log it to stdout.
-  request  <- getValDef (_transaction_http_request_cgi_ "@query") ""             -< inTxn
+  request  <- getValDef (_transaction_http_request_cgi_ "@query") ""               -< inTxn
   start    <- readDef 0 <<< getValDef (_transaction_http_request_cgi_ "@start") "" -< inTxn
   -- Output some information about the request.
-  arrLogRequest                                                                  -< inTxn
+  arrLogRequest                                                                    -< inTxn
   -- Parse the query and generate a result or an error depending on the parse result.
-  response <- writeString start <<< (genError ||| genResult) <<< arrParseQuery   -<< (request, (idx, doc))
+  response <- writeString start <<< (genError ||| genResult) <<< arrParseQuery     -<< (request, idc)
   -- Put the response value into the transaction.
-  setVal _transaction_http_response_body response                                -<< inTxn    
+  setVal _transaction_http_response_body response                                  -<< inTxn    
     where
     -- Transforms the result and the status information to HTML by pickling it using the XML picklers.
     writeString s = pickleStatusResult s >>> (writeDocumentToString [(a_no_xml_pi, v_1), (a_output_encoding, utf8)])
@@ -108,11 +120,10 @@ readM s = case reads s of
             _         -> fail "No parse"
 
 -- | Tries to parse the search string and returns either the parsed query or an error message.
-arrParseQuery :: (HolIndex i, HolDocuments d Int, ArrowXml a) => 
-                 a (String, (i, d Int)) (Either (String, (i, d Int)) (Query, (i, d Int)))
+arrParseQuery :: ArrowXml a => a (String, Core) (Either (String, Core) (Query, Core))
 arrParseQuery =  (first arrDecode)
                  >>>
-                 (arr $ (\(r, ind) -> either (\m -> Left (m, ind)) (\q -> Right (q, ind)) (parseQuery r)))
+                 (arr $ (\(r, idc) -> either (\m -> Left (m, idc)) (\q -> Right (q, idc)) (parseQuery r)))
 
 -- | Decode any URI encoded entities and transform to unicode.
 arrDecode :: Arrow a => a String String
@@ -134,14 +145,14 @@ arrLogRequest = proc inTxn -> do
   arrIO $ putStrLn -< (currTime ++ " - " ++ remHost ++ " - " ++ rawRequest ++ " - " ++ decodedRequest ++ " - " ++ start)
 
 -- | This is the core arrow where the request is finally processed.
-genResult :: (HolIndex i, HolDocuments d Int, ArrowXml a) => a (Query, (i, d Int)) (String, Result Int)
+genResult :: ArrowXml a => a (Query, Core) (String, Result Int)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
               weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
             in
             -- Check for a minimal term length of two character to avoid very large results.
             ifP (\(q, _) -> checkWith ((> 1) . length) q)
-              ((arr $ (\(q, ind) -> (makeQuery ind q, ind))) -- Execute the query
+              ((arr $ (\(q, idc) -> (makeQuery idc q, idc))) -- Execute the query
               >>>
               (first $ arr $ rank rankCfg)                   -- Perform ranking of the results
               >>>
@@ -162,13 +173,13 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 
 -- | This is where the magic happens! This helper function really calls the 
 -- processing function which executes the query.
-makeQuery :: (HolIndex i, HolDocuments d Int) => (i, d Int) -> Query -> Result Int
-makeQuery (i, d) q = processQuery cfg i d (optimize q)
-                       where
-                       cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
+makeQuery :: Core -> Query -> Result Int
+makeQuery (Core i d _) q = processQuery cfg i d (optimize q)
+                           where
+                           cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
 
 -- | Generate an error message in case the query could not be parsed.
-genError :: (HolIndex i, HolDocuments d Int, ArrowXml a) => a (String, (i, d Int)) (String, Result Int)
+genError :: ArrowXml a => a (String, Core) (String, Result Int)
 genError = arr $ (\(msg, _) -> (msg, emptyResult))
 
 -- | The combined pickler for the status response and the result.
@@ -286,4 +297,4 @@ makePager s p n = Pager pv pd (length pd + 1) sc nt
     genPred rp tp = let np = rp - p in if np < 0 then tp else genPred np (np:tp)
   sc = map (\x -> (x, x `div` p + 1)) $ genSucc s []
     where
-    genSucc rs ts = let ns = rs + p in if ns >= (n - 1) then ts else genSucc ns (ts ++ [ns])
+    genSucc rs ts = let ns = rs + p in if ns >= n then ts else genSucc ns (ts ++ [ns])
