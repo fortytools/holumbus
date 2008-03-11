@@ -56,7 +56,7 @@ data CrawlerState
       , cs_crawlFilter      :: (URI -> Bool)     -- decides if a link will be followed
       , cs_docMap           :: IM.IntMap (Document String)
       , cs_tempPath         :: Maybe String     
---      , cs_fGetCustom       :: (Arrow a, Binary b) => a XmlTree b
+      , cs_fGetCustom       :: (Arrow a, Binary b) => a XmlTree b
       }
       
 foo:: (ArrowList a) => a XmlTree String
@@ -224,8 +224,9 @@ computeDocBase
       
 
 -- | create an initial CrawlerState from an IndexerConfig
-initialCS :: IndexerConfig -> CrawlerState
-initialCS cic
+initialCS :: -- (Arrow a, Binary b) => 
+             IndexerConfig -> a XmlTree b ->  CrawlerState
+initialCS cic getCustom
   = CrawlerState
       (S.fromList (ic_startPages cic))
       S.empty
@@ -234,7 +235,7 @@ initialCS cic
       (ic_fCrawlFilter cic)
       IM.empty
       (ic_tmpPath cic)
---      foo           
+      getCustom           
           
         
 -- | computes a filename for a local temporary file
