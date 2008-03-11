@@ -29,6 +29,7 @@ library
                , hxt
                , binary
                , bzlib
+               , regex-compat
                , HDBC
                , HDBC-sqlite3
   exposed-modules:
