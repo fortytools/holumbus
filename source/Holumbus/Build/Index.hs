@@ -28,44 +28,65 @@ import           Holumbus.Index.Common
 
 import           System.Time
 
+import           Text.Regex
 import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
 
 -- -----------------------------------------------------------------------------
 
+-- | Configuration for the indexer. 
 data IndexerConfig 
   = IndexerConfig
     { ic_startPages     :: [URI]
-    , ic_tmpDump        :: Bool
-    , ic_tmpPath        :: String
+    , ic_tmpPath        :: Maybe String   
     , ic_idxPath        :: String
     , ic_contextConfigs :: [ContextConfig]
-    , ic_fCrawlFilter   :: URI -> Bool
---    , ic_Attributes     :: Attributes 
+    , ic_fCrawlFilter   :: URI -> Bool     -- will be passed to crawler, not needed for indexing
+    , ic_readAttrs      :: Attributes
     } 
 
+-- | Configuration for a Context. It has a name with which it will be identified
+--   as a index part. The preFilter is applied to the XmlTree that is generated
+--   by the parser and before the "interesting" document parts are selected by
+--   the XPath Expression. The Tokenize functions defines how a string found by
+--   the XPath Expression will be split into a list of Words. Since stopwords
+--   are identified by a function it is possible to define a list of words that
+--   shall not be indexed or a function that excludes words because of the count
+--   of characters or a combination of both.
 data ContextConfig 
   = ContextConfig
     { cc_name           :: String
     , cc_preFilter      :: ArrowXml a => a XmlTree XmlTree
-    , cc_XPath          :: String   -- multiple XPaths for one Context needed ???
+    , cc_XPath          :: String             -- multiple XPaths for one Context needed ???
     , cc_fTokenize      :: String -> [String]
     , cc_fIsStopWord    :: String -> Bool
     }
     
 -- -----------------------------------------------------------------------------
-    
-indexMap :: [ContextConfig] -> Attributes -> String -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
-indexMap contextConfigs opts artificialKey docId theUri = do
+
+
+-- | The MAP function a MapReduce computation for building indexes.
+--   The first three
+--   parameters have to be passed to the function to receive a function with a
+--   valid MapReduce-map signature. <br/>
+--   The function... TODO
+indexMap :: Int -> [ContextConfig] -> Attributes -> String -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
+indexMap traceLevel contextConfigs opts artificialKey docId theUri = do
     clt <- getClockTime
     cat <- toCalendarTime clt
-    runX (  traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
+    runX (  
+            setTraceLevel traceLevel
+        >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
                                                    ++ show docId ++ " -> "
                                                    ++ show theUri)
         >>> processDocument opts contextConfigs (docId, theUri)
         >>> arr (\(c, w, d, p) -> (artificialKey, (c, w, d, p)))
       )
       
-indexReduce :: HolIndex i => i -> String -> [(String, String, DocId, Int)] -> IO (Maybe i)
+-- | The REDUCE function a MapReduce computation for building indexes.
+--   Even though there might be faster ways to build an index, this function
+--   works with completely on the HolIndex class functions. So it is possible
+--   to use the Indexer with different Index implementations.
+indexReduce :: HolIndex i => i -> String -> [(String, String, DocId, Position)] -> IO (Maybe i)
 indexReduce idx _ l =
   return $! Just (foldl' theFunc idx l)
     where
@@ -74,15 +95,18 @@ indexReduce idx _ l =
   
 -- -----------------------------------------------------------------------------
     
+-- | Downloads a document and calls the function to process the data for the
+--   different contexts of the index
 processDocument :: 
      Attributes
   -> [ContextConfig]
-  -> (DocId, String)
+  -> (DocId, URI)
   -> IOSLA (XIOState s) b (Context, String, DocId, Int)
-processDocument opts ccs (docId, url) =
-        readDocument opts url
+processDocument opts ccs (docId, theUri) =
+        readDocument opts theUri
     >>> processContexts ccs docId
       
+-- | Apply the processContext function to all configured contexts
 processContexts :: (ArrowXml a) =>
      [ContextConfig]
   -> DocId
@@ -90,6 +114,7 @@ processContexts :: (ArrowXml a) =>
 processContexts cc docId  = catA $ map (processContext docId) cc
 
     
+-- | Process a Context. TODO ... 
 processContext :: 
   (ArrowXml a) => 
      DocId
@@ -114,4 +139,26 @@ processContext docId cc =
       numberWords :: [String] -> [(String, Int)]
       numberWords l = zip l [1..]    
       
+-- -----------------------------------------------------------------------------
       
+     
+-- | Helper function for creating indexer configurations
+mkIndexerConfig :: [URI] -> Maybe String -> String -> [ContextConfig] -> Attributes -> [String] -> [String] -> IndexerConfig
+mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs allow deny = 
+  IndexerConfig
+     startPages
+     tmpPath
+     idxPath
+     contextConfigs
+     (mkCrawlFilter allow deny) -- (const True)      
+     attrs
+          
+-- | Helper function to create Crawl filters based on regular expressions.
+--   A excluding regular expression is always stronger than a including one.
+mkCrawlFilter :: [String] -> [String] -> (URI -> Bool)
+mkCrawlFilter as ds theUri = isAllowed && (not isForbidden ) 
+         where
+         isAllowed   = foldl (&&) True  (map (doesMatch theUri) as)
+         isForbidden = foldl (||) False (map (doesMatch theUri) ds)
+         doesMatch u a = isJust $ matchRegex (mkRegex $ a) u
+     
