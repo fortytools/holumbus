@@ -54,7 +54,8 @@ import Control.Parallel.Strategies
 -- | The index consists of a table which maps documents to ids and a number of index parts.
 newtype Inverted = Inverted 
   { indexParts :: Parts  -- ^ The parts of the index, each representing one context.
-  } deriving (Show, Eq)
+  } 
+  deriving (Show, Eq)
 
 -- | The index parts are identified by a name, which should denote the context of the words.
 type Parts       = Map Context Part

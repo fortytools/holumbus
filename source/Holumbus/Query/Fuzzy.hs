@@ -134,8 +134,7 @@ fuzzInternal cfg sc s = M.unionWith min replaced swapped
             else M.empty
 
 -- | Applies a fuzzy function to a string. An initial score is combined with the new score 
--- for the replacement (calculated from the position in the string and the scores in the 
--- list of all replacements).
+-- for the replacement.
 applyFuzz :: (String -> String -> [(String, FuzzyScore)]) -> FuzzyScore -> String -> FuzzySet
 applyFuzz f sc s = apply (init $ inits s) (init $ tails s)
   where

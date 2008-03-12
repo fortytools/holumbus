@@ -49,6 +49,7 @@ import Data.Word
 data Width = W01 | W02 | W03 | W04 | W05 | W06 | W07 | W08 | W10 | W12 | W15 | W20 | W30 | W60
              deriving (Show, Eq, Enum)
 
+-- | Increase performance by avoiding the calculation of maximum values.
 value :: Width -> Word64
 value W01 = (2 ^ 1) - 1
 value W02 = (2 ^ 2) - 1
@@ -65,6 +66,7 @@ value W20 = (2 ^ 20) - 1
 value W30 = (2 ^ 30) - 1
 value W60 = (2 ^ 60) - 1
 
+-- | Increase performance by avoiding the calculation of counts.
 count :: Width -> Int
 count W01 = 60
 count W02 = 30

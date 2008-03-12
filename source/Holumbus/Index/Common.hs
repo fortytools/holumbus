@@ -243,7 +243,7 @@ sizeOccurrences = IM.fold ((+) . IS.size) 0
 
 -- | Merge two occurrences.
 mergeOccurrences :: Occurrences -> Occurrences -> Occurrences
-mergeOccurrences = IM.unionWith (IS.union)
+mergeOccurrences = IM.unionWith IS.union
 
 -- | Substract occurrences from some other occurrences.
 substractOccurrences :: Occurrences -> Occurrences -> Occurrences
