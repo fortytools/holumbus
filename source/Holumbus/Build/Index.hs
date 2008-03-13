@@ -20,10 +20,13 @@
 
 module Holumbus.Build.Index where
 
+-- import           Data.Binary
 import           Data.List
+import qualified Data.Map     as M
 import           Data.Maybe
 
 -- import           Holumbus.Index.Cache
+import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
 
 import           System.Time
@@ -42,6 +45,7 @@ data IndexerConfig
     , ic_contextConfigs :: [ContextConfig]
     , ic_fCrawlFilter   :: URI -> Bool     -- will be passed to crawler, not needed for indexing
     , ic_readAttrs      :: Attributes
+--    , ic_fGetCustom     :: (Arrow a, Binary b) => a XmlTree b
     } 
 
 -- | Configuration for a Context. It has a name with which it will be identified
@@ -62,6 +66,20 @@ data ContextConfig
     }
     
 -- -----------------------------------------------------------------------------
+
+buildIndex :: HolIndex i => 
+              Int -> Int -> [(DocId, String)] -> IndexerConfig -> i -> IO i
+buildIndex workerThreads traceLevel docs idxConfig emptyIndex
+  = do
+    mr <- mapReduce workerThreads
+                    (indexMap traceLevel
+                              (ic_contextConfigs idxConfig) 
+                              (ic_readAttrs      idxConfig)
+                              "42"
+                    )
+                    (indexReduce emptyIndex) 
+                    docs
+    return $! snd (M.elemAt 0 mr)                       
 
 
 -- | The MAP function a MapReduce computation for building indexes.
@@ -143,8 +161,17 @@ processContext docId cc =
       
      
 -- | Helper function for creating indexer configurations
-mkIndexerConfig :: [URI] -> Maybe String -> String -> [ContextConfig] -> Attributes -> [String] -> [String] -> IndexerConfig
-mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs allow deny = 
+mkIndexerConfig :: --(Arrow a, Binary b) =>
+                   [URI] 
+                -> Maybe String 
+                -> String 
+                -> [ContextConfig] 
+                -> Attributes 
+--                -> a XmlTree b
+                -> [String] 
+                -> [String] 
+                -> IndexerConfig
+mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs {-getCustom-} allow deny = 
   IndexerConfig
      startPages
      tmpPath
@@ -152,7 +179,8 @@ mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs allow deny =
      contextConfigs
      (mkCrawlFilter allow deny) -- (const True)      
      attrs
-          
+--     getCustom
+               
 -- | Helper function to create Crawl filters based on regular expressions.
 --   A excluding regular expression is always stronger than a including one.
 mkCrawlFilter :: [String] -> [String] -> (URI -> Bool)
