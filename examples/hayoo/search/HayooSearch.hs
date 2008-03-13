@@ -52,17 +52,25 @@ import Network.Server.Janus.XmlHelper
 import Network.Server.Janus.JanusPaths
 
 import System.Time
+import System.IO.Unsafe
 
 import Control.Concurrent  -- For the global MVar
 
+import HayooHelper
+
 data Core = Core
   { index :: Inverted
-  , documents :: Documents Int
+  , documents :: Documents FunctionInfo
   , cache :: Cache
   }
 
+data PickleState = PickleState
+  { psStart :: Int
+  , psCache :: Cache
+  }
+
 -- Status information of query processing.
-type StatusResult = (String, Result Int)
+type StatusResult = (String, Result FunctionInfo)
 
 -- | The place where the filename of the index file is stored in the server configuration XML file.
 _shader_config_index :: JanusPath
@@ -81,7 +89,7 @@ loadIndex :: FilePath -> IO Inverted
 loadIndex = loadFromFile
 
 -- | Just an alias with explicit type.
-loadDocuments :: FilePath -> IO (Documents Int)
+loadDocuments :: FilePath -> IO (Documents FunctionInfo)
 loadDocuments = loadFromFile
 
 hayooShader :: ShaderCreator
@@ -103,8 +111,9 @@ hayooService midc = proc inTxn -> do
   start    <- readDef 0 <<< getValDef (_transaction_http_request_cgi_ "@start") "" -< inTxn
   -- Output some information about the request.
   arrLogRequest                                                                    -< inTxn
+  state    <- arr $ PickleState start                                              -<< (cache idc)
   -- Parse the query and generate a result or an error depending on the parse result.
-  response <- writeString start <<< (genError ||| genResult) <<< arrParseQuery     -<< (request, idc)
+  response <- writeString state <<< (genError ||| genResult) <<< arrParseQuery     -<< (request, idc)
   -- Put the response value into the transaction.
   setVal _transaction_http_response_body response                                  -<< inTxn    
     where
@@ -123,7 +132,13 @@ readM s = case reads s of
 arrParseQuery :: ArrowXml a => a (String, Core) (Either (String, Core) (Query, Core))
 arrParseQuery =  (first arrDecode)
                  >>>
+                 (first arrPreprocessQuery)
+                 >>>
                  (arr $ (\(r, idc) -> either (\m -> Left (m, idc)) (\q -> Right (q, idc)) (parseQuery r)))
+
+-- | Analze the query string and strip whitespace if a signature is searched.
+arrPreprocessQuery :: Arrow a => a String String
+arrPreprocessQuery = arr $ (\q -> if "->" `L.isInfixOf` q then stripSignature q else q)
 
 -- | Decode any URI encoded entities and transform to unicode.
 arrDecode :: Arrow a => a String String
@@ -145,10 +160,10 @@ arrLogRequest = proc inTxn -> do
   arrIO $ putStrLn -< (currTime ++ " - " ++ remHost ++ " - " ++ rawRequest ++ " - " ++ decodedRequest ++ " - " ++ start)
 
 -- | This is the core arrow where the request is finally processed.
-genResult :: ArrowXml a => a (Query, Core) (String, Result Int)
+genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
-              weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
+              weights = [("name", 0.8), ("partial", 0.6), ("signature", 0.4), ("normalized", 0.2)]
             in
             -- Check for a minimal term length of two character to avoid very large results.
             ifP (\(q, _) -> checkWith ((> 1) . length) q)
@@ -162,7 +177,7 @@ genResult = let
               (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
 
 -- | Generate a success status response from a query result.
-msgSuccess :: Result Int -> String
+msgSuccess :: Result FunctionInfo -> String
 msgSuccess r = if sd == 0 then "Nothing found yet." 
                else "Found " ++ (show sd) ++ " " ++ ds ++ " and " ++ (show sw) ++ " " ++ cs ++ "."
                  where
@@ -173,17 +188,17 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 
 -- | This is where the magic happens! This helper function really calls the 
 -- processing function which executes the query.
-makeQuery :: Core -> Query -> Result Int
+makeQuery :: Core -> Query -> Result FunctionInfo
 makeQuery (Core i d _) q = processQuery cfg i d (optimize q)
                            where
                            cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
 
 -- | Generate an error message in case the query could not be parsed.
-genError :: ArrowXml a => a (String, Core) (String, Result Int)
+genError :: ArrowXml a => a (String, Core) (String, Result FunctionInfo)
 genError = arr $ (\(msg, _) -> (msg, emptyResult))
 
 -- | The combined pickler for the status response and the result.
-xpStatusResult :: Int -> PU StatusResult
+xpStatusResult :: PickleState -> PU StatusResult
 xpStatusResult s = xpElem "div" $ xpAddFixedAttr "id" "result" $ xpPair xpStatus (xpResultHtml s)
 
 -- | Enclose the status message in a <div> tag.
@@ -191,7 +206,7 @@ xpStatus :: PU String
 xpStatus = xpDivId "status" xpText
 
 -- | The HTML Result pickler. Extracts the maximum word score for proper scaling in the cloud.
-xpResultHtml :: Int -> PU (Result Int)
+xpResultHtml :: PickleState -> PU (Result FunctionInfo)
 xpResultHtml s = xpWrap (\((_, wh), (_, dh)) -> Result dh wh, \r -> ((maxScoreWordHits r, wordHits r), (sizeDocHits r, docHits r))) 
                  (xpPair xpWordHitsHtml (xpDocHitsHtml s))
 
@@ -207,6 +222,10 @@ xpDivClass c p = xpElem "div" (xpAddFixedAttr "class" c p)
 xpClass :: String -> PU a -> PU a
 xpClass c p = xpAddFixedAttr "class" c p
 
+-- | Seth the id of the surrounding element.
+xpId :: String -> PU a -> PU a
+xpId i p = xpAddFixedAttr "id" i p
+
 -- | Append some text after pickling something else.
 xpAppend :: String -> PU a -> PU a
 xpAppend t p = xpWrap (\(v, _) -> v, \v -> (v, t)) (xpPair p xpText)
@@ -216,26 +235,37 @@ xpPrepend :: String -> PU a -> PU a
 xpPrepend t p = xpWrap (\(_, v) -> v, \v -> (t, v)) (xpPair xpText p)
 
 -- | The HTML pickler for the document hits. Will be sorted by score. Also generates the navigation.
-xpDocHitsHtml :: Int -> PU (Int, DocHits Int)
-xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair xpDocs (xpPager s))
+xpDocHitsHtml :: PickleState -> PU (Int, DocHits FunctionInfo)
+xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs (psCache s)) (xpPager (psStart s)))
   where
-  xpDocs = xpDivId "documents" (xpWrap (IM.fromList, toListSorted) (xpList xpDocHitHtml))
-  toListSorted = take pageLimit . drop s . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
-  xpDocHitHtml = xpDivClass "document" $ xpDocInfoHtml
+  xpDocs c = xpDivId "documents" $ xpElem "table" $ xpId "functions" (xpWrap (IM.fromList, toListSorted) (xpList $ xpDocInfoHtml c))
+  toListSorted = take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
 xpPager :: Int -> PU Int
 xpPager s = xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) xpickle)
 
-xpDocInfoHtml :: PU (DocId, (DocInfo Int, DocContextHits))
-xpDocInfoHtml = xpWrap (docFromHtml, docToHtml) (xpTriple xpTitleHtml xpContextsHtml xpURIHtml)
+xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContextHits))
+xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
-  docToHtml (_, (DocInfo (Document t u _) _, dch)) = ((u, t), dch, u)
-  docFromHtml ((u, t), dch, _) = (0, (DocInfo (Document t u Nothing) 0.0, dch))
-  xpTitleHtml = xpDivClass "title" $ xpElem "a" $ xpClass "link" $ (xpPair (xpAttr "href" xpText) xpText)
-  xpContextsHtml = xpDivClass "contexts" $ xpWrap (M.fromList, M.toList) (xpList xpContextHtml)
-  xpContextHtml = xpPair (xpElem "span" $ xpClass "context" $ xpAppend ": " $ xpText) xpWordsHtml
-  xpWordsHtml = xpWrap (M.fromList, M.toList) (xpList (xpPair (xpAppend " " $ xpText) xpZero))
-  xpURIHtml = xpDivClass "uri" $ xpText
+  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s l))) _, _)) = (((modLink u, m), (u, t), s), (getDesc i,l))
+    where
+    modLink = takeWhile ((/=) '#')
+    getDesc = unsafePerformIO . getDocText c "description" 
+  xpQualified = xpElem "tr" $ xpClass "function" $ xpTriple xpModule xpFunction xpSignature
+    where
+    xpModule = xpCell "module" $ xpPair (xpElem "a" $ xpClass "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)
+    xpFunction = xpCell "function" $ xpPair (xpElem "a" $ xpClass "function" $ xpAttr "href" $ xpText) xpText
+    xpSignature = xpCell "signature" $ xpPrepend ":: " xpText
+  xpAdditional = xpElem "tr" $ xpClass "description" $ xpFixedElem "td" (xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpPair xpDescription xpSource)
+    where
+    xpDescription = xpWrap (undefined, fromMaybe "No description ") (xpElem "span" $ xpClass "description" $ xpText)
+    xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
+
+xpFixedElem :: String -> PU a -> PU a
+xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)
+
+xpCell :: String -> PU a -> PU a
+xpCell c p = xpElem "td" $ xpClass c $ p
 
 xpWordHitsHtml :: PU (Score, WordHits)
 xpWordHitsHtml = xpDivId "words" $ xpElem "p" $ xpClass "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)
@@ -246,10 +276,10 @@ xpWordHitsHtml = xpDivId "words" $ xpElem "p" $ xpClass "cloud" $ xpWrap (fromLi
     where
     wordToHtml (m, (w, (WordInfo ts s, _))) = ((head ts, w), ((s, m), w))
     wordFromHtml ((t, _), ((s, m), w)) = (m, (w, (WordInfo [t] s, M.empty)))
-    xpWordHtml = xpAppend " " $ xpElem "a" $ xpClass "cloud" $ xpPair xpLink xpScore
+    xpWordHtml = xpAppend " " $ xpElem "a" $ xpClass "cloud" $ xpPair xpCloudLink xpScore
 
-xpLink :: PU (String, Word)
-xpLink = xpAttr "href" $ xpPair (xpPrepend "javascript:replaceInQuery('" $ xpAppend "','" xpEscape) (xpAppend "')" $ xpEscape)
+xpCloudLink :: PU (String, Word)
+xpCloudLink = xpAttr "href" $ xpPair (xpPrepend "javascript:replaceInQuery('" $ xpAppend "','" xpEscape) (xpAppend "')" $ xpEscape)
 
 xpEscape :: PU String
 xpEscape = xpWrap (unescape, escape) xpText

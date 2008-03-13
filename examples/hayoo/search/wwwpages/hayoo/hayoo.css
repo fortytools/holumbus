@@ -135,6 +135,46 @@ img.logo { border: none; }
 	padding:10px;
 }
 
+td.module {
+	text-align: right;
+}
+
+td.description {
+	text-align: left;
+}
+
+td.signature {
+	color: gray;
+}
+
+a.module {
+	font-weight: normal;
+	color: #DD0000;
+	text-decoration: none;
+}
+
+a.module:hover {
+	text-decoration: underline;
+}
+
+a.function {
+	color: #0700C3;
+	font-weight: bold;
+}
+
+a.function:hover {
+	text-decoration: underline;
+}
+
+a.source {
+	color: #25CA00;
+	font-weight: bold;
+}
+
+a.source:hover {
+	text-decoration: underline;
+}
+
 #queryinterface {
 	height:25px;
 	padding-top:30px;
@@ -208,11 +248,6 @@ p.cloud {
 .cloud7 { font-size:20pt; }
 .cloud8 { font-size:21pt; }
 .cloud9 { font-size:22pt; }
-
-.document {
-	padding-top:5px;
-	padding-bottom:5px;
-}
 
 .link { color:navy; }
 .link:hover { 

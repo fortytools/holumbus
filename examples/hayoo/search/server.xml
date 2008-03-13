@@ -67,7 +67,7 @@
       <loadshader reference="ttyThread" object="ttyThreadShader" module="Network.Server.Janus.Shader.ConsoleShader"/>
       <loadshader reference="ttyVersion" object="ttyVersionShader" module="Network.Server.Janus.Shader.ConsoleShader"/>
 
-      <loadshader reference="hayoo" object="hayooShader" module="Network.Server.Janus.Shader.Hayoo"/>
+      <loadshader reference="hayoo" object="hayooShader" module="Network.Server.Janus.Shader.HayooSearch"/>
 
       <shader type="init_mime" typefile="./conf/mime.types"/>
       <shader type="loadXml" file="./conf/server.xml" node="/local/hummelbummel"/>
