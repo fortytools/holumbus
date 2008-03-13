@@ -78,22 +78,22 @@ import Holumbus.Index.Common
 
 -- | The combined result type for Holumbus queries.
 data Result a = Result        
-  { docHits  :: !(DocHits a)  -- ^ The documents matching the query.
-  , wordHits :: !WordHits     -- ^ The words which are completions of the query terms.
+  { docHits  :: (DocHits a)  -- ^ The documents matching the query.
+  , wordHits :: WordHits     -- ^ The words which are completions of the query terms.
   }
   deriving (Eq, Show)
 
 -- | Information about an document.
 data DocInfo a = DocInfo 
-  { document :: !(Document a) -- ^ The document itself.
-  , docScore :: !Score        -- ^ The score for the document (initial score for all documents is @0.0@).
+  { document :: (Document a) -- ^ The document itself.
+  , docScore :: Score        -- ^ The score for the document (initial score for all documents is @0.0@).
   }
   deriving (Eq, Show)
 
 -- | Information about a word.
 data WordInfo = WordInfo 
-  { terms     :: !Terms    -- ^ The search terms that led to this very word.
-  , wordScore :: !Score    -- ^ The frequency of the word in the document for a context.
+  { terms     :: Terms    -- ^ The search terms that led to this very word.
+  , wordScore :: Score    -- ^ The frequency of the word in the document for a context.
   }
   deriving (Eq, Show)
 

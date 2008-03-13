@@ -123,7 +123,7 @@ import qualified Data.Map as M
 import Control.Parallel.Strategies
 
 -- | A map from arbitrary byte keys to values a.
-data Trie a = End !Key !a ![Trie a]
+data Trie a = End !Key a ![Trie a]
             | Seq !Key ![Trie a] 
 
 -- | The key type.

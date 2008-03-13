@@ -64,7 +64,7 @@ type DocRanking = DocId -> DocContextHits -> Score
 type WordRanking = Word -> WordContextHits -> Score
 
 -- | Rank the result with custom ranking functions.
-rank :: RankConfig -> Result c -> Result c
+rank :: RankConfig -> Result a -> Result a
 rank (RankConfig fd fw) r = Result scoredDocHits scoredWordHits
   where
   scoredDocHits = IM.mapWithKey (\k (di, dch) -> (setDocScore (fd k dch) di, dch)) $ docHits r
