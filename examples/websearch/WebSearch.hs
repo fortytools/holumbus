@@ -33,7 +33,7 @@ import Network.HTTP (urlDecode)
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (InvIndex)
+import Holumbus.Index.Inverted (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 
@@ -65,7 +65,7 @@ _shader_config_documents :: JanusPath
 _shader_config_documents = jp "/shader/config/@documents"
 
 -- | Just an alias with explicit type.
-loadIndex :: FilePath -> IO InvIndex
+loadIndex :: FilePath -> IO Inverted
 loadIndex = loadFromFile
 
 -- | Just an alias with explicit type.
@@ -284,4 +284,4 @@ makePager s p n = Pager pv pd (length pd + 1) sc nt
     genPred rp tp = let np = rp - p in if np < 0 then tp else genPred np (np:tp)
   sc = map (\x -> (x, x `div` p + 1)) $ genSucc s []
     where
-    genSucc rs ts = let ns = rs + p in if ns >= (n - 1) then ts else genSucc ns (ts ++ [ns])
+    genSucc rs ts = let ns = rs + p in if ns >= n then ts else genSucc ns (ts ++ [ns])
