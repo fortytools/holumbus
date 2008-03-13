@@ -20,6 +20,8 @@ module Holumbus.Utility where
 
 import Data.Char
 
+import           Numeric
+
 import qualified Data.List as L
 
 -- | Split a string into seperate strings at a specific character sequence.
@@ -39,3 +41,11 @@ strip = stripWith isSpace
 -- | Strip leading and trailing elements matching a predicate.
 stripWith :: (a -> Bool) -> [a] -> [a]
 stripWith f = reverse . dropWhile f . reverse . dropWhile f
+
+-- | Escapes non-alphanumeric or space characters in a String
+escape :: String -> String 
+escape []     = []
+escape (c:cs)
+  = if isAlphaNum c || isSpace c 
+      then c : escape cs
+      else '%' : showHex (fromEnum c) "" ++ escape cs
