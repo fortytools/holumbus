@@ -74,13 +74,15 @@ main
     idxConfig     <- return ic_HolumbusDocs
 --    idxConfig     <- return ic_Hayoo
     splitPath     <- return "/home/sms/tmp/holumbus_docs/split/"
+    crawlState    <- return (initialCS idxConfig customCrawlFunc)
     -- -------------------------------------------------------------------------
        -- find the available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    crawlState <- return (initialCS idxConfig)
-    crawled    <- crawl traceLevel workerThreads crawlState
-    docs       <- return $! DOC.fromMap (cs_docMap crawled)
+    docs       <- crawl traceLevel workerThreads crawlState
+--    docs       <- return $! DOC.fromMap (cs_docMap crawled)
+--    crawled    <- crawl traceLevel workerThreads crawlState
+--    docs       <- return $! DOC.fromMap (cs_docMap crawled)
     -- -------------------------------------------------------------------------
        -- split the locally saved documents into several small xml files
        -- where each file consists of the documentation for one function
@@ -95,21 +97,22 @@ main
     -- -------------------------------------------------------------------------
        -- build an index over the split xml files
     runX (traceMsg 0 (" indexing  ------------------------------ " ))
-    localDocs <- return $ tmpDocs "/home/sms/tmp/holumbus_docs/split/" splitDocs
-    idx'    <- mapReduce workerThreads 
-                         (indexMap traceLevel
-                                   (ic_contextConfigs idxConfig) 
-                                   (ic_readAttrs      idxConfig)
-                                   "42"
-                         )
-                         (indexReduce emptyInverted) 
+    localDocs <- return $ tmpDocs splitPath splitDocs
+    idx    <- buildIndex workerThreads
+                         traceLevel
                          (map (\(i,d) -> (i, uri d)) (IM.toList $ DOC.toMap localDocs))
-    idx     <- return $! snd (M.elemAt 0 idx')
+                         idxConfig
+                         emptyInverted 
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-index.xml") idx
     writeToBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") idx
     -- -------------------------------------------------------------------------
     return ()
     -- -------------------------------------------------------------------------
+
+customCrawlFunc :: IOSArrow XmlTree (Maybe FunctionInfo)
+customCrawlFunc = constA Nothing
+
+
 -- ld = "/home/sms/tmp/holumbus_docs/split/http-_-__www.holumbus.org_docs_develop_Holumbus-Utility.html-_-v-_-join"
 
 -- | Helper function to replace original URIs by the corresponding pathes for 
@@ -262,7 +265,7 @@ getVirtualDocs splitPath docId theUri =
   where
   mkVirtual theTitle =     
          root [] [this]
-     >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++  "-_-v-_-" ++ theTitle)
+     >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape ("#v:" ++ theTitle)))
      >>> constA theTitle &&& constA (theUri ++ "#v:" ++ theTitle)
 
 topdeclToDecl :: ArrowXml a => a XmlTree XmlTree
