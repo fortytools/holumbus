@@ -50,24 +50,24 @@ import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validat
 import           System.Time
 
 
-type CustomFunc = (Arrow a) => a XmlTree b
+type Custom a b = a XmlTree (Maybe b)
 
 -- | crawler state
-data CrawlerState 
+data CrawlerState a b
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
       , cs_wereProcessed    :: S.Set URI
       , cs_unusedDocIds     :: [DocId]
       , cs_readAttributes   :: Attributes        -- passed to readDocument
       , cs_crawlFilter      :: (URI -> Bool)     -- decides if a link will be followed
-      , cs_docs             :: Binary a => Documents a --IM.IntMap (Document String)
+      , cs_docs             :: Documents b --IM.IntMap (Document String)
       , cs_tempPath         :: Maybe String     
-      , cs_fGetCustom       :: CustomFunc
+      , cs_fGetCustom       :: Custom a b
       }
       
 -- | crawl a Web Page recursively
 --   signature may change so that a doc table will be the computed result
-crawl :: Int -> Int -> CrawlerState -> IO CrawlerState
+crawl :: (ArrowXml a, Binary b) => Int -> Int -> CrawlerState a b -> IO (CrawlerState a b)
 crawl traceLevel maxWorkers cs = 
   if S.null ( cs_toBeProcessed cs )
     then return (cs)
@@ -95,16 +95,15 @@ crawl traceLevel maxWorkers cs =
          
          crawl traceLevel maxWorkers cs'
     
-processCrawlResults :: Binary a =>
-                       CrawlerState 
+processCrawlResults :: (Arrow a, Binary b) => CrawlerState a b
                     -> Int 
-                    -> [(Maybe (Document a), [URI])] 
-                    -> IO (Maybe CrawlerState)
+                    -> [(Maybe (Document b), [URI])] 
+                    -> IO (Maybe (CrawlerState a b))
 processCrawlResults cs _ l =
     let
       newDocs        = S.unions (map S.fromList (map refs l))
       refs (_, uris) = filter (cs_crawlFilter cs) uris 
-      processedDocs  = catMaybes $ filter isJust (map fst l)
+      processedDocs  = catMaybes (map fst l)
     in      
       return $! Just 
         cs { cs_toBeProcessed = S.union
@@ -113,7 +112,6 @@ processCrawlResults cs _ l =
            , cs_docs          = theFold processedDocs
            } 
      where
-     theFold :: Binary a => [(Document a)] -> Documents a
      theFold processedDocs
        = foldl' (\d r -> snd (insertDoc d r)) 
                              (cs_docs cs)
@@ -140,7 +138,14 @@ processCrawlResults l cs =
 -- | Wrapper function for the "real" crawlDoc functions. The current time is
 --   traced (to identify documents that take a lot of time to be processed while
 --   testing) and the crawlDoc'-arrow is run
-crawlDoc :: (Show t) => Int -> Attributes -> Maybe String -> CustomFunc -> t -> String -> IO [(Int, (Maybe (Document a), [String]))]
+crawlDoc :: (Show t, ArrowXml a, Binary b) => 
+            Int 
+         -> Attributes 
+         -> Maybe String 
+         -> Custom a b 
+         -> t 
+         -> String 
+         -> IO [(Int, (Maybe (Document b), [String]))]
 crawlDoc traceLevel attrs tmpPath getCustom docId theUri 
   = do
     clt <- getClockTime               -- get Clock Time for debugging
@@ -157,12 +162,12 @@ noReduce' _ vs = do return $ Just (head vs)
 
 -- | Download & read document and compute document title and included refs to
 --   other documents 
-crawlDoc' :: (Show t) =>
+crawlDoc' :: (Show t, ArrowXml a, Binary b) =>
      Attributes    -- ^ options for readDocument
   -> Maybe String  -- ^ path for serialized tempfiles
-  -> CustomFunc
+  -> Custom a b
   -> (t, String)   -- ^ DocId, URI
-  -> IOSLA (XIOState s) b (Maybe (Document a), [String])
+  -> IOSLA (XIOState s) c (Maybe (Document b), [String])
 crawlDoc' attrs tmpPath getCustom (docId, theUri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
     >>> readDocument attrs theUri
@@ -190,10 +195,10 @@ crawlDoc' attrs tmpPath getCustom (docId, theUri) =
 
 -- | extract the Title of a Document (for web pages the <title> tag) and combine
 --   it with the document uri
-getDocument :: (ArrowXml a) => 
+getDocument :: (ArrowXml a, Binary b) => 
 --               Maybe String 
                URI 
-            -> a XmlTree (Maybe b)
+            -> Custom a b
             -> a XmlTree (Maybe (Document b))
 getDocument theUri getCustom 
   = mkDoc $<<< (     getTitle
@@ -258,7 +263,7 @@ computeDocBase
       
 
 -- | create an initial CrawlerState from an IndexerConfig
-initialCS :: IndexerConfig -> CustomFunc ->  CrawlerState
+initialCS :: (ArrowXml a, Binary b) => IndexerConfig -> Custom a b ->  CrawlerState a b
 initialCS cic getCustom
   = CrawlerState
       (S.fromList (ic_startPages cic))
