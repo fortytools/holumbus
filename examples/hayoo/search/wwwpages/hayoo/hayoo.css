@@ -89,6 +89,10 @@ img.logo { border: none; }
 	position:relative;
 }
 
+#fhw {
+	float:right;
+}
+
 #result {
 	padding-bottom:80px;
 }
@@ -163,11 +167,12 @@ td.function {
 }	
 
 td.description {
+	color: gray;
 	text-align: left;
 }
 
 td.signature {
-	color: gray;
+	color: black;
 	width: 100%;
 }
 

@@ -189,7 +189,7 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
                  where
                  sd = sizeDocHits r
                  sw = sizeWordHits r
-                 ds = if sd == 1 then "document" else "documents"
+                 ds = if sd == 1 then "result" else "results"
                  cs = if sw == 1 then "completion" else "completions"
 
 -- | This is where the magic happens! This helper function really calls the 
@@ -268,7 +268,7 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     where
     xpDescription = xpWrap (undefined, limitDescription) (xpElem "span" $ xpClass "description" $ xpText)
     xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
-    limitDescription = maybe "No description " (\d -> if length d > 100 then (take 100 d) ++ "... " else d ++ " ")
+    limitDescription = maybe "No description. " (\d -> if length d > 100 then (take 100 d) ++ "... " else d ++ " ")
 
 xpFixedElem :: String -> PU a -> PU a
 xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)
