@@ -201,7 +201,7 @@ makeQuery (Core i d _) q = processQuery cfg i d (optimize q)
 
 -- | Generate an error message in case the query could not be parsed.
 genError :: ArrowXml a => a (String, Core) (String, Result FunctionInfo)
-genError = arr $ (\(msg, _) -> (msg, emptyResult))
+genError = arr $ (\(msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult))
 
 -- | The combined pickler for the status response and the result.
 xpStatusResult :: PickleState -> PU StatusResult
@@ -268,7 +268,7 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     where
     xpDescription = xpWrap (undefined, limitDescription) (xpElem "span" $ xpClass "description" $ xpText)
     xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
-    limitDescription = maybe "No description " (\d -> if length d > 150 then (take 150 d) ++ "... " else d ++ " ")
+    limitDescription = maybe "No description " (\d -> if length d > 100 then (take 100 d) ++ "... " else d ++ " ")
 
 xpFixedElem :: String -> PU a -> PU a
 xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)

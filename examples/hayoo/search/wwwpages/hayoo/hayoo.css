@@ -50,7 +50,7 @@ img.logo { border: none; }
 	left: 0pt;
 	top: 0pt;
 	position: fixed;
-	opacity:0.6;
+	opacity:0.5;
 	z-index:1000;
 }
 
@@ -74,10 +74,14 @@ img.logo { border: none; }
 	background-color: white;
 	visibility: visible;
 	opacity:1.0;
-	width: 800px;
-	height: 600px;
+	width: 760px;
+	height: 570px;
 	padding:10px;
 	z-index:1004;
+	color:gray;
+	text-align:left;
+	padding-left:20px;
+	padding-right:20px;
 }
 
 #container {
