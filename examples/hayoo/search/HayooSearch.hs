@@ -268,7 +268,7 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     where
     xpDescription = xpWrap (undefined, limitDescription) (xpElem "span" $ xpClass "description" $ xpText)
     xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
-    limitDescription d = maybe "No description " (if length d > 150 then (take 150 d) ++ "..." else d ++ " ")
+    limitDescription = maybe "No description " (\d -> if length d > 150 then (take 150 d) ++ "..." else d ++ " ")
 
 xpFixedElem :: String -> PU a -> PU a
 xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)
