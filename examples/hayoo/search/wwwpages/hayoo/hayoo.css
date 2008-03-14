@@ -145,8 +145,8 @@ img.logo { border: none; }
 	padding:10px;
 }
 
-tr.function td {
-	padding-top: 15px;
+tr.description td {
+	padding-bottom: 10px;
 }
 
 td.module {
@@ -256,7 +256,10 @@ a.cloud {
 }
 
 p.cloud {
-	padding: 10px;
+	padding-left: 10px;
+	padding-right: 10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
 	text-align:center;
 	word-spacing: 1.5em;
 }
