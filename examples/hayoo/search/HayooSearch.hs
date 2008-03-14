@@ -197,7 +197,7 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 makeQuery :: Core -> Query -> Result FunctionInfo
 makeQuery (Core i d _) q = processQuery cfg i d (optimize q)
                            where
-                           cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
+                           cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 50
 
 -- | Generate an error message in case the query could not be parsed.
 genError :: ArrowXml a => a (String, Core) (String, Result FunctionInfo)
@@ -327,7 +327,7 @@ instance XmlPickler Pager where
 
 -- Start element (counting from zero), elements per page, total number of elements.
 makePager :: Int -> Int -> Int -> Pager
-makePager s p n = Pager pv pd (length pd + 1) sc nt
+makePager s p n = Pager pv (drop (length pd - 10) pd) (length pd + 1) (take 10 sc) nt
   where
   pv = if s < p then Nothing else Just (s - p)
   nt = if s + p >= n then Nothing else Just (s + p)
