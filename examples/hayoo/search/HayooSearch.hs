@@ -285,7 +285,7 @@ xpWordHitsHtml = xpDivId "words" $ xpElem "p" $ xpClass "cloud" $ xpWrap (fromLi
     where
     wordToHtml (m, (w, (WordInfo ts s, _))) = ((head ts, w), ((s, m), w))
     wordFromHtml ((t, _), ((s, m), w)) = (m, (w, (WordInfo [t] s, M.empty)))
-    xpWordHtml = xpAppend "    " $ xpElem "a" $ xpClass "cloud" $ xpPair xpCloudLink xpScore
+    xpWordHtml = xpAppend " " $ xpElem "a" $ xpClass "cloud" $ xpPair xpCloudLink xpScore
 
 xpCloudLink :: PU (String, Word)
 xpCloudLink = xpAttr "href" $ xpPair (xpPrepend "javascript:replaceInQuery('" $ xpAppend "','" xpEscape) (xpAppend "')" $ xpEscape)
