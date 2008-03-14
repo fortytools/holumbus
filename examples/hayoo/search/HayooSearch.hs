@@ -119,7 +119,7 @@ hayooService midc = proc inTxn -> do
     where
     -- Transforms the result and the status information to HTML by pickling it using the XML picklers.
     writeString s = pickleStatusResult s >>> (writeDocumentToString [(a_no_xml_pi, v_1), (a_output_encoding, utf8)])
-    pickleStatusResult s = xpickleVal (xpStatusResult s)
+    pickleStatusResult s = arrFilterStatusResult >>> xpickleVal (xpStatusResult s)
     readDef d = arr $ fromMaybe d . readM
 
 -- | Enable handling of parse errors from 'read'.
@@ -127,6 +127,12 @@ readM :: (Read a, Monad m) => String -> m a
 readM s = case reads s of
             [(x, "")] -> return x
             _         -> fail "No parse"
+
+-- | Perform some postprocessing on the status and the result.
+arrFilterStatusResult :: ArrowXml a => a StatusResult StatusResult
+arrFilterStatusResult = arr $ (\(s, r) -> (s, filterResult r))
+  where
+  filterResult (Result dh wh) = Result dh (M.filterWithKey (\w _ -> not ("->" `L.isInfixOf` w)) wh)
 
 -- | Tries to parse the search string and returns either the parsed query or an error message.
 arrParseQuery :: ArrowXml a => a (String, Core) (Either (String, Core) (Query, Core))
@@ -242,7 +248,9 @@ xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs 
   toListSorted = take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
 xpPager :: Int -> PU Int
-xpPager s = xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) xpickle)
+xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) xpickle))
+  where
+  wrapper = (undefined, \v -> if v > 0 then Just v else Nothing)
 
 xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContextHits))
 xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
@@ -258,8 +266,9 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     xpSignature = xpCell "signature" $ xpPrepend ":: " xpText
   xpAdditional = xpElem "tr" $ xpClass "description" $ xpFixedElem "td" (xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpPair xpDescription xpSource)
     where
-    xpDescription = xpWrap (undefined, fromMaybe "No description ") (xpElem "span" $ xpClass "description" $ xpText)
+    xpDescription = xpWrap (undefined, limitDescription) (xpElem "span" $ xpClass "description" $ xpText)
     xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
+    limitDescription d = maybe "No description " (if length d > 150 then (take 150 d) ++ "..." else d ++ " ")
 
 xpFixedElem :: String -> PU a -> PU a
 xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)

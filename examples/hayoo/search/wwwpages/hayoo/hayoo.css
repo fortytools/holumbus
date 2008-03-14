@@ -137,7 +137,12 @@ img.logo { border: none; }
 
 td.module {
 	text-align: right;
+	vertical-align: top;
 }
+
+td.function {
+	vertical-align: top;
+}	
 
 td.description {
 	text-align: left;
