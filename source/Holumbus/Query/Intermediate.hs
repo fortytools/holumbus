@@ -121,7 +121,8 @@ createWordHits im = IM.foldWithKey transformDoc M.empty im
     where
     transformContext c iw wh' = M.foldWithKey insertWord wh' iw
       where
-      insertWord w (wi, pos) wh'' = M.insertWith combineWordHits w (wi, M.singleton c (IM.singleton d pos)) wh''
+      insertWord w (wi, pos) wh'' = if terms wi == [""] then wh'' 
+                                    else M.insertWith combineWordHits w (wi, M.singleton c (IM.singleton d pos)) wh''
 
 -- | Combine two tuples with score and context hits.
 combineWordHits :: (WordInfo, WordContextHits) -> (WordInfo, WordContextHits) -> (WordInfo, WordContextHits)

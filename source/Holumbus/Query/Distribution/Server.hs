@@ -158,11 +158,11 @@ processQuery i hdl hdr =
   inlen <- return (read $ head hdr)
   -- Read and decode the request.
   raw <- B.hGet hdl inlen
-  (q, c, pc) <- return (decode raw)
+  (q, c, pc, t) <- return (decode raw)
   -- Get the index.
   idx <- readMVar i
   -- Process the query
-  res <- return (processPartial pc idx q)
+  res <- return (processPartial pc idx t q)
   -- Encode and compress (if requested) the result.
   enc <- if c then return (compress . encode $ res) else return (encode res)
   -- Tell the client the size of the result to expect.

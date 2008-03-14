@@ -76,7 +76,7 @@ processDistributed cfg d q =
   combined <- takeMVar res
   return (toResult d combined)
     where
-    request = (q, (compressResult cfg), processConfig cfg)
+    request = (q, (compressResult cfg), processConfig cfg, sizeDocs d)
 
 -- | Updates the server's index by adding another index. Several servers can be updated at once,
 -- sending the updates in parallel. A list with an error message for every server is returned.
@@ -127,8 +127,8 @@ sendRequest f (s, d) =
     send hdl = hSetBuffering hdl NoBuffering >> f d hdl
 
 -- | Send out a query request over the specified handle.
-sendQuery :: MVar Intermediate -> (Query, Bool, ProcessConfig) -> Handle -> IO ()
-sendQuery i r@(_, c, _) hdl =
+sendQuery :: MVar Intermediate -> (Query, Bool, ProcessConfig, Int) -> Handle -> IO ()
+sendQuery i r@(_, c, _, _) hdl =
   do
   enc <- return (encode r)
   -- Tell the server the type of the request and the length of the ByteString to expect.

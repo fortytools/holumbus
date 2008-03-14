@@ -43,7 +43,7 @@ import qualified Data.List as L
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Holumbus.Index.Common (HolIndex, HolDocuments, Context, Occurrences, Positions, RawResult, Word)
+import Holumbus.Index.Common hiding (contexts)
 import qualified Holumbus.Index.Common as IDX
 
 import Holumbus.Query.Language.Grammar
@@ -73,6 +73,7 @@ data ProcessState i = ProcessState
   { config   :: !ProcessConfig   -- ^ The configuration for the query processor.
   , contexts :: ![Context]       -- ^ The current list of contexts.
   , index    :: !i               -- ^ The index to search.
+  , total    :: !Int             -- ^ The number of documents in the index.
   }
 
 -- | Get the fuzzy config out of the process state.
@@ -81,11 +82,11 @@ getFuzzyConfig = fuzzyConfig . config
 
 -- | Set the current context in the state.
 setContexts :: HolIndex i => [Context] -> ProcessState i -> ProcessState i
-setContexts cs (ProcessState cfg _ i) = ProcessState cfg cs i
+setContexts cs (ProcessState cfg _ i t) = ProcessState cfg cs i t
 
 -- | Initialize the state of the processor.
-initState :: HolIndex i => ProcessConfig -> i -> ProcessState i
-initState cfg i = ProcessState cfg (IDX.contexts i) i
+initState :: HolIndex i => ProcessConfig -> i -> Int -> ProcessState i
+initState cfg i t = ProcessState cfg (IDX.contexts i) i t
 
 -- | Try to evaluate the query for all contexts in parallel.
 forAllContexts :: (Context -> Intermediate) -> [Context] -> Intermediate
@@ -97,14 +98,14 @@ allDocuments s = forAllContexts (\c -> I.fromList "" c $ IDX.allWords (index s) 
 
 -- | Process a query only partially in terms of a distributed index. Only the intermediate 
 -- result will be returned.
-processPartial :: (HolIndex i) => ProcessConfig -> i -> Query -> Intermediate
-processPartial cfg i q = process (initState cfg i) oq
+processPartial :: (HolIndex i) => ProcessConfig -> i -> Int -> Query -> Intermediate
+processPartial cfg i t q = process (initState cfg i t) oq
   where
   oq = if optimizeQuery cfg then optimize q else q
 
 -- | Process a query on a specific index with regard to the configuration.
 processQuery :: (HolIndex i, HolDocuments d c) => ProcessConfig -> i -> d c -> Query -> Result c
-processQuery cfg i d q = I.toResult d (process (initState cfg i) oq)
+processQuery cfg i d q = I.toResult d (process (initState cfg i (sizeDocs d)) oq)
   where
   oq = if optimizeQuery cfg then optimize q else q
 
@@ -115,21 +116,21 @@ process s (Phrase w)         = processPhrase s w
 process s (CaseWord w)       = processCaseWord s w
 process s (CasePhrase w)     = processCasePhrase s w
 process s (FuzzyWord w)      = processFuzzyWord s w
-process s (Negation q)       = processNegation s q
-process s (BinQuery o q1 q2) = processBin s o q1 q2
-process s (Specifier cs q)   = process (setContexts cs s) q
+process s (Negation q)       = processNegation s (process s q)
+process s (BinQuery o q1 q2) = processBin s o (process s q1) (process s q2)
+process s (Specifier c q)   = process (setContexts c s) q
 
 -- | Process a single, case-insensitive word by finding all documents which contain the word as prefix.
 processWord :: HolIndex i => ProcessState i -> String -> Intermediate
 processWord s q = forAllContexts wordNoCase (contexts s)
   where
-  wordNoCase c = I.fromList q c $ limitWords (wordLimit $ config s) $ IDX.prefixNoCase (index s) c q
+  wordNoCase c = I.fromList q c $ limitWords s $ IDX.prefixNoCase (index s) c q
 
 -- | Process a single, case-sensitive word by finding all documents which contain the word as prefix.
 processCaseWord :: HolIndex i => ProcessState i -> String -> Intermediate
 processCaseWord s q = forAllContexts wordCase (contexts s)
   where
-  wordCase c = I.fromList q c $ limitWords (wordLimit $ config s) $ IDX.prefixCase (index s) c q
+  wordCase c = I.fromList q c $ limitWords s $ IDX.prefixCase (index s) c q
 
 -- | Process a phrase case-insensitive.
 processPhrase :: HolIndex i => ProcessState i -> String -> Intermediate
@@ -147,7 +148,7 @@ processCasePhrase s q = forAllContexts phraseCase (contexts s)
 processPhraseInternal :: (String -> [Occurrences]) -> Context -> String -> Intermediate
 processPhraseInternal f c q = let
   w = words q 
-  m = mergeOccurrences $ f (head w) in
+  m = mergeOccurrencesList $ f (head w) in
   if m == IM.empty then I.emptyIntermediate
   else I.fromList q c [(q, processPhrase' (tail w) 1 m)]
   where
@@ -157,7 +158,7 @@ processPhraseInternal f c q = let
     where
     nextWord :: [Occurrences] -> Int -> Positions -> Bool
     nextWord [] _ _  = False
-    nextWord no d np = maybe False hasSuccessor (IM.lookup d (mergeOccurrences no))
+    nextWord no d np = maybe False hasSuccessor (IM.lookup d (mergeOccurrencesList no))
       where
       hasSuccessor :: Positions -> Bool
       hasSuccessor w = IS.fold (\cp r -> r || (IS.member (cp + p) w)) False np
@@ -171,28 +172,26 @@ processFuzzyWord s oq = processFuzzyWord' (F.toList $ F.fuzz (getFuzzyConfig s) 
   processFuzzyWord' (q:qs) r = if I.null r then processFuzzyWord' qs (processWord s (fst q)) else r
 
 -- | Process a negation by getting all documents and substracting the result of the negated query.
-processNegation :: HolIndex i => ProcessState i -> Query -> Intermediate
-processNegation s q = I.difference (allDocuments s) (process s q)
+processNegation :: HolIndex i => ProcessState i -> Intermediate -> Intermediate
+processNegation s r = I.difference (allDocuments s) r
 
 -- | Process a binary operator by caculating the union or the intersection of the two subqueries.
-processBin :: HolIndex i => ProcessState i -> BinOp -> Query -> Query -> Intermediate
-processBin s And q1 q2 = I.intersection (process s q1) (process s q2)
-processBin s Or q1 q2  = I.union (process s q1) (process s q2)
-processBin s But q1 q2 = I.difference (process s q1) (process s q2)
+processBin :: HolIndex i => ProcessState i -> BinOp -> Intermediate -> Intermediate -> Intermediate
+processBin _ And r1 r2 = I.intersection r1 r2
+processBin _ Or r1 r2  = I.union r1 r2
+processBin _ But r1 r2 = I.difference r1 r2
 
 -- | Limit a 'RawResult' to a fixed amount of the best words. A simple heuristic is used to 
 -- determine the quality of a word: The total number of occurrences divided by the number of 
 -- documents in which the word appears. 
-limitWords :: Int -> RawResult -> RawResult
-limitWords l r = if cut then map snd $ take l $ L.sortBy (compare `on` fst) $ map calcScore r else r
+limitWords :: HolIndex i => ProcessState i -> RawResult -> RawResult
+limitWords s r = if cut then map snd $ take limit $ L.sortBy (compare `on` fst) $ map calcScore r else r
   where
-  cut = l > 0 && length r > l
+  limit = wordLimit $ config s
+  cut = limit > 0 && length r > limit
   calcScore :: (Word, Occurrences) -> (Double, (Word, Occurrences))
-  calcScore w@(_, o) = (fromIntegral numPos / fromIntegral numDocs, w)
-    where
-    numPos  = IM.fold ((+) . IS.size) 0 o
-    numDocs = IM.size o
+  calcScore w@(_, o) = (log (fromIntegral (total s) / fromIntegral (IM.size o)), w)
 
 -- | Merge occurrences
-mergeOccurrences :: [Occurrences] -> Occurrences
-mergeOccurrences = IM.unionsWith IS.union
+mergeOccurrencesList :: [Occurrences] -> Occurrences
+mergeOccurrencesList = IM.unionsWith IS.union
