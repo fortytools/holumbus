@@ -135,6 +135,10 @@ img.logo { border: none; }
 	padding:10px;
 }
 
+tr.function td {
+	padding-top: 15px;
+}
+
 td.module {
 	text-align: right;
 	vertical-align: top;
@@ -150,6 +154,7 @@ td.description {
 
 td.signature {
 	color: gray;
+	width: 100%;
 }
 
 a.module {
@@ -241,7 +246,9 @@ a.cloud {
 }
 
 p.cloud {
+	padding: 10px;
 	text-align:center;
+	word-spacing: 1.5em;
 }
 
 .cloud1 { font-size:7pt; }
