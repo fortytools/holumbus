@@ -34,15 +34,16 @@ import           Control.Monad
 
 type Dict   = Map
 
+
 -- ----------------------------------------------------------------------------
 
 -- | MapReduce Computations
 mapReduce :: (Ord k2) =>
-                Int
-             -> (k1 ->  v1  -> IO [(k2, v2)])
-             -> (k2 -> [v2] -> IO (Maybe v3))
-             -> [(k1, v1)]
-             -> IO (M.Map k2 v3)
+                Int                             -- ^ No. of Threads 
+             -> (k1 ->  v1  -> IO [(k2, v2)])   -- ^ Map function
+             -> (k2 -> [v2] -> IO (Maybe v3))   -- ^ Reduce function
+             -> [(k1, v1)]                      -- ^ input data 
+             -> IO (M.Map k2 v3)                -- ^ Result is a Map
 mapReduce maxWorkers mapFunction reduceFunction input
   = do
     
@@ -65,7 +66,7 @@ mapReduce maxWorkers mapFunction reduceFunction input
     
 -- ----------------------------------------------------------------------------
 
--- | executes the map phase of a MapReduce computation as a parallel computation.
+-- | Executes the map phase of a MapReduce computation as a parallel computation.
 --   it is not very smart so far since the input data is split in the beginning
 --   and there is no work load balancing during the computation
 parallelMap :: (k1 ->  v1  -> IO [(k2, v2)]) -> [[(k1, v1)]] -> IO [(k2, v2)]
@@ -77,7 +78,9 @@ parallelMap mapFunction pl
     res             <- takeMVar result
     return res
 
-
+-- | Runs a map task in a thread. the reduce function function is wrapped into
+--   everything that is necessary to return the results. The input data will be
+--   a partition of the input data of the whole MapReduce Computation
 runMapTask :: MVar [(k2,v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO ()
 runMapTask mv mapFunction input 
   = do
@@ -88,6 +91,7 @@ runMapTask mv mapFunction input
     
 -- ----------------------------------------------------------------------------
 
+-- | Applies the map function to every data in the input list
 mapPerKey :: ((k1,v1)  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2,v2)]
 mapPerKey _ []     = do return ([])
 mapPerKey mapFunction (x:xs)
@@ -97,11 +101,13 @@ mapPerKey mapFunction (x:xs)
     return $! (the_x ++ the_xs)
     -- maybe way nicer with mapM
     
+-- | Groups the output data of the Map phase by the computed keys (k2) 
 groupByKey :: (Ord k2) => [(k2, v2)] -> Dict k2 [v2]
 groupByKey = foldl insert empty
   where
     insert dict (k2,v2) = insertWith (++) k2 [v2] dict
     
+-- | Reduce Phase. The Reduce Phase does not run parallelized.
 reducePerKey :: (Ord k2) => (k2 -> [v2] -> IO(Maybe v3)) -> Map k2 [v2] -> IO (Map k2 v3)
 reducePerKey reduceFunction inmap
   = rpk (uncurry reduceFunction) (M.toList inmap) M.empty
