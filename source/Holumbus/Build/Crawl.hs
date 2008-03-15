@@ -244,7 +244,7 @@ computeDocBase
       
 
 -- | create an initial CrawlerState from an IndexerConfig
-initialCS :: (Binary b) => IndexerConfig -> Custom b ->  CrawlerState b
+initialCS :: (Binary b) => IndexerConfig -> Custom b -> CrawlerState b
 initialCS cic getCustom
   = CrawlerState
       (S.fromList (ic_startPages cic))
