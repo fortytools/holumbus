@@ -67,8 +67,14 @@ data ContextConfig
     
 -- -----------------------------------------------------------------------------
 
+-- | Build an Index over a list of Files.
 buildIndex :: HolIndex i => 
-              Int -> Int -> [(DocId, String)] -> IndexerConfig -> i -> IO i
+              Int                -- ^ Number of parallel threads for MapReduce
+           -> Int                -- ^ TraceLevel for Arrows
+           -> [(DocId, String)]  -- ^ List of input Data
+           -> IndexerConfig      -- ^ Configuration for the Indexing process
+           -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
+           -> IO i               -- ^ returns a - hopefully informative - HolIndex
 buildIndex workerThreads traceLevel docs idxConfig emptyIndex
   = do
     mr <- mapReduce workerThreads
@@ -83,10 +89,13 @@ buildIndex workerThreads traceLevel docs idxConfig emptyIndex
 
 
 -- | The MAP function a MapReduce computation for building indexes.
---   The first three
---   parameters have to be passed to the function to receive a function with a
---   valid MapReduce-map signature. <br/>
---   The function... TODO
+--   The first three parameters have to be passed to the function to receive
+--   a function with a valid MapReduce-map signature. <br/>
+--   The function optionally outputs some debug information and then starts
+--   the processing of a file by passing it together with the configuration
+--   for different contexts to the @processDocument@ function where the file
+--   is read and then the interesting parts configured in the
+--   context configurations are extracted.
 indexMap :: Int -> [ContextConfig] -> Attributes -> String -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
 indexMap traceLevel contextConfigs opts artificialKey docId theUri = do
     clt <- getClockTime
@@ -108,6 +117,7 @@ indexReduce :: HolIndex i => i -> String -> [(String, String, DocId, Position)] 
 indexReduce idx _ l =
   return $! Just (foldl' theFunc idx l)
     where
+    theFunc i (context, [],   docId, pos) = insertPosition context "HIERISTDERFEHLER" docId pos i
     theFunc i (context, word, docId, pos) = insertPosition context word docId pos i
     
   
@@ -132,7 +142,8 @@ processContexts :: (ArrowXml a) =>
 processContexts cc docId  = catA $ map (processContext docId) cc
 
     
--- | Process a Context. TODO ... 
+-- | Process a Context. Applies the given context to extract information from
+--   the XmlTree that is passed in the arrow.
 processContext :: 
   (ArrowXml a) => 
      DocId
@@ -142,10 +153,6 @@ processContext docId cc =
         (cc_preFilter cc)
     >>> getXPathTreesInDoc (cc_XPath cc)
     >>> getText    
-
-    -- TODO make this work - arrIO?
-    -- >>> perform ( arr $ putDocText (createCache "/home/sms/cache/") (cc_name cc) docId ) 
-
     >>> arr (cc_fTokenize cc)
     >>> arr (filter (\s -> not ((cc_fIsStopWord cc) s)))
     >>> arr numberWords
@@ -162,15 +169,15 @@ processContext docId cc =
      
 -- | Helper function for creating indexer configurations
 mkIndexerConfig :: --(Arrow a, Binary b) =>
-                   [URI] 
-                -> Maybe String 
-                -> String 
-                -> [ContextConfig] 
-                -> Attributes 
+                   [URI]               -- ^ A list of URIs with which to start
+                -> Maybe String        -- ^ Nothing = do not save tmp files locally. Just = Path where to save tmp files.         
+                -> String              -- ^ Path where to save index, doctable & cache
+                -> [ContextConfig]     -- ^ A list of Context Configurations 
+                -> Attributes          -- ^ Attributes for readDocument
 --                -> a XmlTree b
-                -> [String] 
-                -> [String] 
-                -> IndexerConfig
+                -> [String]            -- ^ List of regular expressions for files that shall be indexed 
+                -> [String]            -- ^ List of regular expressions for files that must not be indexed
+                -> IndexerConfig       -- ^ Configuration for an Indexer
 mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs {-getCustom-} allow deny = 
   IndexerConfig
      startPages
