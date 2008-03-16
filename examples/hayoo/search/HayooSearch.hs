@@ -217,7 +217,7 @@ genError = arr $ (\(msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult))
 
 -- | The combined pickler for the status response and the result.
 xpStatusResult :: PickleState -> PU StatusResult
-xpStatusResult s = xpElem "div" $ xpAddFixedAttr "id" "result" $ xpPair xpStatus (xpResultHtml s)
+xpStatusResult s = xpDivId "result" $ xpPair xpStatus (xpResultHtml s)
 
 -- | Enclose the status message in a <div> tag.
 xpStatus :: PU String
@@ -260,7 +260,7 @@ xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs 
   toListSorted = take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
 xpPager :: Int -> PU Int
-xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) xpickle))
+xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) (xpOption xpickle)))
   where
   wrapper = (undefined, \v -> if v > 0 then Just v else Nothing)
 
@@ -338,8 +338,8 @@ instance XmlPickler Pager where
     xpShowPage = xpPrepend "javascript:showPage(" $ xpAppend ")" $ xpPrim
 
 -- Start element (counting from zero), elements per page, total number of elements.
-makePager :: Int -> Int -> Int -> Pager
-makePager s p n = Pager pv (drop (length pd - 10) pd) (length pd + 1) (take 10 sc) nt
+makePager :: Int -> Int -> Int -> Maybe Pager
+makePager s p n = if n > p then Just $ Pager pv (drop (length pd - 10) pd) (length pd + 1) (take 10 sc) nt else Nothing
   where
   pv = if s < p then Nothing else Just (s - p)
   nt = if s + p >= n then Nothing else Just (s + p)

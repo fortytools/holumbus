@@ -97,6 +97,10 @@ span.query {
 	float:right;
 }
 
+#hol {
+	float:left;
+}
+
 #result {
 	padding-bottom:80px;
 }
