@@ -14,10 +14,11 @@ function checkForQuery () {
 }
 
 function tryProcessQuery () {
-	currentPress = (new Date()).getTime();
-	delay = currentPress - lastPress;
-	lastPress = currentPress;
-	if (delay > 500) {
+	window.setTimeout('checkProcessQuery("' + $("querytext").value + '")', 300);
+}
+
+function checkProcessQuery (query) {
+	if (query == $("querytext").value) {
 		processQuery(0);
 	}
 }
@@ -44,15 +45,6 @@ function processQuery (start) {
 			onFailure: function(){ alert('Something went wrong...') }
 		});
 	}
-	else {
-	}
-}
-
-function replaceInQuery (needle, substitute) {
-	checkForQuery();
-
-	$("querytext").value = $("querytext").value.gsub(needle, substitute);
-	processQuery();
 }
 
 function displayResult (result) {
@@ -61,13 +53,21 @@ function displayResult (result) {
 	$("throbber").hide();
 }
 
+function replaceInQuery (needle, substitute) {
+	checkLastQuery();
+
+	$("querytext").value = $("querytext").value.gsub(needle, substitute);
+
+	processQuery(0);
+}
+
 function showPage (page) {
-	checkForQuery();
+	checkLastQuery();
 
 	processQuery (page);
 }
 
-function checkForQuery () {
+function checkLastQuery () {
 	if ($("querytext").value.length == 0) {
 		if (typeof lastQuery == "string") {
 			$("querytext").value = lastQuery;

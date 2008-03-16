@@ -29,6 +29,10 @@ a:active {
 
 img.logo { border: none; }
 
+span.query {
+	font-style: italic;
+}
+
 #throbber { 
 	vertical-align:text-bottom;
 }
@@ -74,8 +78,8 @@ img.logo { border: none; }
 	background-color: white;
 	visibility: visible;
 	opacity:1.0;
-	width: 760px;
-	height: 570px;
+	width: 720px;
+	height: 540px;
 	padding:10px;
 	z-index:1004;
 	color:gray;
