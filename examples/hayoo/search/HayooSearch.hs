@@ -173,7 +173,13 @@ arrLogRequest = proc inTxn -> do
 genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
-              weights = [("name", 0.8), ("partial", 0.6), ("module", 0.4), ("signature", 0.4), ("normalized", 0.2)]
+              weights = [ ("name", 0.8)
+                        , ("partial", 0.6)
+                        , ("module", 0.4)
+                        , ("signature", 0.4)
+                        , ("description", 0.3)
+                        , ("normalized", 0.2)
+                        ]
             in
 
 -- FIXME TH 16.03.2008: Allow one-character queries for testing.
@@ -201,9 +207,9 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 -- | This is where the magic happens! This helper function really calls the 
 -- processing function which executes the query.
 makeQuery :: Core -> Query -> Result FunctionInfo
-makeQuery (Core i d _) q = processQuery cfg i d (optimize q)
+makeQuery (Core i d _) q = processQuery cfg i d q
                            where
-                           cfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 50
+                           cfg = ProcessConfig (FuzzyConfig False True 1.0 []) True 50
 
 -- | Generate an error message in case the query could not be parsed.
 genError :: ArrowXml a => a (String, Core) (String, Result FunctionInfo)
