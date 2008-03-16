@@ -69,7 +69,7 @@ function showPage (page) {
 
 function checkForQuery () {
 	if ($("querytext").value.length == 0) {
-		if (lastQuery) {
+		if (typeof lastQuery == "string") {
 			$("querytext").value = lastQuery;
 		}
 	}
