@@ -30,7 +30,7 @@ function forceProcessQuery () {
 
 function processQuery (start) {
 	var query = $("querytext").value;
-	if (query.length > 1) {
+	if (query.length > 0) {
 		$("throbber").show();
 		new Ajax.Request("results/hayoo.html?query=" + query + "&start=" + start,
 		{
@@ -38,14 +38,19 @@ function processQuery (start) {
 			onSuccess: function(transport) {
 				lastXMLResult = transport.responseXML;
 				lastTXTResult = transport.responseText;
+				lastQuery = query;
 			  displayResult(transport.responseText);
 			},
 			onFailure: function(){ alert('Something went wrong...') }
 		});
 	}
+	else {
+	}
 }
 
 function replaceInQuery (needle, substitute) {
+	checkForQuery();
+
 	$("querytext").value = $("querytext").value.gsub(needle, substitute);
 	processQuery();
 }
@@ -57,5 +62,15 @@ function displayResult (result) {
 }
 
 function showPage (page) {
+	checkForQuery();
+
 	processQuery (page);
+}
+
+function checkForQuery () {
+	if ($("querytext").value.length == 0) {
+		if (lastQuery) {
+			$("querytext").value = lastQuery;
+		}
+	}
 }

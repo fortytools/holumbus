@@ -40,7 +40,6 @@ import Holumbus.Index.Cache
 import Holumbus.Index.Common
 
 import Holumbus.Query.Language.Grammar
-import Holumbus.Query.Language.Parser
 import Holumbus.Query.Processor
 import Holumbus.Query.Result
 import Holumbus.Query.Ranking
@@ -54,9 +53,13 @@ import Network.Server.Janus.JanusPaths
 import System.Time
 import System.IO.Unsafe
 
+import System.Log.Logger
+import System.Log.Handler.Simple
+
 import Control.Concurrent  -- For the global MVar
 
 import HayooHelper
+import HayooParser
 
 data Core = Core
   { index :: Inverted
@@ -84,6 +87,10 @@ _shader_config_documents = jp "/shader/config/@documents"
 _shader_config_cache :: JanusPath
 _shader_config_cache = jp "/shader/config/@cache"
 
+-- | The path of the logfile to use.
+_shader_config_log :: JanusPath
+_shader_config_log = jp "/shader/config/@log"
+
 -- | Just an alias with explicit type.
 loadIndex :: FilePath -> IO Inverted
 loadIndex = loadFromFile
@@ -95,9 +102,12 @@ loadDocuments = loadFromFile
 hayooShader :: ShaderCreator
 hayooShader = J.mkDynamicCreator $ proc (conf, _) -> do
   -- Load the files and create the indexes.
-  inv  <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "") -< conf
-  doc  <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "") -< conf
-  cac  <- (arrIO $ createCache) <<< (getValDef _shader_config_cache "") -< conf
+  inv <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "hayoo-index.bin") -< conf
+  doc <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "hayoo-docs.bin") -< conf
+  cac <- (arrIO $ createCache) <<< (getValDef _shader_config_cache "hayoo-cache.db") -< conf
+  hdl <- (arrIO $ (flip fileHandler) INFO) <<< (getValDef _shader_config_log "hayoo.log") -< conf
+  arrIO $ (\h -> updateGlobalLogger rootLoggerName (setHandlers [h])) -< hdl
+  arrIO $ (\_ -> updateGlobalLogger rootLoggerName (setLevel INFO)) -< ()
   -- Store the data in MVar's to allow shared access.
   midc <- arrIO $ newMVar -< Core inv doc cac
   returnA -< hayooService midc
@@ -138,13 +148,7 @@ arrFilterStatusResult = arr $ (\(s, r) -> (s, filterResult r))
 arrParseQuery :: ArrowXml a => a (String, Core) (Either (String, Core) (Query, Core))
 arrParseQuery =  (first arrDecode)
                  >>>
-                 (first arrPreprocessQuery)
-                 >>>
                  (arr $ (\(r, idc) -> either (\m -> Left (m, idc)) (\q -> Right (q, idc)) (parseQuery r)))
-
--- | Analze the query string and strip whitespace if a signature is searched.
-arrPreprocessQuery :: Arrow a => a String String
-arrPreprocessQuery = arr $ (\q -> if "->" `L.isInfixOf` q then stripSignature q else q)
 
 -- | Decode any URI encoded entities and transform to unicode.
 arrDecode :: Arrow a => a String String
@@ -163,16 +167,18 @@ arrLogRequest = proc inTxn -> do
   unixTime <- arrIO $ (\_ -> getClockTime)                             -< ()
   currTime <- arr $ calendarTimeToString . toUTCTime                   -< unixTime
   -- Output all the collected information from above to stdout.
-  arrIO $ putStrLn -< (currTime ++ " - " ++ remHost ++ " - " ++ rawRequest ++ " - " ++ decodedRequest ++ " - " ++ start)
+  arrIO $ infoM "Hayoo.Request" -< (currTime ++ "\t" ++ remHost ++ "\t" ++ rawRequest ++ "\t" ++ decodedRequest ++ "\t" ++ start)
 
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
-              weights = [("name", 0.8), ("partial", 0.6), ("signature", 0.4), ("normalized", 0.2)]
+              weights = [("name", 0.8), ("partial", 0.6), ("module", 0.4), ("signature", 0.4), ("normalized", 0.2)]
             in
+
+-- FIXME TH 16.03.2008: Allow one-character queries for testing.
             -- Check for a minimal term length of two character to avoid very large results.
-            ifP (\(q, _) -> checkWith ((> 1) . length) q)
+--            ifP (\(q, _) -> checkWith ((> 1) . length) q)
               ((arr $ (\(q, idc) -> (makeQuery idc q, idc))) -- Execute the query
               >>>
               (first $ arr $ rank rankCfg)                   -- Perform ranking of the results
@@ -180,7 +186,7 @@ genResult = let
               (arr $ (\(r, _) -> (msgSuccess r , r))))       -- Include a success message in the status
               
               -- Tell the user to enter more characters if the search terms are too short.
-              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
+--              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
 
 -- | Generate a success status response from a query result.
 msgSuccess :: Result FunctionInfo -> String
