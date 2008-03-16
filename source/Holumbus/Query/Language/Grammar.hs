@@ -114,7 +114,7 @@ optimize (BinQuery And (Negation q1) q2) = BinQuery But (optimize q2) (optimize 
 
 optimize (BinQuery And q1 q2) = BinQuery And (optimize q1) (optimize q2)
 optimize (BinQuery Or q1 q2) = BinQuery Or (optimize q1) (optimize q2)
-optimize (BinQuery But q1 q2) = BinQuery Or (optimize q1) (optimize q2)
+optimize (BinQuery But q1 q2) = BinQuery But (optimize q1) (optimize q2)
 optimize (Negation q) = Negation (optimize q)
 optimize (Specifier cs q) = Specifier cs (optimize q)
 
