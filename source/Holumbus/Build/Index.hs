@@ -134,7 +134,7 @@ indexReduce :: HolIndex i => i -> String -> [(String, String, DocId, Position)] 
 indexReduce idx _ l =
   return $! Just (foldl' theFunc idx l)
     where
-    theFunc i (context, [],   docId, pos) = insertPosition context "HIERISTDERFEHLER" docId pos i
+    theFunc i (context, "",   docId, pos) = i -- insertPosition context "HIERISTDERFEHLER" docId pos i
     theFunc i (context, word, docId, pos) = insertPosition context word docId pos i
     
   
