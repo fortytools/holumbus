@@ -65,6 +65,23 @@ data ContextConfig
     , cc_fIsStopWord    :: String -> Bool
     }
     
+-- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
+--   the startPages of all other Configs are added. The crawl filters are ORed
+--   so that more pages might be indexed. So you better know what you are doing
+--   when you are using this.
+mergeIndexerConfigs :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
+mergeIndexerConfigs cfg1 [] = cfg1
+mergeIndexerConfigs cfg1 (cfg2:cfgs) = mergeIndexerConfigs resCfg cfgs
+  where 
+  resCfg = IndexerConfig
+      ((ic_startPages cfg1) ++ (ic_startPages cfg2))
+      (ic_tmpPath cfg1)
+      (ic_idxPath cfg1)
+      (ic_contextConfigs cfg1)  -- cfg2, too?
+      (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
+      (ic_readAttrs cfg1)
+      
+        
 -- -----------------------------------------------------------------------------
 
 -- | Build an Index over a list of Files.
