@@ -27,10 +27,10 @@ import Data.Map hiding (split, map, filter)
 main :: IO ()
 main 
   = do
-    logs    <- readFile ("/home/sms/indexes/hayoo.log")
+    logs    <- readFile ("/srv/www/holumbus.schlatt.com/janus/build/hayoo.log")
     entries <- return $! filter (/= "") (split "\n" logs)
     stats   <- mapReduce 1 processLog makeStatistics (zip (repeat 42) entries)
-    runX (mkHtml (toList stats) >>> writeDocument [] "/tmp/hebalizer.html")
+    runX (mkHtml (toList stats) >>> writeDocument [] "/srv/www/holumbus.schlatt.com/htdocs/hayoo_stats.html")
     return ()
        
 mkHtml :: ArrowXml a => [(String, [(String, Int)])] -> a b XmlTree
