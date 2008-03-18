@@ -30,7 +30,7 @@ main
     logs    <- readFile ("/srv/www/holumbus.schlatt.com/janus/build/hayoo.log")
     entries <- return $! filter (/= "") (split "\n" logs)
     stats   <- mapReduce 1 processLog makeStatistics (zip (repeat 42) entries)
-    runX (mkHtml (toList stats) >>> writeDocument [] "/srv/www/holumbus.schlatt.com/htdocs/hayoo_stats.html")
+    runX (mkHtml (toList stats) >>> writeDocument [] "/srv/www/holumbus.schlatt.com/htdocs/stats.html")
     return ()
        
 mkHtml :: ArrowXml a => [(String, [(String, Int)])] -> a b XmlTree
@@ -43,7 +43,8 @@ mkHtml l =
                   ]
                 ]
               , selem "body"
-                ( map mkSection l)
+                ([ selem "h1" [ constA "Hayoo! Usage Statistics" >>> mkText]
+                ] ++ ( map mkSection l))
               ]
               ]
     >>> addXHtmlDoctypeTransitional                      
