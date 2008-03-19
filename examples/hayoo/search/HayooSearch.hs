@@ -161,24 +161,26 @@ arrLogRequest = proc inTxn -> do
   remHost <- getValDef (_transaction_tcp_remoteHost) ""                -< inTxn
   rawRequest <- getValDef (_transaction_http_request_cgi_ "@query") "" -< inTxn
   start <- getValDef (_transaction_http_request_cgi_ "@start") "0"     -< inTxn
+  referer <- getValDef (_transaction_http_request_header_ "@Referer") "No referer" -< inTxn
   -- Decode URI encoded entities in the search string.
   decodedRequest <- arrDecode                                          -< rawRequest
   -- Get the current date and time.
   unixTime <- arrIO $ (\_ -> getClockTime)                             -< ()
   currTime <- arr $ calendarTimeToString . toUTCTime                   -< unixTime
   -- Output all the collected information from above to stdout.
-  arrIO $ infoM "Hayoo.Request" -< (currTime ++ "\t" ++ remHost ++ "\t" ++ rawRequest ++ "\t" ++ decodedRequest ++ "\t" ++ start)
+  arrIO $ infoM "Hayoo.Request" -< (currTime ++ "\t" ++ remHost ++ "\t" ++ referer ++ "\t" ++ rawRequest ++ "\t" ++ decodedRequest ++ "\t" ++ start)
 
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
 genResult = let 
               rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
-              weights = [ ("name", 0.8)
-                        , ("partial", 0.6)
-                        , ("module", 0.4)
-                        , ("signature", 0.4)
-                        , ("description", 0.3)
-                        , ("normalized", 0.2)
+              weights = [ ("name", 0.9)
+                        , ("partial", 0.8)
+                        , ("module", 0.7)
+                        , ("hierarchy", 0.6)
+                        , ("signature", 0.3)
+                        , ("description", 0.2)
+                        , ("normalized", 0.1)
                         ]
             in
 
