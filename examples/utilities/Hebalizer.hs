@@ -73,7 +73,7 @@ mkSection (sectionName, maxVal, values) =
         selem "tr"
           [ selem "td" [ constA value        >>> mkText]
           , selem "td" [ constA (show count) >>> mkText]
-          , selem "td" [ mkelem "img" [ sattr "src" "http://www.holumbus.com/blau.gif"
+          , selem "td" [ mkelem "img" [ sattr "src" "http://www.holumbus.org/blau.gif"
                                       , sattr "height" "12"
                                       , sattr "width" (show $ round ((fromIntegral count) * (fromIntegral maxImageWidth) / (fromIntegral maxVal)))
                                       ]
