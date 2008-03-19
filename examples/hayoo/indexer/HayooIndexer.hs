@@ -41,8 +41,6 @@ import           Holumbus.Index.Inverted(emptyInverted)
 import qualified Holumbus.Index.Documents as DOC  
 import           Holumbus.Utility
 
-
-
 -- import HayooHelper
 
 import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
@@ -72,11 +70,13 @@ instance Binary FunctionInfo where
 main :: IO ()
 main 
   = do
-    traceLevel    <- return 1
+    traceLevel    <- return 0
     workerThreads <- return 5 
+--    idxConfig     <- return $ mergeIndexerConfigs ic_GHC_libs [ic_HXT, ic_Holumbus]
     idxConfig     <- return ic_GHC_libs
---    idxConfig     <- return ic_HolumbusDocs
+--    idxConfig     <- return ic_Holumbus
 --    idxConfig     <- return ic_Hayoo
+--    idxConfig     <- return ic_HXT
     splitPath     <- return "/home/sms/tmp/holumbus_docs/split/"
     crawlState    <- return (initialCS idxConfig customCrawlFunc)
     -- -------------------------------------------------------------------------
@@ -124,9 +124,12 @@ buildCache path l =
   cacheDoc cache (docId, uri) =
     do
     theText <- runX (      readDocument stdOpts4Reading uri 
+--                       >>> flattenAllElements
                        >>> flattenElementsByType "tt"
                        >>> flattenElementsByType "em"
                        >>> flattenElementsByType "a"
+                       >>> flattenElementsByType "p"
+                       >>> flattenElementsByType "pre"
                        >>> getXPathTreesInDoc "/tr/td[@class='doc']//text()"
                        >>> getText
                        >>> unlistA
@@ -165,8 +168,8 @@ ic_Hayoo = mkIndexerConfig
     [ "/src/", "/trac/", ".tar.gz$", ".cabal$", ".pdf$", "/doc-index-"     -- deny
     , "/logs/failures" ]
 
-ic_HolumbusDocs :: IndexerConfig
-ic_HolumbusDocs =  mkIndexerConfig
+ic_Holumbus :: IndexerConfig
+ic_Holumbus =  mkIndexerConfig
     [ "http://www.holumbus.org/docs/develop/" ]      -- ic_startPages :: [URI]
     (Just "/home/sms/tmp/holumbus_docs/")            -- ic_tmpPath    :: String
     "/home/sms/indexes/hayoo"                -- ic_idxPath    :: String
@@ -185,8 +188,23 @@ ic_GHC_libs =  mkIndexerConfig
     [ "^http://www.haskell.org/ghc/docs/latest/html/" ]
     [ "/src/", "^http://www.haskell.org/ghc/docs/latest/html/libraries/doc-index.html"]  -- this page causes problems 
 
+
+ic_HXT :: IndexerConfig
+ic_HXT =  mkIndexerConfig
+    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/index.html"
+    , "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_filter/index.html"
+    ]
+    (Just "/tmp/")
+    "/home/sms/indexes/hxt"
+    ccs_Hayoo
+    stdOpts4Reading
+    [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_"]
+    [ "/src/"]
+  
 ccs_Hayoo :: [ContextConfig]
-ccs_Hayoo = [ ccHayooName     
+ccs_Hayoo = [ ccModule
+            , ccHierarchy
+            , ccHayooName     
             , ccHayooPartialName 
             , ccHayooSignature 
             , ccHayooNormalizedSignature
@@ -194,8 +212,8 @@ ccs_Hayoo = [ ccHayooName
             ]
             
 theHayooXPath :: String
-theHayooXPath =  "/tr/td[@class='decl']//text()" 
--- theHayooXPath =  "/tr/td[@class='decl']/text()" 
+-- theHayooXPath =  "/function//text()" 
+theHayooXPath =  "/tr/td[@class='decl']/text()" 
             
 ccHayooName :: ContextConfig
 ccHayooName = ContextConfig "name" (preFilterSignatures) theHayooXPath  
@@ -239,13 +257,22 @@ ccHayooDescription = ContextConfig "description" preFilterSignatures "//td[@clas
 ccHaddockSignatures :: ContextConfig
 ccHaddockSignatures = ContextConfig "signatures" preFilterSignatures theHayooXPath (\a -> [a]) (const False)     
 
+ccModule :: ContextConfig
+ccModule = ContextConfig "module" preFilterSignatures "/module/text()" (\a -> [a]) (const False)     
+
+ccHierarchy :: ContextConfig
+ccHierarchy = ContextConfig "hierarchy" preFilterSignatures "/module/text()" (split ".") (const False)     
+
+
 preFilterSignatures :: ArrowXml a => a XmlTree XmlTree
 preFilterSignatures
     =     flattenElementsByType "b"
       >>> flattenElementsByType "a"
       >>> flattenElementsByType "span"
       >>> removeDeclbut
-      
+
+f ="/home/sms/tmp/holumbus_docs/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dControl%2dMapReduce%2dParallel%2ehtml"
+fs="/home/sms/tmp/holumbus_docs/split/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dUtility%2ehtml%23v%3ajoin"
 
 {-flattenDeclbut :: ArrowXml a => a XmlTree XmlTree
 flattenDeclbut =
@@ -287,6 +314,13 @@ stdOpts4Reading = []
    -- Dirty Stuff for the Creation of Virtual Documents
 -- -----------------------------------------------------------------------------    
 
+-- | stolen from Network.URI
+unEscapeString :: String -> String
+unEscapeString [] = ""
+unEscapeString ('%':x1:x2:s) | isHexDigit x1 && isHexDigit x2 =
+    chr (digitToInt x1 * 16 + digitToInt x2) : unEscapeString s
+unEscapeString (c:s) = c : unEscapeString s
+
 getVirtualDocs :: String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
 getVirtualDocs splitPath docId theUri =         
   runX ( 
@@ -301,6 +335,7 @@ getVirtualDocs splitPath docId theUri =
            getXPathTrees "//tr[@class='decl' and @id]"
     >>> (  mkVirtual $<<<< (     (     getXPathTreesInDoc "/tr[@class='decl']/@id/text()"
                                    >>> getText
+                                   >>> arr unEscapeString
                                  )
                              &&& constA moduleName
                              &&& getSignature
@@ -308,7 +343,9 @@ getVirtualDocs splitPath docId theUri =
                            )      
          )
   mkVirtual theTitle moduleName signature sourceURI =     
-         root [] [this]
+         root [] [ this
+                 , mkelem "module" [] [constA moduleName >>> mkText]
+                 ]
      >>> processTopDown (none `Text.XML.HXT.Arrow.when` (isElem >>> hasName "a" >>> hasAttrValue "href" (isPrefixOf "src/" )))    
      >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape ("#v:" ++ theTitle)))
      >>> (     constA theTitle 
@@ -319,8 +356,7 @@ getVirtualDocs splitPath docId theUri =
   getSignature =
 --        processTopDown (none `Text.XML.HXT.Arrow.when` (isElem >>> hasName "a" >>> hasAttrValue "href" (isPrefixOf "src/" )))    
         preFilterSignatures
-    >>> 
-    getXPathTreesInDoc theHayooXPath
+    >>> getXPathTreesInDoc theHayooXPath
     >>> getText
     >>> arr (\s -> (drop 3 (dropWhile ((/=) ':') s)))
     >>> arr (\s -> if "Source" `isSuffixOf` s
@@ -440,6 +476,8 @@ remLeadingDocElems ts   = (splitRegexA leadingDoc ts >>^ snd) >>> unlistA
 
 groupDeclDoc    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
 groupDeclDoc ts   = scanRegexA declDoc ts >>>
+--        mkelem "function"
+--        [ attr  "name" (unlistA >>> getDeclName >>> mkText)
         mkelem "tr"
         [ sattr "class" "decl"
         , attr  "id" (unlistA >>> getDeclName >>> mkText)
