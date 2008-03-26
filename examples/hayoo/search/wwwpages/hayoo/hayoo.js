@@ -14,11 +14,12 @@ function checkForQuery () {
 }
 
 function tryProcessQuery () {
-	window.setTimeout('checkProcessQuery("' + $("querytext").value + '")', 300);
+	var escaped = encodeURIComponent($("querytext").value);
+	window.setTimeout('checkProcessQuery(\'' + escaped + '\')', 300);
 }
 
 function checkProcessQuery (query) {
-	if (query == $("querytext").value) {
+	if (query == encodeURIComponent($("querytext").value)) {
 		processQuery(0);
 	}
 }
@@ -30,7 +31,7 @@ function forceProcessQuery () {
 }
 
 function processQuery (start) {
-	var query = $("querytext").value;
+	var query = encodeURIComponent($("querytext").value);
 	if (query.length > 0) {
 		$("throbber").show();
 		new Ajax.Request("results/hayoo.html?query=" + query + "&start=" + start,
