@@ -10,6 +10,8 @@
 
 */
 
+prevInput = "";
+
 document.observe("dom:loaded", function() {
 	checkForQuery();
 });
@@ -28,8 +30,9 @@ function tryProcessQuery () {
 	window.setTimeout('checkProcessQuery(\'' + encodeURIComponent(query) + '\')', 300);
 }
 
-function checkProcessQuery (lastQuery) {
-	if (lastQuery == encodeURIComponent($("querytext").value)) {
+function checkProcessQuery (query) {
+	if ((query != prevInput) && (query == encodeURIComponent($("querytext").value))) {
+		prevInput = query;
 		processQuery(0);
 	}
 }
