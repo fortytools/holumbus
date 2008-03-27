@@ -1,4 +1,14 @@
-var lastPress = (new Date()).getTime();
+/*
+
+	The Hayoo! AJAX interface
+
+  Copyright  : Copyright (C) 2008 Timo B. Huebel
+  License    : MIT
+
+  Maintainer : Timo B. Huebel (tbh@holumbus.org)
+  Version    : 0.1
+
+*/
 
 document.observe("dom:loaded", function() {
 	checkForQuery();
@@ -14,12 +24,12 @@ function checkForQuery () {
 }
 
 function tryProcessQuery () {
-	var escaped = encodeURIComponent($("querytext").value);
-	window.setTimeout('checkProcessQuery(\'' + escaped + '\')', 300);
+  var query = $("querytext").value;
+	window.setTimeout('checkProcessQuery(\'' + encodeURIComponent(query) + '\')', 300);
 }
 
-function checkProcessQuery (query) {
-	if (query == encodeURIComponent($("querytext").value)) {
+function checkProcessQuery (lastQuery) {
+	if (lastQuery == encodeURIComponent($("querytext").value)) {
 		processQuery(0);
 	}
 }
@@ -31,47 +41,39 @@ function forceProcessQuery () {
 }
 
 function processQuery (start) {
-	var query = encodeURIComponent($("querytext").value);
+	var query = $("querytext").value;
 	if (query.length > 0) {
 		$("throbber").show();
-		new Ajax.Request("results/hayoo.html?query=" + query + "&start=" + start,
-		{
-			method:'get',
-			onSuccess: function(transport) {
-				lastXMLResult = transport.responseXML;
-				lastTXTResult = transport.responseText;
-				lastQuery = query;
-			  displayResult(transport.responseText);
-			},
-			onFailure: function(){ alert('Something went wrong...') }
-		});
+		new Ajax.Request("results/hayoo.html?query=" + encodeURIComponent(query) + "&start=" + start,
+			{
+				method:'get',
+				onSuccess: function(transport) {
+					lastXMLResult = transport.responseXML;
+					lastTXTResult = transport.responseText;
+					lastQuery = query;
+				  displayResult(transport.responseText, query);
+				},
+				onFailure: function() {
+				  var resultError = "<div id=\"result\"><div id=\"status\">Error: Could not execute query.</div><div id=\"words\">&nbsp;</div><div id=\"documents\">&nbsp;</div><div id=\"pager\">&nbsp;</div></div>";		
+	
+				  $("result").replace(resultError);
+				}
+			}
+		);
 	}
 }
 
-function displayResult (result) {
+function displayResult (result, query) {
 	$("result").replace(result);
-	
+	$("querytext").defaultValue = query;
 	$("throbber").hide();
 }
 
 function replaceInQuery (needle, substitute) {
-	checkLastQuery();
-
 	$("querytext").value = $("querytext").value.gsub(needle, substitute);
-
 	processQuery(0);
 }
 
 function showPage (page) {
-	checkLastQuery();
-
 	processQuery (page);
-}
-
-function checkLastQuery () {
-	if ($("querytext").value.length == 0) {
-		if (typeof lastQuery == "string") {
-			$("querytext").value = lastQuery;
-		}
-	}
 }
