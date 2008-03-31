@@ -77,6 +77,21 @@ englishReplacements =
   [ (("l", "ll"), 0.2)
   , (("t", "tt"), 0.2)
   , (("r", "rr"), 0.2)
+  , (("e", "ee"), 0.2)
+  , (("o", "oo"), 0.2)
+  , (("s", "ss"), 0.2)
+  
+  , (("g", "ck"), 0.4)
+  , (("k", "ck"), 0.4)
+  , (("ea", "ee"), 0.4)
+  , (("ou", "oo"), 0.4)
+  , (("ou", "au"), 0.4)
+  , (("ou", "ow"), 0.4)
+
+  , (("s", "c"), 0.6)
+  , (("uy", "ye"), 0.6)
+  , (("y", "ey"), 0.6)
+  , (("kn", "n"), 0.6)
   ]
 
 -- | Some default replacements for the german language.
