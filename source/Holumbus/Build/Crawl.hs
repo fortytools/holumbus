@@ -154,7 +154,7 @@ crawlDoc' attrs tmpPath getCustom (docId, theUri) =
           documentStatusOk `guards`
           (
                 ( 
-                  (writeDocument [] ((fromMaybe "" tmpPath) ++ (tmpFile docId theUri)))
+                  (writeDocument [(a_indent, "1")] ((fromMaybe "" tmpPath) ++ (tmpFile docId theUri)))
                   `whenP`
                    (const (isJust tmpPath )) 
                 ) 
