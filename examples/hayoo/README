@@ -1,0 +1,58 @@
+Hayoo! Haskell API Search
+
+Version 0.1 beta
+
+Sebastian M. Schlatt - sms@holumbus.org
+Timo B. Hübel - tbh@holumbus.org
+
+http://hayoo.holumbus.org
+
+About
+-----
+
+Hayoo! is a highly interactive Haskell API search engine, providing
+sophisticated features like find-as-you-type, suggestions and
+fuzzy queries.
+
+Requirements
+------------
+
+- Holumbus 0.4
+- Janus 1.0
+
+Installation
+------------
+
+Unfortunately, the installation is quite fiddly. In the following,
+the exact procedure is described in detail.
+
+1. Download the Janus application server and unzip in a directory
+   of your choice.
+   
+2. Download the Holumbus framework and unzip in a directory of
+   your choice. Follow the included installation instructions to
+   install the Holumbus core library.
+
+3. Copy the following files from the examples/hayoo directory into
+   the Janus directory:
+   
+   HayooHelper.hs -> src/HayooHelper.hs
+   search/HayooParser.hs -> src/HayooParser.hs
+   search/HayooSearch.hs -> src/Network/Server/Janus/Shader/HayooSearch.hs
+
+4. Build the Janus application server by issuing the command: make janus
+
+5. Create a "indexes" directory inside the build subdirectory under the
+   Janus directory and copy the following files from the examples/hayoo 
+   directory into the Janus directory:
+   
+   search/server.xml -> build/conf/server.xml
+   search/wwwpages/* -> build/wwwpages/
+   hayoo-index.bin -> build/indexes/hayoo-index.bin
+   hayoo-docs.bin -> build/indexes/hayoo-docs.bin
+   hayoo-cache.db -> build/indexes/hayoo-cache.db
+
+6. Start the Janus application by issuing ./janus in the build
+   subdirectory inside the Janus directory.
+
+7. Point your browser to http://localhost:8080
