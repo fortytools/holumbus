@@ -24,6 +24,7 @@ import System.IO
 import System.Environment
 import System.Exit
 import System.Console.GetOpt
+import System.Time
 import System.CPUTime
 
 import Text.Printf
@@ -203,25 +204,30 @@ runQueries ::(Query -> IO (Result c)) -> [Query] -> IO ()
 runQueries f qs = 
   do
   putStrLn "Running queries ..."
-  t1 <-getCPUTime
+  rt1 <- getClockTime
+  ct1 <- getCPUTime
 
   count <- (runner f qs 0) -- Fire!
   putStrLn $ "Total number of hits: " ++ (show count)
 
-  t2 <- getCPUTime
+  rt2 <- getClockTime
+  ct2 <- getCPUTime
 
-  d <- return ((fromIntegral (t2 - t1) / 1000000000000) :: Float)
-  a <- return (d / l)
-  p <- return (l / d)
+  cd <- return ((fromIntegral (ct2 - ct1) / 1000000000000) :: Float)
+  rd <- return (timeDiffToSeconds (diffClockTimes rt2 rt1))
+  a <- return (rd / l)
+  p <- return (l / rd)
 
-  ds <- return (printf "%.3f" d)
+  cds <- return (printf "%.3f" cd)
+  rds <- return (printf "%3.f" rd)
   as <- return (printf "%.4f" a)
   ps <- return (printf "%.2f" p)
 
   putStrLn $ "Number of executed queries: " ++ (show $ floor l)
-  putStrLn $ "Total running time: " ++ ds ++ " sec"
+  putStrLn $ "Total running time: " ++ rds ++ " sec"
   putStrLn $ "Seconds per query: " ++ as ++ " sec"
   putStrLn $ "Queries per second: " ++ ps ++ " queries"
+  putStrLn $ "CPU: " ++ cds ++ " sec"
     where
     l = fromIntegral $ length qs
 
@@ -243,6 +249,17 @@ runQuery f q =
     rankCfg = RankConfig (docRankWeightedByCount weights) (wordRankWeightedByCount weights)
       where
       weights = [("title", 0.8), ("keywords", 0.6), ("headlines", 0.4), ("content", 0.2)]
+
+timeDiffToSeconds :: TimeDiff -> Double
+timeDiffToSeconds (TimeDiff y mo d h mi s p) = year + month + day + hour + minute + second + pico
+  where
+  year = fromIntegral (y * 31104000)
+  month = fromIntegral (mo *  2592000)
+  day = fromIntegral (d * 86400)
+  hour = fromIntegral (h * 3600)
+  minute = fromIntegral (mi * 60)
+  second = fromIntegral s
+  pico = (fromIntegral p) / 1000000000000.0
 
 printError :: String -> IO ()
 printError e = usage [e]
