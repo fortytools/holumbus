@@ -103,6 +103,7 @@ module Holumbus.Data.Trie
   
   -- * Debug
   , lengths
+  , check
   )
 where
 
@@ -464,3 +465,14 @@ updateWithKey f k t = maybe t (\v -> maybe (delete k t) (flip (insert k) t) (f k
 -- debugging purposes.
 lengths :: Trie a -> [Int]
 lengths t = (length (key t)):(foldr (flip (++) . lengths) [] (succ t))
+
+-- | /O(n)/ Check some invariants to detect inconsistencies.
+check :: Trie a -> Bool
+check (Seq [] s) = foldr check' True s
+  where
+  check' (Seq _ []) _   = False -- Seq node without any successor is not allowed.
+  check' (Seq _ [_]) _  = False -- Seq node with just one successor is not allowed.
+  check' (Seq [] _) _   = False -- Seq node with empty key is not allowed.
+  check' (End [] _ _) _ = False -- End node with empty key is not allowed
+  check' t r = foldr check' r (succ t)
+check _ = False

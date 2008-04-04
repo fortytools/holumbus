@@ -74,6 +74,7 @@ module Holumbus.Data.StrMap
   
   -- * Debug
   , lengths
+  , check
   )
 where
 
@@ -201,3 +202,6 @@ differenceWithKey f = T.differenceWithKey (f . decode)
 
 lengths :: StrMap a -> [Int]
 lengths = T.lengths
+
+check :: StrMap a -> Bool
+check = T.check
