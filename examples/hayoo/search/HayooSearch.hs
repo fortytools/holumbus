@@ -277,12 +277,26 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     where
     xpModule = xpCell "module" $ xpPair (xpElem "a" $ xpClass "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)
     xpFunction = xpCell "function" $ xpPair (xpElem "a" $ xpClass "function" $ xpAttr "href" $ xpText) xpText
-    xpSignature = xpCell "signature" $ xpPrepend ":: " xpText
+    xpSignature = xpCell "signature" $ xpPrepend ":: " xpSigDecl
   xpAdditional = xpElem "tr" $ xpClass "description" $ xpFixedElem "td" (xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpPair xpDescription xpSource)
     where
     xpDescription = xpWrap (undefined, limitDescription) (xpElem "span" $ xpClass "description" $ xpText)
     xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
     limitDescription = maybe "No description. " (\d -> if length d > 100 then (take 100 d) ++ "... " else d ++ " ")
+
+data Signature = Signature String
+               | Declaration String
+
+xpSigDecl :: PU String
+xpSigDecl = xpWrap (undefined, makeSignature) (xpAlt tag [xpSig, xpDecl])
+  where
+  xpSig = xpWrap (Signature, \(Signature s) -> s) xpText
+  xpDecl = xpWrap (Declaration, \(Declaration s) -> s) (xpElem "span" $ xpClass "declaration" $ xpText)
+  tag (Signature _) = 0
+  tag (Declaration _) = 1
+  makeSignature s = if (s == "data") || (s == "type") || (s == "newtype") || (s == "class")
+                    then Declaration s
+                    else Signature s
 
 xpFixedElem :: String -> PU a -> PU a
 xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)
