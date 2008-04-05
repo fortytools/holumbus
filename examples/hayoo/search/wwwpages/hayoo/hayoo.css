@@ -300,3 +300,4 @@ p.cloud {
 .contexts { color:gray; }
 .context { font-weight:bold; }
 .uri { color:green; }
+.declaration { font-style: italic; }
