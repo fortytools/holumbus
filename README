@@ -1,9 +1,56 @@
-This is Ho\umbus.
+This is Holumbus.
 
-Version 0.1
+Version 0.4
 
-Sebastian M. Schlatt - sebastian@schlatt.com
-Timo B. Hübel - t.h@gmx.info
+Sebastian M. Schlatt - sms@holumbus.org
+Timo B. Hübel - tbh@holumbus.org
 
-Ho\umbus can crawl documents to produce an index and provides an
-intelligent search mechanism for the crawled documents.
+http://www.holumbus.org
+
+About
+-----
+
+Holumbus is a Haskell library which provides the basic building blocks for
+creating powerful indexing and search applications. This includes a framework
+for distributed crawling and indexing as well as distributed query processing.
+
+Contents
+--------
+
+doc       Detailed information about the internals of Holumbus.
+examples  Some example applications and utilities.
+source    Source code of the Holumbus core library.
+test      Several tests for the Holumbus core library.
+
+Requirements
+------------
+
+The Holumbus core library requires at least GHC 6.8.2 and the 
+following packages (available via Hackage):
+
+- binary 0.4.1
+- bzlib 0.4.0.1
+- HDBC 1.1.4
+- HDBC-sqlite3 1.1.4.0
+- hxt 7.5
+- regex-compat 0.71.0.1
+- utf8-string 0.2
+
+Installation
+------------
+
+A Cabal file is provided, therefore Holumbus can be installed using
+the standard Cabal way:
+
+$ runhaskell Setup.hs configure
+$ runhaskell Setup.hs build
+$ runhaskell Setup.hs install # with root privileges
+
+Documentation
+-------------
+
+Documentation is provided through the examples and extensive Haddock 
+API documentation available online at http://www.holumbus.org.
+
+Details about the internals of the Holumbus framework are available in
+the extensive descriptions of the implementation in the "doc" directory.
