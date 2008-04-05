@@ -43,9 +43,26 @@ the exact procedure is described in detail.
    search/HayooParser.hs -> src/HayooParser.hs
    search/HayooSearch.hs -> src/Network/Server/Janus/Shader/HayooSearch.hs
 
-5. Build the Janus application server by issuing the command: make janus
+5. The Janus Makefile has to be adjusted to include the Hayoo! sources in
+   the build. The Hayoo! shader has to be added by including
+   
+   $(BUILDBASE)/Shader/HayooSearch.o
+   
+   in the OBJS_SHADER list.
+   
+   The dependencies have to be declared by adding
+   the following lines at the bottom of the file:
+   
+   build/HayooParser.o : src/HayooParser.hs
+   build/HayooHelper.o : src/HayooHelper.hs
+   build/HayooParser.o : build/HayooHelper.hi
+   build/Network/Server/Janus/Shader/HayooSearch.o : build/HayooHelper.hi
+   build/Network/Server/Janus/Shader/HayooSearch.o : build/HayooParser.hi
+   
 
-6. Create a "indexes" directory inside the build subdirectory under the
+6. Build the Janus application server by issuing the command: make janus
+
+7. Create a "indexes" directory inside the build subdirectory under the
    Janus directory and copy the following files from the examples/hayoo 
    directory into the Janus directory:
    
@@ -55,7 +72,7 @@ the exact procedure is described in detail.
    hayoo-docs.bin -> build/indexes/hayoo-docs.bin
    hayoo-cache.db -> build/indexes/hayoo-cache.db
 
-7. Start the Janus application by issuing ./janus in the build
+8. Start the Janus application by issuing ./janus in the build
    subdirectory inside the Janus directory.
 
-8. Point your browser to http://localhost:8080
+9. Point your browser to http://localhost:8080
