@@ -161,14 +161,22 @@ arrLogRequest = proc inTxn -> do
   remHost <- getValDef (_transaction_tcp_remoteHost) ""                -< inTxn
   rawRequest <- getValDef (_transaction_http_request_cgi_ "@query") "" -< inTxn
   start <- getValDef (_transaction_http_request_cgi_ "@start") "0"     -< inTxn
-  referer <- getValDef (_transaction_http_request_header_ "@Referer") "No referer" -< inTxn
+  proxy <- getValDef (_transaction_http_request_header_ "X-Forwarded-For") "No proxy" -< inTxn
+  userAgent <- getValDef (_transaction_http_request_header_ "User-Agent") "No user agent" -< inTxn
   -- Decode URI encoded entities in the search string.
   decodedRequest <- arrDecode                                          -< rawRequest
   -- Get the current date and time.
   unixTime <- arrIO $ (\_ -> getClockTime)                             -< ()
   currTime <- arr $ calendarTimeToString . toUTCTime                   -< unixTime
   -- Output all the collected information from above to stdout.
-  arrIO $ infoM "Hayoo.Request" -< (currTime ++ "\t" ++ remHost ++ "\t" ++ referer ++ "\t" ++ rawRequest ++ "\t" ++ decodedRequest ++ "\t" ++ start)
+  arrIO $ infoM "Hayoo.Request" -< (currTime ++ "\t" ++ 
+                                    remHost ++ "\t "++ 
+                                    proxy ++ "\t" ++ 
+                                    userAgent ++ "\t" ++
+                                    rawRequest ++ "\t" ++ 
+                                    decodedRequest ++ "\t" ++ 
+                                    start
+                                   )
 
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
