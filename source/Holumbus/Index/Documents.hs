@@ -69,7 +69,7 @@ instance Binary a => HolDocuments Documents a where
       where
       checkDoc i doc (c, d, l) = maybe checkId (\ni -> ((i, ni):c, d, l)) (lookupByURI d1 (uri doc))
         where
-        checkId = if IM.member i d then ((i, l + 1):c, IM.insert (l + 1) doc d, l + 1)
+        checkId = if IM.member i d then let ni = l + 1 in ((i, ni):c, IM.insert ni doc d, ni)
                   else (c, IM.insert i doc d, l)
 
   insertDoc ds d = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri d))
