@@ -25,6 +25,7 @@ module Holumbus.Index.Documents
 
   -- * Construction
   , emptyDocuments
+  , singleton
   , fromMap
   , toMap
   
@@ -70,7 +71,7 @@ instance Binary a => HolDocuments Documents a where
       checkDoc i doc (c, d, l) = maybe checkId (\ni -> ((i, ni):c, d, l)) (lookupByURI d1 (uri doc))
         where
         checkId = if IM.member i d then let ni = l + 1 in ((i, ni):c, IM.insert ni doc d, ni)
-                  else (c, IM.insert i doc d, l)
+                  else (c, IM.insert i doc d, max i l)
 
   insertDoc ds d = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri d))
     where
@@ -107,6 +108,10 @@ instance Binary a => Binary (Documents a) where
 -- | Create an empty table.
 emptyDocuments :: Documents a
 emptyDocuments = Documents IM.empty M.empty 0
+
+-- | Create a document table containing a single document.
+singleton :: Document a -> Documents a
+singleton d = Documents (IM.singleton 1 d) (M.singleton (uri d) 1) 1
 
 -- | Create a document table from a single map.
 fromMap :: IntMap (Document a) -> (Documents a)
