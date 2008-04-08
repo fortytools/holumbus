@@ -28,6 +28,7 @@ module Holumbus.Query.Language.Grammar
   -- * Optimizing
   , optimize
   , checkWith
+  , extractTerms
   )
 where
 
@@ -130,4 +131,14 @@ checkWith f (FuzzyWord s) = f s
 checkWith f (Negation q) = checkWith f q
 checkWith f (BinQuery _ q1 q2) = (checkWith f q1) && (checkWith f q2)
 checkWith f (Specifier _ q) = checkWith f q
+
+-- | Returns a list of all terms in the query.
+extractTerms :: Query -> [String]
+extractTerms (Word s) = [s]
+extractTerms (CaseWord s) = [s]
+extractTerms (FuzzyWord s) = [s]
+extractTerms (Specifier _ q) = extractTerms q
+extractTerms (Negation q) = extractTerms q
+extractTerms (BinQuery _ q1 q2) = (extractTerms q1) ++ (extractTerms q2)
+extractTerms _ = []
 
