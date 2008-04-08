@@ -28,6 +28,7 @@ import Data.Maybe
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
+import qualified Data.IntSet as IS
 
 import Network.HTTP (urlDecode)
 
@@ -52,6 +53,7 @@ import Network.Server.Janus.JanusPaths
 
 import System.Time
 import System.IO.Unsafe
+import qualified Debug.Trace as D
 
 import System.Log.Logger
 import System.Log.Handler.Simple
@@ -74,6 +76,17 @@ data PickleState = PickleState
 
 -- Status information of query processing.
 type StatusResult = (String, Result FunctionInfo)
+
+-- | Weights for context weighted ranking.
+contextWeights :: [(Context, Score)]
+contextWeights = [ ("name", 0.9)
+                 , ("partial", 0.8)
+                 , ("module", 0.7)
+                 , ("hierarchy", 0.6)
+                 , ("signature", 0.3)
+                 , ("description", 0.2)
+                 , ("normalized", 0.1)
+                 ]
 
 -- | The place where the filename of the index file is stored in the server configuration XML file.
 _shader_config_index :: JanusPath
@@ -178,31 +191,36 @@ arrLogRequest = proc inTxn -> do
                                     start
                                    )
 
+-- | Customized Hayoo! ranking function. Preferres exact matches and matches in Prelude.
+hayooRanking :: [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
+hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 5.0 else 1.0) * (if isExactMatch then 5.0 else 1.0)
+  where
+  baseScore = M.foldWithKey calcWeightedScore 0.0 dch
+  isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
+  isInPrelude = maybe False (\fi -> moduleName fi == "Prelude") (custom $ document di)
+  calcWeightedScore :: Context -> DocWordHits -> Score -> Score
+  calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
+    where
+    count = fromIntegral $ M.fold ((+) . IS.size) 0 h
+    mw = snd $ L.maximumBy (compare `on` snd) ws
+    lookupWeight [] = Nothing
+    lookupWeight (x:xs) = if fst x == c then
+                            if snd x /= 0.0
+                            then Just (snd x)
+                            else Nothing
+                          else lookupWeight xs
+
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
-genResult = let 
-              rankCfg = RankConfig (docRankWeightedByCount weights) wordRankByCount
-              weights = [ ("name", 0.9)
-                        , ("partial", 0.8)
-                        , ("module", 0.7)
-                        , ("hierarchy", 0.6)
-                        , ("signature", 0.3)
-                        , ("description", 0.2)
-                        , ("normalized", 0.1)
-                        ]
-            in
-
--- FIXME TH 16.03.2008: Allow one-character queries for testing.
-            -- Check for a minimal term length of two character to avoid very large results.
---            ifP (\(q, _) -> checkWith ((> 1) . length) q)
-              ((arr $ (\(q, idc) -> (makeQuery idc q, idc))) -- Execute the query
-              >>>
-              (first $ arr $ rank rankCfg)                   -- Perform ranking of the results
-              >>>
-              (arr $ (\(r, _) -> (msgSuccess r , r))))       -- Include a success message in the status
-              
+genResult = ifP (\(q, _) -> checkWith ((> 1) . length) q)
+              (proc (q, idc) -> do
+                res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
+                cfg <- (arr $ (\q' -> RankConfig (hayooRanking contextWeights (extractTerms q')) wordRankByCount)) -< q
+                rnk <- (arr $ rank cfg)            -<< res -- Rank the results
+                (arr $ (\r -> (msgSuccess r , r))) -< rnk -- Include a success message in the status
+              )
               -- Tell the user to enter more characters if the search terms are too short.
---              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
+              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
 
 -- | Generate a success status response from a query result.
 msgSuccess :: Result FunctionInfo -> String
@@ -216,8 +234,8 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 
 -- | This is where the magic happens! This helper function really calls the 
 -- processing function which executes the query.
-makeQuery :: Core -> Query -> Result FunctionInfo
-makeQuery (Core i d _) q = processQuery cfg i d q
+makeQuery :: (Query, Core) -> Result FunctionInfo
+makeQuery (q, Core i d _) = processQuery cfg i d q
                            where
                            cfg = ProcessConfig (FuzzyConfig False True 1.0 []) True 50
 
