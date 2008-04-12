@@ -212,15 +212,17 @@ hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 5.0 else 1.0) * (
 
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
-genResult = ifP (\(q, _) -> checkWith ((> 1) . length) q)
+genResult = --ifP (\(q, _) -> checkWith ((> 1) . length) q)
               (proc (q, idc) -> do
                 res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
                 cfg <- (arr $ (\q' -> RankConfig (hayooRanking contextWeights (extractTerms q')) wordRankByCount)) -< q
                 rnk <- (arr $ rank cfg)            -<< res -- Rank the results
                 (arr $ (\r -> (msgSuccess r , r))) -< rnk -- Include a success message in the status
               )
+
               -- Tell the user to enter more characters if the search terms are too short.
-              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
+--              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
+-- TH 12.04.2008: Preventing one-character queries makes searches for operators almost impossible.
 
 -- | Generate a success status response from a query result.
 msgSuccess :: Result FunctionInfo -> String
