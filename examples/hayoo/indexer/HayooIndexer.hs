@@ -20,8 +20,11 @@
 
 module Main where
 
+-- import           HayooConfig
+
+
 import           Data.Binary
-import           Control.Monad hiding (join)
+import           Control.Monad hiding (join,when)
 
 import           Data.Char
 import           qualified Data.IntMap as IM
@@ -37,10 +40,12 @@ import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Cache
 
 import           Holumbus.Index.Common
-import           Holumbus.Index.Inverted(emptyInverted)
+import           Holumbus.Index.Inverted(Inverted, emptyInverted)
+import           Holumbus.Index.Documents
 import qualified Holumbus.Index.Documents as DOC  
 import           Holumbus.Utility
 
+import           Network.URI(unEscapeString)
 -- import HayooHelper
 
 import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
@@ -70,21 +75,79 @@ instance Binary FunctionInfo where
 main :: IO ()
 main 
   = do
+    -- ---------------------------------------------------------------------------------------------
+       -- Configuration
     traceLevel    <- return 0
     workerThreads <- return 5 
---    idxConfig     <- return $ mergeIndexerConfigs ic_GHC_libs [ic_HXT, ic_Holumbus]
-    idxConfig     <- return ic_GHC_libs
---    idxConfig     <- return ic_Holumbus
---    idxConfig     <- return ic_Hayoo
---    idxConfig     <- return ic_HXT
-    splitPath     <- return "/home/sms/tmp/holumbus_docs/split/"
+    splitPath     <- return "/home/sms/tmp/split/"
+    indexPath     <- return "/home/sms/indexes/hayoo"
+
+{-
+    idxConfig     <- return $ mergeIndexerConfigs ic_HXT [ic_Holumbus, ic_GHC_libs]
+    buildAnIndex traceLevel workerThreads splitPath idxConfig
+    theDocs       <- loadFromBinFile ((ic_idxPath ic_HXT) ++ "-docs.bin") :: IO (Documents FunctionInfo)
+    allTmpDocs    <- return $ tmpDocs splitPath theDocs 
+-}  
+    
+
+    idxConfigs    <- return $    []
+--                              ++ [ic_Hayoo]            -- hackage.haskell.org
+                              ++ [ic_GHC_libs]         -- all GHC libs
+                              ++ [ic_HXT]              -- hxt arrow & filter docs
+                              ++ [ic_Holumbus]         -- holumbus framework
+--                              ++ [ic_Single]            -- one document for debugging
+
+    -- ---------------------------------------------------------------------------------------------
+       -- build indexes and write them to hard disk to save memory
+    mapM (buildAnIndex traceLevel workerThreads splitPath) idxConfigs   
+       -- merge all indexes and document tables that have been written to the hard disk and create
+       -- a document table of all temporary files on the harddisk for caching    
+    
+    cfg  <- return $ head idxConfigs
+    idxConfigs' <- return $ tail idxConfigs
+
+    idx  <- loadFromBinFile ( (ic_idxPath cfg) ++ "-index.bin") :: IO Inverted
+    docs <- loadFromBinFile ( (ic_idxPath cfg) ++ "-docs.bin")  :: IO (Documents FunctionInfo)
+    
+    
+    
+    (theDocs, theIdx) <- foldM mergeAll' (docs, idx) idxConfigs'    
+    
+    writeToXmlFile ( indexPath ++ "-docs.xml")  theDocs
+    writeToBinFile ( indexPath ++ "-docs.bin")  theDocs
+    writeToXmlFile ( indexPath ++ "-index.xml") theIdx
+    writeToBinFile ( indexPath ++ "-index.bin") theIdx
+    
+--    theDocs <- loadFromBinFile ( indexPath ++ "-docs.bin")  :: IO (Documents FunctionInfo)
+    
+    
+    allTmpDocs <- return $ tmpDocs splitPath theDocs     
+    
+
+    
+    -- ---------------------------------------------------------------------------------------------
+    runX (traceMsg 0 (" cacheing  ------------------------------ " ))
+    buildCache  indexPath (map (\(i,d) -> (i, uri d)) (IM.toList $ DOC.toMap allTmpDocs))
+    return ()
+    -- ---------------------------------------------------------------------------------------------
+
+mergeAll' :: (Documents FunctionInfo, Inverted) -> IndexerConfig -> IO (Documents FunctionInfo, Inverted)
+mergeAll' (docs, idx) idxConfig = 
+    do
+    docs2  <- loadFromBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") :: IO (Documents FunctionInfo)
+    idx2   <- loadFromBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") :: IO Inverted
+    return $! mergeAll docs idx docs2 idx2
+
+buildAnIndex :: Int -> Int -> String -> IndexerConfig -> IO ()
+buildAnIndex traceLevel workerThreads splitPath idxConfig
+  = do 
     crawlState    <- return (initialCS idxConfig customCrawlFunc)
-    -- -------------------------------------------------------------------------
        -- find the available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     docs       <- crawl traceLevel workerThreads crawlState
-    -- -------------------------------------------------------------------------
+--    writeToXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") (docs)
+    -- ---------------------------------------------------------------------------------------------
        -- split the locally saved documents into several small xml files
        -- where each file consists of the documentation for one function
     runX (traceMsg 0 (" splitting ----------------------------- " ))
@@ -96,7 +159,7 @@ main
     splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-docs.xml") (splitDocs)
     writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (splitDocs)
-    -- -------------------------------------------------------------------------
+    -- ---------------------------------------------------------------------------------------------
        -- build an index over the split xml files
     runX (traceMsg 0 (" indexing  ------------------------------ " ))
     localDocs <- return $ tmpDocs splitPath splitDocs
@@ -107,11 +170,8 @@ main
                          emptyInverted 
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-index.xml") idx
     writeToBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") idx
-    -- -------------------------------------------------------------------------
-    buildCache  (ic_idxPath idxConfig)
-                (map (\(i,d) -> (i, uri d)) (IM.toList $ DOC.toMap localDocs))
-    return ()
-    -- -------------------------------------------------------------------------
+    -- ---------------------------------------------------------------------------------------------
+
 
 buildCache :: String -> [(DocId, URI)] -> IO()
 buildCache path l =
@@ -121,18 +181,14 @@ buildCache path l =
   return ()
   where 
   cacheDoc :: HolCache c => c -> (DocId, URI) -> IO()
-  cacheDoc cache (docId, uri) =
+  cacheDoc cache (docId, u) =
     do
-    theText <- runX (      readDocument stdOpts4Reading uri 
---                       >>> flattenAllElements
-                       >>> flattenElementsByType "tt"
-                       >>> flattenElementsByType "em"
-                       >>> flattenElementsByType "a"
-                       >>> flattenElementsByType "p"
-                       >>> flattenElementsByType "pre"
-                       >>> getXPathTreesInDoc "/tr/td[@class='doc']//text()"
+    theText <- runX (      readDocument stdOpts4Reading u 
+                       >>> getXPathTrees "/tr/td[@class='doc']"
+                       >>> deep isText
                        >>> getText
                        >>> unlistA
+                       >>> strictA
                      )
     if (length theText > 0) && 
        (length (dropWhile ((==) ' ') (theText)) > 0)
@@ -141,9 +197,6 @@ buildCache path l =
 
 customCrawlFunc :: IOSArrow XmlTree (Maybe FunctionInfo)
 customCrawlFunc = constA Nothing
-
-
--- ld = "/home/sms/tmp/holumbus_docs/split/http-_-__www.holumbus.org_docs_develop_Holumbus-Utility.html-_-v-_-join"
 
 -- | Helper function to replace original URIs by the corresponding pathes for 
 --   the locally dumped files
@@ -155,8 +208,377 @@ tmpDocs tmpPath =
   . DOC.toMap
     
 -- -----------------------------------------------------------------------------    
+   -- Dirty Stuff for the Creation of Virtual Documents
+-- -----------------------------------------------------------------------------    
+
+
+processClasses :: LA XmlTree XmlTree
+processClasses = 
+  processTopDown ( processClassMethods
+                   `when`
+                   (    hasName "tr"
+                     /> hasName "td" >>> hasAttrValue "class" (== "body")
+                     /> hasName "table"
+--                     /> hasName "tbody"
+                     /> hasName "tr"
+                     /> hasName "td" >>> hasAttrValue "class" (== "section4")
+                     /> hasText (== "Methods")
+                   )
+                 )
+                
+processClassMethods :: LA XmlTree XmlTree
+processClassMethods = getXPathTrees "//td[@class='body']/table/tr/td[@class='body']/table/tr" 
+
+getVirtualDocs :: String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
+getVirtualDocs splitPath docId theUri =         
+  runX ( 
+      readDocument stdOpts4Reading theUri
+  >>> fromLA (     processClasses
+               >>> topdeclToDecl
+               >>> removeDataDocumentation
+               >>> processDataTypeAndNewtypeDeclarations
+               >>> processCrazySignatures
+              )
+ -- >>> writeDocument [(a_indent, "1")] "/home/sms/tmp/crazy.xml"
+  >>> makeVirtualDocs $< (getXPathTrees "/html/head/title/text()" >>> getText)
+  >>> (constA 42 &&& this) -- TODO maybe it is not the answer to THIS particular question
+  )    
+  where
+  makeVirtualDocs theModule =
+           getXPathTrees "//tr[@class='decl' and @id]"
+    >>> (  mkVirtual $<<<< (     (     getXPathTreesInDoc "/tr[@class='decl']/@id/text()"
+                                   >>> getText
+                                   >>^ unEscapeString
+                                 )
+                             &&& constA theModule
+                             &&& fromLA getSignature
+                             &&& getSourceLink
+                           )      
+         )
+  mkVirtual theTitle theModule theSignature theSourceURI =     
+         let theLinkPrefix = if theSignature `elem` ["data", "type", "newtype"] then "#t:" else "#v:" 
+         in
+         root [] [ this
+                 , selem "module" [constA theModule >>> mkText]
+                 ]
+     >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape (theLinkPrefix ++ theTitle)))
+     >>> (     constA theTitle 
+           &&& constA (theUri ++ theLinkPrefix ++ theTitle)
+           &&& constA (FunctionInfo theModule theSignature (theSourceURI))
+         )
+     >>^ (\(a,(b,c)) -> (a,b,c)) 
+  getSignature =     removeSourceLinks >>> preFilterSignatures >>> getXPathTreesInDoc theHayooXPath 
+                 >>> getText
+  getSourceLink :: ArrowXml a => a XmlTree (Maybe String)
+  getSourceLink = 
+      (      processTopDown ( getChildren `when` (isElem >>> hasName "a" >>> hasAttr "name")  )
+        >>> getXPathTreesInDoc "//td[@class='decl']/a/@href/text()"  >>> getText
+        >>^ (\a -> if "src/" `isPrefixOf` a then expandURIString a theUri else Nothing)
+      ) `withDefault` Nothing
+      
+removeSourceLinks :: LA XmlTree XmlTree
+removeSourceLinks = 
+  processTopDown ( none `when` 
+                   (hasName "a" >>> hasAttrValue "href" (isPrefixOf "src/")/> hasText (== "Source") )
+                 )      
+
+
+
+topdeclToDecl ::LA XmlTree XmlTree
+topdeclToDecl  
+    =     processTopDown
+            ( (getChildren >>> getChildren >>> getChildren)
+              `when`
+              (isElem >>> hasName "table" >>> hasAttrValue "class" (== "declbar"))
+            )
+      >>> processTopDown
+            ( mkelem "td" [ sattr "class" "decl"] [ getChildren ]
+              `when`
+              ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
+            ) 
+ 
+{-flattenDeclbar :: ArrowXml a => a XmlTree XmlTree
+flattenDeclbar 
+  = processTopDown
+    (  (getChildren >>> getChildren >>> getChildren )
+       `when`
+       (isElem >>> hasName "table" >>> hasAttrValue "class" (== "declbar") ) 
+    )-}
+
+mkDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (DOC.Documents  FunctionInfo))
+mkDocList _ vDocs
+  = return $! Just $ foldl' (\d r -> snd (insertDoc d r)) 
+                             DOC.emptyDocuments 
+                            (map (\(t, u, fi) -> Document t u (Just fi)) vDocs)
+            
+
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+
+removeElementsByXPath :: ArrowXml a => String -> a XmlTree XmlTree 
+removeElementsByXPath xpath =
+  case xpath of
+       "//td[@class='rdoc']"  ->  processTopDown (none `when` (isElem >>> hasName "td" >>> hasAttrValue "class" (== "rdoc")))
+       otherwise              ->  none
+
+
+processDataTypeAndNewtypeDeclarations :: LA XmlTree XmlTree
+processDataTypeAndNewtypeDeclarations 
+  = processTopDown
+      ( ( mkTheElem $<<<< (     getTheName
+                             &&& getTheType
+                             &&& getTheRef
+                             &&& getTheSrc
+                           ) 
+         ) 
+         `when`
+         (   
+               hasName "td"   >>> hasAttrValue "class" (=="decl")
+            /> hasName "span" >>> hasAttrValue "class" (=="keyword")
+            /> hasText (\a -> a `elem` ["data", "type", "newtype", "class"]) 
+         )
+      ) 
+    where
+      getTheSrc  =  listA ( 
+                       getXPathTrees "//a[@href]/@href/text()"                 >>> getText
+                   >>> arr (\a -> if "src/" `isPrefixOf` a then Just a else Nothing) ) >>^ catMaybes 
+                   >>^ (\a -> if length a == 0 then "" else last a)  -- TODO this could be done more beautiful
+      getTheRef  = getXPathTrees "//a[@name]/@name/child::text()"          >>> getText
+      getTheName = getXPathTrees "//b/text()"                              >>> getText
+      getTheType = listA (getXPathTrees "//span[@class='keyword']/text ()" >>> getText) >>^ head
+      mkTheElem n t r s = 
+            mkelem "td" [sattr "class" "decl"]
+                        [ aelem "a" [sattr "name" r] 
+                        , constA (n ++ " :: " ++ t) >>> mkText
+                        , mkelem "a" [sattr "href" s] [constA "Source" >>> mkText]
+                        ]
+
+removeDataDocumentation :: LA XmlTree XmlTree
+removeDataDocumentation 
+  = processTopDown 
+      (
+        none
+        `when`
+        (    hasName "tr"
+          /> hasName "td" >>> hasAttrValue "class" (== "body")
+          /> hasName "table"
+--          /> hasName "tbody"
+          /> hasName "tr"
+          /> hasName "td" >>> hasAttrValue "class" (== "section4")
+          /> hasText (\a -> a == "Constructors" || "Instances" `isSuffixOf` a)
+        )
+      )
+
+
+-- -----------------------------------------------------------------------------
+   -- Uwe Schmidts Regex-Arrow stuff
+-- -----------------------------------------------------------------------------
+-- tt h (topdeclToDecl >>> removeElementsByXPath "//td[@class='rdoc']" >>> processTopDown (none `when` (hasName "td" >>> hasAttrValue "class" ( (==) "body") /> hasName "table" /> hasName "tr" /> hasName "td" >>> hasAttrValue "class" ( (==) "ndoc") ) ) ) 
+
+-- processOldCrazy :: LA XmlTree XmlTree
+-- processOldCrazy = processChildren (processDocumentRootElement groupDeclDoc declAndDocChildren)
+
+processDocumentRootElement  :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
+processDocumentRootElement theGrouper interestingChildren
+    = processXPathTrees
+      (replaceChildren (processTableRows theGrouper (getChildren >>> interestingChildren)))
+      "/html/body/table"
+
+processCrazySignatures :: LA XmlTree XmlTree
+processCrazySignatures
+  =     processTopDown ( preProcessCrazySignature
+                         `when`
+                         (    hasName "tr"
+                           /> hasName "td" >>> hasAttrValue "class" ( (==) "body") 
+                           /> hasName "table" 
+                           /> hasName "tr" 
+                           /> hasName "td" >>> hasAttrValue "class" ( (==) "ndoc") 
+                         ) 
+                       )
+    >>> processChildren (processDocumentRootElement groupDeclSig declAndDocAndSignatureChildren)                      
+
+preProcessCrazySignature :: LA XmlTree XmlTree
+preProcessCrazySignature = 
+         ( selem "tr" 
+                  [ mkelem "td" [sattr "class" "signature"] 
+                                [getXPathTrees "//td[@class='arg']" >>> getChildren  ]  
+                  ] 
+           &&&   
+           selem "tr" 
+                  [ mkelem "td" [sattr "class" "doc"]
+                                [getXPathTrees "//td[@class='ndoc']" >>> getChildren ]
+                  ]
+         ) >>> mergeA (<+>)
+         
+           
+declAndDocChildren  :: LA XmlTree XmlTree
+declAndDocChildren  = (isDecl <+> isDoc) `guards` this
+
+declAndDocAndSignatureChildren :: LA XmlTree XmlTree
+declAndDocAndSignatureChildren = (isDecl <+> isSig <+> isDoc) `guards` this
+
+isDecl      :: LA XmlTree XmlTree
+isDecl
+    = hasName "tr" />
+      hasName "td" >>> ( hasAttrValue "class" (== "decl")
+       `guards`
+       ( getChildren >>> hasName "a" >>> hasAttr "name" )
+           )
+
+isDoc     :: LA XmlTree XmlTree
+isDoc
+    = hasName "tr" />
+      hasName "td" >>> hasAttrValue "class" (== "doc")
+      
+isSig    :: LA XmlTree XmlTree
+isSig
+    = hasName "tr" />
+      hasName "td" >>> hasAttrValue "class" (== "signature")
+
+getDeclName     :: LA XmlTree String
+getDeclName
+    = listA (hasName "tr" /> hasName "td" /> hasName "a" >>> getAttrValue "name")>>. concat
+      >>> (arr $ drop 4)
+
+processTableRows      :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
+processTableRows theGrouping ts
+    = theGrouping (remLeadingDocElems ts) {- >>> prune 3 -}
+
+-- regex for a leading class="doc" row
+
+leadingDoc    :: XmlRegex
+leadingDoc    = mkStar (mkPrimA isDoc)
+
+-- regex for a class="decl" class="doc" sequence
+
+declDoc     :: XmlRegex
+declDoc     = mkSeq (mkPrimA isDecl) leadingDoc
+
+declSig     :: XmlRegex
+declSig     = mkSeq (mkPrimA isDecl) (mkSeq (mkStar (mkPrimA isSig)) leadingDoc)
+
+    -- remove a leading class="doc" row this does not form a declaration
+    -- split the list of trees and throw away the first part
+remLeadingDocElems  :: LA XmlTree XmlTree -> LA XmlTree XmlTree
+remLeadingDocElems ts   = (splitRegexA leadingDoc ts >>^ snd) >>> unlistA
+
+    -- group the "tr" trees for a declaration together, build a "tr class="decl"" element and
+    -- throw the old "tr" s away
+groupDeclSig    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
+groupDeclSig ts = 
+        scanRegexA declSig ts 
+    >>> 
+    mkelem  "tr" [ sattr "class" "decl"
+                 , attr "id" (unlistA >>> getDeclName >>> mkText)
+                 ] 
+                 [ mkelem "td" [sattr "class" "decl"] 
+                          [unlistA >>> getXPathTrees "//td[@class='decl' or @class='signature']" >>> getChildren] 
+                 , mkelem "td" [sattr "class" "doc" ]
+                          [unlistA >>> getXPathTrees "//td[@class='doc']" >>> getChildren] 
+                 ]
+
+groupDeclDoc    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
+groupDeclDoc ts   = scanRegexA declDoc ts >>>
+--        mkelem "function"
+--        [ attr  "name" (unlistA >>> getDeclName >>> mkText)
+        mkelem "tr"
+        [ sattr "class" "decl"
+        , attr  "id" (unlistA >>> getDeclName >>> mkText)
+        ] [unlistA >>> getChildren]
+
+isArg     :: LA XmlTree XmlTree
+isArg
+    = hasName "tr" />
+      hasName "td" >>> hasAttrValue "class" (== "arg")
+
+
+removeSpacers :: LA XmlTree XmlTree
+removeSpacers =
+  processTopDown
+          (  none
+            `when`
+             (hasName "tr" /> hasName "td" >>> hasAttrValue "class" (\a ->  ( a == "s15" || a == "s8" ) ) )
+          )
+          
+
+p ps xpathExpr = processFromNodeSet ps $< getXPathNodeSet xpathExpr
+wd = writeDocument [(a_indent, "1")] "/home/sms/tmp/crazy.xml"
+wt = writeDocument [(a_show_tree, "1")] "/home/sms/tmp/crazy.xml"
+t f a = runX (readDocument stdOpts4Reading f >>> a)
+tt f a 
+  = runX (readDocument stdOpts4Reading f >>> a >>> fromLA removeSpacers >>> writeDocument [] "" >>> constA "")
+h = "http://holumbus.org/docs/develop/Holumbus-Index-Common.html"
+f ="/home/sms/tmp/holumbus_docs/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dControl%2dMapReduce%2dParallel%2ehtml"
+fs="/home/sms/tmp/holumbus_docs/split/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dUtility%2ehtml%23v%3ajoin"
+c = "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
+
+cl = "http://www.holumbus.org/docs/develop/Holumbus-Index-Common.html"
+da = "http://www.holumbus.org/docs/develop/Holumbus-Build-Index.html"
+
+c1 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Control-Arrow-ArrowList.html"
+c2 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlArrow.html"
+
+
+
+
+      
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+-- -----------------------------------------------------------------------------    
    -- Crawler & Indexer Configuration
 -- -----------------------------------------------------------------------------    
+ic_Single :: IndexerConfig
+ic_Single = mkIndexerConfig
+--    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Control-Arrow-ArrowList.html"
+--    , "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlArrow.html"
+--    , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
+--    [ "http://www.holumbus.org/docs/develop/Holumbus-Build-Index.html"
+--    , "http://www.holumbus.org/docs/develop/Holumbus-Index-Common.html"
+--    ,
+    [ "http://www.haskell.org/ghc/docs/latest/html/libraries/Win32/System-Win32-SimpleMAPI.html"
+    ]
+    (Just "/home/sms/tmp/")
+    "/home/sms/indexes/exception"
+    ccs_Hayoo
+    stdOpts4Reading
+    []
+    [".*"]
+
 ic_Hayoo :: IndexerConfig
 ic_Hayoo = mkIndexerConfig
     [ "http://hackage.haskell.org/packages/archive/pkg-list.html" ]        -- ic_startPages     :: [URI]
@@ -172,7 +594,7 @@ ic_Holumbus :: IndexerConfig
 ic_Holumbus =  mkIndexerConfig
     [ "http://www.holumbus.org/docs/develop/" ]      -- ic_startPages :: [URI]
     (Just "/home/sms/tmp/holumbus_docs/")            -- ic_tmpPath    :: String
-    "/home/sms/indexes/hayoo"                -- ic_idxPath    :: String
+    "/home/sms/indexes/holumbus"                     -- ic_idxPath    :: String
     ccs_Hayoo                                   
     stdOpts4Reading
     [ "holumbus.org/docs/develop" ]
@@ -180,9 +602,12 @@ ic_Holumbus =  mkIndexerConfig
 
 ic_GHC_libs :: IndexerConfig         -- works
 ic_GHC_libs =  mkIndexerConfig
-    [ "http://www.haskell.org/ghc/docs/latest/html/libraries/" ]      -- ic_startPages :: [URI]
-    (Just "/home/sms/tmp/ghc_libs/" )                                                   -- ic_tmpPath    :: String
-    "/home/sms/indexes/hayoo"                                                -- ic_idxPath    :: String
+    [ "http://www.haskell.org/ghc/docs/latest/html/libraries/"
+    , "http://www.haskell.org/ghc/docs/latest/html/libraries/index.html"
+    , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
+    ]                                                                        -- ic_startPages :: [URI]
+    (Just "/home/sms/tmp/ghc_libs/" )                                        -- ic_tmpPath    :: String
+    "/home/sms/indexes/ghclibs"                                                -- ic_idxPath    :: String
     ccs_Hayoo
     stdOpts4Reading
     [ "^http://www.haskell.org/ghc/docs/latest/html/" ]
@@ -216,12 +641,12 @@ theHayooXPath :: String
 theHayooXPath =  "/tr/td[@class='decl']/text()" 
             
 ccHayooName :: ContextConfig
-ccHayooName = ContextConfig "name" (preFilterSignatures) theHayooXPath  
-              (\a -> [takeWhile ( (/=) ' ') (dropWhile ( (==) ' ') a)])
+ccHayooName = ContextConfig "name" (fromLA preFilterSignatures) theHayooXPath  
+              (\a -> [stripWith (\b -> b `elem` "():") (strip (takeWhile ( (/=) ' ') (dropWhile ( (==) ' ') a)))])
               (\s -> (s == "type" || s == "class" || s == "data")) 
 
 ccHayooPartialName :: ContextConfig
-ccHayooPartialName = ContextConfig "partial" preFilterSignatures theHayooXPath partTokenize (\s -> (s == "type" || s == "class" || s == "data")) 
+ccHayooPartialName = ContextConfig "partial" (fromLA preFilterSignatures) theHayooXPath partTokenize (\s -> (s == "type" || s == "class" || s == "data")) 
   where 
     partTokenize s = split " " (deCamel False (takeWhile ( (/=) ' ') s))
     deCamel :: Bool -> String -> String  -- Bool flag: last character was a capital letter
@@ -237,256 +662,29 @@ ccHayooPartialName = ContextConfig "partial" preFilterSignatures theHayooXPath p
                                  else x : deCamel (x `elem` ['A'..'Z']) xs
 
 ccHayooSignature :: ContextConfig
-ccHayooSignature = ContextConfig "signature" preFilterSignatures theHayooXPath (\a -> [getSignature a]) (\s -> length s == 0)
+ccHayooSignature = ContextConfig "signature" (fromLA preFilterSignatures) theHayooXPath (\a -> [getSignature a]) (\s -> length s == 0)
 
 getSignature :: String -> String
 getSignature s = if "=>" `isInfixOf` s
-                      then spaceless (drop 3 (dropWhile ((/=) '=') s)) -- TODO split!
-                      else spaceless (drop 3 (dropWhile ((/=) ':') s))
-    where
-    spaceless :: String -> String
-    spaceless = filter (not . isSpace)
+                      then stripSignature (drop 3 (dropWhile ((/=) '=') s)) -- TODO split!
+                      else stripSignature (drop 3 (dropWhile ((/=) ':') s))
+
 
 ccHayooNormalizedSignature :: ContextConfig
-ccHayooNormalizedSignature = ContextConfig "normalized" preFilterSignatures theHayooXPath
+ccHayooNormalizedSignature = ContextConfig "normalized" (fromLA preFilterSignatures) theHayooXPath
   (\s -> [normalizeSignature (getSignature s)]) (\s -> length s ==  0)
 
 ccHayooDescription :: ContextConfig 
-ccHayooDescription = ContextConfig "description" preFilterSignatures "//td[@class='doc']//text()" (parseWords isWordChar) (\s -> length s < 2)
+ccHayooDescription = ContextConfig "description" (fromLA preFilterSignatures) "//td[@class='doc']//text()" (parseWords isWordChar) (\s -> length s < 2)
 
 ccHaddockSignatures :: ContextConfig
-ccHaddockSignatures = ContextConfig "signatures" preFilterSignatures theHayooXPath (\a -> [a]) (const False)     
+ccHaddockSignatures = ContextConfig "signatures" (fromLA preFilterSignatures) theHayooXPath (\a -> [a]) (const False)     
 
 ccModule :: ContextConfig
-ccModule = ContextConfig "module" preFilterSignatures "/module/text()" (\a -> [a]) (const False)     
+ccModule = ContextConfig "module" (fromLA preFilterSignatures) "/module/text()" (\a -> [a]) (const False)     
 
 ccHierarchy :: ContextConfig
-ccHierarchy = ContextConfig "hierarchy" preFilterSignatures "/module/text()" (split ".") (const False)     
-
-
-preFilterSignatures :: ArrowXml a => a XmlTree XmlTree
-preFilterSignatures
-    =     flattenElementsByType "b"
-      >>> flattenElementsByType "a"
-      >>> flattenElementsByType "span"
-      >>> removeDeclbut
-
-f ="/home/sms/tmp/holumbus_docs/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dControl%2dMapReduce%2dParallel%2ehtml"
-fs="/home/sms/tmp/holumbus_docs/split/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dUtility%2ehtml%23v%3ajoin"
-
-{-flattenDeclbut :: ArrowXml a => a XmlTree XmlTree
-flattenDeclbut =
-       processTopDown 
-          (  getChildren
-            `Text.XML.HXT.Arrow.when`
-             isDeclbut
-          )-}
-
-
-removeDeclbut :: ArrowXml a => a XmlTree XmlTree
-removeDeclbut =
-       processTopDown 
-          (  none
-            `Text.XML.HXT.Arrow.when`
-             isDeclbut
-          )
-
-isDeclbut :: ArrowXml a => a XmlTree String
-isDeclbut
-            = isElem 
-          >>> hasName "td" 
-          >>> hasAttr "class" 
-          >>> getAttrValue "class" 
-          >>> isA declbutAttr
-          where
-          declbutAttr = isPrefixOf "declbut" 
-          
--- | some standard options for the readDocument function
-stdOpts4Reading :: [(String, String)]
-stdOpts4Reading = []
-  ++ [ (a_parse_html, v_1)]
-  ++ [ (a_issue_warnings, v_0)]
-  ++ [ (a_tagsoup, v_1) ]
-  ++ [ (a_use_curl, v_1)]
-  ++ [ (a_options_curl, "-L")] --"--user-agent HolumBot/0.1 --location")]          
-
--- -----------------------------------------------------------------------------    
-   -- Dirty Stuff for the Creation of Virtual Documents
--- -----------------------------------------------------------------------------    
-
--- | stolen from Network.URI
-unEscapeString :: String -> String
-unEscapeString [] = ""
-unEscapeString ('%':x1:x2:s) | isHexDigit x1 && isHexDigit x2 =
-    chr (digitToInt x1 * 16 + digitToInt x2) : unEscapeString s
-unEscapeString (c:s) = c : unEscapeString s
-
-getVirtualDocs :: String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
-getVirtualDocs splitPath docId theUri =         
-  runX ( 
-      readDocument stdOpts4Reading theUri
-  >>> topdeclToDecl
-  >>> fromLA (processChildren processDocumentRootElement)
-  >>> (makeVirtualDocs theUri $< (getXPathTrees "/html/head/title/text()" >>> getText))
-  >>> (constA 42 &&& this)
-  )    
-  where
-  makeVirtualDocs theUri moduleName =
-           getXPathTrees "//tr[@class='decl' and @id]"
-    >>> (  mkVirtual $<<<< (     (     getXPathTreesInDoc "/tr[@class='decl']/@id/text()"
-                                   >>> getText
-                                   >>> arr unEscapeString
-                                 )
-                             &&& constA moduleName
-                             &&& getSignature
-                             &&& (getSource >>> arr (\a -> fromMaybe a $ expandURIString a theUri))
-                           )      
-         )
-  mkVirtual theTitle moduleName signature sourceURI =     
-         root [] [ this
-                 , mkelem "module" [] [constA moduleName >>> mkText]
-                 ]
-     >>> processTopDown (none `Text.XML.HXT.Arrow.when` (isElem >>> hasName "a" >>> hasAttrValue "href" (isPrefixOf "src/" )))    
-     >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape ("#v:" ++ theTitle)))
-     >>> (     constA theTitle 
-           &&& constA (theUri ++ "#v:" ++ theTitle)
-           &&& constA (FunctionInfo moduleName signature (Just sourceURI))
-         )
-     >>> arr (\(a,(b,c)) -> (a,b,c)) 
-  getSignature =
---        processTopDown (none `Text.XML.HXT.Arrow.when` (isElem >>> hasName "a" >>> hasAttrValue "href" (isPrefixOf "src/" )))    
-        preFilterSignatures
-    >>> getXPathTreesInDoc theHayooXPath
-    >>> getText
-    >>> arr (\s -> (drop 3 (dropWhile ((/=) ':') s)))
-    >>> arr (\s -> if "Source" `isSuffixOf` s
-                     then reverse $ (drop 6) $ reverse s
-                     else s)
-  getSource = 
-        processTopDown ( getChildren 
-                         `Text.XML.HXT.Arrow.when` 
-                         (isElem >>> hasName "a" >>> hasAttr "name")
-                       )
-    >>> getXPathTreesInDoc "//td[@class='decl']/a/@href/text()"
-    >>> getText
-
-{-topdeclToDecl :: ArrowXml a => a XmlTree XmlTree
-topdeclToDecl  
-    = processTopDown
-        ( (   mkelem "td"
-                [ sattr "class" "decl"]
---                [ getChildren >>> removeDeclbut >>> flattenDeclbar ]
-                [ getChildren >>> removeDeclbut >>> flattenDeclbar ]
-          )
-          `Text.XML.HXT.Arrow.when`
-          ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
-        )-}
-
-topdeclToDecl :: ArrowXml a => a XmlTree XmlTree
-topdeclToDecl  
-    = processTopDown
-        ( (getChildren >>> getChildren >>> getChildren)
-          `Text.XML.HXT.Arrow.when`
-          (isElem >>> hasName "table" >>> hasAttrValue "class" (== "declbar"))
-        )
-      >>>
-      processTopDown
-        ( (   mkelem "td"
-                [ sattr "class" "decl"]
-                [ getChildren ]
-          )
-          `Text.XML.HXT.Arrow.when`
-          ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
-        ) 
- 
-flattenDeclbar :: ArrowXml a => a XmlTree XmlTree
-flattenDeclbar 
-  = processTopDown
-    (  (getChildren >>> getChildren >>> getChildren -- >>> getChildren
-      )
-      `Text.XML.HXT.Arrow.when`
-      (     isElem >>> hasName "table" >>> hasAttrValue "class" (== "declbar") 
-      ) 
-    )
-
-foo = "/home/sms/tmp/holumbus_docs/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dIndex%2dInverted%2ehtml"  
-
-mkDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (DOC.Documents  FunctionInfo))
-mkDocList _ vDocs
-  = do 
-    return $! Just $ foldl' (\d r -> snd (insertDoc d r)) 
-                             DOC.emptyDocuments 
-                            (map (\(theTitle, theUri, functionInfo) -> Document theTitle theUri (Just functionInfo)) vDocs)
-            
-
-
--- -----------------------------------------------------------------------------
-   -- Uwe Schmidts Regex-Arrow stuff
--- -----------------------------------------------------------------------------
-
-processDocumentRootElement  :: LA XmlTree XmlTree
-processDocumentRootElement
-    = processXPathTrees
-      (replaceChildren (processTableRows (getChildren >>> declAndDocChildren)))
-      "/html/body/table"
-
-declAndDocChildren  :: LA XmlTree XmlTree
-declAndDocChildren  = (isDecl <+> isDoc) `guards` this
-
-isDecl      :: LA XmlTree XmlTree
-isDecl
-    = hasName "tr" />
-      hasName "td" >>> ( hasAttrValue "class" (== "decl")
-       `guards`
-       ( getChildren >>> hasName "a" >>> hasAttr "name" )
-           )
-
-isDoc     :: LA XmlTree XmlTree
-isDoc
-    = hasName "tr" />
-      hasName "td" >>> hasAttrValue "class" (== "doc")
-
-getDeclName     :: LA XmlTree String
-getDeclName
-    = listA (hasName "tr" /> hasName "td" /> hasName "a" >>> getAttrValue "name")>>. concat
-      >>> (arr $ drop 4)
-
-processTableRows      :: LA XmlTree XmlTree -> LA XmlTree XmlTree
-processTableRows ts
-    = groupDeclDoc (remLeadingDocElems ts) {- >>> prune 3 -}
-
--- regex for a leading class="doc" row
-
-leadingDoc    :: XmlRegex
-leadingDoc    = mkStar (mkPrimA isDoc)
-
--- regex for a class="decl" class="doc" sequence
-
-declDoc     :: XmlRegex
-declDoc     = mkSeq (mkPrimA isDecl) leadingDoc
-
--- remove a leading class="doc" row this does not form a declaration
--- split the list of trees and throw away the first part
-
-remLeadingDocElems  :: LA XmlTree XmlTree -> LA XmlTree XmlTree
-remLeadingDocElems ts   = (splitRegexA leadingDoc ts >>^ snd) >>> unlistA
-
--- group the "tr" trees for a declaration together, build a "tr class="decl"" element and
--- throw the old "tr" s away
-
-groupDeclDoc    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
-groupDeclDoc ts   = scanRegexA declDoc ts >>>
---        mkelem "function"
---        [ attr  "name" (unlistA >>> getDeclName >>> mkText)
-        mkelem "tr"
-        [ sattr "class" "decl"
-        , attr  "id" (unlistA >>> getDeclName >>> mkText)
-        ] [unlistA >>> getChildren]
-            
-
-
-
-
+ccHierarchy = ContextConfig "hierarchy" (fromLA preFilterSignatures) "/module/text()" (split ".") (const False)     
 
 -- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
 -- @a->b->b@. All whitespace will be removed from the resulting string.
@@ -501,7 +699,56 @@ normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" 
 
 -- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
 -- to @String->Map k a->Int@.
-stripSignature :: String -> String
+stripSignature :: String -> String  
 stripSignature = sep "->" . sep "(" . sep ")" . sep "." . sep "=>"
   where
-  sep s = join s . map strip . split s            
+  sep s = join s . map strip . split s
+  
+
+            
+preFilterSignatures :: LA XmlTree XmlTree
+preFilterSignatures
+    =     flattenElementsByType "b"
+      >>> flattenElementsByType "a"
+      >>> flattenElementsByType "span"
+--      >>> flattenElementsByType "tt"
+      >>> flattenElementsByType "em"
+      >>> flattenElementsByType "p"
+      >>> flattenElementsByType "pre"
+      >>> removeDeclbut  -- redundant !?
+
+flattenAllElements :: LA XmlTree XmlTree
+flattenAllElements 
+    = processTopDown ( getChildren
+                       `when`
+                       isElem
+                     )
+
+removeDeclbut :: ArrowXml a => a XmlTree XmlTree
+removeDeclbut =
+       processTopDown 
+          (  none
+            `when`
+             isDeclbut
+          )
+          
+isDeclbut :: ArrowXml a => a XmlTree String
+isDeclbut
+            = isElem 
+          >>> hasName "td" 
+          >>> hasAttr "class" 
+          >>> getAttrValue "class" 
+          >>> isA declbutAttr
+          where
+          declbutAttr = isPrefixOf "declbut" 
+  
+  
+  -- | some standard options for the readDocument function
+stdOpts4Reading :: [(String, String)]
+stdOpts4Reading = []
+  ++ [ (a_parse_html, v_1)]
+  ++ [ (a_issue_warnings, v_0)]
+  ++ [ (a_tagsoup, v_1) ]
+  ++ [ (a_use_curl, v_1)]
+  ++ [ (a_options_curl, "-L")] --"--user-agent HolumBot/0.1 --location")]   
+              

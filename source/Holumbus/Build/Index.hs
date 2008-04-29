@@ -81,7 +81,7 @@ mergeIndexerConfigs cfg1 (cfg2:cfgs) = mergeIndexerConfigs resCfg cfgs
       (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
       (ic_readAttrs cfg1)
       
-        
+      
 -- -----------------------------------------------------------------------------
 
 -- | Build an Index over a list of Files.
@@ -91,7 +91,7 @@ buildIndex :: HolIndex i =>
            -> [(DocId, String)]  -- ^ List of input Data
            -> IndexerConfig      -- ^ Configuration for the Indexing process
            -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
-           -> IO i               -- ^ returns a - hopefully informative - HolIndex
+           -> IO i               -- ^ returns a HolIndex
 buildIndex workerThreads traceLevel docs idxConfig emptyIndex
   = do
     mr <- mapReduce workerThreads
@@ -105,7 +105,7 @@ buildIndex workerThreads traceLevel docs idxConfig emptyIndex
     return $! snd (M.elemAt 0 mr)                       
 
 
--- | The MAP function a MapReduce computation for building indexes.
+-- | The MAP function in a MapReduce computation for building indexes.
 --   The first three parameters have to be passed to the function to receive
 --   a function with a valid MapReduce-map signature. <br/>
 --   The function optionally outputs some debug information and then starts
@@ -126,7 +126,7 @@ indexMap traceLevel contextConfigs opts artificialKey docId theUri = do
         >>> arr (\(c, w, d, p) -> (artificialKey, (c, w, d, p)))
       )
       
--- | The REDUCE function a MapReduce computation for building indexes.
+-- | The REDUCE function in a MapReduce computation for building indexes.
 --   Even though there might be faster ways to build an index, this function
 --   works with completely on the HolIndex class functions. So it is possible
 --   to use the Indexer with different Index implementations.
@@ -134,7 +134,7 @@ indexReduce :: HolIndex i => i -> String -> [(String, String, DocId, Position)] 
 indexReduce idx _ l =
   return $! Just (foldl' theFunc idx l)
     where
-    theFunc i (context, "",   docId, pos) = i -- insertPosition context "HIERISTDERFEHLER" docId pos i
+    theFunc i (_, "", _ , _) = i -- insertPosition context "HIERISTDERFEHLER" docId pos i
     theFunc i (context, word, docId, pos) = insertPosition context word docId pos i
     
   
