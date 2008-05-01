@@ -136,25 +136,25 @@ processCaseWord s q = forAllContexts wordCase (contexts s)
 processPhrase :: HolIndex i => ProcessState i -> String -> Intermediate
 processPhrase s q = forAllContexts phraseNoCase (contexts s)
   where
-  phraseNoCase c = processPhraseInternal (map snd . IDX.lookupNoCase (index s) c) c q
+  phraseNoCase c = processPhraseInternal (IDX.lookupNoCase (index s) c) c q
 
 -- | Process a phrase case-sensitive.
 processCasePhrase :: HolIndex i => ProcessState i -> String -> Intermediate
 processCasePhrase s q = forAllContexts phraseCase (contexts s)
   where
-  phraseCase c = processPhraseInternal (map snd . IDX.lookupCase (index s) c) c q
+  phraseCase c = processPhraseInternal (IDX.lookupCase (index s) c) c q
 
 -- | Process a phrase query by searching for every word of the phrase and comparing their positions.
-processPhraseInternal :: (String -> [Occurrences]) -> Context -> String -> Intermediate
+processPhraseInternal :: (String -> RawResult) -> Context -> String -> Intermediate
 processPhraseInternal f c q = let
   w = words q 
-  m = mergeOccurrencesList $ f (head w) in
+  m = mergeOccurrencesList $ map snd $ f (head w) in
   if m == IM.empty then I.emptyIntermediate
   else I.fromList q c [(q, processPhrase' (tail w) 1 m)]
   where
   processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
   processPhrase' [] _ o = o
-  processPhrase' (x:xs) p o = processPhrase' xs (p+1) (IM.filterWithKey (nextWord $ f x) o)
+  processPhrase' (x:xs) p o = processPhrase' xs (p+1) (IM.filterWithKey (nextWord $ map snd $ f x) o)
     where
     nextWord :: [Occurrences] -> Int -> Positions -> Bool
     nextWord [] _ _  = False
