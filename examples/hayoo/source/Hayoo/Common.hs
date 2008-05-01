@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module HayooHelper where
+module Hayoo.Common where
 
 import Data.Char
 import Data.Binary

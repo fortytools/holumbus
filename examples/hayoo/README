@@ -17,12 +17,38 @@ fuzzy queries.
 Requirements
 ------------
 
-- hslogger 1.0.5
-- Holumbus 0.4
-- Janus 1.0
+- hslogger >= 1.0.5
+- Holumbus >= 0.4
+- Janus >= 1.0
 
-Installation
-------------
+Installation (Janus split build)
+--------------------------------
+
+This description only describes the installation of the Hayoo! search engine,
+please refer to the respective README files for informations about the 
+"Indexer" program and the "Hebalizer" program.
+
+To install Hayoo!, proceed as follows:
+
+1. Install the Janus packages.
+
+2. Run "make" in this directory.
+
+3. Set the environment variable JANUS_ROOT to your Janus root directory.
+
+4. Run "make install" in this directory (requires write acces to the 
+   Janus root directory specified by the environment variable).
+
+5. Change directory to your Janus root directory and start Janus.
+
+6. Point your browser to http://localhost:8080/hayoo.html
+
+Installation (Janus monolithic build)
+-------------------------------------
+
+FIXME: This is not up to date anymore, but as this is the only extensive
+description on how to install Hayoo! using the monolithic Janus build,
+it will remain here for documentation reasons.
 
 Unfortunately, the installation is quite fiddly. In the following,
 the exact procedure is described in detail.

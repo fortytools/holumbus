@@ -54,6 +54,7 @@ function processQuery (start) {
 					lastXMLResult = transport.responseXML;
 					lastTXTResult = transport.responseText;
 					lastQuery = query;
+					window.location.hash = start + ":" + query;
 				  displayResult(transport.responseText, query);
 				},
 				onFailure: function() {
@@ -78,5 +79,8 @@ function replaceInQuery (needle, substitute) {
 }
 
 function showPage (page) {
+	if ($("querytext").value == "") {
+		$("querytext").value = lastQuery;
+	}
 	processQuery (page);
 }

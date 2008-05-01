@@ -18,7 +18,7 @@
 
 {-# OPTIONS -fglasgow-exts -farrows -fno-warn-type-defaults #-}
 
-module Network.Server.Janus.Shader.HayooSearch where
+module Hayoo.Search where
 
 import Prelude
 
@@ -53,15 +53,14 @@ import Network.Server.Janus.JanusPaths
 
 import System.Time
 import System.IO.Unsafe
-import qualified Debug.Trace as D
 
 import System.Log.Logger
 import System.Log.Handler.Simple
 
 import Control.Concurrent  -- For the global MVar
 
-import HayooHelper
-import HayooParser
+import Hayoo.Common
+import Hayoo.Parser
 
 data Core = Core
   { index :: Inverted
@@ -83,7 +82,7 @@ contextWeights = [ ("name", 0.9)
                  , ("partial", 0.8)
                  , ("module", 0.7)
                  , ("hierarchy", 0.6)
-                 , ("signature", 0.3)
+                 , ("signature", 0.4)
                  , ("description", 0.2)
                  , ("normalized", 0.1)
                  ]
@@ -193,7 +192,7 @@ arrLogRequest = proc inTxn -> do
 
 -- | Customized Hayoo! ranking function. Preferres exact matches and matches in Prelude.
 hayooRanking :: [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
-hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 5.0 else 1.0) * (if isExactMatch then 5.0 else 1.0)
+hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 3.0 else 1.0) * (if isExactMatch then 3.0 else 1.0)
   where
   baseScore = M.foldWithKey calcWeightedScore 0.0 dch
   isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
@@ -297,6 +296,7 @@ xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePag
 xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContextHits))
 xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
+  docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
   docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s l))) _, _)) = (((modLink u, m), (u, t), s), (getDesc i,l))
     where
     modLink = takeWhile ((/=) '#')

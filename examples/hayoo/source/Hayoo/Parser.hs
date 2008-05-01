@@ -16,9 +16,9 @@
 
 -- ----------------------------------------------------------------------------
 
-module HayooParser where
+module Hayoo.Parser where
 
-import HayooHelper
+import Hayoo.Common
 
 import Holumbus.Query.Language.Grammar
 import Text.ParserCombinators.Parsec
