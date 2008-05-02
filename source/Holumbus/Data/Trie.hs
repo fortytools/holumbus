@@ -405,7 +405,7 @@ mapWithKey f m = map' [] m
   map' ck (End k v t) = let nk = ck ++ k in End k (f nk v) (L.map (map' nk) t)
   map' ck (Seq k t)   = let nk = ck ++ k in Seq k (L.map (map' nk) t)
 
--- | /O(n)/ Map over all values in the map.
+-- | /O(n)/ Map a function over all values in the trie.
 map :: (a -> b) -> Trie a -> Trie b
 map f = mapWithKey (\_ v -> f v)
 
