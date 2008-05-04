@@ -47,7 +47,7 @@ import           Holumbus.Utility
 
 import           Network.URI(unEscapeString)
 
-import           Hayoo.Common
+-- import           Hayoo.Common
 
 import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
 import           Text.XML.HXT.Arrow.XmlRegex
@@ -122,7 +122,7 @@ buildAnIndex :: Int -> Int -> String -> IndexerConfig -> IO ()
 buildAnIndex traceLevel workerThreads splitPath idxConfig
   = do 
     crawlState    <- return (initialCS idxConfig customCrawlFunc)
-       -- find the available documents and save local copies as configured 
+       -- find available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     docs       <- crawl traceLevel workerThreads crawlState
@@ -134,7 +134,7 @@ buildAnIndex traceLevel workerThreads splitPath idxConfig
     splitDocs' <- mapReduce 
                     workerThreads 
                     (getVirtualDocs splitPath)
-                    mkDocList
+                    mkVirtualDocList
                     (IM.toList (IM.map uri (DOC.toMap docs)))
     splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-docs.xml") (splitDocs)
@@ -153,6 +153,7 @@ buildAnIndex traceLevel workerThreads splitPath idxConfig
     -- ---------------------------------------------------------------------------------------------
 
 
+-- | build a cache - this will be changed when a cache-server is introduced
 buildCache :: String -> [(DocId, URI)] -> IO()
 buildCache path l =
   do 
@@ -191,35 +192,24 @@ tmpDocs tmpPath =
    -- Dirty Stuff for the Creation of Virtual Documents
 -- -----------------------------------------------------------------------------    
 
-
-processClasses :: LA XmlTree XmlTree
-processClasses = 
-  processTopDown ( processClassMethods
-                   `when`
-                   (    hasName "tr"
-                     /> hasName "td" >>> hasAttrValue "class" (== "body")
-                     /> hasName "table"
---                     /> hasName "tbody"
-                     /> hasName "tr"
-                     /> hasName "td" >>> hasAttrValue "class" (== "section4")
-                     /> hasText (== "Methods")
-                   )
-                 )
-                
-processClassMethods :: LA XmlTree XmlTree
-processClassMethods = getXPathTrees "//td[@class='body']/table/tr/td[@class='body']/table/tr" 
-
+-- | Function to split a document into virtual documents where virtual document contains the
+--   declaration of a function (or data, newtype, ...) and optionally the documentation of this
+--   element. This runs as the MAP part of a MapReduce Computation
 getVirtualDocs :: String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
 getVirtualDocs splitPath docId theUri =         
   runX ( 
-      readDocument stdOpts4Reading theUri
-  >>> fromLA (     processClasses
-               >>> topdeclToDecl
-               >>> removeDataDocumentation
-               >>> processDataTypeAndNewtypeDeclarations
-               >>> processCrazySignatures
-              )
+      readDocument stdOpts4Reading theUri                       -- 1. read the Document
+  >>> fromLA (     processClasses                               -- 2. transform the html for classes
+                                                                --    to function-like html
+               >>> topdeclToDecl                                -- 3. transform declarations with 
+                                                                --    source-links to ones without
+               >>> removeDataDocumentation                      -- 4. remove documentation for datas
+               >>> processDataTypeAndNewtypeDeclarations        -- 5. transform declarations to  
+                                                                --    function-like html
+               >>> processCrazySignatures                       -- 6. transform multi-line 
+              )                                                 --    declarations
  -- >>> writeDocument [(a_indent, "1")] "/home/sms/tmp/crazy.xml"
+                                                                -- 7. split the document
   >>> makeVirtualDocs $< (getXPathTrees "/html/head/title/text()" >>> getText)
   >>> (constA 42 &&& this) -- TODO maybe it is not the answer to THIS particular question
   )    
@@ -249,17 +239,42 @@ getVirtualDocs splitPath docId theUri =
      >>^ (\(a,(b,c)) -> (a,b,c)) 
   getSignature =     removeSourceLinks >>> preFilterSignatures >>> getXPathTreesInDoc theHayooXPath 
                  >>> getText
+                 >>^ dropWhile ( /= ':' ) >>^ drop 3 
   getSourceLink :: ArrowXml a => a XmlTree (Maybe String)
   getSourceLink = 
       (      processTopDown ( getChildren `when` (isElem >>> hasName "a" >>> hasAttr "name")  )
         >>> getXPathTreesInDoc "//td[@class='decl']/a/@href/text()"  >>> getText
         >>^ (\a -> if "src/" `isPrefixOf` a then expandURIString a theUri else Nothing)
       ) `withDefault` Nothing
-      
+
+
+processClasses :: LA XmlTree XmlTree
+processClasses = 
+  processTopDown (  processClassMethods
+                   `when`
+                   (    hasName "tr"
+                     /> hasName "td" >>> hasAttrValue "class" (== "body")
+                     /> hasName "table"
+                     /> hasName "tr"
+                     /> hasName "td" >>> hasAttrValue "class" (== "section4")
+                     /> hasText (== "Methods")
+                   )
+                 )
+  where               
+    processClassMethods :: LA XmlTree XmlTree
+    processClassMethods = getXPathTrees "//td[@class='body']/table/tr/td[@class='body']/table/tr" 
+
+-- | removes Source Links from the XmlTree. A Source Link can be identified by the text of an "a" 
+--   node but to be more precise it is also checked whether the href-attribute starts with "src".
+--   During the tree transformation it might happen, that source links with empty href attributes 
+--   are constructed so empty href attributes are also searched and removed if teh text of the "a"
+--   node is "Source"
 removeSourceLinks :: LA XmlTree XmlTree
 removeSourceLinks = 
   processTopDown ( none `when` 
-                   (hasName "a" >>> hasAttrValue "href" (isPrefixOf "src/")/> hasText (== "Source") )
+                   (     hasName "a" 
+                     >>> hasAttrValue "href" (\a -> "src/" `isPrefixOf` a || length a == 0) 
+                     />  hasText (== "Source") )
                  )      
 
 
@@ -276,17 +291,11 @@ topdeclToDecl
               `when`
               ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
             ) 
- 
-{-flattenDeclbar :: ArrowXml a => a XmlTree XmlTree
-flattenDeclbar 
-  = processTopDown
-    (  (getChildren >>> getChildren >>> getChildren )
-       `when`
-       (isElem >>> hasName "table" >>> hasAttrValue "class" (== "declbar") ) 
-    )-}
 
-mkDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (DOC.Documents  FunctionInfo))
-mkDocList _ vDocs
+-- | The REDUCE phase of the virtual document creation MapReduce computation.
+--   The virtual Documents from the MAP phase are collected and a new Documents data is created
+mkVirtualDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (DOC.Documents  FunctionInfo))
+mkVirtualDocList _ vDocs
   = return $! Just $ foldl' (\d r -> snd (insertDoc d r)) 
                              DOC.emptyDocuments 
                             (map (\(t, u, fi) -> Document t u (Just fi)) vDocs)
@@ -596,14 +605,13 @@ ic_GHC_libs =  mkIndexerConfig
 
 ic_HXT :: IndexerConfig
 ic_HXT =  mkIndexerConfig
-    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/index.html"
-    , "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_filter/index.html"
+    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"
     ]
     (Just "/tmp/")
     "/home/sms/indexes/hxt"
     ccs_Hayoo
     stdOpts4Reading
-    [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_"]
+    [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc"]
     [ "/src/"]
   
 ccs_Hayoo :: [ContextConfig]
@@ -654,12 +662,25 @@ ccHayooNormalizedSignature :: ContextConfig
 ccHayooNormalizedSignature = ContextConfig "normalized" (fromLA preFilterSignatures) theHayooXPath
   (\s -> [normalizeSignature (getSignature s)]) (\s -> length s ==  0)
 
+-- | Configruation for description context.
 ccHayooDescription :: ContextConfig 
-ccHayooDescription = ContextConfig "description" (fromLA preFilterSignatures) "//td[@class='doc']//text()" (parseWords isWordChar) (\s -> length s < 2)
+ccHayooDescription 
+  = ContextConfig { cc_name        = "description" 
+                  , cc_preFilter   = fromLA preFilterSignatures
+                  , cc_XPath       = "//td[@class='doc']//text()"
+                  , cc_fTokenize   = map (stripWith (=='.')) . (parseWords isWordChar)
+                  , cc_fIsStopWord = (\s -> length s < 2)
+                  }
 
 ccHaddockSignatures :: ContextConfig
-ccHaddockSignatures = ContextConfig "signatures" (fromLA preFilterSignatures) theHayooXPath (\a -> [a]) (const False)     
-
+ccHaddockSignatures 
+  = ContextConfig { cc_name        = "signatures"
+                  , cc_preFilter   = fromLA preFilterSignatures
+                  , cc_XPath       = theHayooXPath
+                  , cc_fTokenize   = (\a -> [a])
+                  , cc_fIsStopWord = const False     
+                  }
+                  
 ccModule :: ContextConfig
 ccModule = ContextConfig "module" (fromLA preFilterSignatures) "/module/text()" (\a -> [a]) (const False)     
 
@@ -711,4 +732,48 @@ stdOpts4Reading = []
   ++ [ (a_tagsoup, v_1) ]
   ++ [ (a_use_curl, v_1)]
   ++ [ (a_options_curl, "-L")] --"--user-agent HolumBot/0.1 --location")]   
+  
+  
+-- -------------------------------------------------------------------------------------------------
+-- stuff from Hayoo.Common
+
+-- | Additional information about a function.
+data FunctionInfo = FunctionInfo 
+  { moduleName :: String      -- ^ The name of the module containing the function, e.g. Data.Map
+  , signature :: String       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+  , sourceURI :: Maybe String -- ^ An optional URI to the online source of the function.
+  } 
+  deriving (Show, Eq)
+
+instance XmlPickler FunctionInfo where
+  xpickle = xpWrap (\(m, s, r) -> FunctionInfo m s r, \(FunctionInfo m s r) -> (m, s, r)) xpFunction
+    where
+    xpFunction = xpTriple xpModule xpSignature xpSource
+      where -- We are inside a doc-element, therefore everything is stored as attribute.
+      xpModule = xpAttr "module" xpText0
+      xpSignature = xpAttr "signature" xpText0
+      xpSource = xpOption (xpAttr "source" xpText0)
+
+instance Binary FunctionInfo where
+  put (FunctionInfo m s r) = put m >> put s >> put r
+  get = liftM3 FunctionInfo get get get
+  
+-- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
+-- @a->b->b@. All whitespace will be removed from the resulting string.
+normalizeSignature :: String -> String
+normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" . filter (not . isSpace)
+  where
+  replaceTypes _ _ [] = []
+  replaceTypes v t (x:xs) = let (nv, ut, rx) = replace in rx:(replaceTypes nv ut xs)
+    where
+    replace = let ut = [head t] in maybe (M.insert r ut v, tail t, ut) (\n -> (v, t, n)) (M.lookup r v)
+      where r = stripWith (\c -> (c == '(') || (c == ')')) x
+
+-- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
+-- to @String->Map k a->Int@.
+stripSignature :: String -> String
+stripSignature = sep "->" . sep "(" . sep ")" . sep "." . sep "=>"
+  where
+  sep s = join s . map strip . split s  
+ 
               
