@@ -28,10 +28,10 @@ import           Data.Maybe
 -- import           Holumbus.Index.Cache
 import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
+-- import qualified Holumbus.Index.Documents as DOC
 
 import           System.Time
 
-import           Text.Regex
 import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
 
 -- -----------------------------------------------------------------------------
@@ -169,7 +169,8 @@ processContext ::
 processContext docId cc = 
         (cc_preFilter cc)
     >>> getXPathTreesInDoc (cc_XPath cc)
-    >>> getText    
+    >>> deep isText                                         -- Search deep for Text (NEW)
+    >>> getText
     >>> arr (cc_fTokenize cc)
     >>> arr (filter (\s -> not ((cc_fIsStopWord cc) s)))
     >>> arr numberWords
@@ -183,7 +184,7 @@ processContext docId cc =
       
 -- -----------------------------------------------------------------------------
       
-     
+{-     
 -- | Helper function for creating indexer configurations
 mkIndexerConfig :: --(Arrow a, Binary b) =>
                    [URI]               -- ^ A list of URIs with which to start
@@ -195,7 +196,7 @@ mkIndexerConfig :: --(Arrow a, Binary b) =>
                 -> [String]            -- ^ List of regular expressions for files that shall be indexed 
                 -> [String]            -- ^ List of regular expressions for files that must not be indexed
                 -> IndexerConfig       -- ^ Configuration for an Indexer
-mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs {-getCustom-} allow deny = 
+mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs allow deny = 
   IndexerConfig
      startPages
      tmpPath
@@ -204,13 +205,8 @@ mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs {-getCustom-} al
      (mkCrawlFilter allow deny) -- (const True)      
      attrs
 --     getCustom
+-}
+
                
--- | Helper function to create Crawl filters based on regular expressions.
---   A excluding regular expression is always stronger than a including one.
-mkCrawlFilter :: [String] -> [String] -> (URI -> Bool)
-mkCrawlFilter as ds theUri = isAllowed && (not isForbidden ) 
-         where
-         isAllowed   = foldl (&&) True  (map (doesMatch theUri) as)
-         isForbidden = foldl (||) False (map (doesMatch theUri) ds)
-         doesMatch u a = isJust $ matchRegex (mkRegex $ a) u
+               
      

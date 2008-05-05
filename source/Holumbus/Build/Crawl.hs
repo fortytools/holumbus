@@ -80,7 +80,6 @@ crawl traceLevel maxWorkers cs =
                              , cs_wereProcessed = S.union d (cs_wereProcessed cs)
                              , cs_toBeProcessed = S.empty
                              }
-
          mr   <- mapReduce 
                     maxWorkers 
                     (crawlDoc traceLevel 
@@ -257,10 +256,6 @@ initialCS cic getCustom
       getCustom           
           
         
--- | Computes a filename for a local temporary file.
---   Since filename computation might depend on the DocId it is also submitted
---   as a parameter
-tmpFile :: DocId -> URI -> String
-tmpFile _ u = escape u
+
 
          
