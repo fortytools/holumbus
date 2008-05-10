@@ -35,8 +35,7 @@ main
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" indexing  ----------------------------- " ))
 
-    localDocs <- return docs
-    -- localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
+    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
     idx    <- buildIndex workerThreads
                          traceLevel
                          (map (\(i,d) -> (i, uri d)) (IM.toList $ DOC.toMap localDocs))
@@ -57,7 +56,7 @@ ic_fhw
     { ic_startPages     = [ "http://www.fh-wedel.de"
                           , "http://www.fh-wedel.de/sonstiges/sitemap/"
                           ]
-    , ic_tmpPath        = Nothing -- Just "/tmp/"
+    , ic_tmpPath        = Just "/tmp/"
     , ic_idxPath        = "/home/sms/indexes/sitemap"
     , ic_contextConfigs = ccs_fhw
     , ic_readAttrs      = stdOpts4Reading
