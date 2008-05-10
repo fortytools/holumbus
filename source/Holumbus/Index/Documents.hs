@@ -56,7 +56,7 @@ data Documents a = Documents
   , docToId   :: !(Map URI DocId)       -- ^ A mapping from the URI of a document to its id.
   , lastDocId :: !DocId                 -- ^ The last used document id.
   }
-  deriving (Show, Eq)
+  deriving (Show)
 
 instance Binary a => HolDocuments Documents a where
   sizeDocs d = IM.size (idToDoc d)
@@ -88,6 +88,10 @@ instance Binary a => HolDocuments Documents a where
   updateDocuments f d = Documents updated (idToDoc2docToId updated) (lastId updated)
     where
     updated = IM.map f (idToDoc d)
+
+-- Ignoring last document id when testing for equality
+instance Eq a => Eq (Documents a) where
+  (==) (Documents i2da d2ia _) (Documents i2db d2ib _) = (i2da == i2db) && (d2ia == d2ib)
 
 instance NFData a => NFData (Documents a) where
   rnf (Documents i2d d2i lid) = rnf i2d `seq` rnf d2i `seq` rnf lid

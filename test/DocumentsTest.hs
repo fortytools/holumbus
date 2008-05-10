@@ -89,6 +89,14 @@ prop_InsertSizeEmpty d = (uri d) /= ""
   ==> let (_, ds) = insertDoc emptyDocuments (d :: Document Int) in
       sizeDocs ds == (sizeDocs (emptyDocuments :: Documents Int)) + 1
 
+prop_InsertRemoveId d di = (uri d) /= ""
+  ==> let (i, ds) = insertDoc (di :: Documents Int) d in
+      di == removeById ds i
+
+prop_InsertRemoveURI d di = (uri d) /= ""
+  ==> let (_, ds) = insertDoc (di :: Documents Int) d in
+      di == removeByURI ds (uri d)
+
 prop_MergeEmpty ds = (snd $ mergeDocs emptyDocuments ds) == ((snd $ mergeDocs ds emptyDocuments) :: Documents Int)
 
 prop_MergeSize d ds = lookupByURI (ds :: Documents Int) (uri d) == Nothing
@@ -103,6 +111,8 @@ allProperties = ("Documents tests",
                 , run prop_InsertLookupURIEmpty
                 , run prop_InsertSizeEmpty
                 , run prop_InsertLastId
+                , run prop_InsertRemoveId
+                , run prop_InsertRemoveURI
                 , run prop_MergeEmpty
                 , run prop_MergeSize
                 ])
