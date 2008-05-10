@@ -12,6 +12,9 @@
 
   Indexer for the Haskell API Documentation Search Engine Hayoo!
 
+  TODO: 
+  - Include class, data, ... descriptions.
+
 -}
 
 -- ----------------------------------------------------------------------------
@@ -61,15 +64,6 @@ main
     workerThreads <- return 5 
     splitPath     <- return "/home/sms/tmp/split/"
     indexPath     <- return "/home/sms/indexes/hayoo"
-
-{-
-    idxConfig     <- return $ mergeIndexerConfigs ic_HXT [ic_Holumbus, ic_GHC_libs]
-    buildAnIndex traceLevel workerThreads splitPath idxConfig
-    theDocs       <- loadFromBinFile ((ic_idxPath ic_HXT) ++ "-docs.bin") :: IO (Documents FunctionInfo)
-    allTmpDocs    <- return $ tmpDocs splitPath theDocs 
--}  
-    
-
     idxConfigs    <- return $    []
 --                              ++ [ic_Hayoo]            -- hackage.haskell.org
                               ++ [ic_GHC_libs]         -- all GHC libs
@@ -89,8 +83,6 @@ main
     idx  <- loadFromBinFile ( (ic_idxPath cfg) ++ "-index.bin") :: IO Inverted
     docs <- loadFromBinFile ( (ic_idxPath cfg) ++ "-docs.bin")  :: IO (Documents FunctionInfo)
     
-    
-    
     (theDocs, theIdx) <- foldM mergeAll' (docs, idx) idxConfigs'    
     
     writeToXmlFile ( indexPath ++ "-docs.xml")  theDocs
@@ -98,12 +90,7 @@ main
     writeToXmlFile ( indexPath ++ "-index.xml") theIdx
     writeToBinFile ( indexPath ++ "-index.bin") theIdx
     
---    theDocs <- loadFromBinFile ( indexPath ++ "-docs.bin")  :: IO (Documents FunctionInfo)
-    
-    
     allTmpDocs <- return $ tmpDocs splitPath theDocs     
-    
-
     
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" cacheing  ------------------------------ " ))
@@ -121,7 +108,7 @@ mergeAll' (docs, idx) idxConfig =
 buildAnIndex :: Int -> Int -> String -> IndexerConfig -> IO ()
 buildAnIndex traceLevel workerThreads splitPath idxConfig
   = do 
-    crawlState    <- return (initialCS idxConfig customCrawlFunc)
+    crawlState    <- return (initialCrawlerState idxConfig customCrawlFunc)
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
@@ -153,7 +140,7 @@ buildAnIndex traceLevel workerThreads splitPath idxConfig
     -- ---------------------------------------------------------------------------------------------
 
 
--- | build a cache - this will be changed when a cache-server is introduced
+-- | build a cache - this will be changed when caches become mergable
 buildCache :: String -> [(DocId, URI)] -> IO()
 buildCache path l =
   do 
@@ -164,7 +151,7 @@ buildCache path l =
   cacheDoc :: HolCache c => c -> (DocId, URI) -> IO()
   cacheDoc cache (docId, u) =
     do
-    theText <- runX (      readDocument stdOpts4Reading u 
+    theText <- runX (      readDocument standardReadDocumentAttributes u 
                        >>> getXPathTrees "/tr/td[@class='doc']"
                        >>> deep isText
                        >>> getText
@@ -176,17 +163,12 @@ buildCache path l =
           then putDocText cache "description" docId (theText)
           else return ()
 
+-- | dummy function for the custom information in the Documents. This is used in the crawl phase
+--   of the index generation. The real custom information is computed during the split phase where
+--   every document is split up into pseude-documents which contain exactly one function
 customCrawlFunc :: IOSArrow XmlTree (Maybe FunctionInfo)
 customCrawlFunc = constA Nothing
 
--- | Helper function to replace original URIs by the corresponding pathes for 
---   the locally dumped files
---   <br/>TODO: Move this to a module
-tmpDocs :: String -> DOC.Documents a -> DOC.Documents a
-tmpDocs tmpPath =  
-    DOC.fromMap 
-  . (IM.mapWithKey (\docId doc -> Document (title doc) (tmpPath ++ (tmpFile docId (uri doc))) Nothing))
-  . DOC.toMap
     
 -- -----------------------------------------------------------------------------    
    -- Dirty Stuff for the Creation of Virtual Documents
@@ -198,7 +180,7 @@ tmpDocs tmpPath =
 getVirtualDocs :: String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
 getVirtualDocs splitPath docId theUri =         
   runX ( 
-      readDocument stdOpts4Reading theUri                       -- 1. read the Document
+      readDocument standardReadDocumentAttributes theUri        -- 1. read the Document
   >>> fromLA (     processClasses                               -- 2. transform the html for classes
                                                                 --    to function-like html
                >>> topdeclToDecl                                -- 3. transform declarations with 
@@ -221,7 +203,7 @@ getVirtualDocs splitPath docId theUri =
                                    >>^ unEscapeString
                                  )
                              &&& constA theModule
-                             &&& fromLA getSignature
+                             &&& fromLA getTheSignature
                              &&& getSourceLink
                            )      
          )
@@ -237,7 +219,7 @@ getVirtualDocs splitPath docId theUri =
            &&& constA (FunctionInfo theModule theSignature (theSourceURI))
          )
      >>^ (\(a,(b,c)) -> (a,b,c)) 
-  getSignature =     removeSourceLinks >>> preFilterSignatures >>> getXPathTreesInDoc theHayooXPath 
+  getTheSignature =     removeSourceLinks >>> preFilterSignatures >>> getXPathTreesInDoc theHayooXPath 
                  >>> getText
                  >>^ dropWhile ( /= ':' ) >>^ drop 3 
   getSourceLink :: ArrowXml a => a XmlTree (Maybe String)
@@ -248,6 +230,7 @@ getVirtualDocs splitPath docId theUri =
       ) `withDefault` Nothing
 
 
+-- | Transform classes so that the methods are wrapped into the same html as normal functions
 processClasses :: LA XmlTree XmlTree
 processClasses = 
   processTopDown (  processClassMethods
@@ -264,7 +247,7 @@ processClasses =
     processClassMethods :: LA XmlTree XmlTree
     processClassMethods = getXPathTrees "//td[@class='body']/table/tr/td[@class='body']/table/tr" 
 
--- | removes Source Links from the XmlTree. A Source Link can be identified by the text of an "a" 
+-- | Removes Source Links from the XmlTree. A Source Link can be identified by the text of an "a" 
 --   node but to be more precise it is also checked whether the href-attribute starts with "src".
 --   During the tree transformation it might happen, that source links with empty href attributes 
 --   are constructed so empty href attributes are also searched and removed if teh text of the "a"
@@ -278,7 +261,10 @@ removeSourceLinks =
                  )      
 
 
-
+-- | As Haddock can generate Documetation pages with links to source files and without these links
+--   there are two different types of declaration table datas. To make the indexing easier, the
+--   table datas with source links are transformed to look like those without (they differ 
+--   in the css class of the table data and the ones with the source links contain another table).
 topdeclToDecl ::LA XmlTree XmlTree
 topdeclToDecl  
     =     processTopDown
@@ -305,17 +291,18 @@ mkVirtualDocList _ vDocs
 
 -- -----------------------------------------------------------------------------
 
+{-
 removeElementsByXPath :: ArrowXml a => String -> a XmlTree XmlTree 
 removeElementsByXPath xpath =
   case xpath of
        "//td[@class='rdoc']"  ->  processTopDown (none `when` (isElem >>> hasName "td" >>> hasAttrValue "class" (== "rdoc")))
        otherwise              ->  none
-
+-}
 
 processDataTypeAndNewtypeDeclarations :: LA XmlTree XmlTree
 processDataTypeAndNewtypeDeclarations 
   = processTopDown
-      ( ( mkTheElem $<<<< (     getTheName
+      ( ( mkTheElem $<<<< (      getTheName
                              &&& getTheType
                              &&& getTheRef
                              &&& getTheSrc
@@ -489,8 +476,19 @@ removeSpacers =
             `when`
              (hasName "tr" /> hasName "td" >>> hasAttrValue "class" (\a ->  ( a == "s15" || a == "s8" ) ) )
           )
-          
 
+
+
+
+
+
+
+
+-- -------------------------------------------------------------------------------------------------
+--  Debugging stuff, will be removed soon
+-- -------------------------------------------------------------------------------------------------
+          
+{-
 p ps xpathExpr = processFromNodeSet ps $< getXPathNodeSet xpathExpr
 wd = writeDocument [(a_indent, "1")] "/home/sms/tmp/crazy.xml"
 wt = writeDocument [(a_show_tree, "1")] "/home/sms/tmp/crazy.xml"
@@ -507,7 +505,7 @@ da = "http://www.holumbus.org/docs/develop/Holumbus-Build-Index.html"
 
 c1 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Control-Arrow-ArrowList.html"
 c2 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlArrow.html"
-
+-}
 
 
 
@@ -551,8 +549,9 @@ c2 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlAr
 -- -----------------------------------------------------------------------------    
    -- Crawler & Indexer Configuration
 -- -----------------------------------------------------------------------------    
-ic_Single :: IndexerConfig
-ic_Single = mkIndexerConfig
+{- ic_Single :: IndexerConfig
+ic_Single
+ = mkIndexerConfig
 --    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Control-Arrow-ArrowList.html"
 --    , "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlArrow.html"
 --    , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
@@ -567,52 +566,62 @@ ic_Single = mkIndexerConfig
     stdOpts4Reading
     []
     [".*"]
+-}
 
 ic_Hayoo :: IndexerConfig
-ic_Hayoo = mkIndexerConfig
-    [ "http://hackage.haskell.org/packages/archive/pkg-list.html" ]        -- ic_startPages     :: [URI]
-    (Just "/home/sms/tmp/hayoo/")                                          -- ic_tmpPath        :: String
-    "/home/sms/indexes/hayoo"                                              -- ic_idxPath        :: String
-    ccs_Hayoo                                                              -- ic_contextConfigs :: [ContextConfig]
-    stdOpts4Reading
-    [ "http://hackage.haskell.org/" ]                                      -- allow
-    [ "/src/", "/trac/", ".tar.gz$", ".cabal$", ".pdf$", "/doc-index-"     -- deny
-    , "/logs/failures" ]
+ic_Hayoo
+  = IndexerConfig
+    { ic_startPages      = [ "http://hackage.haskell.org/packages/archive/pkg-list.html" ]
+    , ic_tmpPath         = Just "/home/sms/tmp/hayoo/"
+    , ic_idxPath         = "/home/sms/indexes/hayoo"
+    , ic_contextConfigs  = ccs_Hayoo
+    , ic_readAttrs       = standardReadDocumentAttributes
+    , ic_fCrawlFilter    = simpleCrawlFilter [ "http://hackage.haskell.org/" ]                  -- allow
+                                         [ "/src/", "/trac/", ".tar.gz$", ".cabal$", ".pdf$"-- deny
+                                         , "/doc-index-", "/logs/failures" 
+                                         ]
+    }
 
 ic_Holumbus :: IndexerConfig
-ic_Holumbus =  mkIndexerConfig
-    [ "http://www.holumbus.org/docs/develop/" ]      -- ic_startPages :: [URI]
-    (Just "/home/sms/tmp/holumbus_docs/")            -- ic_tmpPath    :: String
-    "/home/sms/indexes/holumbus"                     -- ic_idxPath    :: String
-    ccs_Hayoo                                   
-    stdOpts4Reading
-    [ "holumbus.org/docs/develop" ]
-    [ "/src/"]      
+ic_Holumbus 
+  =  IndexerConfig
+     { ic_startPages     = [ "http://www.holumbus.org/docs/develop/" ]
+     , ic_tmpPath        = Just "/home/sms/tmp/holumbus_docs/"
+     , ic_idxPath        = "/home/sms/indexes/holumbus"
+     , ic_contextConfigs = ccs_Hayoo                                   
+     , ic_readAttrs      = standardReadDocumentAttributes
+     , ic_fCrawlFilter   = simpleCrawlFilter [ "holumbus.org/docs/develop" ]
+                                         [ "/src/"]
+     }      
 
-ic_GHC_libs :: IndexerConfig         -- works
-ic_GHC_libs =  mkIndexerConfig
-    [ "http://www.haskell.org/ghc/docs/latest/html/libraries/"
-    , "http://www.haskell.org/ghc/docs/latest/html/libraries/index.html"
-    , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
-    ]                                                                        -- ic_startPages :: [URI]
-    (Just "/home/sms/tmp/ghc_libs/" )                                        -- ic_tmpPath    :: String
-    "/home/sms/indexes/ghclibs"                                                -- ic_idxPath    :: String
-    ccs_Hayoo
-    stdOpts4Reading
-    [ "^http://www.haskell.org/ghc/docs/latest/html/" ]
-    [ "/src/", "^http://www.haskell.org/ghc/docs/latest/html/libraries/doc-index.html"]  -- this page causes problems 
-
+ic_GHC_libs :: IndexerConfig         
+ic_GHC_libs
+ = IndexerConfig 
+   { ic_startPages      = [ "http://www.haskell.org/ghc/docs/latest/html/libraries/"
+                          , "http://www.haskell.org/ghc/docs/latest/html/libraries/index.html"
+                          , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
+                          ]
+   , ic_tmpPath         = Just "/home/sms/tmp/ghc_libs/"
+   , ic_idxPath         = "/home/sms/indexes/ghclibs"
+   , ic_contextConfigs  = ccs_Hayoo
+   , ic_readAttrs       = standardReadDocumentAttributes
+   , ic_fCrawlFilter    = simpleCrawlFilter [ "^http://www.haskell.org/ghc/docs/latest/html/" ]
+                                        [ "/src/" --  v-- this page causes problems
+                                        , "^http://www.haskell.org/ghc/docs/latest/html/libraries/doc-index.html" 
+                                        ]   
+   }
 
 ic_HXT :: IndexerConfig
-ic_HXT =  mkIndexerConfig
-    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"
-    ]
-    (Just "/tmp/")
-    "/home/sms/indexes/hxt"
-    ccs_Hayoo
-    stdOpts4Reading
-    [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc"]
-    [ "/src/"]
+ic_HXT 
+  = IndexerConfig
+    { ic_startPages     = [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"]
+    , ic_tmpPath        = Just "/tmp/"
+    , ic_idxPath        = "/home/sms/indexes/hxt"
+    , ic_contextConfigs = ccs_Hayoo
+    , ic_readAttrs      = standardReadDocumentAttributes
+    , ic_fCrawlFilter   = simpleCrawlFilter [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc"]
+                                        [ "/src/"]
+    }
   
 ccs_Hayoo :: [ContextConfig]
 ccs_Hayoo = [ ccModule
@@ -722,16 +731,6 @@ isDeclbut
           >>> isA declbutAttr
           where
           declbutAttr = isPrefixOf "declbut" 
-  
-  
-  -- | some standard options for the readDocument function
-stdOpts4Reading :: [(String, String)]
-stdOpts4Reading = []
-  ++ [ (a_parse_html, v_1)]
-  ++ [ (a_issue_warnings, v_0)]
-  ++ [ (a_tagsoup, v_1) ]
-  ++ [ (a_use_curl, v_1)]
-  ++ [ (a_options_curl, "-L")] --"--user-agent HolumBot/0.1 --location")]   
   
   
 -- -------------------------------------------------------------------------------------------------
