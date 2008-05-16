@@ -1,0 +1,58 @@
+.navbar {
+overflow:hidden;
+padding-bottom:20px;
+}
+.navbar ul {
+list-style-image:none;
+list-style-position:outside;
+list-style-type:none;
+margin:0pt;
+padding:0pt;
+}
+.navbar ul ul {
+border-bottom:0pt none;
+font-size:inherit;
+padding-bottom:0.6em;
+}
+.navbar ul li {
+display:inline;
+font-weight:normal;
+margin:0pt;
+padding:0pt;
+}
+.navbar a {
+border-top:1px solid #CCCCCC;
+color:#000000;
+display:block;
+line-height:100%;
+padding:0.6em 0pt;
+text-decoration:none;
+}
+.navbar li a {
+margin:0pt;
+padding-left:0.2em;
+}
+.navbar li ul li a {
+margin:0pt 0pt 0pt 1em;
+padding:0.4em 0pt 0.4em 0.2em;
+}
+.navbar li ul li ul li a {
+margin:0pt 0pt 0pt 2em;
+padding:0.4em 0pt 0.4em 0.2em;
+}
+.navbar li ul li ul li ul li a {
+margin:0pt 0pt 0pt 3em;
+padding:0.4em 0pt 0.4em 0.2em;
+}
+.navbar li ul li ul li ul li ul li a {
+margin:0pt 0pt 0pt 4em;
+padding:0.4em 0pt 0.4em 0.2em;
+}
+.navbar a:visited {
+}
+.navbar a:hover, .navbar a:focus, .navbar a:active {
+background-color:#D0DCFF;
+}
+.navbar .aktuellerMenuePunkt {
+font-weight:bold;
+}

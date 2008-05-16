@@ -1,0 +1,130 @@
+*|.float_left {
+float:left;
+}
+*|.float_right {
+float:right;
+}
+*|img {
+border:0pt none;
+}
+*|img.float_left {
+border:0pt none;
+float:left;
+margin-bottom:0.15em;
+margin-right:1em;
+}
+*|img.float_right {
+border:0pt none;
+float:right;
+margin-bottom:0.15em;
+margin-left:1em;
+}
+*|.teaserimg {
+margin-bottom:10px;
+}
+*|#col2 *|a {
+color:#1E3270;
+text-decoration:none;
+}
+*|#col2 *|a:hover, *|#col2 *|a:active, *|#col2 *|a:focus {
+text-decoration:underline;
+}
+*|h1 {
+color:#1F3370;
+font-size:1.44em;
+font-weight:bold;
+padding-bottom:1.5em;
+text-align:left;
+}
+*|h2 {
+color:#1F3370;
+font-size:1.12em;
+font-weight:bold;
+padding-bottom:1em;
+}
+*|h3 {
+font-size:0.96em;
+font-weight:bold;
+}
+*|h4 {
+font-size:0.8em;
+font-weight:bold;
+}
+*|p {
+padding-bottom:0.7em;
+}
+*|hr {
+background-color:#CCCCCC;
+}
+*|input, *|select {
+border:1px solid black;
+}
+*|ul.graySquareDots {
+color:#999999;
+font-weight:normal;
+list-style-type:square;
+}
+*|span.black {
+color:#000000;
+}
+*|span.red {
+color:#FF0000;
+}
+*|.searchField {
+white-space:nowrap;
+}
+*|.tx-indexedsearch-searchbox *|select, *|input {
+margin-bottom:0.7em;
+}
+*|#indexSearch *|a {
+text-decoration:underline;
+}
+*|.csc-menu *|li.level0 {
+border-top:1px solid #999999;
+font-weight:bold;
+margin-bottom:1em;
+}
+*|.csc-menu *|ul {
+margin:0pt;
+padding:0pt 0pt 0.4em 0.3em;
+}
+*|span.praesentationHeadline {
+color:#1F3370;
+font-size:1.8em;
+}
+*|ul.praesentation {
+color:#000000;
+font-size:1.5em;
+}
+*|table.largeTable {
+background-image:none;
+border:1px solid #999999;
+border-collapse:collapse;
+font-size:0.8em;
+}
+*|table.largeTable *|thead {
+background-color:#D0DCFF;
+font-weight:bold;
+}
+*|table.largeTable *|tbody *|td {
+border:1px solid #999999;
+padding:0.2em;
+text-align:left;
+vertical-align:top;
+}
+*|td.headerGray {
+background-color:#CCCCCC;
+font-weight:bold;
+}
+*|tr.headerGray {
+background-color:#CCCCCC;
+font-weight:bold;
+}
+*|td.header {
+background-color:#D0DCFF;
+font-weight:bold;
+}
+*|tr.header {
+background-color:#D0DCFF;
+font-weight:bold;
+}

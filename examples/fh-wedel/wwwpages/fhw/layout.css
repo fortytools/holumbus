@@ -1,0 +1,84 @@
+body {
+background:#EEEEEE none repeat scroll 0%;
+font-family:Verdana,Arial,Helvetica,sans-serif;
+font-size:90%;
+padding:10px;
+}
+#page_margins {
+background:#FFFFFF none repeat scroll 0%;
+border:1px solid #999999;
+margin:auto;
+max-width:70em;
+min-width:756px;
+}
+#header {
+background:#1E3270 url(/fhw/Top01.jpg) no-repeat scroll left top;
+color:#FFFFFF;
+}
+#logo {
+background-color:white;
+color:black;
+height:90px;
+margin:0pt 0pt 0pt 95%;
+overflow:hidden;
+text-align:center;
+}
+#breadcrumb {
+background-color:#CCCCCC;
+color:#1E3270;
+font-size:80%;
+margin-right:5%;
+}
+#breadcrumb_content {
+padding:0.5em 1em;
+}
+#breadcrumb_content a {
+color:#1E3270;
+text-decoration:none;
+}
+#breadcrumb_content a:hover, #breadcrumb_content a:active, #breadcrumb_content a:focus {
+text-decoration:underline;
+}
+#main {
+background:transparent url(/fhw/graues_pixel.gif) repeat-y scroll 20% 0%;
+font-size:90%;
+}
+#page {
+background:transparent url(/fhw/blaue_linie_x_95perc.gif) repeat-y scroll 95% 0%;
+}
+#col1_content, #col2_content, #col3_content {
+padding:1.5em 1em;
+}
+#footer {
+background-color:#CCCCCC;
+color:#1E3270;
+font-size:80%;
+padding:1em;
+text-align:right;
+}
+#footer a {
+color:#1E3270;
+text-decoration:none;
+}
+#footer a:hover, #footer a:active, #footer a:focus {
+border-bottom:0.1ex dashed;
+}
+#col1 {
+float:right;
+margin:0pt;
+width:5%;
+}
+#col2 {
+margin:0pt;
+width:75%;
+}
+#col3 {
+margin-left:0pt;
+margin-right:80%;
+}
+.invisible, .screen_invisible, #Navigationshilfe, .Abschnittstrenner {
+left:-2000px;
+position:absolute;
+top:-1000px;
+width:1900px;
+}

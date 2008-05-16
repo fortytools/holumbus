@@ -1,0 +1,198 @@
+@import "base.css";
+@import "layout.css";
+@import "content.css";
+@import "navigation.css";
+
+a:link {
+	text-decoration:none;
+}
+a:hover {
+	text-decoration:none;
+}
+a:visited {
+	text-decoration:none;
+}
+a:active {
+	text-decoration:none;
+}
+
+#throbber { 
+	vertical-align:text-bottom;
+}
+
+#info {
+	float:right;
+	color:gray;
+	padding:5px;
+}
+
+#container {
+	min-height:100%;
+	position:relative;
+}
+
+#fhw {
+	float:right;
+}
+
+#hol {
+	float:left;
+}
+
+#result {
+	padding-bottom:80px;
+}
+
+#credits {
+	border-top:1px solid silver;
+	border-bottom:1px solid silver;
+	margin-top:10px;
+	margin-bottom:10px;
+	color:gray;
+	padding-top:10px;
+	padding-bottom:5px;
+	background-color:#F4F4F4;
+	bottom:0;
+	position:absolute;
+	width:100%;
+}
+
+#powered {
+	margin-left:10px;
+	float:left;
+}
+
+#libs {
+	float: left;
+}
+
+#authors {
+	text-align:right;
+	margin-right:10px;
+	float:right;
+}
+
+#status {
+	clear:both;
+	color:gray;
+	vertical-align:middle;
+	padding:2px;
+	padding-left:5px;
+	text-align: center;
+}
+
+#documents {
+	padding:10px;
+}
+
+.document {
+	margin:5px;
+}
+
+#queryinterface {
+	height:25px;
+	padding-top:0px;
+	padding-left:100px;
+	padding-bottom:10px;
+	
+}
+
+#query {
+	color:gray;
+	margin:0px;
+}
+
+#querytext {
+	margin-top:5px;
+	border-color:silver;
+	border-width:1px;
+	border-style:solid;
+	width:300px;
+}
+
+#querybutton {
+	margin-top:5px;
+	border-color:silver;
+	border-width:1px;
+	border-style:solid;
+	background-color:#F4F4F4;
+}
+
+#pager {
+	text-align:center;
+	width:100%;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+a.page {
+	font-weight:bold;
+	color:gray;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+.page:hover {
+	color:silver;
+}
+
+.current {
+	font-weight:bold;
+	color:silver;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.next {
+	font-weight:bold;
+	color:gray;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.previous {
+	font-weight:bold;
+	color:gray;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+.cloud {
+	color:gray;
+	font-weight:normal;
+}
+
+.cloud:hover {
+	color:silver;
+}
+
+p.cloud {
+	padding-left: 10px;
+	padding-right: 10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	text-align:center;
+	word-spacing: 1.5em;
+}
+
+.cloud1 { font-size:7pt; }
+.cloud2 { font-size:10pt; }
+.cloud3 { font-size:13pt; }
+.cloud4 { font-size:15pt; }
+.cloud5 { font-size:17pt; }
+.cloud6 { font-size:19pt; }
+.cloud7 { font-size:20pt; }
+.cloud8 { font-size:21pt; }
+.cloud9 { font-size:22pt; }
+
+.link { color:navy; font-weight:bold;
+}
+.link:hover { 
+	color:navy; 
+	text-decoration:underline;
+}
+.title { font-size:10pt; }
+.contexts { color:gray; }
+.context { font-weight:bold; }
+.uri { color:green; }
+.declaration { font-style: italic; }
