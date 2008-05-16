@@ -16,6 +16,10 @@ a:active {
 	text-decoration:none;
 }
 
+#holumbus {
+	text-align:center;
+}
+
 #throbber { 
 	vertical-align:text-bottom;
 }
