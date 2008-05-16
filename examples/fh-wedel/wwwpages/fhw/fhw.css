@@ -108,6 +108,7 @@ a:active {
 	border-width:1px;
 	border-style:solid;
 	width:300px;
+	padding:1px;
 }
 
 #querybutton {
@@ -116,6 +117,7 @@ a:active {
 	border-width:1px;
 	border-style:solid;
 	background-color:#F4F4F4;
+	width:60px;
 }
 
 #pager {

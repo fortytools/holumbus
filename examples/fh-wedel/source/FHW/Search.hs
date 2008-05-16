@@ -199,7 +199,7 @@ genResult = ifP (\(q, _) -> checkWith ((> 1) . length) q)
 
 -- | Generate a success status response from a query result.
 msgSuccess :: Result CustomInfo -> String
-msgSuccess r = if sd == 0 then "Noch nichts gefunden." 
+msgSuccess r = if sd == 0 then "Leider nichts gefunden." 
                else (show sd) ++ " " ++ ds ++ " und " ++ (show sw) ++ " " ++ cs ++ " gefunden."
                  where
                  sd = sizeDocHits r
@@ -270,7 +270,7 @@ xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePag
 xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo CustomInfo, DocContextHits))
 xpDocInfoHtml _ = xpDivClass "document" $ xpWrap (docFromHtml, docToHtml) (xpTriple xpTitleHtml xpContextsHtml xpURIHtml)
   where
-  docToHtml (_, (DocInfo (Document t u _) _, dch)) = ((u, t), dch, u)
+  docToHtml (_, (DocInfo (Document t u _) _, dch)) = ((u, t), dch, shorten u 80)
   docFromHtml ((u, t), dch, _) = (0, (DocInfo (Document t u Nothing) 0.0, dch))
   xpTitleHtml = xpDivClass "title" $ xpElem "a" $ xpClass "link" $ (xpPair (xpAttr "href" xpText) xpText)
   xpContextsHtml = xpDivClass "contexts" $ xpWrap (M.fromList, M.toList) (xpList xpContextHtml)
@@ -314,6 +314,9 @@ xpScore = xpElem "span" $ xpPair (xpAttr "class" $ xpWrap (scoreFromHtml, scoreT
 
 pageLimit :: Int
 pageLimit = 10
+
+shorten :: String -> Int -> String
+shorten s l = if length s > l then take l s ++ "..." else s
 
 data Pager = Pager 
   { prevPage  :: Maybe Int -- == last predPages
