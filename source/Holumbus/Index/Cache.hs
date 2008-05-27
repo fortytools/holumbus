@@ -28,6 +28,8 @@ module Holumbus.Index.Cache
   )
 where
 
+import Control.Monad
+
 import Prelude hiding (lookup)
 
 import System.IO
@@ -52,6 +54,22 @@ instance HolCache Cache where
     insert = do
              quickQuery conn insertQuery [toSql d, toSql c, toSql t]
              commit conn
+             
+  mergeCaches (Cache conn1) (Cache conn2) 
+    = do
+      r <- quickQuery conn2 "SELECT id, context, content FROM holumbus_cache" []
+      cnew <- if null r then return conn1 else foldM insertOne conn1 r
+      return (Cache cnew)
+        where 
+          insertOne :: Connection -> [SqlValue] -> IO Connection
+          insertOne c sqlvs = do
+                                  quickQuery c insertQuery sqlvs
+                                  commit c
+                                  return c
+           
+     
+
+
 
 -- | The query for creating the database table.    
 createQuery :: String
@@ -69,9 +87,11 @@ lookupQuery = "SELECT content FROM holumbus_cache WHERE (id = ?) AND (context = 
 -- nothing is changed. If the database does not yet exist, it is properly initialized. The cache
 -- should only be created once for every database file during the lifetime of a program.
 createCache :: FilePath -> IO Cache
-createCache f = do
-                conn <- connectSqlite3 f
-                t <- getTables conn
-                if "holumbus_cache" `elem` t then return () 
-                  else quickQuery conn createQuery [] >> commit conn >> return ()
-                return (Cache conn)
+createCache f 
+  = do
+    conn <- connectSqlite3 f
+    t    <- getTables conn
+    if "holumbus_cache" `elem` t 
+      then return () 
+      else quickQuery conn createQuery [] >> commit conn >> return ()
+    return (Cache conn)

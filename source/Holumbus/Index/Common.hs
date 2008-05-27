@@ -195,6 +195,9 @@ class Binary (d a) => HolDocuments d a where
   -- and the table is returned unchanged.
   insertDoc     :: d a -> (Document a) -> (DocId, d a)
 
+  -- | Update a document with a certain DocId. 
+  updateDoc     :: d a -> DocId -> (Document a) -> d a
+
   -- | Removes the document with the specified id from the table.
   removeById     :: d a -> DocId -> d a
   -- | Removes the document with the specified URI from the table.
@@ -211,6 +214,9 @@ class HolCache c where
   -- | Store the full text of a document for a given context. May throw an exception if the 
   -- storage of the text failed.
   putDocText  :: c -> Context -> DocId -> Content -> IO ()
+  -- | Merge two caches in the way that everything that is in the second cache is inserted into the
+  --   first one.
+  mergeCaches :: c -> c -> IO c
 
 -- | The XML pickler for a set of positions.
 xpPositions :: PU Positions

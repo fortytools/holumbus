@@ -80,6 +80,12 @@ instance Binary a => HolDocuments Documents a where
       newIdToDoc = IM.insert newId d (idToDoc ds)
       newDocToId = M.insert (uri d) newId (docToId ds)
       newId = (lastDocId ds) + 1
+     
+  updateDoc ds i d = ds 
+                     { idToDoc = IM.insert i d (idToDoc ds)
+                     , docToId = M.insert (uri d) i (docToId (removeById ds i))
+                     }    
+
 
   removeById ds d = maybe ds reallyRemove (lookupById ds d)
     where
