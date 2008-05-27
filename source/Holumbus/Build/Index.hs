@@ -24,10 +24,12 @@ module Holumbus.Build.Index where
 import           Data.List
 import qualified Data.Map     as M
 import           Data.Maybe
-
+import           Control.Exception
+import           Control.Monad
 -- import           Holumbus.Index.Cache
-import           Holumbus.Control.MapReduce.Parallel
+import           Holumbus.Control.MapReduce.ParallelOld
 import           Holumbus.Index.Common
+import           Holumbus.Index.Cache
 -- import qualified Holumbus.Index.Documents as DOC
 
 import           System.Time
@@ -63,41 +65,72 @@ data ContextConfig
     , cc_XPath          :: String             -- multiple XPaths for one Context needed ???
     , cc_fTokenize      :: String -> [String]
     , cc_fIsStopWord    :: String -> Bool
+    , cc_addToCache     :: Bool
     }
     
--- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
---   the startPages of all other Configs are added. The crawl filters are ORed
---   so that more pages might be indexed. So you better know what you are doing
---   when you are using this.
-mergeIndexerConfigs :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
-mergeIndexerConfigs cfg1 [] = cfg1
-mergeIndexerConfigs cfg1 (cfg2:cfgs) = mergeIndexerConfigs resCfg cfgs
-  where 
-  resCfg = IndexerConfig
-      ((ic_startPages cfg1) ++ (ic_startPages cfg2))
-      (ic_tmpPath cfg1)
-      (ic_idxPath cfg1)
-      (ic_contextConfigs cfg1)  -- cfg2, too?
-      (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
-      (ic_readAttrs cfg1)
-      
-      
+    
+buildSplitIndex :: (HolIndex i, XmlPickler i) =>
+     Int
+  -> Int
+  -> [(DocId, URI)]
+  -> IndexerConfig
+  -> i
+  -> Bool
+  -> Int
+  -> IO [String]
+buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
+  = do
+    a <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
+    indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
+    docLists   <- return $ partitionList maxDocs docs
+    configs    <- return $ map (\i -> idxConfig {ic_idxPath = (ic_idxPath idxConfig) ++ (show i) }) [1..indexCount]
+    pathes     <- mapM build (zip configs docLists) -- caches)
+    mergeCaches' ((ic_idxPath idxConfig) ++ "-cache.db") (map (\cfg -> (ic_idxPath cfg) ++ "-cache.db") configs) 
+    return $ pathes
+    where
+      mergeCaches' :: String -> [String] -> IO ()
+      mergeCaches' newCache oldCaches 
+        = do
+          new <- createCache newCache
+          foldM mergeCaches'' new oldCaches 
+          return()                           
+      mergeCaches'' :: Cache -> String -> IO Cache
+      mergeCaches'' c1 s 
+        = do
+          c2 <- createCache s
+          mergeCaches c1 c2
+      build :: (IndexerConfig, [(DocId, URI)]) -> IO (String)
+      build (idxConfig, docs) 
+        = do
+          cache <- if buildCaches then mkCache (ic_idxPath idxConfig) else return $ Nothing
+          idx   <- buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
+          writeToXmlFile ( (ic_idxPath idxConfig) ++ "-index.xml") idx
+          writeToBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") idx
+          return (ic_idxPath idxConfig)
+      mkCache path
+        = do 
+          c <- createCache (path ++ "-cache.db")
+          return $ Just c   
+    
 -- -----------------------------------------------------------------------------
 
 -- | Build an Index over a list of Files.
-buildIndex :: HolIndex i => 
+buildIndex :: (HolIndex i, HolCache c) => 
               Int                -- ^ Number of parallel threads for MapReduce
            -> Int                -- ^ TraceLevel for Arrows
            -> [(DocId, String)]  -- ^ List of input Data
            -> IndexerConfig      -- ^ Configuration for the Indexing process
            -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
+           -> Maybe c
            -> IO i               -- ^ returns a HolIndex
-buildIndex workerThreads traceLevel docs idxConfig emptyIndex
+buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
   = do
+    a <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     mr <- mapReduce workerThreads
                     (indexMap traceLevel
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttrs      idxConfig)
+                              cache
                               "42"
                     )
                     (indexReduce emptyIndex) 
@@ -113,8 +146,10 @@ buildIndex workerThreads traceLevel docs idxConfig emptyIndex
 --   for different contexts to the @processDocument@ function where the file
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
-indexMap :: Int -> [ContextConfig] -> Attributes -> String -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
-indexMap traceLevel contextConfigs opts artificialKey docId theUri = do
+indexMap :: HolCache c =>
+               Int -> [ContextConfig] -> Attributes -> Maybe c -> String 
+            -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
+indexMap traceLevel contextConfigs attrs cache artificialKey docId theUri = do
     clt <- getClockTime
     cat <- toCalendarTime clt
     runX (  
@@ -122,7 +157,7 @@ indexMap traceLevel contextConfigs opts artificialKey docId theUri = do
         >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
                                                    ++ show docId ++ " -> "
                                                    ++ show theUri)
-        >>> processDocument opts contextConfigs (docId, theUri)
+        >>> processDocument attrs contextConfigs cache docId theUri
         >>> arr (\(c, w, d, p) -> (artificialKey, (c, w, d, p)))
       )
       
@@ -130,11 +165,11 @@ indexMap traceLevel contextConfigs opts artificialKey docId theUri = do
 --   Even though there might be faster ways to build an index, this function
 --   works with completely on the HolIndex class functions. So it is possible
 --   to use the Indexer with different Index implementations.
-indexReduce :: HolIndex i => i -> String -> [(String, String, DocId, Position)] -> IO (Maybe i)
+indexReduce :: (HolIndex i) => i -> String -> [(String, String, DocId, Position)] -> IO (Maybe i)
 indexReduce idx _ l =
   return $! Just (foldl' theFunc idx l)
     where
-    theFunc i (_, "", _ , _) = i -- insertPosition context "HIERISTDERFEHLER" docId pos i
+    theFunc i (_, "", _ , _) = i -- TODO Filter but make sure that phrase searching is still possible 
     theFunc i (context, word, docId, pos) = insertPosition context word docId pos i
     
   
@@ -142,71 +177,62 @@ indexReduce idx _ l =
     
 -- | Downloads a document and calls the function to process the data for the
 --   different contexts of the index
-processDocument :: 
+processDocument :: HolCache c =>  
      Attributes
   -> [ContextConfig]
-  -> (DocId, URI)
+  -> Maybe c
+  -> DocId 
+  -> URI
   -> IOSLA (XIOState s) b (Context, String, DocId, Int)
-processDocument opts ccs (docId, theUri) =
-        readDocument opts theUri
-    >>> processContexts ccs docId
-      
--- | Apply the processContext function to all configured contexts
-processContexts :: (ArrowXml a) =>
-     [ContextConfig]
-  -> DocId
-  -> a XmlTree (Context, String, DocId, Int)
-processContexts cc docId  = catA $ map (processContext docId) cc
+processDocument attrs ccs cache docId theUri =
+        readDocument attrs theUri                        -- read the document
+    >>> (catA $ map (processContext cache docId) ccs )   -- process all context configurations  
 
     
 -- | Process a Context. Applies the given context to extract information from
 --   the XmlTree that is passed in the arrow.
 processContext :: 
-  (ArrowXml a) => 
-     DocId
+  (ArrowIO a, ArrowXml a, HolCache c) => 
+     Maybe c
+  -> DocId
   -> ContextConfig
   -> a XmlTree (Context, String, DocId, Int)
-processContext docId cc = 
-        (cc_preFilter cc)
-    >>> getXPathTreesInDoc (cc_XPath cc)
-    >>> deep isText                                         -- Search deep for Text (NEW)
-    >>> getText
-    >>> arr (cc_fTokenize cc)
-    >>> arr (filter (\s -> not ((cc_fIsStopWord cc) s)))
-    >>> arr numberWords
-    >>> arrL (tupelize (cc_name cc) docId )
-    >>> strictA
+processContext cache docId cc  = 
+        (cc_preFilter cc)                                     -- convert XmlTree
+    >>> getXPathTreesInDoc (cc_XPath cc)                      -- extract interesting parts
+    >>> deep isText                                           -- Search deep for text nodes
+    >>> getText                                               -- convert text nodes into strings
+    >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
+                  `guardsP` 
+                    arrIO (putDocText (fromJust cache) (cc_name cc) docId )
+                )
+    >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
+    >>> arr (zip [1..])                                       -- number words
+    >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
+    >>> arrL (tupelize (cc_name cc) docId )                   -- make a list of result tupels
+    >>> strictA                                               -- force strict evaluation
     where
       tupelize context' docId' theWords    = map (mkTupel context' docId') theWords
-      mkTupel  context' docId' (word, pos) = (context', word, docId', pos)
-      numberWords :: [String] -> [(String, Int)]
-      numberWords l = zip l [1..]    
+      mkTupel  context' docId' (pos,word) = (context', word, docId', pos)   
       
 -- -----------------------------------------------------------------------------
-      
-{-     
--- | Helper function for creating indexer configurations
-mkIndexerConfig :: --(Arrow a, Binary b) =>
-                   [URI]               -- ^ A list of URIs with which to start
-                -> Maybe String        -- ^ Nothing = do not save tmp files locally. Just = Path where to save tmp files.         
-                -> String              -- ^ Path where to save index, doctable & cache
-                -> [ContextConfig]     -- ^ A list of Context Configurations 
-                -> Attributes          -- ^ Attributes for readDocument
---                -> a XmlTree b
-                -> [String]            -- ^ List of regular expressions for files that shall be indexed 
-                -> [String]            -- ^ List of regular expressions for files that must not be indexed
-                -> IndexerConfig       -- ^ Configuration for an Indexer
-mkIndexerConfig startPages tmpPath idxPath contextConfigs attrs allow deny = 
-  IndexerConfig
-     startPages
-     tmpPath
-     idxPath
-     contextConfigs
-     (mkCrawlFilter allow deny) -- (const True)      
-     attrs
---     getCustom
--}
-
-               
+-- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
+--   the startPages of all other Configs are added. The crawl filters are ORed
+--   so that more pages might be indexed. So you better know what you are doing
+--   when you are using this.
+{-
+mergeIndexerConfigs :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
+mergeIndexerConfigs cfg1 [] = cfg1
+mergeIndexerConfigs cfg1 (cfg2:cfgs) = mergeIndexerConfigs resCfg cfgs
+  where 
+  resCfg = IndexerConfig
+      ((ic_startPages cfg1) ++ (ic_startPages cfg2))
+      (ic_tmpPath cfg1)
+      (ic_idxPath cfg1)
+      (ic_contextConfigs cfg1)  -- cfg2, too?
+      (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
+      (ic_readAttrs cfg1)
+-}      
+                   
                
      
