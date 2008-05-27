@@ -49,6 +49,12 @@ strip = stripWith isSpace
 stripWith :: (a -> Bool) -> [a] -> [a]
 stripWith f = reverse . dropWhile f . reverse . dropWhile f
 
+-- | partition the list of input data into a list of input data lists of
+--   approximately the same length
+partitionList :: Int -> [a] -> [[a]]
+partitionList _ [] = []
+partitionList count l  = [take count l] ++ (partitionList count (drop count l)) 
+
 -- | Escapes non-alphanumeric or space characters in a String
 escape :: String -> String 
 escape []     = []
@@ -117,7 +123,7 @@ standardReadDocumentAttributes = []
   ++ [ (a_issue_warnings, v_0)]
   ++ [ (a_tagsoup, v_1) ]
   ++ [ (a_use_curl, v_1)]
-  ++ [ (a_options_curl, "-L")] --"--user-agent HolumBot/0.1 --location")]     
+  ++ [ (a_options_curl, "--user-agent HolumBot/0.1@http://holumbus.fh-wedel.de --location")]     
   ++ [ (a_encoding, isoLatin1)]      
   
 
@@ -125,13 +131,18 @@ standardReadDocumentAttributes = []
 
 -- | Comput the base of a webpage
 --   stolen from Uwe Schmidt, http://www.haskell.org/haskellwiki/HXT  
-computeDocBase  :: IOStateArrow s XmlTree String
+computeDocBase  :: ArrowXml a => a XmlTree String
 computeDocBase
-    = (     (     xshow (getXPathTrees "/html/head/base@href")
-              &&& getBaseURI
-            )
-        >>> expandURI
+    = ( ( ( this
+      /> hasName "html"
+      /> hasName "head"
+      /> hasName "base"
+      >>> getAttrValue "href"
+    )
+    &&&
+    getAttrValue "transfer-URI"
+  )
+  >>> expandURI
       )
-      `orElse` getBaseURI
-
-  
+      `orElse`
+      getAttrValue "transfer-URI"  
