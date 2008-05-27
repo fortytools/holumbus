@@ -24,6 +24,8 @@ module Holumbus.Control.MapReduce.Parallel where
 import Text.XML.HXT.Arrow
 
 import           Holumbus.Control.Registry
+import           Holumbus.Control.MapReduce.MapReducible
+import           Holumbus.Utility
 
 import           Data.Map (Map,empty,insertWith) -- ,mapWithKey,filterWithKey)
 import qualified Data.Map    as M
@@ -38,31 +40,33 @@ type Dict   = Map
 -- ----------------------------------------------------------------------------
 
 -- | MapReduce Computations
-mapReduce :: (Ord k2) =>
+{- mapReduce :: (Ord k2 , MapReduceable mr k2 v2 v3) =>
                 Int                             -- ^ No. of Threads 
+             -> mr                              -- ^ initial value for the result
              -> (k1 ->  v1  -> IO [(k2, v2)])   -- ^ Map function
              -> (k2 -> [v2] -> IO (Maybe v3))   -- ^ Reduce function
              -> [(k1, v1)]                      -- ^ input data 
-             -> IO (M.Map k2 v3)                -- ^ Result is a Map
-mapReduce maxWorkers mapFunction reduceFunction input
+             -> IO (mr)                -- ^ Result is a Map
+-}
+mapReduce maxWorkers mr mapFunction reduceFunction input
   = do
     
-    -- split the input data into pieces of approximately the same size
+      -- split the input data into pieces of approximately the same size
     ps       <- return (max 1 ((length input) `div` maxWorkers)) 
     runX (traceMsg 0 ("          MapReduce partition size: " ++ show ps))
     pin      <- return ( partitionList ps input ) 
 
-    -- parallel map phase
+      -- parallel map phase
     runX (traceMsg 0 ("                    mapPerKey " ))
     mapped   <- parallelMap mapFunction pin 
     
-    -- grouping of data gained in the map phase
+      -- grouping of data gained in the map phase
     runX (traceMsg 0 ("                    groupByKey " ))
     grouped  <- return  (groupByKey mapped)  
     
-    -- reduce phase
+      -- reduce phase
     runX (traceMsg 0 ("                    reduceByKey "))
-    reducePerKey reduceFunction grouped
+    reducePerKey mr grouped
     
 -- ----------------------------------------------------------------------------
 
@@ -106,14 +110,33 @@ groupByKey :: (Ord k2) => [(k2, v2)] -> Dict k2 [v2]
 groupByKey = foldl insert empty
   where
     insert dict (k2,v2) = insertWith (++) k2 [v2] dict
-    
+
+
+-- reducePerKey :: (MapReduceable mr k2 v2 v3) => mr -> Map k2 [v2] -> IO (mr)
+reducePerKey initialMR m
+ = rpk 
+    (uncurry (reduceMR initialMR)) 
+    (M.toList m) 
+    initialMR 
+   where
+--     rpk :: (MapReduceable mr k2 v2 v3) => ((k2, [v2]) -> IO(Maybe mr)) -> [(k2, [v2])] -> mr -> IO(mr)
+--     rpk _ _ r = return r
+     rpk _  [] result = return result
+     rpk rf l  result
+       = do 
+         next <- return $ head l
+         done <- rf next
+         if isJust done
+           then rpk rf (drop 1 l) (mergeMR result (fromJust done))
+           else rpk rf (drop 1 l) result 
+     
 -- | Reduce Phase. The Reduce Phase does not run parallelized.
-reducePerKey :: (Ord k2) => (k2 -> [v2] -> IO(Maybe v3)) -> Map k2 [v2] -> IO (Map k2 v3)
-reducePerKey reduceFunction inmap
-  = rpk (uncurry reduceFunction) (M.toList inmap) M.empty
+redPerKey :: (Ord k2) => (k2 -> [v2] -> IO(Maybe v3)) -> Map k2 [v2] -> IO (Map k2 v3)
+redPerKey reduceFunction m
+  = rpk (uncurry reduceFunction) (M.toList m) M.empty
     where
       rpk :: (Ord k2) => ((k2, [v2]) -> IO(Maybe v3)) -> [(k2, [v2])] -> Map k2 v3 -> IO (Map k2 v3)
-      rpk _ [] result = do return (result)
+      rpk _ [] result = return result
       rpk reduceFunction' toProcess result
         = do
           firstP  <- return $ head toProcess
@@ -124,11 +147,6 @@ reducePerKey reduceFunction inmap
           
 
 -- ----------------------------------------------------------------------------
-    
--- | partition the list of input data into a list of input data lists of
---   approximately the same length
-partitionList :: Int -> [a] -> [[a]]
-partitionList _ [] = []
-partitionList count l  = [take count l] ++ (partitionList count (drop count l)) 
+ 
 
          
