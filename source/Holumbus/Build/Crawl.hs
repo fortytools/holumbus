@@ -15,7 +15,7 @@
 -}
 
 -- ----------------------------------------------------------------------------
-{-# OPTIONS -fglasgow-exts #-}
+{-# OPTIONS -fglasgow-exts -fno-warn-orphans #-}
 -- -----------------------------------------------------------------------------
 
 module Holumbus.Build.Crawl
@@ -28,9 +28,11 @@ module Holumbus.Build.Crawl
   
   -- * Initializing
   , initialCrawlerState
-  
+  , getRefs
   )
 where
+
+import           Control.Monad
 
 import           Data.Binary
 import           Data.Char
@@ -38,9 +40,11 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.Map    as M
 import qualified Data.Set    as S
+import           Data.Digest.MD5
+import           Data.ByteString.Lazy.Char8(pack)
 
 import           Holumbus.Build.Index
-import           Holumbus.Control.MapReduce.Parallel
+import           Holumbus.Control.MapReduce.ParallelOld
 import           Holumbus.Index.Common
 import           Holumbus.Index.Documents
 import           Holumbus.Utility
@@ -48,11 +52,10 @@ import           Holumbus.Utility
 import           Text.XML.HXT.Arrow
 import           System.Time
 
-
-type Custom b = IOSArrow XmlTree (Maybe b)
+type Custom a = IOSArrow XmlTree (Maybe a)
 
 -- | crawler state
-data CrawlerState b
+data CrawlerState a
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
       , cs_wereProcessed    :: S.Set URI
@@ -60,10 +63,17 @@ data CrawlerState b
       , cs_readAttributes   :: Attributes     -- passed to readDocument
       , cs_refXPaths        :: [String]       -- XPath expressions for references to other documents
       , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
-      , cs_docs             :: Documents b       
+      , cs_docs             :: Documents a       
       , cs_tempPath         :: Maybe String     
-      , cs_fGetCustom       :: Custom b
+      , cs_fGetCustom       :: Custom a
+      , cs_docHashes        :: M.Map String URI
       }
+{-      
+instance Eq MD5Context where
+  (==) c1 c2 = (show c1) == (show c2)
+  
+instance Ord MD5Context where
+  c1 <= c2 = (show c1) <= (show c2)-}
       
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.
@@ -95,28 +105,73 @@ crawl traceLevel maxWorkers cs =
 --   unprocessed docs and the data of the already crawled documents are added to the 'Documents'. 
 processCrawlResults :: (Binary b) => 
                        CrawlerState b                 -- ^ state before last MapReduce computation
-                    -> Int                            -- ^ artificial key, only to fit MapReduce
-                    -> [(Maybe (Document b), [URI])]  -- ^ data p in the crawl phase
+                    -> Int                     -- ^
+                    -> [(String, Maybe (Document b), [URI])]  -- ^ data produced in the crawl phase
                     -> IO (Maybe (CrawlerState b))
-processCrawlResults cs _ l =
+processCrawlResults oldCs _ l = 
+  do 
+  cs' <- foldM process oldCs l
+  return $ Just cs'
+  where 
+    process :: Binary b => 
+               CrawlerState b -> (String, Maybe (Document b), [URI]) -> IO (CrawlerState b)
+    process cs (theMD5, mdoc, refs) 
+      = if isJust mdoc
+          then 
+               do
+               if M.member theMD5 (cs_docHashes cs)
+                 then do
+                      old  <- M.lookup theMD5 (cs_docHashes cs)
+                      new  <- return $ uri $ fromJust mdoc
+                      (newDocs, newHashes) <- update (cs_docs cs) (cs_docHashes cs) theMD5 old new
+                      return cs { cs_docs = newDocs 
+                                , cs_toBeProcessed = S.union 
+                                       (cs_toBeProcessed cs) 
+                                       (S.difference (S.fromList (filter (cs_fCrawlFilter cs) refs)) 
+                                                     (cs_wereProcessed cs)
+                                       )
+                                , cs_docHashes = newHashes
+                                }
+                 else do
+                      return $ 
+                        cs { cs_toBeProcessed = S.union (cs_toBeProcessed cs) 
+                               (S.difference (S.fromList (filter (cs_fCrawlFilter cs) refs)) 
+                                             (cs_wereProcessed cs)
+                               )
+                           , cs_docs      = snd (insertDoc (cs_docs cs) (fromJust mdoc))                                                
+                           , cs_docHashes = M.insert theMD5 (uri $ fromJust mdoc) (cs_docHashes cs)
+                           }
+          else return cs
+    update :: Binary b => Documents b -> M.Map String URI -> String -> URI -> URI -> IO (Documents b, M.Map String URI)
+    update docs hashes md5String oldUri newUri 
+      = if length oldUri <= length newUri 
+          then return $ (docs, hashes)
+          else do 
+               docId  <- lookupByURI docs oldUri
+               oldDoc <- lookupById  docs docId
+               newDoc <- return oldDoc {uri = newUri}
+               return (updateDoc docs docId newDoc, M.insert md5String newUri hashes)
+
+{-                
     let
         -- Concatenate reference lists of all documents and transform them into a set to eliminiate
         -- multiple occurences of one 'Document'
       newDocs        = S.unions (map S.fromList (map refs l))  
         -- filter new references with the crawl filter
-      refs (_, uris) = filter (cs_fCrawlFilter cs) uris       
+      refs (_, _, uris) = filter (cs_fCrawlFilter cs) uris       
         -- take only documents that could be crawled without errors
-      processedDocs  = catMaybes (map fst l)
+      processedDocs  = catMaybes (map (\(_,a,_) -> a) l)
     in      
-      return $! Just 
-        cs { cs_toBeProcessed = S.union                 -- add new documents to the todo list
-                                  (cs_toBeProcessed cs)
-                                  (S.difference newDocs (cs_wereProcessed cs))
-           , cs_docs          = theFold processedDocs   -- insert crawled documents into 'Documents'
-           } 
+          return $! Just 
+            cs { cs_toBeProcessed = S.union                 -- add new documents to the todo list
+                                      (cs_toBeProcessed cs)
+                                      (S.difference newDocs (cs_wereProcessed cs))
+               , cs_docs          = theFold processedDocs   -- insert crawled documents into 'Documents'
+               , cs_docHashes     = (cs_docHashes cs)
+               }
      where
      theFold processedDocs = foldl' (\d r -> snd (insertDoc d r)) (cs_docs cs) processedDocs
-
+-}
 
 
 
@@ -129,7 +184,7 @@ crawlDoc :: (Binary b) =>
          -> CrawlerState b
          -> DocId 
          -> String 
-         -> IO [(Int, (Maybe (Document b), [URI]))]
+         -> IO [(Int, (String, Maybe (Document b), [URI]))]
 crawlDoc traceLevel cs docId theUri 
   = let attrs     = cs_readAttributes cs 
         tmpPath   = cs_tempPath cs
@@ -142,7 +197,7 @@ crawlDoc traceLevel cs docId theUri
     runX (     setTraceLevel traceLevel
            >>> traceMsg 1 (calendarTimeToString cat)  
            >>> (     constA 42        -- this is needed to fit the MapReduce abstraction
-                 &&& crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri)
+                 &&& crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri) 
                )   
           ) 
 
@@ -153,8 +208,8 @@ crawlDoc' :: (Binary b) =>
   -> Maybe String  -- ^ path for serialized tempfiles
   -> [String]
   -> Custom b
-  -> (DocId, String)   -- ^ DocId, URI
-  -> IOSArrow c (Maybe (Document b), [URI])
+  -> (DocId, URI)   -- ^ DocId, URI
+  -> IOSArrow c (String, Maybe (Document b), [URI])
 crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
     >>> readDocument attrs theUri
@@ -167,14 +222,15 @@ crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri) =
                   const (isJust tmpPath ) 
                 ) 
                 -- compute a pair of Document b (Holumbus datatype) and a list of contained links
-            >>> (     getDocument theUri getCustom
+            >>> (     ( writeDocumentToString [] >>^ (show . md5 . pack) )
+                  &&& getDocument theUri getCustom
                   &&& ( getRefs refXPaths >>> strictA )
-                )
+                )  >>> arr (\(a,(b,c)) -> (a,b,c))
           )
           `orElse` (                  -- if an error occurs with the current document, the global 
                 clearErrStatus        -- error status has to be reset, else the crawler would stop
-            >>> traceMsg 0 (  "something went wrong with doc: " ++ theUri)    
-            >>> constA (Nothing, [])  -- Nothing indicates the error, the empty list shows
+            >>> traceMsg 0 (  "something went wrong with doc: \"" ++ theUri ++"\"")    
+            >>> constA (show ( md5 (pack "foo")) , Nothing, [])  -- Nothing indicates the error, the empty list shows
           )                           -- that - caused by the error - no new links were found
         )
 
@@ -185,23 +241,32 @@ getDocument :: (Binary b) =>
             -> Custom b   -- ^ Function to extract the custom Data from the 'Document'
             -> IOSArrow XmlTree (Maybe (Document b))
 getDocument theUri getCustom 
-  = mkDoc $<<< (     getTitle
+  = mkDoc $<<< (     ( getXPathTrees "/html/head/title/text()" >>> getText) -- get the doc title 
                  &&& constA theUri
                  &&& getCustom
                )
     where
     mkDoc t u c = constA $ Just $ Document t u c
-    getTitle 
-      =     getXPathTrees "/html/head/title/text()"
-        >>> getText     
-             
+
+
 -- | Extract References to other documents from a XmlTree based on configured XPath expressions
 getRefs :: [String] -> IOSLA (XIOState s) XmlTree [URI]
 getRefs xpaths
-  = catA $ map getRefs' xpaths
-    where getRefs' xpath = listA $ getXPathTrees xpath >>> getText >>> mkAbsURI
+  = getRefs' $< computeDocBase
+    where
+    getRefs' base = catA $ map (\x -> listA $ getXPathTrees x >>> getText >>^ toAbsRef) xpaths
+      where
+      toAbsRef ref = removeFragment $ fromMaybe ref $ expandURIString ref base
+      removeFragment r
+              | "#" `isPrefixOf` path = reverse . tail $ path
+              | otherwise = r
+              where
+                path = dropWhile (/='#') . reverse $ r  
 
 
+
+    
+             
 -- | create an initial CrawlerState from an IndexerConfig
 initialCrawlerState :: (Binary b) => IndexerConfig -> Custom b -> CrawlerState b
 initialCrawlerState cic getCustom
@@ -215,6 +280,7 @@ initialCrawlerState cic getCustom
     , cs_docs           = emptyDocuments
     , cs_tempPath       = ic_tmpPath cic
     , cs_fGetCustom     = getCustom
+    , cs_docHashes      = M.empty
     }
     
           

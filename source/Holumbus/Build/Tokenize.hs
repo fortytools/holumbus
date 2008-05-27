@@ -24,7 +24,7 @@ parseWords  :: (Char -> Bool) -> String -> [String]
 parseWords isWordChar'
           = filter (not . null) . words . map boringChar
           where
-          boringChar c      -- these chars separate words, so -_.' are allowed in words
+          boringChar c             -- these chars separate words
             | isWordChar' c = c
             | otherwise    = ' '
 
