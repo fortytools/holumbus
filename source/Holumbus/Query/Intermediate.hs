@@ -58,7 +58,7 @@ import qualified Data.IntSet as IS
 
 import Holumbus.Query.Result hiding (null)
 
-import Holumbus.Index.Common
+import Holumbus.Index.Common hiding (toList, fromList)
 
 -- | The intermediate result used during query processing.
 type Intermediate = IntMap IntermediateContexts
