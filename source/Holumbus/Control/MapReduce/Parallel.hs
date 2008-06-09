@@ -48,7 +48,7 @@ type Dict   = Map
              -> [(k1, v1)]                      -- ^ input data 
              -> IO (mr)                -- ^ Result is a Map
 -}
-mapReduce maxWorkers mr mapFunction reduceFunction input
+mapReduce maxWorkers mr mapFunction input
   = do
     
       -- split the input data into pieces of approximately the same size

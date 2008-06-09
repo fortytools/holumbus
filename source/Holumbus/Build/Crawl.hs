@@ -61,6 +61,7 @@ data CrawlerState a
       , cs_wereProcessed    :: S.Set URI
       , cs_unusedDocIds     :: [DocId]        -- probably unneeded
       , cs_readAttributes   :: Attributes     -- passed to readDocument
+      , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- filter that is applied before
       , cs_refXPaths        :: [String]       -- XPath expressions for references to other documents
       , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
       , cs_docs             :: Documents a       
@@ -152,30 +153,6 @@ processCrawlResults oldCs _ l =
                newDoc <- return oldDoc {uri = newUri}
                return (updateDoc docs docId newDoc, M.insert md5String newUri hashes)
 
-{-                
-    let
-        -- Concatenate reference lists of all documents and transform them into a set to eliminiate
-        -- multiple occurences of one 'Document'
-      newDocs        = S.unions (map S.fromList (map refs l))  
-        -- filter new references with the crawl filter
-      refs (_, _, uris) = filter (cs_fCrawlFilter cs) uris       
-        -- take only documents that could be crawled without errors
-      processedDocs  = catMaybes (map (\(_,a,_) -> a) l)
-    in      
-          return $! Just 
-            cs { cs_toBeProcessed = S.union                 -- add new documents to the todo list
-                                      (cs_toBeProcessed cs)
-                                      (S.difference newDocs (cs_wereProcessed cs))
-               , cs_docs          = theFold processedDocs   -- insert crawled documents into 'Documents'
-               , cs_docHashes     = (cs_docHashes cs)
-               }
-     where
-     theFold processedDocs = foldl' (\d r -> snd (insertDoc d r)) (cs_docs cs) processedDocs
--}
-
-
-
-
 -- | Wrapper function for the "real" crawlDoc functions. The current time is
 --   traced (to identify documents that take a lot of time to be processed while
 --   testing) and the crawlDoc'-arrow is run
@@ -212,7 +189,7 @@ crawlDoc' :: (Binary b) =>
   -> IOSArrow c (String, Maybe (Document b), [URI])
 crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
-    >>> readDocument attrs theUri
+    >>> readDocument attrs theUri 
     >>> (
           documentStatusOk `guards`   -- make sure that the document could be accessed
                 -- if it is set in the crawler options, write a temporary copy of the document to
@@ -222,10 +199,11 @@ crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri) =
                   const (isJust tmpPath ) 
                 ) 
                 -- compute a pair of Document b (Holumbus datatype) and a list of contained links
-            >>> (     ( writeDocumentToString [] >>^ (show . md5 . pack) )
+            >>> 
+                (     (  writeDocumentToString [] >>^ (show . md5 . pack) )
                   &&& getDocument theUri getCustom
-                  &&& ( getRefs refXPaths >>> strictA )
-                )  >>> arr (\(a,(b,c)) -> (a,b,c))
+                  &&& ( getRefs refXPaths >>> strictA >>> perform (theTrace $< arr length) )
+                )   >>^ (\(a,(b,c)) -> (a,b,c))
           )
           `orElse` (                  -- if an error occurs with the current document, the global 
                 clearErrStatus        -- error status has to be reset, else the crawler would stop
@@ -233,6 +211,9 @@ crawlDoc' attrs tmpPath refXPaths getCustom (docId, theUri) =
             >>> constA (show ( md5 (pack "foo")) , Nothing, [])  -- Nothing indicates the error, the empty list shows
           )                           -- that - caused by the error - no new links were found
         )
+        where 
+          theTrace i = traceMsg 2 ("found " ++ (show i) ++ " references")
+          
 
 -- | extract the Title of a Document (for web pages the <title> tag) and combine
 --   it with the document uri
@@ -274,8 +255,9 @@ initialCrawlerState cic getCustom
     { cs_toBeProcessed  = S.fromList (ic_startPages cic)
     , cs_wereProcessed  = S.empty
     , cs_unusedDocIds   = [1..]
-    , cs_readAttributes = ic_readAttrs cic
-    , cs_refXPaths      = ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
+    , cs_readAttributes = ic_readAttributes cic
+    , cs_refXPaths      = ["//a/@href/text()", "//a/@HREF/text()", "//frame/@src/text()", "//iframe/@src/text()"]
+    , cs_fPreFilter     = this
     , cs_fCrawlFilter   = ic_fCrawlFilter cic
     , cs_docs           = emptyDocuments
     , cs_tempPath       = ic_tmpPath cic

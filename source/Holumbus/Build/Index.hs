@@ -46,7 +46,7 @@ data IndexerConfig
     , ic_idxPath        :: String
     , ic_contextConfigs :: [ContextConfig]
     , ic_fCrawlFilter   :: URI -> Bool     -- will be passed to crawler, not needed for indexing
-    , ic_readAttrs      :: Attributes
+    , ic_readAttributes :: Attributes
 --    , ic_fGetCustom     :: (Arrow a, Binary b) => a XmlTree b
     } 
 
@@ -80,7 +80,7 @@ buildSplitIndex :: (HolIndex i, XmlPickler i) =>
   -> IO [String]
 buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
   = do
-    a <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
+    _ <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
     docLists   <- return $ partitionList maxDocs docs
     configs    <- return $ map (\i -> idxConfig {ic_idxPath = (ic_idxPath idxConfig) ++ (show i) }) [1..indexCount]
@@ -100,13 +100,13 @@ buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches m
           c2 <- createCache s
           mergeCaches c1 c2
       build :: (IndexerConfig, [(DocId, URI)]) -> IO (String)
-      build (idxConfig, docs) 
+      build (idxConfig', docs') 
         = do
-          cache <- if buildCaches then mkCache (ic_idxPath idxConfig) else return $ Nothing
-          idx   <- buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
-          writeToXmlFile ( (ic_idxPath idxConfig) ++ "-index.xml") idx
-          writeToBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") idx
-          return (ic_idxPath idxConfig)
+          cache <- if buildCaches then mkCache (ic_idxPath idxConfig') else return $ Nothing
+          idx   <- buildIndex workerThreads traceLevel docs' idxConfig' emptyIndex cache
+          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
+          writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
+          return (ic_idxPath idxConfig')
       mkCache path
         = do 
           c <- createCache (path ++ "-cache.db")
@@ -125,11 +125,11 @@ buildIndex :: (HolIndex i, HolCache c) =>
            -> IO i               -- ^ returns a HolIndex
 buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
   = do
-    a <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
+    _ <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     mr <- mapReduce workerThreads
                     (indexMap traceLevel
                               (ic_contextConfigs idxConfig) 
-                              (ic_readAttrs      idxConfig)
+                              (ic_readAttributes idxConfig)
                               cache
                               "42"
                     )
@@ -217,13 +217,16 @@ processContext cache docId cc  =
       
 -- -----------------------------------------------------------------------------
 -- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
---   the startPages of all other Configs are added. The crawl filters are ORed
+--   the startPages of all other Configs are added. The crawl filters are OR-ed
 --   so that more pages might be indexed. So you better know what you are doing
 --   when you are using this.
-{-
-mergeIndexerConfigs :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
-mergeIndexerConfigs cfg1 [] = cfg1
-mergeIndexerConfigs cfg1 (cfg2:cfgs) = mergeIndexerConfigs resCfg cfgs
+
+mergeIndexerConfigs :: IndexerConfig -> IndexerConfig -> IndexerConfig
+mergeIndexerConfigs cfg1 cfg2 = mergeIndexerConfigs' cfg1 [cfg2]
+
+mergeIndexerConfigs' :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
+mergeIndexerConfigs' cfg1 [] = cfg1
+mergeIndexerConfigs' cfg1 (cfg2:cfgs) = mergeIndexerConfigs' resCfg cfgs
   where 
   resCfg = IndexerConfig
       ((ic_startPages cfg1) ++ (ic_startPages cfg2))
@@ -231,8 +234,8 @@ mergeIndexerConfigs cfg1 (cfg2:cfgs) = mergeIndexerConfigs resCfg cfgs
       (ic_idxPath cfg1)
       (ic_contextConfigs cfg1)  -- cfg2, too?
       (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
-      (ic_readAttrs cfg1)
--}      
+      (ic_readAttributes cfg1)
+   
                    
                
      
