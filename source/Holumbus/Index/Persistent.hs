@@ -81,6 +81,8 @@ instance HolIndex Persistent where
   splitByWords _ = undefined
 
   updateDocIds _ _ = undefined
+  
+  toList _ = undefined
 
 instance Binary Persistent where
   put (Persistent parts occ) = put parts >> put occ

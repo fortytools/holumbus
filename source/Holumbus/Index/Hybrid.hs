@@ -89,6 +89,8 @@ instance HolIndex Hybrid where
   splitByWords _ _ = undefined
   
   updateDocIds _ _ = undefined
+ 
+  toList _ = undefined
 
 instance Binary Hybrid where
   put _ = undefined

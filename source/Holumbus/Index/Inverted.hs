@@ -108,6 +108,9 @@ instance HolIndex Inverted where
       where
       mergePositions p1 p2 = deflatePos $ IS.union (inflatePos p1) (inflatePos p2)
 
+  toList i = concat $ map convertPart $ M.toList (indexParts i) 
+    where convertPart (c,p) = map (\(w, o) -> (c, w, inflateOcc o)) $ SM.toList $ p
+
 instance NFData Inverted where
   rnf (Inverted parts) = rnf parts
 
