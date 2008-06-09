@@ -176,6 +176,17 @@ class Binary i => HolIndex i where
   -- to the same new id, the two sets of word positions will be merged if both old id's are present
   -- in the occurrences for a word in a specific context.
   updateDocIds:: (Context -> Word -> DocId -> DocId) -> i -> i
+  
+  -- Convert an Index to a list. Can be used vor easy conversion between different index  
+  -- implementations
+  toList   :: i -> [(Context, Word, Occurrences)]
+  
+  -- Create an Index froma a list. Can be used vor easy conversion between different index  
+  -- implementations. Needs an empty index as first argument
+  fromList :: i -> [(Context, Word, Occurrences)] -> i
+  fromList e = foldl (\i (c,w,o) -> insertOccurrences c w o i) e
+
+
 
 class Binary (d a) => HolDocuments d a where
   -- | Returns the number of unique documents in the table.
@@ -295,6 +306,14 @@ writeToXmlFile f i = do
 loadFromBinFile :: Binary a => FilePath -> IO a
 loadFromBinFile f = B.decodeFile f
 
+-- | Load from a binary file.
+-- readFromBinFile :: Binary a => FilePath -> IO a
+-- readFromBinFile = loadFromBinFile
+
 -- | Write to a binary file.
 writeToBinFile :: Binary a => FilePath -> a -> IO ()
 writeToBinFile =  B.encodeFile 
+
+-- | Write to a binary file.
+-- saveToBinFile :: Binary a => FilePath -> a -> IO ()
+-- saveToBinFile = writeToBinFile 
