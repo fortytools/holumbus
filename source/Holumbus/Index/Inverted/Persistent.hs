@@ -153,7 +153,7 @@ retrieveOcc f = unsafePerformIO (loadFromBinFile f)
 -- found this on the haskell cafe mailing list
 -- http://www.haskell.org/pipermail/haskell-cafe/2008-April/041970.html
 strictDecodeFile :: Binary a => FilePath -> IO a
-strictDecodeFile path  =
-    bracket (openBinaryFile path ReadMode) hClose $ \h -> do
+strictDecodeFile f  =
+    bracket (openBinaryFile f ReadMode) hClose $ \h -> do
       c <- B.hGetContents h
       return $! decode c  
