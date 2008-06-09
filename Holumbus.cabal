@@ -32,13 +32,16 @@ library
                , regex-compat
                , HDBC
                , HDBC-sqlite3
+               , pureMD5
   exposed-modules:
     Holumbus.Utility,
     Holumbus.Build.Crawl,
     Holumbus.Build.Index,
     Holumbus.Build.Tokenize,
     Holumbus.Build.XmlFilter,
-    Holumbus.Control.MapReduce.Parallel,
+--    Holumbus.Control.MapReduce.MapReducible,
+--    Holumbus.Control.MapReduce.Parallel,
+    Holumbus.Control.MapReduce.ParallelOld,
     Holumbus.Control.Registry,
     Holumbus.Data.Crunch,
     Holumbus.Data.DiffList,
@@ -50,6 +53,7 @@ library
     Holumbus.Index.Documents,
     Holumbus.Index.Hybrid,
     Holumbus.Index.Inverted,
+    Holumbus.Index.Inverted.Persistent,
     Holumbus.Index.Persistent,
     Holumbus.Query.Distribution.Client,
     Holumbus.Query.Distribution.Protocol,
