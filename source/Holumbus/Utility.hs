@@ -75,11 +75,11 @@ tmpFile _ u = escape u
      Helper function to replace original URIs by the corresponding pathes for 
      the locally dumped files
 -}     
-tmpDocs :: String -> DOC.Documents a -> DOC.Documents a
+tmpDocs :: HolDocuments d a => String -> d a -> d a
 tmpDocs tmpPath =  
-    DOC.fromMap 
+    fromMap 
   . (IM.mapWithKey (\docId doc -> Document (title doc) (tmpPath ++ (tmpFile docId (uri doc))) Nothing))
-  . DOC.toMap         
+  . toMap         
       
 
 {- | Create Crawl filters based on regular expressions. The first Parameter defines the default 
