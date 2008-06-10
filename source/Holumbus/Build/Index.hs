@@ -23,6 +23,7 @@ module Holumbus.Build.Index where
 -- import           Data.Binary
 import           Data.List
 import qualified Data.Map     as M
+import qualified Data.IntMap  as IM
 import           Data.Maybe
 import           Control.Exception
 import           Control.Monad
@@ -69,7 +70,21 @@ data ContextConfig
     }
     
     
-buildSplitIndex :: (HolIndex i, XmlPickler i) =>
+buildSplitIndex :: (HolDocuments d a, HolIndex i, XmlPickler i) =>
+     Int
+  -> Int
+  -> d a
+  -> IndexerConfig
+  -> i
+  -> Bool
+  -> Int
+  -> IO [String]
+buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
+  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
+    in  buildSplitIndex' workerThreads traceLevel docs' idxConfig emptyIndex buildCaches maxDocs
+     
+    
+buildSplitIndex' :: (HolIndex i, XmlPickler i) =>
      Int
   -> Int
   -> [(DocId, URI)]
@@ -78,7 +93,7 @@ buildSplitIndex :: (HolIndex i, XmlPickler i) =>
   -> Bool
   -> Int
   -> IO [String]
-buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
+buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
   = do
     _ <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
@@ -103,7 +118,7 @@ buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches m
       build (idxConfig', docs') 
         = do
           cache <- if buildCaches then mkCache (ic_idxPath idxConfig') else return $ Nothing
-          idx   <- buildIndex workerThreads traceLevel docs' idxConfig' emptyIndex cache
+          idx   <- buildIndex' workerThreads traceLevel docs' idxConfig' emptyIndex cache
           writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
           writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
           return (ic_idxPath idxConfig')
@@ -114,8 +129,21 @@ buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches m
     
 -- -----------------------------------------------------------------------------
 
+
+buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) => 
+              Int                -- ^ Number of parallel threads for MapReduce
+           -> Int                -- ^ TraceLevel for Arrows
+           -> d a                -- ^ List of input Data
+           -> IndexerConfig      -- ^ Configuration for the Indexing process
+           -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
+           -> Maybe c
+           -> IO i               -- ^ returns a HolIndex
+buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
+  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
+    in  buildIndex' workerThreads traceLevel docs' idxConfig emptyIndex cache
+
 -- | Build an Index over a list of Files.
-buildIndex :: (HolIndex i, HolCache c) => 
+buildIndex' :: (HolIndex i, HolCache c) => 
               Int                -- ^ Number of parallel threads for MapReduce
            -> Int                -- ^ TraceLevel for Arrows
            -> [(DocId, String)]  -- ^ List of input Data
@@ -123,7 +151,7 @@ buildIndex :: (HolIndex i, HolCache c) =>
            -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
            -> Maybe c
            -> IO i               -- ^ returns a HolIndex
-buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
+buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
   = do
     _ <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     mr <- mapReduce workerThreads
