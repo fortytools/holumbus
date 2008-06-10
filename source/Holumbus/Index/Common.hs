@@ -218,6 +218,12 @@ class Binary (d a) => HolDocuments d a where
   -- | Update documents (through mapping over all documents).
   updateDocuments :: (Document a -> Document b) -> d a -> d b
 
+  -- | Create a document table from a single map.
+  fromMap :: IntMap (Document a) -> d a
+
+  -- | Convert document table to a single map
+  toMap :: d a -> IntMap (Document a)
+
 class HolCache c where
   -- | Retrieves the full text of a document for a given context. Will never throw any exception,
   -- upon failure or if no text found for the document, @Nothing@ is returned.

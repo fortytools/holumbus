@@ -95,6 +95,10 @@ instance Binary a => HolDocuments Documents a where
     where
     updated = IM.map f (idToDoc d)
 
+  fromMap itd = Documents itd (idToDoc2docToId itd) (lastId itd)
+
+  toMap = idToDoc
+
 -- Ignoring last document id when testing for equality
 instance Eq a => Eq (Documents a) where
   (==) (Documents i2da d2ia _) (Documents i2db d2ib _) = (i2da == i2db) && (d2ia == d2ib)
@@ -122,14 +126,6 @@ emptyDocuments = Documents IM.empty M.empty 0
 -- | Create a document table containing a single document.
 singleton :: Document a -> Documents a
 singleton d = Documents (IM.singleton 1 d) (M.singleton (uri d) 1) 1
-
--- | Create a document table from a single map.
-fromMap :: IntMap (Document a) -> (Documents a)
-fromMap itd = Documents itd (idToDoc2docToId itd) (lastId itd)
-
--- | Convert document table to a single map
-toMap :: Documents c -> IntMap (Document c)
-toMap = idToDoc
 
 -- | Simplify a document table by transforming the custom information into a string.
 simplify :: Show a => Documents a -> Documents String
