@@ -32,7 +32,7 @@ library
                , regex-compat
                , HDBC
                , HDBC-sqlite3
-               , pureMD5
+               , pureMD5 >= 0.1.2 && < 0.2
   exposed-modules:
     Holumbus.Utility,
     Holumbus.Build.Crawl,
