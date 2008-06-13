@@ -88,16 +88,16 @@ tmpDocs tmpPath =
      
      example:
      
-     > crawlFilter False [ ("/a/b/z", True )
-     >                   , ("/a/b"  , False)
-     >                   , ("/a"    , True )
+     > crawlFilter False [ ("\/a\/b\/z", True )
+     >                   , ("\/a\/b"  , False)
+     >                   , ("\/a"    , True )
 
      The default value for the filter is False like it will be in most cases unless you are trying
      to use Holumbus to build a google replacement. If you read the rules from bottom to top, all
-     documents in "/a" will be included (which should be a single domain or ip address or maybe a
-     set of these). The second rule disables the directory "/a/b" but with the first rule, the 
-     subdirectory z is included again and "/a/b/a" to "/a/b/y" are excluded. Even though this could
-     also be done with the 'simpleCrawlFilter', this saves you a lot of unnecessary code.
+     documents in "\/a" will be included (which should be a single domain or ip address or maybe a
+     set of these). The second rule disables the directory "\/a\/b" but with the first rule, the 
+     subdirectory z is included again and "\/a\/b\/a" to "\/a\/b\/y" are excluded. Even though this could
+     also be done with the 'simpleCrawlFilter', this way saves you a lot of unnecessary code.
 -} 
 crawlFilter :: Bool -> [(String, Bool)] -> (URI -> Bool)
 crawlFilter theDefault [] _ = theDefault
@@ -129,8 +129,8 @@ standardReadDocumentAttributes = []
 
 
 
--- | Comput the base of a webpage
---   stolen from Uwe Schmidt, http://www.haskell.org/haskellwiki/HXT  
+-- | Compute the base of a webpage
+--   stolen from Uwe Schmidt, http:\/\/www.haskell.org\/haskellwiki\/HXT
 computeDocBase  :: ArrowXml a => a XmlTree String
 computeDocBase
     = ( ( ( this
