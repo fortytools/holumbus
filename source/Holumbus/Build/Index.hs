@@ -32,6 +32,8 @@ import           Holumbus.Control.MapReduce.ParallelOld
 import           Holumbus.Index.Common
 import           Holumbus.Index.Cache
 -- import qualified Holumbus.Index.Documents as DOC
+import Control.Parallel.Strategies
+import           Holumbus.Utility
 
 import           System.Time
 
@@ -70,7 +72,7 @@ data ContextConfig
     }
     
     
-buildSplitIndex :: (HolDocuments d a, HolIndex i, XmlPickler i) =>
+buildSplitIndex :: (NFData i, HolDocuments d a, HolIndex i, XmlPickler i) =>
      Int
   -> Int
   -> d a
@@ -84,7 +86,7 @@ buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches m
     in  buildSplitIndex' workerThreads traceLevel docs' idxConfig emptyIndex buildCaches maxDocs
      
     
-buildSplitIndex' :: (HolIndex i, XmlPickler i) =>
+buildSplitIndex' :: (NFData i, HolIndex i, XmlPickler i) =>
      Int
   -> Int
   -> [(DocId, URI)]
@@ -95,7 +97,7 @@ buildSplitIndex' :: (HolIndex i, XmlPickler i) =>
   -> IO [String]
 buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
   = do
-    _ <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
+    return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
     docLists   <- return $ partitionList maxDocs docs
     configs    <- return $ map (\i -> idxConfig {ic_idxPath = (ic_idxPath idxConfig) ++ (show i) }) [1..indexCount]
@@ -119,7 +121,9 @@ buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches 
         = do
           cache <- if buildCaches then mkCache (ic_idxPath idxConfig') else return $ Nothing
           idx   <- buildIndex' workerThreads traceLevel docs' idxConfig' emptyIndex cache
-          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
+          return $! rnf idx
+--          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
+--          a <- return $! idx == idx
           writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
           return (ic_idxPath idxConfig')
       mkCache path
@@ -153,16 +157,17 @@ buildIndex' :: (HolIndex i, HolCache c) =>
            -> IO i               -- ^ returns a HolIndex
 buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
   = do
-    _ <- return $ assert ((sizeWords emptyIndex) == 0) Nothing  
-    mr <- mapReduce workerThreads
+    mr <- assert ((sizeWords emptyIndex) == 0) 
+                 (mapReduce workerThreads
                     (indexMap traceLevel
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
                               cache
-                              "42"
+                              "42" -- this is an artificial key to fit the MapReduce abstraction
                     )
                     (indexReduce emptyIndex) 
                     docs
+                 )
     return $! snd (M.elemAt 0 mr)                       
 
 
@@ -185,8 +190,9 @@ indexMap traceLevel contextConfigs attrs cache artificialKey docId theUri = do
         >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
                                                    ++ show docId ++ " -> "
                                                    ++ show theUri)
-        >>> processDocument attrs contextConfigs cache docId theUri
+        >>> processDocument traceLevel attrs contextConfigs cache docId theUri
         >>> arr (\(c, w, d, p) -> (artificialKey, (c, w, d, p)))
+        >>> strictA
       )
       
 -- | The REDUCE function in a MapReduce computation for building indexes.
@@ -206,16 +212,16 @@ indexReduce idx _ l =
 -- | Downloads a document and calls the function to process the data for the
 --   different contexts of the index
 processDocument :: HolCache c =>  
-     Attributes
+     Int
+  -> Attributes
   -> [ContextConfig]
   -> Maybe c
   -> DocId 
   -> URI
   -> IOSLA (XIOState s) b (Context, String, DocId, Int)
-processDocument attrs ccs cache docId theUri =
-        readDocument attrs theUri                        -- read the document
+processDocument traceLevel attrs ccs cache docId theUri =
+        withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
     >>> (catA $ map (processContext cache docId) ccs )   -- process all context configurations  
-
     
 -- | Process a Context. Applies the given context to extract information from
 --   the XmlTree that is passed in the arrow.
@@ -227,9 +233,11 @@ processContext ::
   -> a XmlTree (Context, String, DocId, Int)
 processContext cache docId cc  = 
         (cc_preFilter cc)                                     -- convert XmlTree
-    >>> getXPathTreesInDoc (cc_XPath cc)                      -- extract interesting parts
+    >>> listA (
+        getXPathTreesInDoc (cc_XPath cc)                      -- extract interesting parts
     >>> deep isText                                           -- Search deep for text nodes
-    >>> getText                                               -- convert text nodes into strings
+    >>> getText 
+    ) >>> arr concat                                              -- convert text nodes into strings
     >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
                   `guardsP` 
                     arrIO (putDocText (fromJust cache) (cc_name cc) docId )
