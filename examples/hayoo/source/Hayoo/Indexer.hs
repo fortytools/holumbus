@@ -62,7 +62,8 @@ main
        -- Configuration
     let traceLevel    = 1
         workerThreads = 5 
-        docsPerCrawl  = 1
+        docsPerCrawl  = 100
+        docsPerIndex  = 500
         splitPath     = "/tmp/"
         indexPath     = "/home/sms/hayoo"
         idxConfigs    = []
@@ -127,7 +128,7 @@ main
     -- cache     <- createCache ((ic_idxPath idxConfig) ++ "-cache.db")
     
     pathes    <- buildSplitIndex workerThreads traceLevel localDocs idxConfig
-                              emptyInverted True 500 
+                              emptyInverted True docsPerIndex 
     idx       <- foldM mergeIndexes' emptyInverted pathes
     
     writeToXmlFile ( indexPath ++ "-index.xml") idx
