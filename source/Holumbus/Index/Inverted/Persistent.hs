@@ -27,7 +27,6 @@ module Holumbus.Index.Inverted.Persistent
 )
 where
 
-import System.IO
 import System.IO.Unsafe
 import Control.Exception()
 import Control.Monad
@@ -36,8 +35,7 @@ import Control.Parallel.Strategies
 
 import Data.Maybe
 import Data.Binary
-import Control.Exception (bracket)
-import qualified Data.ByteString.Lazy as B
+
 -- import qualified Data.ByteString.Lazy as B
 
 import Data.Map (Map)
@@ -52,6 +50,8 @@ import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Utility
+
+import Text.XML.HXT.Arrow.Pickle.Xml
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
 data Persistent = Persistent 
@@ -126,6 +126,9 @@ instance Binary Persistent where
         thePath <- get 
         return $ Persistent parts thePath (maximum $ concat $ M.elems $ M.map SM.elems parts)
 
+instance XmlPickler Persistent where
+  xpickle = xpZero
+
 instance NFData Persistent where
   rnf (Persistent parts _ _) = rnf parts
 
@@ -148,12 +151,5 @@ getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
 
 -- | Read occurrences from disk through unsafe IO.
 retrieveOcc :: FilePath -> Occurrences
-retrieveOcc f = unsafePerformIO (loadFromBinFile f)
- 
--- found this on the haskell cafe mailing list
--- http://www.haskell.org/pipermail/haskell-cafe/2008-April/041970.html
-strictDecodeFile :: Binary a => FilePath -> IO a
-strictDecodeFile f  =
-    bracket (openBinaryFile f ReadMode) hClose $ \h -> do
-      c <- B.hGetContents h
-      return $! decode c  
+retrieveOcc f = unsafePerformIO (strictDecodeFile f)
+
