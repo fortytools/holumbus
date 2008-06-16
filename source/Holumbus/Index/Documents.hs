@@ -95,6 +95,10 @@ instance Binary a => HolDocuments Documents a where
     where
     updated = IM.map f (idToDoc d)
 
+  filterDocuments p d = Documents filtered (idToDoc2docToId filtered) (lastId filtered)
+    where 
+    filtered = IM.filter p (idToDoc d)  
+
   fromMap itd = Documents itd (idToDoc2docToId itd) (lastId itd)
 
   toMap = idToDoc
@@ -113,11 +117,11 @@ instance XmlPickler a => XmlPickler (Documents a) where
     xpDocumentWithId = xpElem "doc" (xpPair (xpAttr "id" xpPrim) xpickle)
 
 instance Binary a => Binary (Documents a) where
-  put (Documents i2d _ _) = do
-                            put i2d
+  put (Documents i2d _ _) = put i2d
   get = do
         i2d <- get
         return (Documents i2d (idToDoc2docToId i2d) (lastId i2d))
+
 
 -- | Create an empty table.
 emptyDocuments :: Documents a
