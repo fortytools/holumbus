@@ -218,6 +218,8 @@ class Binary (d a) => HolDocuments d a where
   -- | Update documents (through mapping over all documents).
   updateDocuments :: (Document a -> Document b) -> d a -> d b
 
+  filterDocuments :: (Document a -> Bool) -> d a -> d a
+
   -- | Create a document table from a single map.
   fromMap :: IntMap (Document a) -> d a
 
