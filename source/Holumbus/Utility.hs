@@ -20,14 +20,22 @@ module Holumbus.Utility where
 
 import Data.Char
 
+import System.IO
+
 import           Numeric
 import           Holumbus.Index.Common
 import qualified Holumbus.Index.Documents as DOC
 
+import           Control.Exception (bracket)
+
+import           Data.Binary
+import qualified Data.ByteString.Lazy as B
+import           Data.Maybe
+
 import qualified Data.IntMap as IM
 import qualified Data.List as L
 
-import           Data.Maybe
+
 import           Text.XML.HXT.Arrow
 import           Text.Regex
 
@@ -48,6 +56,15 @@ strip = stripWith isSpace
 -- | Strip leading and trailing elements matching a predicate.
 stripWith :: (a -> Bool) -> [a] -> [a]
 stripWith f = reverse . dropWhile f . reverse . dropWhile f
+
+ 
+-- found on the haskell cafe mailing list
+-- http:\/\/www.haskell.org\/pipermail\/haskell-cafe\/2008-April\/041970.html
+strictDecodeFile :: Binary a => FilePath -> IO a
+strictDecodeFile f  =
+    bracket (openBinaryFile f ReadMode) hClose $ \h -> do
+                                                       c <- B.hGetContents h
+                                                       return $! decode c  
 
 -- | partition the list of input data into a list of input data lists of
 --   approximately the same length
@@ -146,3 +163,8 @@ computeDocBase
       )
       `orElse`
       getAttrValue "transfer-URI"  
+      
+      
+traceOffset :: Int
+traceOffset = 3
+      
