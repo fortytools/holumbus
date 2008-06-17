@@ -238,12 +238,11 @@ processContext cache docId cc  =
     >>> deep isText                                           -- Search deep for text nodes
     >>> getText 
     ) >>> arr concat                                              -- convert text nodes into strings
+    >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
     >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
                   `guardsP` 
-                    arrIO (putDocText (fromJust cache) (cc_name cc) docId )
-                )
-    >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
-    >>> arr (zip [1..])                                       -- number words
+                    arrIO (arr unwords >>> putDocText (fromJust cache) (cc_name cc) docId )
+                )    >>> arr (zip [1..])                                       -- number words
     >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
     >>> arrL (tupelize (cc_name cc) docId )                   -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
