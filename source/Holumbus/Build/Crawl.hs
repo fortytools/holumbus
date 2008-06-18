@@ -28,7 +28,7 @@ module Holumbus.Build.Crawl
   
   -- * Initializing
   , initialCrawlerState
-  , getRefs
+--  , getRefs
   
   -- * Persistence
   , loadCrawlerState
@@ -48,6 +48,7 @@ import qualified Data.IntMap as IM
 import           Data.Digest.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
+import           Holumbus.Build.Config
 import           Holumbus.Build.Index
 import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
@@ -67,27 +68,27 @@ data CrawlerState a
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
       , cs_wereProcessed    :: S.Set URI
+      , cs_docHashes        :: M.Map String URI
       , cs_unusedDocIds     :: [DocId]        -- probably unneeded
       , cs_readAttributes   :: Attributes     -- passed to readDocument
-      , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- filter that is applied before
-      , cs_refXPaths        :: [String]       -- XPath expressions for references to other documents
-      , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
-      , cs_docs             :: Documents a       
       , cs_tempPath         :: Maybe String     
+      , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- filter that is applied before
+      , cs_fGetReferences   :: ArrowXml a' => a' XmlTree [URI]
+      , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
       , cs_fGetCustom       :: Custom a
-      , cs_docHashes        :: M.Map String URI
+      , cs_docs             :: Documents a       
       }
 
 instance Binary a => Binary (CrawlerState a) where
-  put (CrawlerState tbp wp _ _ _ _ _ d _ _ dh) 
-    = put tbp >> put wp >> put d >> put dh
+  put (CrawlerState tbp wp dh _ _ _ _ _ _ _ d) 
+    = put tbp >> put wp >> put dh >> put d
       
   get = do
         tbp <- get
         wp  <- get
-        d   <- get
         dh  <- get
-        return $ CrawlerState tbp wp (ids d) [] this [] (const False) d Nothing (constA Nothing) dh
+        d   <- get
+        return $ CrawlerState tbp wp dh (ids d) [] Nothing this (constA []) (const False) (constA Nothing) d 
         where
           ids :: Documents a -> [Int]
           ids d =  [1..] \\ (IM.keys $ toMap d) 
@@ -186,7 +187,7 @@ crawlDoc :: (Binary b) =>
 crawlDoc traceLevel cs docId theUri 
   = let attrs     = cs_readAttributes cs 
         tmpPath   = cs_tempPath cs
-        refXPaths = cs_refXPaths cs
+        getRefs   = cs_fGetReferences cs
         getCustom = cs_fGetCustom cs 
     in
     do
@@ -195,7 +196,7 @@ crawlDoc traceLevel cs docId theUri
     runX (     setTraceLevel traceLevel
            >>> traceMsg 1 (calendarTimeToString cat)  
            >>> (     constA 42        -- this is needed to fit the MapReduce abstraction
-                 &&& crawlDoc' traceLevel attrs tmpPath refXPaths getCustom (docId, theUri) 
+                 &&& crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) 
                )
            >>^ (\(i, (h, d, u)) -> (i, (h, d, S.fromList u)))       
           ) 
@@ -206,11 +207,12 @@ crawlDoc' :: (Binary b) =>
      Int
   -> Attributes    -- ^ options for readDocument
   -> Maybe String  -- ^ path for serialized tempfiles
-  -> [String]
+  -> IOSArrow XmlTree [URI]
+--  -> [String]
   -> Custom b
   -> (DocId, URI)   -- ^ DocId, URI
   -> IOSArrow c (String, Maybe (Document b), [URI])
-crawlDoc' traceLevel attrs tmpPath refXPaths getCustom (docId, theUri) =
+crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
     >>> withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
     >>> (
@@ -226,7 +228,7 @@ crawlDoc' traceLevel attrs tmpPath refXPaths getCustom (docId, theUri) =
             >>> 
                 (     (  xshow (this) >>^ (show . md5 . pack) )
                   &&& getDocument theUri getCustom
-                  &&& ( getRefs refXPaths >>> strictA >>> perform (theTrace $< arr length) )
+                  &&& ( getRefs >>> strictA >>> perform (theTrace $< arr length) )
                 )   >>^ (\(a,(b,c)) -> (a,b,c))
           )
           `orElse` (                  -- if an error occurs with the current document, the global 
@@ -256,20 +258,6 @@ getDocument theUri getCustom
     mkDoc t u c = constA $ Just $ Document t u c
 
 
--- | Extract References to other documents from a XmlTree based on configured XPath expressions
-getRefs :: ArrowXml a => [String] -> a XmlTree [URI]
-getRefs xpaths
-  = listA (getRefs' $< computeDocBase) -- >>^ concat
-    where
-    getRefs' base = catA $ map (\x -> getXPathTrees x >>> getText >>^ toAbsRef) xpaths
-      where
-      toAbsRef ref = removeFragment $ fromMaybe ref $ expandURIString ref base
-      removeFragment r
-              | "#" `isPrefixOf` path = reverse . tail $ path
-              | otherwise = r
-              where
-                path = dropWhile (/='#') . reverse $ r  
-                
 -- | create an initial CrawlerState from an IndexerConfig
 initialCrawlerState :: (Binary b) => IndexerConfig -> Custom b -> CrawlerState b
 initialCrawlerState cic getCustom
@@ -278,7 +266,7 @@ initialCrawlerState cic getCustom
     , cs_wereProcessed  = S.empty
     , cs_unusedDocIds   = [1..]
     , cs_readAttributes = ic_readAttributes cic
-    , cs_refXPaths      = ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
+    , cs_fGetReferences = getReferencesByXPaths ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
     , cs_fPreFilter     = (none `when` isText) -- this
     , cs_fCrawlFilter   = ic_fCrawlFilter cic
     , cs_docs           = emptyDocuments
@@ -286,6 +274,7 @@ initialCrawlerState cic getCustom
     , cs_fGetCustom     = getCustom
     , cs_docHashes      = M.empty
     }
+   
     
     
 saveCrawlerState :: Binary a => FilePath -> CrawlerState a -> IO ()
@@ -296,7 +285,7 @@ loadCrawlerState fp ori = do
                           cs <- decodeFile fp
                           return $! cs { cs_readAttributes = cs_readAttributes ori
                                     , cs_fPreFilter     = cs_fPreFilter     ori
-                                    , cs_refXPaths      = cs_refXPaths      ori
+                                    , cs_fGetReferences = cs_fGetReferences ori
                                     , cs_tempPath       = cs_tempPath       ori
                                     , cs_fGetCustom     = cs_fGetCustom     ori
                                     }    

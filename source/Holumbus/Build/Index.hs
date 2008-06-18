@@ -18,7 +18,19 @@
 {-# OPTIONS -fglasgow-exts #-}
 -- -----------------------------------------------------------------------------
 
-module Holumbus.Build.Index where
+module Holumbus.Build.Index 
+  (
+  -- * Building indexes
+    buildIndex
+  , buildSplitIndex
+  
+  -- * Indexer Configuration
+  , IndexerConfig (..)
+  , ContextConfig (..)
+  , mergeIndexerConfigs
+  )
+
+where
 
 -- import           Data.Binary
 import           Data.List
@@ -158,13 +170,13 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
   = do
     mr <- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce workerThreads
-                    (indexMap traceLevel
+                    (computePositions traceLevel
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
                               cache
                               "42" -- this is an artificial key to fit the MapReduce abstraction
                     )
-                    (indexReduce emptyIndex) 
+                    (insertPositions emptyIndex) 
                     docs
                  )
     return $! snd (M.elemAt 0 mr)                       
@@ -178,10 +190,10 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 --   for different contexts to the @processDocument@ function where the file
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
-indexMap :: HolCache c =>
+computePositions :: HolCache c =>
                Int -> [ContextConfig] -> Attributes -> Maybe c -> String 
             -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
-indexMap traceLevel contextConfigs attrs cache artificialKey docId theUri = do
+computePositions traceLevel contextConfigs attrs cache artificialKey docId theUri = do
     clt <- getClockTime
     cat <- toCalendarTime clt
     runX (  
@@ -198,8 +210,8 @@ indexMap traceLevel contextConfigs attrs cache artificialKey docId theUri = do
 --   Even though there might be faster ways to build an index, this function
 --   works with completely on the HolIndex class functions. So it is possible
 --   to use the Indexer with different Index implementations.
-indexReduce :: (HolIndex i) => i -> String -> [(String, String, DocId, Position)] -> IO (Maybe i)
-indexReduce idx _ l =
+insertPositions :: (HolIndex i) => i -> String -> [(String, String, DocId, Position)] -> IO (Maybe i)
+insertPositions idx _ l =
   return $! Just (foldl' theFunc idx l)
     where
     theFunc i (_, "", _ , _) = i -- TODO Filter but make sure that phrase searching is still possible 

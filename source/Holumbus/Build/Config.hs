@@ -17,18 +17,41 @@
 
 -- -----------------------------------------------------------------------------
 
-module Holumbus.Build.Config where
+module Holumbus.Build.Config 
+  (
+  -- * Crawling
+  getReferencesByXPaths
+  
+  -- * Tokenizing
+  , parseWords
+  , isWordChar
+  )
+
+where
 
 import           Data.Char
 import           Data.List
+import           Data.Maybe
 
 import           Holumbus.Build.Index
-
--- import           Holumbus.Index.Common
+import           Holumbus.Index.Common
+import           Holumbus.Utility
 
 import           Text.XML.HXT.Arrow
 
-
+-- | Extract References to other documents from a XmlTree based on configured XPath expressions
+getReferencesByXPaths :: ArrowXml a => [String] -> a XmlTree [URI]
+getReferencesByXPaths xpaths
+  = listA (getRefs' $< computeDocBase) -- >>^ concat
+    where
+    getRefs' base = catA $ map (\x -> getXPathTrees x >>> getText >>^ toAbsRef) xpaths
+      where
+      toAbsRef ref = removeFragment $ fromMaybe ref $ expandURIString ref base
+      removeFragment r
+              | "#" `isPrefixOf` path = reverse . tail $ path
+              | otherwise = r
+              where
+                path = dropWhile (/='#') . reverse $ r 
 
 parseWords  :: (Char -> Bool) -> String -> [String]
 parseWords isWordChar'
