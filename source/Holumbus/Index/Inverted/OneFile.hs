@@ -18,7 +18,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Persistent 
+module Holumbus.Index.Inverted.OneFile 
 (
   -- * Persistent index types
   Persistent (..)
@@ -44,7 +44,7 @@ import qualified Data.Map as M
 import Holumbus.Index.Common
 import Holumbus.Index.Compression
 
-import Holumbus.Index.Inverted (Inverted (Inverted))
+import Holumbus.Index.Inverted.Memory (Inverted (Inverted))
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM

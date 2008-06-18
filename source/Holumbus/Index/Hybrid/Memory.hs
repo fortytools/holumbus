@@ -19,7 +19,7 @@
 
 {-# OPTIONS -fno-warn-unused-binds -fno-warn-unused-imports #-}
 
-module Holumbus.Index.Hybrid 
+module Holumbus.Index.Hybrid.Memory 
   (
   -- * Hybrid index type
   Hybrid

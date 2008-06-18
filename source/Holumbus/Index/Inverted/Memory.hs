@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Inverted 
+module Holumbus.Index.Inverted.Memory 
 (
   -- * Inverted index types
   Inverted (..)
