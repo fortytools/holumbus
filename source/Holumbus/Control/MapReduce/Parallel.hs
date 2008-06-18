@@ -24,12 +24,12 @@ module Holumbus.Control.MapReduce.Parallel where
 import Text.XML.HXT.Arrow
 
 import           Holumbus.Control.Registry
-import           Holumbus.Control.MapReduce.MapReducible
-import           Holumbus.Utility
+-- import           Holumbus.Utility
 
 import           Data.Map (Map,empty,insertWith) -- ,mapWithKey,filterWithKey)
 import qualified Data.Map    as M
 import           Data.Maybe (isJust, fromJust)
+import           Data.Binary
 
 import           Control.Concurrent
 import           Control.Monad
@@ -40,35 +40,74 @@ type Dict   = Map
 -- ----------------------------------------------------------------------------
 
 -- | MapReduce Computations
-{- mapReduce :: (Ord k2 , MapReduceable mr k2 v2 v3) =>
+mapReduce :: (Ord k2, Binary k1, Binary v1, Binary k2, Binary v2, Binary v3) =>
                 Int                             -- ^ No. of Threads 
-             -> mr                              -- ^ initial value for the result
              -> (k1 ->  v1  -> IO [(k2, v2)])   -- ^ Map function
              -> (k2 -> [v2] -> IO (Maybe v3))   -- ^ Reduce function
              -> [(k1, v1)]                      -- ^ input data 
-             -> IO (mr)                -- ^ Result is a Map
--}
-mapReduce maxWorkers mr mapFunction input
+             -> IO (M.Map k2 v3)                -- ^ Result is a Map
+mapReduce maxWorkers mapFunction reduceFunction input
   = do
     
-      -- split the input data into pieces of approximately the same size
-    ps       <- return (max 1 ((length input) `div` maxWorkers)) 
-    runX (traceMsg 0 ("          MapReduce partition size: " ++ show ps))
-    pin      <- return ( partitionList ps input ) 
+    -- split the input data into pieces of approximately the same size
+--    ps       <- return (max 1 ((length input) `div` maxWorkers)) 
+--    runX (traceMsg 0 ("          MapReduce partition size: " ++ show ps))
+--    pin      <- return ( partitionList ps input ) 
 
-      -- parallel map phase
+    -- parallel map phase
     runX (traceMsg 0 ("                    mapPerKey " ))
-    mapped   <- parallelMap mapFunction pin 
+--    mapped   <- parallelMap mapFunction pin 
+    mapped <- pm maxWorkers mapFunction input
     
-      -- grouping of data gained in the map phase
+    -- grouping of data gained in the map phase
     runX (traceMsg 0 ("                    groupByKey " ))
     grouped  <- return  (groupByKey mapped)  
     
-      -- reduce phase
+    -- reduce phase
     runX (traceMsg 0 ("                    reduceByKey "))
-    reducePerKey mr grouped
+    reducePerKey reduceFunction grouped
     
 -- ----------------------------------------------------------------------------
+
+pm :: Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2, v2)]
+pm maxWorkers mapFunction inputData
+  = if (length inputData > 0) 
+      then do
+           chan <- newChan
+           pm' chan 0 maxWorkers mapFunction inputData []
+      else return []
+
+pm' :: Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> [(k2, v2)] -> IO [(k2, v2)]
+pm' chan activeWorkers maxWorkers mapFunction inputData result
+  = do
+--    print ("Here we go: activeWorkers: " ++ show activeWorkers ++ " to process: " ++ show (length inputData))
+    if (activeWorkers < maxWorkers) && ((length inputData) > 0)
+      then do
+           rmt chan mapFunction (head inputData)
+           pm' chan (activeWorkers + 1) maxWorkers mapFunction (tail inputData) result
+      else if (activeWorkers == 0) -- && (length inputData == 0)
+             then return result
+             else do
+                  yield
+                  readValues activeWorkers result
+  where
+  readValues workers theResult = do
+--                  print "     reading from chan"
+                  res   <- readChan chan  
+                  e     <- isEmptyChan chan
+                  if e
+                    then pm' chan (workers - 1) maxWorkers mapFunction inputData (res ++ theResult)
+                    else readValues (workers -1) (res ++ theResult)
+
+rmt :: Chan [(k2, v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> (k1, v1) -> IO ()
+rmt chan mapFunction (k1, v1)
+  = do 
+    forkIO ( do
+             res <- catch (mapFunction k1 v1) (\_ -> return $ [])
+             writeChan chan res
+             return ()
+           )
+    return ()
 
 -- | Executes the map phase of a MapReduce computation as a parallel computation.
 --   it is not very smart so far since the input data is split in the beginning
@@ -110,29 +149,10 @@ groupByKey :: (Ord k2) => [(k2, v2)] -> Dict k2 [v2]
 groupByKey = foldl insert empty
   where
     insert dict (k2,v2) = insertWith (++) k2 [v2] dict
-
-
--- reducePerKey :: (MapReduceable mr k2 v2 v3) => mr -> Map k2 [v2] -> IO (mr)
-reducePerKey initialMR m
- = rpk 
-    (uncurry (reduceMR initialMR)) 
-    (M.toList m) 
-    initialMR 
-   where
---     rpk :: (MapReduceable mr k2 v2 v3) => ((k2, [v2]) -> IO(Maybe mr)) -> [(k2, [v2])] -> mr -> IO(mr)
---     rpk _ _ r = return r
-     rpk _  [] result = return result
-     rpk rf l  result
-       = do 
-         next <- return $ head l
-         done <- rf next
-         if isJust done
-           then rpk rf (drop 1 l) (mergeMR result (fromJust done))
-           else rpk rf (drop 1 l) result 
-     
+    
 -- | Reduce Phase. The Reduce Phase does not run parallelized.
-redPerKey :: (Ord k2) => (k2 -> [v2] -> IO(Maybe v3)) -> Map k2 [v2] -> IO (Map k2 v3)
-redPerKey reduceFunction m
+reducePerKey :: (Ord k2) => (k2 -> [v2] -> IO(Maybe v3)) -> Map k2 [v2] -> IO (Map k2 v3)
+reducePerKey reduceFunction m
   = rpk (uncurry reduceFunction) (M.toList m) M.empty
     where
       rpk :: (Ord k2) => ((k2, [v2]) -> IO(Maybe v3)) -> [(k2, [v2])] -> Map k2 v3 -> IO (Map k2 v3)
@@ -146,7 +166,5 @@ redPerKey reduceFunction m
             else rpk reduceFunction' (drop 1 toProcess) result
           
 
--- ----------------------------------------------------------------------------
- 
 
          
