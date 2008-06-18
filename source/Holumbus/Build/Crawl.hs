@@ -49,7 +49,7 @@ import           Data.Digest.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
 import           Holumbus.Build.Index
-import           Holumbus.Control.MapReduce.ParallelOld
+import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
 import           Holumbus.Index.Documents
 import           Holumbus.Utility

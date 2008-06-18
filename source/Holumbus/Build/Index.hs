@@ -28,7 +28,7 @@ import           Data.Maybe
 import           Control.Exception
 import           Control.Monad
 -- import           Holumbus.Index.Cache
-import           Holumbus.Control.MapReduce.ParallelOld
+import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
 import           Holumbus.Index.Cache
 -- import qualified Holumbus.Index.Documents as DOC
