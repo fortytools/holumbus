@@ -8,7 +8,7 @@ maintainer:    Timo B. Hübel <tbh@holumbus.org>
 stability:     experimental
 category:      Text, Data
 synopsis:      A distributed search and indexing engine.
-homepage:      http://holumbus.org
+homepage:      http://holumbus.fh-wedel.de
 description:   The Holumbus library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
 cabal-version: >=1.2
 
@@ -37,8 +37,7 @@ library
     Holumbus.Utility,
     Holumbus.Build.Crawl,
     Holumbus.Build.Index,
-    Holumbus.Build.Tokenize,
-    Holumbus.Build.XmlFilter,
+    Holumbus.Build.Config,
 --    Holumbus.Control.MapReduce.MapReducible,
 --    Holumbus.Control.MapReduce.Parallel,
     Holumbus.Control.MapReduce.ParallelOld,

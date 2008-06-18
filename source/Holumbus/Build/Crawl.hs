@@ -36,7 +36,7 @@ module Holumbus.Build.Crawl
   )
 where
 
-import           Control.Monad
+import           Control.Monad hiding (when)
 
 import           Data.Binary
 import           Data.Char
@@ -279,7 +279,7 @@ initialCrawlerState cic getCustom
     , cs_unusedDocIds   = [1..]
     , cs_readAttributes = ic_readAttributes cic
     , cs_refXPaths      = ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
-    , cs_fPreFilter     = this
+    , cs_fPreFilter     = (none `when` isText) -- this
     , cs_fCrawlFilter   = ic_fCrawlFilter cic
     , cs_docs           = emptyDocuments
     , cs_tempPath       = ic_tmpPath cic

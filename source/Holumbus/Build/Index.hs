@@ -247,8 +247,7 @@ processContext cache docId cc  =
     >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
     >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
-    where
-      theTrace s = traceMsg 0 s -- >>> constA s
+
 -- -----------------------------------------------------------------------------
 -- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
 --   the startPages of all other Configs are added. The crawl filters are OR-ed
