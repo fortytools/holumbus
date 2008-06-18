@@ -19,7 +19,11 @@
 {-# OPTIONS -fscoped-type-variables -farrows #-}
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Control.MapReduce.Parallel where
+module Holumbus.Control.MapReduce.Parallel 
+  (
+    mapReduce
+  ) 
+where
 
 import Text.XML.HXT.Arrow
 
@@ -49,15 +53,9 @@ mapReduce :: (Ord k2, Binary k1, Binary v1, Binary k2, Binary v2, Binary v3) =>
 mapReduce maxWorkers mapFunction reduceFunction input
   = do
     
-    -- split the input data into pieces of approximately the same size
---    ps       <- return (max 1 ((length input) `div` maxWorkers)) 
---    runX (traceMsg 0 ("          MapReduce partition size: " ++ show ps))
---    pin      <- return ( partitionList ps input ) 
-
     -- parallel map phase
     runX (traceMsg 0 ("                    mapPerKey " ))
---    mapped   <- parallelMap mapFunction pin 
-    mapped <- pm maxWorkers mapFunction input
+    mapped <- parallelMap maxWorkers mapFunction input
     
     -- grouping of data gained in the map phase
     runX (traceMsg 0 ("                    groupByKey " ))
@@ -69,22 +67,22 @@ mapReduce maxWorkers mapFunction reduceFunction input
     
 -- ----------------------------------------------------------------------------
 
-pm :: Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2, v2)]
-pm maxWorkers mapFunction inputData
+-- | Executes the map phase of a MapReduce computation as a parallel computation.
+parallelMap :: Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2, v2)]
+parallelMap maxWorkers mapFunction inputData
   = if (length inputData > 0) 
       then do
            chan <- newChan
-           pm' chan 0 maxWorkers mapFunction inputData []
+           parallelMap' chan 0 maxWorkers mapFunction inputData []
       else return []
 
-pm' :: Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> [(k2, v2)] -> IO [(k2, v2)]
-pm' chan activeWorkers maxWorkers mapFunction inputData result
+parallelMap' :: Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> [(k2, v2)] -> IO [(k2, v2)]
+parallelMap' chan activeWorkers maxWorkers mapFunction inputData result
   = do
---    print ("Here we go: activeWorkers: " ++ show activeWorkers ++ " to process: " ++ show (length inputData))
     if (activeWorkers < maxWorkers) && ((length inputData) > 0)
       then do
-           rmt chan mapFunction (head inputData)
-           pm' chan (activeWorkers + 1) maxWorkers mapFunction (tail inputData) result
+           runMapTask chan mapFunction (head inputData)
+           parallelMap' chan (activeWorkers + 1) maxWorkers mapFunction (tail inputData) result
       else if (activeWorkers == 0) -- && (length inputData == 0)
              then return result
              else do
@@ -92,15 +90,14 @@ pm' chan activeWorkers maxWorkers mapFunction inputData result
                   readValues activeWorkers result
   where
   readValues workers theResult = do
---                  print "     reading from chan"
                   res   <- readChan chan  
                   e     <- isEmptyChan chan
                   if e
-                    then pm' chan (workers - 1) maxWorkers mapFunction inputData (res ++ theResult)
+                    then parallelMap' chan (workers - 1) maxWorkers mapFunction inputData (res ++ theResult)
                     else readValues (workers -1) (res ++ theResult)
 
-rmt :: Chan [(k2, v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> (k1, v1) -> IO ()
-rmt chan mapFunction (k1, v1)
+runMapTask :: Chan [(k2, v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> (k1, v1) -> IO ()
+runMapTask chan mapFunction (k1, v1)
   = do 
     forkIO ( do
              res <- catch (mapFunction k1 v1) (\_ -> return $ [])
@@ -109,29 +106,6 @@ rmt chan mapFunction (k1, v1)
            )
     return ()
 
--- | Executes the map phase of a MapReduce computation as a parallel computation.
---   it is not very smart so far since the input data is split in the beginning
---   and there is no work load balancing during the computation
-parallelMap :: (k1 ->  v1  -> IO [(k2, v2)]) -> [[(k1, v1)]] -> IO [(k2, v2)]
-parallelMap mapFunction pl
-  = do 
-    result          <- newMVar []
-    workers         <- startWorkers (runMapTask result mapFunction) pl
-    waitForWorkers  workers
-    res             <- takeMVar result
-    return res
-
--- | Runs a map task in a thread. the reduce function function is wrapped into
---   everything that is necessary to return the results. The input data will be
---   a partition of the input data of the whole MapReduce Computation
-runMapTask :: MVar [(k2,v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO ()
-runMapTask mv mapFunction input 
-  = do
-    mrMap   <- mapPerKey (uncurry mapFunction) input 
-    current <- takeMVar mv
-    combined <- return (mrMap ++ current)
-    putMVar mv combined   
-    
 -- ----------------------------------------------------------------------------
 
 -- | Applies the map function to every data in the input list
