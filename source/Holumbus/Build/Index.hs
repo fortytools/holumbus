@@ -123,7 +123,6 @@ buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches 
           idx   <- buildIndex' workerThreads traceLevel docs' idxConfig' emptyIndex cache
           return $! rnf idx
 --          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
---          a <- return $! idx == idx
           writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
           return (ic_idxPath idxConfig')
       mkCache path
@@ -218,7 +217,7 @@ processDocument :: HolCache c =>
   -> Maybe c
   -> DocId 
   -> URI
-  -> IOSLA (XIOState s) b (Context, String, DocId, Int)
+  -> IOSLA (XIOState s) b (Context, Word, DocId, Position)
 processDocument traceLevel attrs ccs cache docId theUri =
         withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
     >>> (catA $ map (processContext cache docId) ccs )   -- process all context configurations  
@@ -226,30 +225,30 @@ processDocument traceLevel attrs ccs cache docId theUri =
 -- | Process a Context. Applies the given context to extract information from
 --   the XmlTree that is passed in the arrow.
 processContext :: 
-  (ArrowIO a, ArrowXml a, HolCache c) => 
+  ( HolCache c) => 
      Maybe c
   -> DocId
   -> ContextConfig
-  -> a XmlTree (Context, String, DocId, Int)
+  -> IOSLA (XIOState s) XmlTree (Context, Word, DocId, Position)
 processContext cache docId cc  = 
         (cc_preFilter cc)                                     -- convert XmlTree
     >>> listA (
-        getXPathTreesInDoc (cc_XPath cc)                      -- extract interesting parts
-    >>> deep isText                                           -- Search deep for text nodes
-    >>> getText 
-    ) >>> arr concat                                              -- convert text nodes into strings
+                    getXPathTrees (cc_XPath cc)               -- extract interesting parts
+                >>> deep isText                               -- Search deep for text nodes
+                >>> getText 
+              )
+    >>> arr concat                                            -- convert text nodes into strings
     >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
     >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
                   `guardsP` 
-                    arrIO (arr unwords >>> putDocText (fromJust cache) (cc_name cc) docId )
-                )    >>> arr (zip [1..])                                       -- number words
+                   ( arr unwords >>> arrIO ( putDocText (fromJust cache) (cc_name cc) docId)) 
+                )    
+    >>> arr (zip [1..])                                       -- number words
     >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
-    >>> arrL (tupelize (cc_name cc) docId )                   -- make a list of result tupels
+    >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
     where
-      tupelize context' docId' theWords    = map (mkTupel context' docId') theWords
-      mkTupel  context' docId' (pos,word) = (context', word, docId', pos)   
-      
+      theTrace s = traceMsg 0 s -- >>> constA s
 -- -----------------------------------------------------------------------------
 -- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
 --   the startPages of all other Configs are added. The crawl filters are OR-ed
