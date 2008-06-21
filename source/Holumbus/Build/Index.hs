@@ -32,19 +32,19 @@ module Holumbus.Build.Index
 
 where
 
--- import           Data.Binary
 import           Data.List
-import qualified Data.Map     as M
 import qualified Data.IntMap  as IM
 import           Data.Maybe
+
 import           Control.Exception
 import           Control.Monad
--- import           Holumbus.Index.Cache
-import           Holumbus.Control.MapReduce.Parallel
+import           Control.Parallel.Strategies
+
+import           Holumbus.Build.Config
+import           Holumbus.Control.MapReduce.ParallelWithClass
+import           Holumbus.Control.MapReduce.MapReducible
 import           Holumbus.Index.Common
 import           Holumbus.Index.Cache
--- import qualified Holumbus.Index.Documents as DOC
-import Control.Parallel.Strategies
 import           Holumbus.Utility
 
 import           System.Time
@@ -53,38 +53,8 @@ import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validat
 
 -- -----------------------------------------------------------------------------
 
--- | Configuration for the indexer. 
-data IndexerConfig 
-  = IndexerConfig
-    { ic_startPages     :: [URI]
-    , ic_tmpPath        :: Maybe String   
-    , ic_idxPath        :: String
-    , ic_contextConfigs :: [ContextConfig]
-    , ic_fCrawlFilter   :: URI -> Bool     -- will be passed to crawler, not needed for indexing
-    , ic_readAttributes :: Attributes
---    , ic_fGetCustom     :: (Arrow a, Binary b) => a XmlTree b
-    } 
-
--- | Configuration for a Context. It has a name with which it will be identified
---   as a index part. The preFilter is applied to the XmlTree that is generated
---   by the parser and before the "interesting" document parts are selected by
---   the XPath Expression. The Tokenize functions defines how a string found by
---   the XPath Expression will be split into a list of Words. Since stopwords
---   are identified by a function it is possible to define a list of words that
---   shall not be indexed or a function that excludes words because of the count
---   of characters or a combination of both.
-data ContextConfig 
-  = ContextConfig
-    { cc_name           :: String
-    , cc_preFilter      :: ArrowXml a => a XmlTree XmlTree
-    , cc_XPath          :: String             -- multiple XPaths for one Context needed ???
-    , cc_fTokenize      :: String -> [String]
-    , cc_fIsStopWord    :: String -> Bool
-    , cc_addToCache     :: Bool
-    }
-    
-    
-buildSplitIndex :: (NFData i, HolDocuments d a, HolIndex i, XmlPickler i) =>
+buildSplitIndex :: ( NFData i, HolDocuments d a, HolIndex i, XmlPickler i 
+                   , MapReducible i String (String, DocId, Int) ) =>
      Int
   -> Int
   -> d a
@@ -168,18 +138,18 @@ buildIndex' :: (HolIndex i, HolCache c) =>
            -> IO i               -- ^ returns a HolIndex
 buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
   = do
-    mr <- assert ((sizeWords emptyIndex) == 0) 
-                 (mapReduce workerThreads
+    mr <- -- assert ((sizeWords emptyIndex) == 0) 
+                 (mapReduce 
+                    workerThreads
+                    emptyIndex
                     (computePositions traceLevel
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
                               cache
-                              "42" -- this is an artificial key to fit the MapReduce abstraction
                     )
-                    (insertPositions emptyIndex) 
                     docs
                  )
-    return $! snd (M.elemAt 0 mr)                       
+    return mr -- $! snd (M.elemAt 0 mr)                       
 
 
 -- | The MAP function in a MapReduce computation for building indexes.
@@ -191,9 +161,9 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
 computePositions :: HolCache c =>
-               Int -> [ContextConfig] -> Attributes -> Maybe c -> String 
-            -> DocId -> String -> IO [(String, (String, String, DocId, Int))]
-computePositions traceLevel contextConfigs attrs cache artificialKey docId theUri = do
+               Int -> [ContextConfig] -> Attributes -> Maybe c  
+            -> DocId -> String -> IO [(String, (String, DocId, Int))]
+computePositions traceLevel contextConfigs attrs cache docId theUri = do
     clt <- getClockTime
     cat <- toCalendarTime clt
     runX (  
@@ -202,10 +172,11 @@ computePositions traceLevel contextConfigs attrs cache artificialKey docId theUr
                                                    ++ show docId ++ " -> "
                                                    ++ show theUri)
         >>> processDocument traceLevel attrs contextConfigs cache docId theUri
-        >>> arr (\(c, w, d, p) -> (artificialKey, (c, w, d, p)))
+        >>> arr (\(c, w, d, p) -> (c, (w, d, p)))
         >>> strictA
       )
-      
+
+{-      
 -- | The REDUCE function in a MapReduce computation for building indexes.
 --   Even though there might be faster ways to build an index, this function
 --   works with completely on the HolIndex class functions. So it is possible
@@ -216,7 +187,7 @@ insertPositions idx _ l =
     where
     theFunc i (_, "", _ , _) = i -- TODO Filter but make sure that phrase searching is still possible 
     theFunc i (context, word, docId, pos) = insertPosition context word docId pos i
-    
+-}    
   
 -- -----------------------------------------------------------------------------
     
@@ -260,27 +231,5 @@ processContext cache docId cc  =
     >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
 
--- -----------------------------------------------------------------------------
--- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
---   the startPages of all other Configs are added. The crawl filters are OR-ed
---   so that more pages might be indexed. So you better know what you are doing
---   when you are using this.
-
-mergeIndexerConfigs :: IndexerConfig -> IndexerConfig -> IndexerConfig
-mergeIndexerConfigs cfg1 cfg2 = mergeIndexerConfigs' cfg1 [cfg2]
-
-mergeIndexerConfigs' :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
-mergeIndexerConfigs' cfg1 [] = cfg1
-mergeIndexerConfigs' cfg1 (cfg2:cfgs) = mergeIndexerConfigs' resCfg cfgs
-  where 
-  resCfg = IndexerConfig
-      ((ic_startPages cfg1) ++ (ic_startPages cfg2))
-      (ic_tmpPath cfg1)
-      (ic_idxPath cfg1)
-      (ic_contextConfigs cfg1)  -- cfg2, too?
-      (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
-      (ic_readAttributes cfg1)
-   
-                   
                
      

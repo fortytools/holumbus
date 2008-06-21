@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fno-warn-unused-binds -fno-warn-unused-imports #-}
+{-# OPTIONS -fno-warn-unused-binds -fno-warn-unused-imports -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
 
 module Holumbus.Index.Hybrid.Memory 
   (
@@ -30,7 +30,7 @@ module Holumbus.Index.Hybrid.Memory
 where
 
 import Data.Maybe
-import Data.Binary
+import Data.Binary hiding (Word)
 
 import Data.Map (Map)
 import qualified Data.Map as M
@@ -42,6 +42,7 @@ import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
 import Holumbus.Index.Common
+import Holumbus.Control.MapReduce.MapReducible
 
 import Text.XML.HXT.Arrow   			-- Import stuff for pickling
 
@@ -67,6 +68,12 @@ type Occurrence    = ( DocId, WordId, Position )
 
 type WordId        = Int
 type BlockId       = Int
+
+
+instance MapReducible Hybrid Context (Word, DocId, Position) where
+  mergeMR         = mergeIndexes
+  reduceMR _ _ _  = undefined
+  
 
 instance HolIndex Hybrid where
   sizeWords _ = undefined

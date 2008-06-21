@@ -27,73 +27,82 @@ where
 
 import Text.XML.HXT.Arrow
 
-import           Data.Map (Map,empty,insertWith) -- ,mapWithKey,filterWithKey)
-import qualified Data.Map    as M
+-- import           Data.Map (Map) -- ,mapWithKey,filterWithKey)
+-- import qualified Data.Map    as M
 import           Data.Maybe (isJust, fromJust)
--- import           Data.Binary
+import           Data.Binary
+import qualified Data.Set as S
 
 import           Control.Concurrent
 import           Control.Monad
 
 import           Holumbus.Control.MapReduce.MapReducible
-
-type Dict   = Map
-
+import           Holumbus.Utility
+import           Holumbus.Index.Common
 
 -- ----------------------------------------------------------------------------
 
 -- | MapReduce Computations
-mapReduce :: (Ord k2 , MapReducible mr k2 v2) =>
-                Int                             -- ^ No. of Threads 
+mapReduce :: (Show k2, Binary v2, Ord k2 , MapReducible mr k2 v2) =>
+                FilePath
+             -> Int                             -- ^ No. of Threads 
              -> mr                              -- ^ initial value for the result
              -> (k1 ->  v1  -> IO [(k2, v2)])   -- ^ Map function
              -> [(k1, v1)]                      -- ^ input data 
              -> IO (mr)  
-mapReduce maxWorkers mr mapFunction input
+mapReduce path maxWorkers mr mapFunction input
   = do
     
     -- parallel map phase
     runX (traceMsg 0 ("                    mapPerKey " ))
-    mapped <- parallelMap maxWorkers mapFunction input
-    
-    -- grouping of data gained in the map phase
-    runX (traceMsg 0 ("                    groupByKey " ))
-    grouped  <- return  (groupByKey mapped)  
+    mapped <- parallelMap path maxWorkers mapFunction input  
     
     -- reduce phase
     runX (traceMsg 0 ("                    reduceByKey "))
-    reducePerKey mr grouped
-    
+    reducePerKey path mr mapped
+    return mr
 -- ----------------------------------------------------------------------------
 
 -- | Executes the map phase of a MapReduce computation as a parallel computation.
-parallelMap :: Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2, v2)]
-parallelMap maxWorkers mapFunction inputData
+parallelMap :: (Ord k2, Binary v2, Show k2) => FilePath -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO (S.Set k2)
+parallelMap path maxWorkers mapFunction inputData
   = if (length inputData > 0) 
       then do
            chan <- newChan
-           parallelMap' chan 0 maxWorkers mapFunction inputData []
-      else return []
+           parallelMap' path chan 0 maxWorkers mapFunction inputData S.empty
+      else return S.empty
 
-parallelMap' :: Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> [(k2, v2)] -> IO [(k2, v2)]
-parallelMap' chan activeWorkers maxWorkers mapFunction inputData result
+parallelMap' :: (Ord k2, Show k2, Binary v2) => FilePath -> Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) 
+            -> [(k1, v1)] -> S.Set k2 -> IO (S.Set k2)
+parallelMap' path chan activeWorkers maxWorkers mapFunction inputData result
   = do
     if (activeWorkers < maxWorkers) && ((length inputData) > 0)
       then do
            runMapTask chan mapFunction (head inputData)
-           parallelMap' chan (activeWorkers + 1) maxWorkers mapFunction (tail inputData) result
-      else if (activeWorkers == 0) -- && (length inputData == 0)
+           parallelMap' path chan (activeWorkers + 1) maxWorkers mapFunction (tail inputData) result
+      else if (activeWorkers == 0) && (length inputData == 0)
              then return result
              else do
-                  yield
+                  yield --TODO necessary?
                   readValues activeWorkers result
   where
   readValues workers theResult = do
-                  res   <- readChan chan  
-                  e     <- isEmptyChan chan
+                  pairs  <- readChan chan  
+                  keys   <- foldM appendResult S.empty pairs
+                  e      <- isEmptyChan chan
                   if e
-                    then parallelMap' chan (workers - 1) maxWorkers mapFunction inputData (res ++ theResult)
-                    else readValues (workers -1) (res ++ theResult)
+                    then parallelMap' path chan (workers - 1) maxWorkers mapFunction inputData (S.union theResult keys)
+                    else readValues (workers -1) (S.union theResult keys)
+--  appendResult :: (Show k2, Binary k2) => (k2, v2) -> IO k2
+  appendResult s (k,v) = let thePath = (path ++ fileName k)
+                         in if S.member k s 
+                              then do
+                                   vs <- strictDecodeFile thePath
+                                   writeToBinFile thePath (v : vs)
+                                   return $ S.union s (S.singleton k)
+                              else do 
+                                   writeToBinFile thePath [v]
+                                   return $ S.union s (S.singleton k)
 
 runMapTask :: Chan [(k2, v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> (k1, v1) -> IO ()
 runMapTask chan mapFunction (k1, v1)
@@ -119,25 +128,26 @@ mapPerKey mapFunction (x:xs)
 -}    
     
 -- | Groups the output data of the Map phase by the computed keys (k2) 
-groupByKey :: (Ord k2) => [(k2, v2)] -> Dict k2 [v2]
+{-
+groupByKey :: (Ord k2) => S.Set k2 -> Dict k2 [v2]
 groupByKey = foldl insert empty
   where
     insert dict (k2,v2) = insertWith (++) k2 [v2] dict
+-}
 
 -- | Reduce Phase. The Reduce Phase does not run parallelized.
-reducePerKey :: (MapReducible mr k2 v2) => mr -> Map k2 [v2] -> IO (mr)
-reducePerKey initialMR m
- = rpk 
-    (uncurry (reduceMR initialMR)) 
-    (M.toList m) 
-    initialMR 
+reducePerKey :: (MapReducible mr k2 v2, Binary v2, Show k2) => FilePath -> mr -> S.Set k2 -> IO (mr)
+reducePerKey path initialMR ks = foldM (rpk (reduceMR initialMR)) initialMR (S.toList ks)
    where
-     rpk :: (MapReducible mr k2 v2) => ((k2, [v2]) -> IO(Maybe mr)) -> [(k2, [v2])] -> mr -> IO(mr)
-     rpk _  [] result = return result
-     rpk rf l  result
-       = do 
-         next <- return $ head l
-         done <- rf next
-         if isJust done
-           then rpk rf (drop 1 l) (mergeMR result (fromJust done))
-           else rpk rf (drop 1 l) result    
+   rpk :: (MapReducible mr k2 v2, Binary v2, Show k2) => (k2 -> [v2] -> IO(Maybe mr)) -> mr -> k2 -> IO(mr)
+   rpk reduceFunction initial key 
+     = do 
+       values <- strictDecodeFile (path ++ fileName key)
+       new    <- reduceFunction key values 
+       if isJust new
+           then return (mergeMR initial (fromJust new))
+           else return initial    
+
+fileName :: Show k2 => k2 -> String
+fileName key = stripWith (== '"') (show key) ++ ".bin"
+           

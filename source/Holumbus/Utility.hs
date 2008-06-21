@@ -39,6 +39,10 @@ import qualified Data.List as L
 import           Text.XML.HXT.Arrow
 import           Text.Regex
 
+import           Data.Digest.MD5
+import           Data.ByteString.Lazy.Char8(pack)
+
+
 -- | Split a string into seperate strings at a specific character sequence.
 split :: Eq a => [a] -> [a] -> [[a]]
 split _ []       = [[]] 
@@ -63,6 +67,7 @@ stripWith f = reverse . dropWhile f . reverse . dropWhile f
 strictDecodeFile :: Binary a => FilePath -> IO a
 strictDecodeFile f  =
     bracket (openBinaryFile f ReadMode) hClose $ \h -> do
+                                                       print ("Decoding " ++ f)
                                                        c <- B.hGetContents h
                                                        return $! decode c  
 
@@ -86,8 +91,10 @@ escape (c:cs)
      as a parameter
 -}
 tmpFile :: DocId -> URI -> String
-tmpFile _ u = escape u
-
+tmpFile _ u = let f = escape u
+              in if (length f) > 255
+                   then (show . md5 . pack) f
+                   else f
 {- | 
      Helper function to replace original URIs by the corresponding pathes for 
      the locally dumped files

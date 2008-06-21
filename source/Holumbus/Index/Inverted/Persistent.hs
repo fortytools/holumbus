@@ -17,6 +17,7 @@
 -}
 
 -- ----------------------------------------------------------------------------
+{-# OPTIONS -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
 
 module Holumbus.Index.Inverted.Persistent 
 (
@@ -33,8 +34,9 @@ import Control.Monad
 
 import Control.Parallel.Strategies
 
+import Data.List
 import Data.Maybe
-import Data.Binary
+import Data.Binary hiding (Word)
 
 -- import qualified Data.ByteString.Lazy as B
 
@@ -45,6 +47,7 @@ import Holumbus.Index.Common
 -- import Holumbus.Index.Compression
 
 -- import Holumbus.Index.Inverted (Inverted (Inverted))
+import Holumbus.Control.MapReduce.MapReducible
 
 import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
@@ -75,6 +78,9 @@ let p = fromList (emptyPersistent "/home/sms/tmp/persistent/") (toList (insertPo
 
 
 -}
+instance MapReducible Persistent Context (Word, DocId, Position) where
+  mergeMR         = mergeIndexes
+  reduceMR _ _ _  = undefined -- return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
 
 instance HolIndex Persistent where
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts

@@ -85,6 +85,8 @@ import qualified Data.IntSet as IS
 
 import Control.Parallel.Strategies
 
+import Holumbus.Control.MapReduce.MapReducible
+
 -- | A document consists of a title and its unique identifier.
 data Document a = Document
   { title  :: !Title
@@ -131,7 +133,7 @@ type Positions     = IntSet
 type RawResult     = [(Word, Occurrences)]
 
 -- | This class provides a generic interface to different types of index implementations.
-class Binary i => HolIndex i where
+class (Binary i, MapReducible i Context (Word, DocId, Position) ) => HolIndex i where
   -- | Returns the number of unique words in the index.
   sizeWords     :: i -> Int
   -- | Returns a list of all contexts avaliable in the index.
@@ -312,16 +314,8 @@ writeToXmlFile f i = do
 
 -- | Load from a binary file.
 loadFromBinFile :: Binary a => FilePath -> IO a
-loadFromBinFile f = B.decodeFile f
-
--- | Load from a binary file.
--- readFromBinFile :: Binary a => FilePath -> IO a
--- readFromBinFile = loadFromBinFile
+loadFromBinFile = B.decodeFile
 
 -- | Write to a binary file.
 writeToBinFile :: Binary a => FilePath -> a -> IO ()
-writeToBinFile =  B.encodeFile 
-
--- | Write to a binary file.
--- saveToBinFile :: Binary a => FilePath -> a -> IO ()
--- saveToBinFile = writeToBinFile 
+writeToBinFile = B.encodeFile

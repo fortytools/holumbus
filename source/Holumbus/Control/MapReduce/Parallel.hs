@@ -27,9 +27,6 @@ where
 
 import Text.XML.HXT.Arrow
 
-import           Holumbus.Control.Registry
--- import           Holumbus.Utility
-
 import           Data.Map (Map,empty,insertWith) -- ,mapWithKey,filterWithKey)
 import qualified Data.Map    as M
 import           Data.Maybe (isJust, fromJust)
@@ -107,16 +104,6 @@ runMapTask chan mapFunction (k1, v1)
     return ()
 
 -- ----------------------------------------------------------------------------
-
--- | Applies the map function to every data in the input list
-mapPerKey :: ((k1,v1)  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2,v2)]
-mapPerKey _ []     = do return ([])
-mapPerKey mapFunction (x:xs)
-  = do
-    the_x  <- mapFunction x
-    the_xs <- mapPerKey mapFunction xs
-    return $! (the_x ++ the_xs)
-    -- maybe way nicer with mapM
     
 -- | Groups the output data of the Map phase by the computed keys (k2) 
 groupByKey :: (Ord k2) => [(k2, v2)] -> Dict k2 [v2]

@@ -16,6 +16,7 @@
 -}
 
 -- ----------------------------------------------------------------------------
+{-# OPTIONS -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
 
 module Holumbus.Index.Inverted.Memory 
 (
@@ -34,7 +35,7 @@ import Text.XML.HXT.Arrow
 
 import Data.Function
 import Data.Maybe
-import Data.Binary
+import Data.Binary hiding (Word)
 import Data.List
 
 import Data.Map (Map)
@@ -49,6 +50,8 @@ import qualified Holumbus.Data.StrMap as SM
 import Holumbus.Index.Common
 import Holumbus.Index.Compression
 
+import Holumbus.Control.MapReduce.MapReducible
+
 import Control.Parallel.Strategies
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
@@ -61,6 +64,12 @@ newtype Inverted = Inverted
 type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to their occurrences.
 type Part        = StrMap CompressedOccurrences
+
+
+instance MapReducible Inverted Context (Word, DocId, Position) where
+  mergeMR       = mergeIndexes
+  reduceMR _ c os = return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
+
 
 instance HolIndex Inverted where
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts

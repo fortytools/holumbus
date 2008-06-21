@@ -1,19 +1,20 @@
-{-# OPTIONS_GHC -XMultiParamTypeClasses -XTypeSynonymInstances -XFlexibleInstances #-}
+{-# OPTIONS_GHC -XMultiParamTypeClasses -XFunctionalDependencies -XTypeSynonymInstances -XFlexibleInstances #-}
 
 module Holumbus.Control.MapReduce.MapReducible where
 
-import Data.List
-import Holumbus.Index.Common
-import Holumbus.Index.Inverted
+-- import Data.List
+-- import Holumbus.Index.Common
+-- import Holumbus.Index.Inverted.Memory
 
-class (Ord k2) => MapReducible mr k2 v2 where
+class (Ord k2) => MapReducible mr k2 v2 | mr -> k2, mr -> v2 where
   mergeMR  :: mr -> mr -> mr
   reduceMR :: mr -> k2 -> [v2] -> IO (Maybe (mr)) 
   
+{-
 instance MapReducible Inverted Context (Word, DocId, Position) where
   mergeMR       = mergeIndexes
   reduceMR _ c os = return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
-  
+-}  
   
   
 

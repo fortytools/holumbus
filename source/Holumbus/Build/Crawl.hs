@@ -44,12 +44,12 @@ import           Data.List
 import           Data.Maybe
 import qualified Data.Map    as M
 import qualified Data.Set    as S
-import qualified Data.IntMap as IM
+-- import qualified Data.IntMap as IM
 import           Data.Digest.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
 import           Holumbus.Build.Config
-import           Holumbus.Build.Index
+-- import           Holumbus.Build.Index
 import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
 import           Holumbus.Index.Documents
@@ -60,38 +60,6 @@ import           System.Time
 
 -- import Control.Parallel.Strategies
 
-
-type Custom a = IOSArrow XmlTree (Maybe a)
-
--- | crawler state
-data CrawlerState a
-    = CrawlerState
-      { cs_toBeProcessed    :: S.Set URI
-      , cs_wereProcessed    :: S.Set URI
-      , cs_docHashes        :: M.Map String URI
-      , cs_unusedDocIds     :: [DocId]        -- probably unneeded
-      , cs_readAttributes   :: Attributes     -- passed to readDocument
-      , cs_tempPath         :: Maybe String     
-      , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- filter that is applied before
-      , cs_fGetReferences   :: ArrowXml a' => a' XmlTree [URI]
-      , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
-      , cs_fGetCustom       :: Custom a
-      , cs_docs             :: Documents a       
-      }
-
-instance Binary a => Binary (CrawlerState a) where
-  put (CrawlerState tbp wp dh _ _ _ _ _ _ _ d) 
-    = put tbp >> put wp >> put dh >> put d
-      
-  get = do
-        tbp <- get
-        wp  <- get
-        dh  <- get
-        d   <- get
-        return $ CrawlerState tbp wp dh (ids d) [] Nothing this (constA []) (const False) (constA Nothing) d 
-        where
-          ids :: Documents a -> [Int]
-          ids d =  [1..] \\ (IM.keys $ toMap d) 
 
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.
@@ -255,41 +223,7 @@ getDocument theUri getCustom
                  &&& getCustom
                )
     where
-    mkDoc t u c = constA $ Just $ Document t u c
-
-
--- | create an initial CrawlerState from an IndexerConfig
-initialCrawlerState :: (Binary b) => IndexerConfig -> Custom b -> CrawlerState b
-initialCrawlerState cic getCustom
-  = CrawlerState
-    { cs_toBeProcessed  = S.fromList (ic_startPages cic)
-    , cs_wereProcessed  = S.empty
-    , cs_unusedDocIds   = [1..]
-    , cs_readAttributes = ic_readAttributes cic
-    , cs_fGetReferences = getReferencesByXPaths ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
-    , cs_fPreFilter     = (none `when` isText) -- this
-    , cs_fCrawlFilter   = ic_fCrawlFilter cic
-    , cs_docs           = emptyDocuments
-    , cs_tempPath       = ic_tmpPath cic
-    , cs_fGetCustom     = getCustom
-    , cs_docHashes      = M.empty
-    }
-   
-    
-    
-saveCrawlerState :: Binary a => FilePath -> CrawlerState a -> IO ()
-saveCrawlerState fp cs = writeToBinFile fp cs
-
-loadCrawlerState :: Binary a => FilePath -> CrawlerState a -> IO (CrawlerState a)
-loadCrawlerState fp ori = do
-                          cs <- decodeFile fp
-                          return $! cs { cs_readAttributes = cs_readAttributes ori
-                                    , cs_fPreFilter     = cs_fPreFilter     ori
-                                    , cs_fGetReferences = cs_fGetReferences ori
-                                    , cs_tempPath       = cs_tempPath       ori
-                                    , cs_fGetCustom     = cs_fGetCustom     ori
-                                    }    
-          
+    mkDoc t u c = constA $ Just $ Document t u c          
 
 
          
