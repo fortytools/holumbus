@@ -132,6 +132,8 @@ ic_fhw
                                         , "http://www.fh-wedel.de/fileadmin/mitarbeiter/ne/CG/opengl_man"
                                         , "http://www.fh-wedel.de/%7Esi/vorlesungen/c/beispiele"
                                         , "http://www.fh-wedel.de/~si/vorlesungen/c/beispiele"
+                                        , "http://www.fh-wedel.de/~wol/fhtml" -- very slow and boring pages
+                                        , "http://www.fh-wedel.de/%7Esi/vorlesungen/internet/TclTk/program1.html" -- slow
                                         ] ++ list404)
     }
     
