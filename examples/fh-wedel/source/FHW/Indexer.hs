@@ -2,42 +2,58 @@ module Main
 where
 import           Control.Monad
 import           Text.XML.HXT.Arrow
+import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
-import           Holumbus.Build.Tokenize
 import           Holumbus.Index.Common
 import           Holumbus.Index.Documents (Documents)
 import qualified Holumbus.Index.Documents as DOC
-import           Holumbus.Index.Inverted(emptyInverted)
+import           Holumbus.Index.Inverted.Memory(emptyInverted)
+import           Holumbus.Index.Cache
 import           Holumbus.Utility
 
 import qualified Data.IntMap as IM
 import qualified Data.Set    as S
 import Data.Maybe
+import Data.Binary
+import Data.List
 
 main :: IO ()
 main 
   = do
-    traceLevel     <- return 0
-    workerThreads  <- return 7
-    idxConfig      <- return ic_fhw
-    crawlState     <- return (initialCrawlerState idxConfig customFunction)
+    let traceLevel     = 1
+        workerThreads  = 1 
+        docsPerCrawl   = 5
+        docsPerIndex   = 250
+        idxConfig      = ic_fhw
+        crawlState     = initialCrawlerState idxConfig customFunction
     
+    
+
+{-    crawlState <- (loadCrawlerState "/home/sms/indexes/CS-FHW.bin" crawlState)
+                  
+    crawlState <- return $ crawlState
+                  { cs_toBeProcessed = S.filter (cs_fCrawlFilter crawlState) (cs_toBeProcessed crawlState)
+                  , cs_docs          = filterDocuments (\d -> (cs_fCrawlFilter crawlState) (uri d)) (cs_docs crawlState)
+                  }
+-}                  
+                      
     {- runX (traceMsg 0 (" loading documents ... " ))
     theDocs <- loadFromBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") :: IO (Documents Int)
     crawlState     <- return $ fromDocuments crawlState theDocs
     -}
     
-    maxDocs        <- return 250
     -- ---------------------------------------------------------------------------------------------
     -- CRAWLING
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    docs       <- crawl traceLevel workerThreads crawlState
+    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlState
+--    docs <- loadFromBinFile "/home/sms/indexes/fhw-docs.bin" :: IO (Documents (Maybe Int))
 
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-docs.xml") (docs)
-    writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (docs)
-
+--    writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (docs)
+        
+    
     -- ---------------------------------------------------------------------------------------------
     -- INDEXING
     -- ---------------------------------------------------------------------------------------------
@@ -45,16 +61,20 @@ main
 
     localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
 
+    c <- createCache ((ic_idxPath idxConfig) ++ "-cache.db")
+
+--    idx <- buildIndex workerThreads traceLevel localDocs idxConfig emptyInverted (Just c)
     pathes    <- buildSplitIndex 
                          workerThreads
                          traceLevel
-                         (map (\(i,d) -> (i, uri d)) (IM.toList $ DOC.toMap localDocs))
+                         localDocs
                          idxConfig
                          emptyInverted
                          True
-                         maxDocs  
+                         docsPerIndex
                          
     idx       <- foldM mergeIndexes' emptyInverted pathes
+
     
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-index.xml") idx
     writeToBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") idx    
@@ -65,7 +85,7 @@ main
                            i2 <- loadFromBinFile (f  ++ "-index.bin")
                            return $ mergeIndexes i1 i2
                            
-fromDocuments :: CrawlerState a -> Documents a -> CrawlerState a
+fromDocuments :: Binary a => CrawlerState a -> Documents a -> CrawlerState a
 fromDocuments cs ds = cs { cs_toBeProcessed = S.fromList ( map (uri . snd) ( IM.toList $ DOC.toMap ds )) }
      
 customFunction :: ArrowXml a => a XmlTree (Maybe Int)
@@ -84,20 +104,26 @@ ic_fhw
     , ic_tmpPath        = Just "/tmp/"
     , ic_idxPath        = "/home/sms/indexes/fhw"
     , ic_contextConfigs = ccs_fhw
-    , ic_readAttrs      = standardReadDocumentAttributes
+    , ic_readAttributes = standardReadDocumentAttributes
     , ic_fCrawlFilter   = simpleCrawlFilter -- [ "^http://www\\.fh-wedel\\.de"] -- 
                                             ["^http://[a-z]*\\.?fh-wedel\\.de" ]           -- allow
                                         (["tx_fhwunternehmensforum_pi3"                     -- deny
                                         , "http://asta.fh-wedel.de"                -- slow
                                         , "http://biblserv.fh-wedel.de"            -- slow
---                                        , "/~", "/%7E", "http://www.fh-wedel.de/mitarbeiter/"
+                                        , "http://darcs.fh-wedel.de"               -- hackers only
+                                        , "http://stud.fh-wedel.de"                -- boring
+                                        , "http://holumbus.fh-wedel.de/branches"
+                                        , "http://holumbus.fh-wedel.de/cgi-bin"
+                                        , "/HXmlToolbox/hdoc", "si/doc/javadoc/docs"
+                                        , "~herbert/html", "/java/jdk1.1.1/docs"
+--                                       , "/~", "/%7E", "http://www.fh-wedel.de/mitarbeiter/"
                                         , "\\?L=0", "\\&L=0"
                                         , ".pdf$", ".jpg$", ".gif$", ".png$", ".tar.gz$"
                                         , ".ppt$", ".exe$", ".txt$", ".zip$", ".doc$"
                                         , ".dot$", ".png$", ".ps$", ".ps.gz$", ".nb$"
                                         , ".swf$", ".JPG$", ".tex$", ".rss$", ".mpg$"
-                                        , ".mp3$", ".java$", ".tgz$", ".svg", ".mdb$" 
-                                        , ".PDF$", ".xls$", ".dta$", ".lst$", ".rar"
+                                        , ".mp3$", ".m3u$", ".java$", ".tgz$", ".svg", ".mdb$" 
+                                        , ".PDF$", ".xls$", ".dta$", ".lst$", ".rar", ".avi$"
                                         , "%7Edi", "/~di"
                                         , "ws99/Ausarbeitung/mico/Beispiel"
                                         , "/rundgang/id=", "/vorlesungsplan/id="
@@ -281,7 +307,7 @@ cc_title
     , cc_XPath        = "/html/head/title"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = const False -- (\s -> length s < 2)
-    , cc_addToCache   = True
+    , cc_addToCache   = False
     }
     
 -- | Context for meta information. Description and keywords will be indexed
@@ -293,7 +319,7 @@ cc_meta
     , cc_XPath        = "/html/head/meta[@name='description' or @name='keywords']/@content"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = (\s -> length s < 2)
-    , cc_addToCache   = True
+    , cc_addToCache   = False
     }    
     
 -- | Context for normal page content. This indexes everything that is inside a div element with id
@@ -320,7 +346,7 @@ cc_raw
     , cc_XPath        = "//body"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = (\s -> length s < 2)
-    , cc_addToCache   = True
+    , cc_addToCache   = False
     }
     
         
