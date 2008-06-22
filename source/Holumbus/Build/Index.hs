@@ -222,6 +222,7 @@ processContext cache docId cc  =
               )
     >>> arr concat                                            -- convert text nodes into strings
     >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
+    >>> arr (filter (== ""))                                  -- filter empty words
     >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
                   `guardsP` 
                    ( arr unwords >>> arrIO ( putDocText (fromJust cache) (cc_name cc) docId)) 

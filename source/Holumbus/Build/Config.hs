@@ -36,6 +36,9 @@ module Holumbus.Build.Config
   
   -- * Crawler configuration helpers
   , getReferencesByXPaths
+  , crawlFilter
+  , simpleCrawlFilter
+  , standardReadDocumentAttributes
   
   -- * Tokenizing
   , parseWords
@@ -59,6 +62,7 @@ import           Holumbus.Index.Documents
 import           Holumbus.Utility
 
 import           Text.XML.HXT.Arrow
+import           Text.Regex
 
 
 type Custom a = IOSArrow XmlTree (Maybe a)
@@ -124,6 +128,7 @@ instance Binary a => Binary (CrawlerState a) where
           ids :: Documents a -> [Int]
           ids d =  [1..] \\ (IM.keys $ toMap d) 
 
+
 -- | Extract References to other documents from a XmlTree based on configured XPath expressions
 getReferencesByXPaths :: ArrowXml a => [String] -> a XmlTree [URI]
 getReferencesByXPaths xpaths
@@ -137,6 +142,8 @@ getReferencesByXPaths xpaths
               | otherwise = r
               where
                 path = dropWhile (/='#') . reverse $ r 
+
+
 
 parseWords  :: (Char -> Bool) -> String -> [String]
 parseWords isWordChar'
@@ -156,7 +163,7 @@ instance XmlPickler IndexerConfig where
                     ) xpConfig
     where
     xpConfig = xp6Tuple xpStartPages xpTmpPath xpIdxPath xpContextConfigs xpFCrawlFilter xpReadAttrs
-      where -- We are inside a doc-element, therefore everything is stored as attribute.
+      where
       xpStartPages     = xpElem "StartPages" $ xpList   $ xpElem "Page"       xpPrim 
       xpTmpPath        = xpOption $ xpElem "TmpPath"    xpPrim
       xpIdxPath        =            xpElem "OutputPath" xpPrim
@@ -164,19 +171,8 @@ instance XmlPickler IndexerConfig where
       xpContextConfig  = xpZero
       xpFCrawlFilter   = xpZero
       xpReadAttrs      = xpZero
-      
---data IndexerConfig 
---  = IndexerConfig
---    { ic_startPages     :: [URI]
---    , ic_tmpPath        :: Maybe String   
---    , ic_idxPath        :: String
---    , ic_contextConfigs :: [ContextConfig]
---    , ic_fCrawlFilter   :: URI -> Bool     
---    , ic_readAttrs      :: Attributes
---    } 
-         
-  
 
+         
 -- | create an initial CrawlerState from an IndexerConfig
 initialCrawlerState :: (Binary b) => IndexerConfig -> Custom b -> CrawlerState b
 initialCrawlerState cic getCustom
@@ -194,7 +190,6 @@ initialCrawlerState cic getCustom
     , cs_docHashes      = M.empty
     }
    
-    
     
 saveCrawlerState :: Binary a => FilePath -> CrawlerState a -> IO ()
 saveCrawlerState fp cs = writeToBinFile fp cs
@@ -230,6 +225,50 @@ mergeIndexerConfigs' cfg1 (cfg2:cfgs) = mergeIndexerConfigs' resCfg cfgs
       (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
       (ic_readAttributes cfg1)
 
+
+{- | Create Crawl filters based on regular expressions. The first Parameter defines the default 
+     value if none of the supplied rules matches. The rule list is computed from the first element
+     to the last. The first rule that matches the URI is applied. 
+     
+     example:
+     
+     > crawlFilter False [ ("\/a\/b\/z", True )
+     >                   , ("\/a\/b"  , False)
+     >                   , ("\/a"    , True )
+
+     The default value for the filter is False like it will be in most cases unless you are trying
+     to use Holumbus to build a google replacement. If you read the rules from bottom to top, all
+     documents in "\/a" will be included (which should be a single domain or ip address or maybe a
+     set of these). The second rule disables the directory "\/a\/b" but with the first rule, the 
+     subdirectory z is included again and "\/a\/b\/a" to "\/a\/b\/y" are excluded. Even though this could
+     also be done with the 'simpleCrawlFilter', this way saves you a lot of unnecessary code.
+-} 
+crawlFilter :: Bool -> [(String, Bool)] -> (URI -> Bool)
+crawlFilter theDefault [] _ = theDefault
+crawlFilter theDefault ((expr, b):expressions) theUri = 
+  if isJust $ matchRegex (mkRegex expr) theUri then b else crawlFilter theDefault expressions theUri
+
+-- | Create Crawl filters based on regular expressions. The first list defines 
+--   regular expression of URIs that have to be crawled. Any new URI must match at least one of 
+--   these regular expressions to be crawled. The second list consists of regular expressions for
+--   pages that must not be crawled. This can be used to limit the set of documents defined by 
+--   the including expressions. 
+simpleCrawlFilter :: [String] -> [String] -> (URI -> Bool)
+simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden ) 
+         where
+         isAllowed   = foldl (&&) True  (map (matches theUri) as)
+         isForbidden = foldl (||) False (map (matches theUri) ds)
+         matches u a = isJust $ matchRegex (mkRegex a) u      
+      
+-- | some standard options for the readDocument function
+standardReadDocumentAttributes :: [(String, String)]
+standardReadDocumentAttributes = []
+  ++ [ (a_parse_html, v_1)]
+  ++ [ (a_issue_warnings, v_0)]
+  ++ [ (a_tagsoup, v_1) ]
+  ++ [ (a_use_curl, v_1)]
+  ++ [ (a_options_curl, "--user-agent HolumBot/0.1@http://holumbus.fh-wedel.de --location")]     
+  ++ [ (a_encoding, isoLatin1)]      
 
 
 
