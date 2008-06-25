@@ -9,7 +9,7 @@ import           Holumbus.Index.Common
 import           Holumbus.Index.Documents (Documents)
 import qualified Holumbus.Index.Documents as DOC
 import           Holumbus.Index.Inverted.Memory(emptyInverted)
-import           Holumbus.Index.Cache
+-- import           Holumbus.Index.Cache
 import           Holumbus.Utility
 
 import qualified Data.IntMap as IM
@@ -47,11 +47,14 @@ main
     -- CRAWLING
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlState
---    docs <- loadFromBinFile "/home/sms/indexes/fhw-docs.bin" :: IO (Documents (Maybe Int))
+--    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlState
+--    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
 
+    docs <- strictDecodeFile "/home/sms/indexes/fhw-docs.bin" :: IO (Documents (Maybe Int))
+    localDocs <- return docs
+    
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-docs.xml") (docs)
---    writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (docs)
+    writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (docs)
         
     
     -- ---------------------------------------------------------------------------------------------
@@ -59,9 +62,7 @@ main
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" indexing  ----------------------------- " ))
 
-    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
-
-    c <- createCache ((ic_idxPath idxConfig) ++ "-cache.db")
+--    c <- createCache ((ic_idxPath idxConfig) ++ "-cache.db")
 
 --    idx <- buildIndex workerThreads traceLevel localDocs idxConfig emptyInverted (Just c)
     pathes    <- buildSplitIndex 

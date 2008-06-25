@@ -37,13 +37,12 @@ import           Data.Maybe
 
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
-import           Holumbus.Build.Tokenize
-import           Holumbus.Build.XmlFilter
-import           Holumbus.Control.MapReduce.ParallelOld
+import           Holumbus.Build.Config
+import           Holumbus.Control.MapReduce.ParallelWithClass
 -- import           Holumbus.Index.Cache
 
 import           Holumbus.Index.Common
-import           Holumbus.Index.Inverted(emptyInverted)
+import           Holumbus.Index.Inverted.Memory(emptyInverted)
 import           Holumbus.Index.Documents
 import qualified Holumbus.Index.Documents as DOC  
 import           Holumbus.Utility
@@ -739,11 +738,11 @@ preFilterSignatures
       >>> flattenElementsByType "pre"
       >>> removeDeclbut  -- redundant !?
 
-flattenAllElements :: LA XmlTree XmlTree
-flattenAllElements 
+flattenElementsByType :: String -> LA XmlTree XmlTree
+flattenElementsByType s
     = processTopDown ( getChildren
                        `when`
-                       isElem
+                       hasName s
                      )
 
 removeDeclbut :: ArrowXml a => a XmlTree XmlTree
