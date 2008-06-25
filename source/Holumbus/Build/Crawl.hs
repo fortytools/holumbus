@@ -25,6 +25,7 @@ module Holumbus.Build.Crawl
 
   -- * Crawling
   , crawl
+  , crawlFileSystem
   
   -- * Initializing
   , initialCrawlerState
@@ -55,11 +56,36 @@ import           Holumbus.Index.Common
 import           Holumbus.Index.Documents
 import           Holumbus.Utility
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Arrow hiding (getXPathTrees)
+import           Text.XML.HXT.Arrow.XPathSimple
+import           System.Directory
 import           System.Time
 
 -- import Control.Parallel.Strategies
 
+crawlFileSystem :: [FilePath] -> (FilePath -> Bool) -> IO (Documents Int)
+crawlFileSystem startPages crawlFilter 
+  = do
+    docs <- mapM (crawlFileSystem' crawlFilter) startPages
+    foldM  (\ds s -> return $ snd $ insertDoc ds (Document "" s (Nothing :: Maybe Int))) emptyDocuments (concat docs)
+
+crawlFileSystem' :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
+crawlFileSystem' crawlFilter path
+  = do
+    dc     <- getDirectoryContents path
+    absdc  <- return $ map (\s -> path ++ "/" ++ s) (filter (\s ->  (s /= ".") && (s /= "..")) dc)
+    foldM process [] (filter (\s -> (crawlFilter s)) absdc)
+    where
+      process :: [FilePath] -> FilePath -> IO [FilePath]
+      process res s = do
+                      exists <- doesDirectoryExist s
+                      if exists 
+                        then do
+                             rec <- crawlFileSystem' crawlFilter s
+                             return $ res ++ rec
+                        else do
+                             print s
+                             return $ s : res
 
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.
