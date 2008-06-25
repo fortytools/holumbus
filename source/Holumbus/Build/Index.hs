@@ -49,8 +49,8 @@ import           Holumbus.Utility
 
 import           System.Time
 
-import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
-
+import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
+import           Text.XML.HXT.Arrow.XPathSimple --(getXPathTrees)
 -- -----------------------------------------------------------------------------
 
 buildSplitIndex :: ( NFData i, HolDocuments d a, HolIndex i, XmlPickler i 
@@ -222,7 +222,7 @@ processContext cache docId cc  =
               )
     >>> arr concat                                            -- convert text nodes into strings
     >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
-    >>> arr (filter (== ""))                                  -- filter empty words
+    >>> arr (filter (\w -> w /= ""))                          -- filter empty words
     >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
                   `guardsP` 
                    ( arr unwords >>> arrIO ( putDocText (fromJust cache) (cc_name cc) docId)) 
