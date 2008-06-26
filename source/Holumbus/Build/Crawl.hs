@@ -64,24 +64,24 @@ import           System.Time
 -- import Control.Parallel.Strategies
 
 crawlFileSystem :: [FilePath] -> (FilePath -> Bool) -> IO (Documents Int)
-crawlFileSystem startPages crawlFilter 
+crawlFileSystem startPages docFilter 
   = do
-    docs <- mapM (crawlFileSystem' crawlFilter) startPages
+    docs <- mapM (crawlFileSystem' docFilter) startPages
     foldM  (\ds s -> return $ snd $ insertDoc ds (Document "" s (Nothing :: Maybe Int))) emptyDocuments (concat docs)
 
 crawlFileSystem' :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
-crawlFileSystem' crawlFilter path
+crawlFileSystem' docFilter path
   = do
     dc     <- getDirectoryContents path
     absdc  <- return $ map (\s -> path ++ "/" ++ s) (filter (\s ->  (s /= ".") && (s /= "..")) dc)
-    foldM process [] (filter (\s -> (crawlFilter s)) absdc)
+    foldM process [] (filter (\s -> (docFilter s)) absdc)
     where
       process :: [FilePath] -> FilePath -> IO [FilePath]
       process res s = do
                       exists <- doesDirectoryExist s
                       if exists 
                         then do
-                             rec <- crawlFileSystem' crawlFilter s
+                             rec <- crawlFileSystem' docFilter s
                              return $ res ++ rec
                         else do
                              print s
