@@ -50,10 +50,8 @@ import           Data.Digest.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
 import           Holumbus.Build.Config
--- import           Holumbus.Build.Index
 import           Holumbus.Control.MapReduce.Parallel
 import           Holumbus.Index.Common
-import           Holumbus.Index.Documents
 import           Holumbus.Utility
 
 import           Text.XML.HXT.Arrow hiding (getXPathTrees)
@@ -63,8 +61,8 @@ import           System.Time
 
 -- import Control.Parallel.Strategies
 
-crawlFileSystem :: [FilePath] -> (FilePath -> Bool) -> IO (Documents Int)
-crawlFileSystem startPages docFilter 
+crawlFileSystem :: HolDocuments d Int =>  [FilePath] -> (FilePath -> Bool) -> d Int -> IO (d Int)
+crawlFileSystem startPages docFilter emptyDocuments 
   = do
     docs <- mapM (crawlFileSystem' docFilter) startPages
     foldM  (\ds s -> return $ snd $ insertDoc ds (Document "" s (Nothing :: Maybe Int))) emptyDocuments (concat docs)
@@ -89,7 +87,7 @@ crawlFileSystem' docFilter path
 
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.
-crawl :: (Binary b, XmlPickler b) => Int -> Int -> Int -> CrawlerState b -> IO (Documents b)
+crawl :: (HolDocuments d a, Binary a, Binary (d a), XmlPickler (d a)) => Int -> Int -> Int -> CrawlerState d a -> IO (d a)
 crawl traceLevel maxWorkers maxDocs cs = 
   if S.null ( cs_toBeProcessed cs ) -- if no more documents have to be processed, 
     then return (cs_docs cs)        -- the Documents are returned
@@ -120,18 +118,18 @@ crawl traceLevel maxWorkers maxDocs cs =
 -- | The REDUCE function for the crawling MapReduce computation. The 'Documents' and their contained
 --   links are used to modify the 'CrawlerState'. New documents are added to the list of 
 --   unprocessed docs and the data of the already crawled documents are added to the 'Documents'. 
-processCrawlResults :: (Binary b) => 
-                       CrawlerState b                 -- ^ state before last MapReduce computation
+processCrawlResults :: (HolDocuments d a, Binary a) => 
+                       CrawlerState d a                 -- ^ state before last MapReduce computation
                     -> Int                     -- ^
-                    -> [(String, Maybe (Document b), S.Set URI)]  -- ^ data produced in the crawl phase
-                    -> IO (Maybe (CrawlerState b))
+                    -> [(String, Maybe (Document a), S.Set URI)]  -- ^ data produced in the crawl phase
+                    -> IO (Maybe (CrawlerState d a))
 processCrawlResults oldCs _ l = 
   do 
   cs' <- foldM process oldCs l
   return $ Just cs'
   where 
-    process :: Binary b => 
-               CrawlerState b -> (String, Maybe (Document b), S.Set URI) -> IO (CrawlerState b)
+    process :: (HolDocuments d a, Binary a) => 
+               CrawlerState d a -> (String, Maybe (Document a), S.Set URI) -> IO (CrawlerState d a)
     process cs (theMD5, mdoc, refs) 
       = if isJust mdoc
           then 
@@ -159,7 +157,8 @@ processCrawlResults oldCs _ l =
                            , cs_docHashes = M.insert theMD5 (uri $ fromJust mdoc) (cs_docHashes cs)
                            }
           else return cs
-    update :: Binary b => Documents b -> M.Map String URI -> String -> URI -> URI -> IO (Documents b, M.Map String URI)
+    update :: (HolDocuments d a, Binary a) => 
+              d a -> M.Map String URI -> String -> URI -> URI -> IO (d a, M.Map String URI)
     update docs hashes md5String oldUri newUri 
       = if length oldUri <= length newUri 
           then return $ (docs, hashes)
@@ -172,12 +171,12 @@ processCrawlResults oldCs _ l =
 -- | Wrapper function for the "real" crawlDoc functions. The current time is
 --   traced (to identify documents that take a lot of time to be processed while
 --   testing) and the crawlDoc'-arrow is run
-crawlDoc :: (Binary b) => 
+crawlDoc :: (HolDocuments d a, Binary a) => 
             Int 
-         -> CrawlerState b
+         -> CrawlerState d a
          -> DocId 
          -> String 
-         -> IO [(Int, (String, Maybe (Document b), S.Set URI))]
+         -> IO [(Int, (String, Maybe (Document a), S.Set URI))]
 crawlDoc traceLevel cs docId theUri 
   = let attrs     = cs_readAttributes cs 
         tmpPath   = cs_tempPath cs

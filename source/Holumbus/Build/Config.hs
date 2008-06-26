@@ -58,7 +58,7 @@ import qualified Data.IntMap as IM
 
 
 import           Holumbus.Index.Common
-import           Holumbus.Index.Documents
+-- import           Holumbus.Index.Documents
 import           Holumbus.Utility
 
 import           Text.XML.HXT.Arrow
@@ -99,7 +99,7 @@ data ContextConfig
     }   
     
 -- | crawler state
-data CrawlerState a
+data CrawlerState d a
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
       , cs_wereProcessed    :: S.Set URI
@@ -111,10 +111,10 @@ data CrawlerState a
       , cs_fGetReferences   :: ArrowXml a' => a' XmlTree [URI]
       , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
       , cs_fGetCustom       :: Custom a
-      , cs_docs             :: Documents a       
+      , cs_docs             :: HolDocuments d a => d a       
       }    
     
-instance Binary a => Binary (CrawlerState a) where
+instance (HolDocuments d a, Binary a) => Binary (CrawlerState d a) where
   put (CrawlerState tbp wp dh _ _ _ _ _ _ _ d) 
     = put tbp >> put wp >> put dh >> put d
       
@@ -125,7 +125,6 @@ instance Binary a => Binary (CrawlerState a) where
         d   <- get
         return $ CrawlerState tbp wp dh (ids d) [] Nothing this (constA []) (const False) (constA Nothing) d 
         where
-          ids :: Documents a -> [Int]
           ids d =  [1..] \\ (IM.keys $ toMap d) 
 
 
@@ -174,8 +173,8 @@ instance XmlPickler IndexerConfig where
 
          
 -- | create an initial CrawlerState from an IndexerConfig
-initialCrawlerState :: (Binary b) => IndexerConfig -> Custom b -> CrawlerState b
-initialCrawlerState cic getCustom
+initialCrawlerState :: (HolDocuments d a, Binary a) => IndexerConfig -> d a -> Custom a -> CrawlerState d a
+initialCrawlerState cic emptyDocuments getCustom
   = CrawlerState
     { cs_toBeProcessed  = S.fromList (ic_startPages cic)
     , cs_wereProcessed  = S.empty
@@ -191,10 +190,10 @@ initialCrawlerState cic getCustom
     }
    
     
-saveCrawlerState :: Binary a => FilePath -> CrawlerState a -> IO ()
+saveCrawlerState :: (HolDocuments d a, Binary a) => FilePath -> CrawlerState d a -> IO ()
 saveCrawlerState fp cs = writeToBinFile fp cs
 
-loadCrawlerState :: Binary a => FilePath -> CrawlerState a -> IO (CrawlerState a)
+loadCrawlerState :: (HolDocuments d a , Binary a) => FilePath -> CrawlerState d a -> IO (CrawlerState d a)
 loadCrawlerState fp ori = do
                           cs <- decodeFile fp
                           return $! cs { cs_readAttributes = cs_readAttributes ori
