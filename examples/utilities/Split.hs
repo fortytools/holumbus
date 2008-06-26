@@ -29,7 +29,7 @@ import Control.Parallel.Strategies
 
 import qualified Data.List as L
 
-import Holumbus.Index.Inverted
+import Holumbus.Index.Inverted.Memory
 import Holumbus.Index.Common
 
 data Flag = Index String 

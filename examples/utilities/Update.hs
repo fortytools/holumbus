@@ -28,7 +28,7 @@ import Control.Monad
 import Data.Maybe
 
 import Holumbus.Index.Common
-import Holumbus.Index.Inverted
+import Holumbus.Index.Inverted.Memory
 import Holumbus.Query.Distribution.Protocol
 import Holumbus.Query.Distribution.Client
 

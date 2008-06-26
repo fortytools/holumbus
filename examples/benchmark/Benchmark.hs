@@ -34,7 +34,7 @@ import Control.Parallel.Strategies
 
 import qualified Data.List as L
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 import Holumbus.Query.Processor

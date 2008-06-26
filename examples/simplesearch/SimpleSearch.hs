@@ -35,6 +35,9 @@ import Control.Parallel.Strategies
 import Char
 import Data.Maybe
 import Data.Function
+import Data.Binary
+import Text.XML.HXT.Arrow.Pickle
+import Control.Monad
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -44,6 +47,7 @@ import qualified Data.IntSet as IS
 import Text.XML.HXT.DOM.Unicode
 
 import Holumbus.Index.Inverted (Inverted)
+-- import Holumbus.Index.Inverted.Persistent (Persistent)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 import Holumbus.Query.Processor
@@ -133,8 +137,8 @@ startupLocal v (Index idxFile) (Documents docFile) =
   if v  then putStrLn ("Collected position total of " ++ (show $ walkIndex idx)) else return ()
   putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."
-  doc <- (loadFromFile docFile) :: IO (Documents Int)
-  return (rnf doc)
+  doc <- (loadFromFile docFile) :: IO (Documents FunctionInfo)-- (Documents Int)
+--  return (rnf doc)
   putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (localQuery idx doc) v
 startupLocal _ _ _ = usage ["Internal error!\n"]
@@ -292,3 +296,25 @@ printHelp =
   putStrLn ""
   putStrLn "Use :q to exit and :? to show this help."
   return ()
+
+  -- | Additional information about a function.
+data FunctionInfo = FunctionInfo 
+  { moduleName :: String      -- ^ The name of the module containing the function, e.g. Data.Map
+  , signature :: String       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+  , sourceURI :: Maybe String -- ^ An optional URI to the online source of the function.
+  } 
+  deriving (Show, Eq)
+
+instance XmlPickler FunctionInfo where
+  xpickle = xpWrap (\(m, s, r) -> FunctionInfo m s r, \(FunctionInfo m s r) -> (m, s, r)) xpFunction
+    where
+    xpFunction = xpTriple xpModule xpSignature xpSource
+      where -- We are inside a doc-element, therefore everything is stored as attribute.
+      xpModule = xpAttr "module" xpText0
+      xpSignature = xpAttr "signature" xpText0
+      xpSource = xpOption (xpAttr "source" xpText0)
+
+instance Binary FunctionInfo where
+  put (FunctionInfo m s r) = put m >> put s >> put r
+  get = liftM3 FunctionInfo get get get
+  

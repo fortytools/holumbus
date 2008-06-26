@@ -31,7 +31,7 @@ import System.Time
 import Control.Monad
 import Control.Parallel.Strategies
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 import Holumbus.Index.Common
 import Holumbus.Query.Distribution.Server
 

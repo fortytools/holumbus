@@ -23,7 +23,7 @@ import System.IO
 import System.Environment
 import System.Console.GetOpt
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 

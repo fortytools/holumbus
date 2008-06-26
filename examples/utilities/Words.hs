@@ -29,7 +29,7 @@ import qualified Data.List as L
 
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 import Holumbus.Index.Common
 
 data Flag = Index String 

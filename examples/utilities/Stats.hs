@@ -31,7 +31,7 @@ import qualified Data.List as L
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common
 

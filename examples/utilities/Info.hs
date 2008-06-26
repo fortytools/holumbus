@@ -39,7 +39,7 @@ import qualified Data.IntMap as IM
 import qualified Holumbus.Data.StrMap as SM
 import qualified Holumbus.Data.DiffList as DL
 
-import Holumbus.Index.Inverted (Inverted (..))
+import Holumbus.Index.Inverted.Memory (Inverted (..))
 import Holumbus.Index.Common
 
 data Flag = Index String 

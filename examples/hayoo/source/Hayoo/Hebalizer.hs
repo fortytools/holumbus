@@ -26,7 +26,7 @@ import System.Console.GetOpt
 import Text.XML.HXT.Arrow
 
 import Holumbus.Utility
-import Holumbus.Control.MapReduce.Parallel
+import Holumbus.Control.MapReduce.ParallelOld
 
 import qualified Data.List as L
 import Data.Map hiding (split, map, filter, null)
