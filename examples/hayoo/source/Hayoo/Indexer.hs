@@ -38,13 +38,12 @@ import           Data.Maybe
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
 import           Holumbus.Build.Config
-import           Holumbus.Control.MapReduce.ParallelWithClass
+import           Holumbus.Control.MapReduce.Parallel
 -- import           Holumbus.Index.Cache
 
 import           Holumbus.Index.Common
 import           Holumbus.Index.Inverted.Memory(emptyInverted)
 import           Holumbus.Index.Documents
-import qualified Holumbus.Index.Documents as DOC  
 import           Holumbus.Utility
 
 import           Network.URI(unEscapeString)
@@ -73,7 +72,7 @@ main
 --                              ++ [ic_Single]            -- one document for debugging
         idxConfig     = foldl1 mergeIndexerConfigs idxConfigs
 
-        crawlerState  = (initialCrawlerState idxConfig customCrawlFunc)-- {cs_fPreFilter = preCrawlFilter}
+        crawlerState  = (initialCrawlerState idxConfig emptyDocuments customCrawlFunc)-- {cs_fPreFilter = preCrawlFilter}
 
 
     
@@ -88,7 +87,7 @@ main
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlerState
+    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") docs
     
     
@@ -114,7 +113,7 @@ main
                     workerThreads 
                     (getVirtualDocs traceLevel splitPath)
                     mkVirtualDocList
-                    (IM.toList (IM.map uri (DOC.toMap docs)))
+                    (IM.toList (IM.map uri (toMap docs)))
     splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
     writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs)
     writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs)
@@ -149,7 +148,7 @@ isLatestVersion m d = ver == M.findWithDefault "0" pkg m
 
 getVersions :: Binary a => Documents a -> M.Map String String
 getVersions docs = foldl' (\m d -> M.insertWith cmp (pkg d) (ver d) m) M.empty
-                          (map snd $ IM.toList $ DOC.toMap docs)
+                          (map snd $ IM.toList $ toMap docs)
   where 
   cmp v1 v2 = if v1 >= v2 then v1 else v2
   pkg d     = (split "/" (uri d)) !! 5
@@ -293,10 +292,10 @@ topdeclToDecl
 
 -- | The REDUCE phase of the virtual document creation MapReduce computation.
 --   The virtual Documents from the MAP phase are collected and a new Documents data is created
-mkVirtualDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (DOC.Documents  FunctionInfo))
+mkVirtualDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (Documents  FunctionInfo))
 mkVirtualDocList _ vDocs
   = return $! Just $ foldl' (\d r -> snd (insertDoc d r)) 
-                             DOC.emptyDocuments 
+                             emptyDocuments 
                             (map (\(t, u, fi) -> Document t u (Just fi)) vDocs)
             
 
