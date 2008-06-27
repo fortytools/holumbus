@@ -262,12 +262,13 @@ simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden )
 -- | some standard options for the readDocument function
 standardReadDocumentAttributes :: [(String, String)]
 standardReadDocumentAttributes = []
-  ++ [ (a_parse_html, v_1)]
-  ++ [ (a_issue_warnings, v_0)]
-  ++ [ (a_tagsoup, v_1) ]
-  ++ [ (a_use_curl, v_1)]
-  ++ [ (a_options_curl, "--user-agent HolumBot/0.1@http://holumbus.fh-wedel.de --location")]     
-  ++ [ (a_encoding, isoLatin1)]      
+  ++ [ (a_parse_html,        v_1)]
+  ++ [ (a_issue_warnings,    v_0)]
+  ++ [ (a_remove_whitespace, v_1)]
+  ++ [ (a_tagsoup,           v_1)]
+  ++ [ (a_use_curl,          v_1)]
+  ++ [ (a_options_curl,      "--user-agent HolumBot/0.1@http://holumbus.fh-wedel.de --location")]     
+  ++ [ (a_encoding,          isoLatin1)]      
 
 
 

@@ -42,7 +42,6 @@ import           Control.Parallel.Strategies
 
 import           Holumbus.Build.Config
 import           Holumbus.Control.MapReduce.ParallelWithClass
-import           Holumbus.Control.MapReduce.MapReducible
 import           Holumbus.Index.Common
 import           Holumbus.Index.Cache
 import           Holumbus.Utility
@@ -53,8 +52,7 @@ import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stu
 import           Text.XML.HXT.Arrow.XPathSimple --(getXPathTrees)
 -- -----------------------------------------------------------------------------
 
-buildSplitIndex :: ( NFData i, HolDocuments d a, HolIndex i, XmlPickler i 
-                   , MapReducible i String (String, DocId, Int) ) =>
+buildSplitIndex :: ( NFData i, HolDocuments d a, HolIndex i, XmlPickler i )=>
      Int
   -> Int
   -> d a
