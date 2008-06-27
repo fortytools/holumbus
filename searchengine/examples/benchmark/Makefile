@@ -1,6 +1,5 @@
 # Making Benchmark
 
-HOME	= ../..
 
 GHC_FLAGS	= -Wall -O2 -hidir $(OUTPUT) -odir $(OUTPUT)
 GHC				= ghc $(GHC_FLAGS)

@@ -1,6 +1,5 @@
 # Making Utilities
 
-HOME	= ../..
 
 GHC_FLAGS	= -Wall -O2 
 GHC				= ghc $(GHC_FLAGS)

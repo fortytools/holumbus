@@ -1,6 +1,5 @@
 # Making all tests
 
-HOME			= ..
 
 # Make GHC compile everything seperatly for the tests, to be able to 
 # execute them without installing the library first.
