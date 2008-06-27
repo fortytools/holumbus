@@ -6,8 +6,7 @@ import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
 import           Holumbus.Index.Common
-import           Holumbus.Index.Documents (Documents)
-import qualified Holumbus.Index.Documents as DOC
+import           Holumbus.Index.Documents 
 import           Holumbus.Index.Inverted.Memory(emptyInverted)
 -- import           Holumbus.Index.Cache
 import           Holumbus.Utility
@@ -26,7 +25,7 @@ main
         docsPerCrawl   = 5
         docsPerIndex   = 250
         idxConfig      = ic_fhw
-        crawlState     = initialCrawlerState idxConfig customFunction
+        crawlState     = initialCrawlerState idxConfig emptyDocuments customFunction
     
     
 
@@ -86,8 +85,8 @@ main
                            i2 <- loadFromBinFile (f  ++ "-index.bin")
                            return $ mergeIndexes i1 i2
                            
-fromDocuments :: Binary a => CrawlerState a -> Documents a -> CrawlerState a
-fromDocuments cs ds = cs { cs_toBeProcessed = S.fromList ( map (uri . snd) ( IM.toList $ DOC.toMap ds )) }
+fromDocuments :: Binary a => CrawlerState Documents a -> Documents a -> CrawlerState Documents a
+fromDocuments cs ds = cs { cs_toBeProcessed = S.fromList ( map (uri . snd) ( IM.toList $ toMap ds )) }
      
 customFunction :: ArrowXml a => a XmlTree (Maybe Int)
 customFunction = constA Nothing    
