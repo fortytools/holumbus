@@ -1,0 +1,282 @@
+name:          MrHaskell
+version:       0.1
+license:       OtherLicense
+license-file:  LICENSE
+author:        Uwe Schmidt, Stefan Schmidt
+copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
+maintainer:    Stefan Schmidt <sts@holumbus.org>
+stability:     experimental
+category:      Text, Data
+synopsis:      A distributed map-reduce framework
+homepage:      http://holumbus.org
+description:   this package is just experimental, i just need do out my code somewhere.
+cabal-version: >=1.2
+
+flag splitBase
+  description: Choose the new smaller, split-up base package.
+
+Executable MRworker
+  Build-Depends:  base >= 3
+                , haskell98
+                , hslogger
+                , containers
+                , old-time
+                , parallel
+                , parsec
+                , network
+                , bytestring
+                , unix
+                , utf8-string
+                , hxt
+                , binary
+                , bzlib
+                , regex-compat
+                , HDBC
+                , HDBC-sqlite3
+                , readline
+                , Holumbus
+
+  Main-Is:        Holumbus/Distribution/Main/WorkerMain.hs
+  Hs-Source-Dirs: source
+  Other-Modules:  Holumbus.Distribution.Main.WorkerMain
+                , Holumbus.Distribution.UserInterface
+                , Holumbus.Distribution.Distribution
+                , Holumbus.Distribution.Messages
+                , Holumbus.Distribution.Worker
+                , Holumbus.Distribution.Worker.WorkerData
+                , Holumbus.Distribution.Worker.WorkerPort
+                , Holumbus.Distribution.Master
+                , Holumbus.Distribution.Master.MasterData
+                , Holumbus.Distribution.Master.MasterPort
+                , Holumbus.Console.Console
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Server
+                , Holumbus.Network.Client
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded
+
+Executable MRmaster
+  Build-Depends:  base >= 3
+                , haskell98
+                , hslogger
+                , containers
+                , old-time
+                , parallel
+                , parsec
+                , network
+                , bytestring
+                , unix
+                , utf8-string
+                , hxt
+                , binary
+                , bzlib
+                , regex-compat
+                , HDBC
+                , HDBC-sqlite3
+                , readline
+
+  Main-Is:        Holumbus/Distribution/Main/MasterMain.hs
+  Hs-Source-Dirs: source
+  Other-Modules:  Holumbus.Distribution.Main.MasterMain
+                , Holumbus.Distribution.UserInterface
+                , Holumbus.Distribution.Distribution
+                , Holumbus.Distribution.Messages
+                , Holumbus.Distribution.Worker
+                , Holumbus.Distribution.Worker.WorkerData
+                , Holumbus.Distribution.Worker.WorkerPort
+                , Holumbus.Distribution.Master
+                , Holumbus.Distribution.Master.MasterData
+                , Holumbus.Distribution.Master.MasterPort
+                , Holumbus.Console.Console
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Server
+                , Holumbus.Network.Client
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded
+
+
+Executable MRclient
+  Build-Depends:  base >= 3
+                , haskell98
+                , hslogger
+                , containers
+                , old-time
+                , parallel
+                , parsec
+                , network
+                , bytestring
+                , unix
+                , utf8-string
+                , hxt
+                , binary
+                , bzlib
+                , regex-compat
+                , HDBC
+                , HDBC-sqlite3
+                , readline
+
+  Main-Is:        Holumbus/Distribution/Main/ClientMain.hs
+  Hs-Source-Dirs: source
+  Other-Modules:  Holumbus.Distribution.Main.ClientMain
+                , Holumbus.Distribution.UserInterface
+                , Holumbus.Distribution.Distribution
+                , Holumbus.Distribution.Messages
+                , Holumbus.Distribution.Worker
+                , Holumbus.Distribution.Worker.WorkerData
+                , Holumbus.Distribution.Worker.WorkerPort
+                , Holumbus.Distribution.Master
+                , Holumbus.Distribution.Master.MasterData
+                , Holumbus.Distribution.Master.MasterPort
+                , Holumbus.Console.Console
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Server
+                , Holumbus.Network.Client
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded
+
+
+Executable FScontroller
+  Build-Depends:  base >= 3
+                , haskell98
+                , hslogger
+                , containers
+                , old-time
+                , parallel
+                , parsec
+                , network
+                , bytestring
+                , unix
+                , utf8-string
+                , hxt
+                , binary
+                , bzlib
+                , regex-compat
+                , HDBC
+                , HDBC-sqlite3
+                , readline
+
+  Main-Is:        Holumbus/FileSystem/Main/ControllerMain.hs
+  Hs-Source-Dirs: source
+  Other-Modules:  Holumbus.FileSystem.Main.ControllerMain
+                , Holumbus.FileSystem.UserInterface
+                , Holumbus.FileSystem.FileSystem
+                , Holumbus.FileSystem.Storage
+                , Holumbus.FileSystem.Storage.FileStorage
+                , Holumbus.FileSystem.Messages
+                , Holumbus.FileSystem.Node
+                , Holumbus.FileSystem.Node.NodeData
+                , Holumbus.FileSystem.Node.NodePort
+                , Holumbus.FileSystem.Controller
+                , Holumbus.FileSystem.Controller.ControllerData
+                , Holumbus.FileSystem.Controller.ControllerPort
+                , Holumbus.Console.Console
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Server
+                , Holumbus.Network.Client
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded
+
+Executable FSnode
+  Build-Depends:  base >= 3
+                , haskell98
+                , directory
+                , time
+                , hslogger
+                , containers
+                , old-time
+                , parallel
+                , parsec
+                , network
+                , bytestring
+                , unix
+                , utf8-string
+                , hxt
+                , binary
+                , bzlib
+                , regex-compat
+                , HDBC
+                , HDBC-sqlite3
+                , readline
+
+  Main-Is:        Holumbus/FileSystem/Main/NodeMain.hs
+  Hs-Source-Dirs: source
+  Other-Modules:  Holumbus.FileSystem.Main.NodeMain
+                , Holumbus.FileSystem.FileSystem
+                , Holumbus.FileSystem.UserInterface
+                , Holumbus.FileSystem.Storage
+                , Holumbus.FileSystem.Storage.FileStorage
+                , Holumbus.FileSystem.Messages
+                , Holumbus.FileSystem.Node
+                , Holumbus.FileSystem.Node.NodeData
+                , Holumbus.FileSystem.Node.NodePort
+                , Holumbus.FileSystem.Controller
+                , Holumbus.FileSystem.Controller.ControllerData
+                , Holumbus.FileSystem.Controller.ControllerPort
+                , Holumbus.Console.Console
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Server
+                , Holumbus.Network.Client
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded
+
+Executable FSclient
+  Build-Depends:  base >= 3
+                , haskell98
+                , directory
+                , time
+                , hslogger
+                , containers
+                , old-time
+                , parallel
+                , parsec
+                , network
+                , bytestring
+                , unix
+                , utf8-string
+                , hxt
+                , binary
+                , bzlib
+                , regex-compat
+                , HDBC
+                , HDBC-sqlite3
+                , readline
+
+  Main-Is:        Holumbus/FileSystem/Main/ClientMain.hs
+  Hs-Source-Dirs: source
+  Other-Modules:  Holumbus.FileSystem.Main.ClientMain
+                , Holumbus.FileSystem.FileSystem
+                , Holumbus.FileSystem.UserInterface
+                , Holumbus.FileSystem.Storage
+                , Holumbus.FileSystem.Storage.FileStorage
+                , Holumbus.FileSystem.Messages
+                , Holumbus.FileSystem.Node
+                , Holumbus.FileSystem.Node.NodeData
+                , Holumbus.FileSystem.Node.NodePort
+                , Holumbus.FileSystem.Controller
+                , Holumbus.FileSystem.Controller.ControllerData
+                , Holumbus.FileSystem.Controller.ControllerPort
+                , Holumbus.Console.Console
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Server
+                , Holumbus.Network.Client
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded
+
