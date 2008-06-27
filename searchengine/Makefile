@@ -7,7 +7,7 @@ TEST_BASE			= test
 EXAMPLES_BASE	= examples
 
 all : configure build doc
-	
+
 configure :
 	@runhaskell Setup.hs configure
 
@@ -18,7 +18,7 @@ build	: configure
 	@runhaskell Setup.hs build
 
 install :
-	@runhaskell Setup.hs install
+	@sudo runhaskell Setup.hs install
 
 prof	:
 	@runhaskell Setup.hs configure -p
@@ -39,4 +39,3 @@ clean :
 	@runhaskell Setup.hs clean
 	$(MAKE) -C $(TEST_BASE) clean
 	$(MAKE) -C $(EXAMPLES_BASE) clean
-				 
