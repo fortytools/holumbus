@@ -35,7 +35,7 @@ import Network.HTTP (urlDecode)
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Cache
 import Holumbus.Index.Common
@@ -47,9 +47,16 @@ import Holumbus.Query.Result
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
 
-import Network.Server.Janus.Core (Shader, ShaderCreator)
-import qualified Network.Server.Janus.Core as J
+import Network.Server.Janus.Core
+       ( JanusStateArrow
+       , Shader
+       , ShaderCreator
+       , mkDynamicCreator
+       )
 import Network.Server.Janus.XmlHelper
+       ( getValDef
+       , setVal
+       )
 import Network.Server.Janus.JanusPaths
 
 import System.Time
@@ -112,7 +119,7 @@ loadDocuments :: FilePath -> IO (Documents CustomInfo)
 loadDocuments = loadFromFile
 
 fhwShader :: ShaderCreator
-fhwShader = J.mkDynamicCreator $ proc (conf, _) -> do
+fhwShader = mkDynamicCreator $ proc (conf, _) -> do
   -- Load the files and create the indexes.
   inv <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "fhw-index.bin") -< conf
   doc <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "fhw-docs.bin") -< conf
@@ -167,7 +174,7 @@ arrDecode :: Arrow a => a String String
 arrDecode = arr $ fst . utf8ToUnicode . urlDecode
 
 -- | Log a request to stdout.
-arrLogRequest :: JanusArrow J.Context XmlTree ()
+arrLogRequest :: JanusStateArrow XmlTree ()
 arrLogRequest = proc inTxn -> do
   -- Extract remote host and the search string from the incoming transaction.
   remHost <- getValDef (_transaction_tcp_remoteHost) ""                -< inTxn

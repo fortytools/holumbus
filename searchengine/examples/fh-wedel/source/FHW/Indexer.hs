@@ -22,10 +22,10 @@ main
   = do
     let traceLevel     = 1
         workerThreads  = 1 
-        docsPerCrawl   = 5
+        -- docsPerCrawl   = 5
         docsPerIndex   = 250
         idxConfig      = ic_fhw
-        crawlerState     = initialCrawlerState idxConfig emptyDocuments customFunction
+        crawlState     = initialCrawlerState idxConfig customFunction
     
 {-     
        crawlerState <- (loadCrawlerState "/home/sms/indexes/CS-FHW.bin" crawlState)
@@ -78,8 +78,8 @@ main
                            i2 <- loadFromBinFile (f  ++ "-index.bin")
                            return $ mergeIndexes i1 i2
                            
-fromDocuments :: Binary a => CrawlerState Documents a -> Documents a -> CrawlerState Documents a
-fromDocuments cs ds = cs { cs_toBeProcessed = S.fromList ( map (uri . snd) ( IM.toList $ toMap ds )) }
+fromDocuments :: Binary a => CrawlerState a -> Documents a -> CrawlerState a
+fromDocuments cs ds = cs { cs_toBeProcessed = S.fromList ( map (uri . snd) ( IM.toList $ DOC.toMap ds )) }
      
 customFunction :: ArrowXml a => a XmlTree (Maybe Int)
 customFunction = constA Nothing    
