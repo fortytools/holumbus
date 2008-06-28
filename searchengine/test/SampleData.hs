@@ -26,7 +26,7 @@ module SampleData
 where
 
 import Holumbus.Index.Common
-import Holumbus.Index.Inverted
+import Holumbus.Index.Inverted.Memory
 import Holumbus.Index.Documents
 import Holumbus.Query.Result
 

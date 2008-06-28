@@ -19,7 +19,7 @@
 module PickleTest (allTests) where
 
 import Holumbus.Index.Documents
-import Holumbus.Index.Inverted
+import Holumbus.Index.Inverted.Memory
 import Holumbus.Query.Result
 
 import Data.Maybe

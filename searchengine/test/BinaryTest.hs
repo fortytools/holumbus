@@ -18,7 +18,7 @@
 
 module BinaryTest (allTests) where
 
-import Holumbus.Index.Inverted
+import Holumbus.Index.Inverted.Memory
 import Holumbus.Index.Documents
 
 import Data.Binary
