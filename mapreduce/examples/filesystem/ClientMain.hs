@@ -32,6 +32,7 @@ version = "Holumbus-FileSystem Standalone-Client 0.1"
 main :: IO ()
 main
   = do
+    putStrLn version
     handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging      
@@ -44,7 +45,7 @@ initializeData :: IO (FS.FileSystem)
 initializeData 
   = do
     sid <- getSiteId
-    putStrLn $ "initialising controller on site" ++ show sid 
+    putStrLn $ "initialising client on site" ++ show sid 
     putStrLn "-> controller-port"
     p <- Port.readPortFromFile "controller.port"
     let cp = (CP.newControllerPort p)    

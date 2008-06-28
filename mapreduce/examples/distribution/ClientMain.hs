@@ -20,19 +20,19 @@ import Control.Exception
 import Holumbus.Common.Logging
 import Holumbus.Network.Site
 import qualified Holumbus.Network.Port as Port
-import qualified Holumbus.Distribution.Master.MasterData as Master
-import qualified Holumbus.Distribution.Master as MC
 import qualified Holumbus.Distribution.Distribution as D
-import qualified Holumbus.Distribution.UserInterface as UI
+import qualified Holumbus.Distribution.Master.MasterPort as MP
+import qualified Holumbus.Distribution.UserInterface as UI 
 
-
+    
 version :: String
-version = "Holumbus-Distribution Standalone-Master 0.1"
+version = "Holumbus-Distribution Standalone-Client 0.1"
 
 
 main :: IO ()
 main
   = do
+    putStrLn version
     handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging      
@@ -47,11 +47,10 @@ initializeData
     sid <- getSiteId
     putStrLn $ "initialising master on site" ++ show sid 
     putStrLn "-> master-port"
-    master <- Master.newMaster
-    let port = MC.getMasterRequestPort master
-    Port.writePortToFile port "master.port"
-    putStrLn "-> distribution"
-    d <- D.newDistribution master
+    p <- Port.readPortFromFile "master.port"
+    let mp = (MP.newMasterPort p)    
+    putStrLn "-> fileSystem"
+    d <- D.newDistribution mp
     return d
 
 
