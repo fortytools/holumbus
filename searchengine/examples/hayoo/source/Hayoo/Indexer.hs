@@ -25,19 +25,19 @@ module Main where
 
 -- import           HayooConfig
 
-
-import           Data.Binary
 import           Control.Monad hiding (join,when)
 
+import           Data.Binary
 import           Data.Char
-import           qualified Data.IntMap as IM
-import           qualified Data.Map    as M
 import           Data.List
 import           Data.Maybe
 
+import           qualified Data.IntMap as IM
+import           qualified Data.Map    as M
+
+import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
-import           Holumbus.Build.Config
 import           Holumbus.Control.MapReduce.Parallel
 -- import           Holumbus.Index.Cache
 
@@ -48,32 +48,30 @@ import           Holumbus.Utility
 
 import           Network.URI(unEscapeString)
 
-import qualified Data.Set as S
-
-import           Text.XML.HXT.Arrow     -- import all stuff for parsing, validating, and transforming XML
+import           Text.XML.HXT.Arrow     
 import           Text.XML.HXT.Arrow.XmlRegex
 
 main :: IO ()
 main 
   = do
     -- ---------------------------------------------------------------------------------------------
-       -- Configuration
+    --   Configuration
+    -- ---------------------------------------------------------------------------------------------
     let traceLevel    = 1
         workerThreads = 5 
         docsPerCrawl  = 100
         docsPerIndex  = 500
         splitPath     = "/tmp/"
-        indexPath     = "/home/sms/hayoo"
-        idxConfigs    = []
-                              ++ [ic_Hayoo]            -- hackage.haskell.org
---                              ++ [ic_GHC_libs]         -- all GHC libs
---                              ++ [ic_HXT]              -- hxt arrow & filter docs
-                              ++ [ic_Holumbus]         -- holumbus framework
---                              ++ [ic_Single]            -- one document for debugging
+        indexPath     = "~/hayoo"
+        idxConfigs    =    []
+                        ++ [ic_Hayoo]            -- hackage.haskell.org
+--                        ++ [ic_GHC_libs]         -- all GHC libs
+--                        ++ [ic_HXT]              -- hxt arrow & filter docs
+                        ++ [ic_Holumbus]         -- holumbus framework
+--                        ++ [ic_Single]            -- one document for debugging
         idxConfig     = foldl1 mergeIndexerConfigs idxConfigs
 
         crawlerState  = (initialCrawlerState idxConfig emptyDocuments customCrawlFunc)-- {cs_fPreFilter = preCrawlFilter}
-
 
     
 {-    crawlerState <- loadCrawlerState "/tmp/CS.bin" crawlerState
@@ -87,14 +85,14 @@ main
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
-    writeToXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") docs
+    crawled       <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
+    writeToXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") crawled
     
     
 
 --    docs <- loadFromXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") :: IO (Documents FunctionInfo)
     
-    docs <- return $ filterDocuments (\d -> isPrefixOf "http://hackage.haskell.org/packages/archive/" (uri d)) docs
+    docs <- return $ filterDocuments (\d -> isPrefixOf "http://hackage.haskell.org/packages/archive/" (uri d)) crawled
     docs <- return $ filterDocuments (\d -> not (isSuffixOf "pkg-list.html" (uri d))) docs
     docs <- return $ filterDocuments (\d -> not (isSuffixOf "recent.html" (uri d))) docs
     docs <- return $ filterDocuments (hayooFilter . uri) docs
@@ -111,7 +109,7 @@ main
     runX (traceMsg 0 (" splitting ----------------------------- " ))
     splitDocs' <- mapReduce 
                     workerThreads 
-                    (getVirtualDocs traceLevel splitPath)
+                    (getVirtualDocs splitPath)
                     mkVirtualDocList
                     (IM.toList (IM.map uri (toMap docs)))
     splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
@@ -182,14 +180,14 @@ customCrawlFunc = constA Nothing
 
     
 -- -----------------------------------------------------------------------------    
-   -- Dirty Stuff for the Creation of Virtual Documents
+--   Creation of Virtual Documents
 -- -----------------------------------------------------------------------------    
 
 -- | Function to split a document into virtual documents where virtual document contains the
 --   declaration of a function (or data, newtype, ...) and optionally the documentation of this
 --   element. This runs as the MAP part of a MapReduce Computation
-getVirtualDocs :: Int -> String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
-getVirtualDocs traceLevel splitPath docId theUri =         
+getVirtualDocs :: String -> Int -> URI -> IO [(Int, (String, String, FunctionInfo))]
+getVirtualDocs splitPath docId theUri =         
   runX ( 
       traceMsg 1 ("splitting document: " ++ theUri)
   >>> readDocument standardReadDocumentAttributes theUri        -- 1. read the Document
@@ -202,7 +200,6 @@ getVirtualDocs traceLevel splitPath docId theUri =
                                                                 --    function-like html
                >>> processCrazySignatures                       -- 6. transform multi-line 
               )                                                 --    declarations
- -- >>> writeDocument [(a_indent, "1")] "/home/sms/tmp/crazy.xml"
                                                                 -- 7. split the document
   >>> makeVirtualDocs $< (getXPathTrees "/html/head/title/text()" >>> getText)
   >>> (constA 42 &&& this) -- TODO maybe it is not the answer to THIS particular question
@@ -493,59 +490,6 @@ removeSpacers =
 
 
 
-
-
-
--- -------------------------------------------------------------------------------------------------
---  Debugging stuff, will be removed soon
--- -------------------------------------------------------------------------------------------------
-          
-{-
-p ps xpathExpr = processFromNodeSet ps $< getXPathNodeSet xpathExpr
-wd = writeDocument [(a_indent, "1")] "/home/sms/tmp/crazy.xml"
-wt = writeDocument [(a_show_tree, "1")] "/home/sms/tmp/crazy.xml"
-t f a = runX (readDocument stdOpts4Reading f >>> a)
-tt f a 
-  = runX (readDocument stdOpts4Reading f >>> a >>> fromLA removeSpacers >>> writeDocument [] "" >>> constA "")
-h = "http://holumbus.org/docs/develop/Holumbus-Index-Common.html"
-f ="/home/sms/tmp/holumbus_docs/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dControl%2dMapReduce%2dParallel%2ehtml"
-fs="/home/sms/tmp/holumbus_docs/split/http%3a%2f%2fwww%2eholumbus%2eorg%2fdocs%2fdevelop%2fHolumbus%2dUtility%2ehtml%23v%3ajoin"
-c = "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
-
-cl = "http://www.holumbus.org/docs/develop/Holumbus-Index-Common.html"
-da = "http://www.holumbus.org/docs/develop/Holumbus-Build-Index.html"
-
-c1 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Control-Arrow-ArrowList.html"
-c2 = "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlArrow.html"
--}
-
-
-
-      
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
               
               
               
@@ -761,8 +705,7 @@ isDeclbut
           >>> isA declbutAttr
           where
           declbutAttr = isPrefixOf "declbut" 
-  
-  
+
 -- -------------------------------------------------------------------------------------------------
 -- stuff from Hayoo.Common
 

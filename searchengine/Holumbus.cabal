@@ -1,5 +1,5 @@
 name:          Holumbus
-version:       0.4
+version:       0.5
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
@@ -53,7 +53,6 @@ library
     Holumbus.Index.Documents,
     Holumbus.Index.Hybrid.Memory,
     Holumbus.Index.Inverted.Memory,
---    Holumbus.Index.Inverted.OneFile,
     Holumbus.Index.Inverted.Persistent,
     Holumbus.Query.Distribution.Client,
     Holumbus.Query.Distribution.Protocol,

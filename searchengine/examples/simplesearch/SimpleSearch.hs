@@ -46,7 +46,7 @@ import qualified Data.IntSet as IS
 
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted (Inverted)
+import Holumbus.Index.Inverted.Memory (Inverted)
 -- import Holumbus.Index.Inverted.Persistent (Persistent)
 import Holumbus.Index.Documents (Documents)
 import Holumbus.Index.Common

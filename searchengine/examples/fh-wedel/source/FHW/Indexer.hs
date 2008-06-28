@@ -25,32 +25,25 @@ main
         docsPerCrawl   = 5
         docsPerIndex   = 250
         idxConfig      = ic_fhw
-        crawlState     = initialCrawlerState idxConfig emptyDocuments customFunction
+        crawlerState     = initialCrawlerState idxConfig emptyDocuments customFunction
     
-    
-
-{-    crawlState <- (loadCrawlerState "/home/sms/indexes/CS-FHW.bin" crawlState)
-                  
-    crawlState <- return $ crawlState
-                  { cs_toBeProcessed = S.filter (cs_fCrawlFilter crawlState) (cs_toBeProcessed crawlState)
-                  , cs_docs          = filterDocuments (\d -> (cs_fCrawlFilter crawlState) (uri d)) (cs_docs crawlState)
-                  }
+{-     
+       crawlerState <- (loadCrawlerState "/home/sms/indexes/CS-FHW.bin" crawlState)
+       crawlerState <- return $ crawlState
+                    { cs_toBeProcessed = S.filter (cs_fCrawlFilter crawlState) (cs_toBeProcessed crawlState)
+                    , cs_docs          = filterDocuments (\d -> (cs_fCrawlFilter crawlState) (uri d)) (cs_docs crawlState)
+                    }
 -}                  
                       
-    {- runX (traceMsg 0 (" loading documents ... " ))
-    theDocs <- loadFromBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") :: IO (Documents Int)
-    crawlState     <- return $ fromDocuments crawlState theDocs
-    -}
-    
     -- ---------------------------------------------------------------------------------------------
     -- CRAWLING
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
---    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlState
---    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
+    docs       <- crawl traceLevel workerThreads docsPerCrawl crawlerState
+    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
 
-    docs <- strictDecodeFile "/home/sms/indexes/fhw-docs.bin" :: IO (Documents (Maybe Int))
-    localDocs <- return docs
+--    docs <- strictDecodeFile "/home/sms/indexes/fhw-docs.bin" :: IO (Documents (Maybe Int))
+--    localDocs <- return docs
     
     writeToXmlFile ( (ic_idxPath idxConfig) ++ "-docs.xml") (docs)
     writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (docs)
@@ -102,7 +95,7 @@ ic_fhw
                           , "http://www.fh-wedel.de/wir-ueber-uns/mitarbeiter-innen/?no_cache=1"
                           ]
     , ic_tmpPath        = Just "/tmp/"
-    , ic_idxPath        = "/home/sms/indexes/fhw"
+    , ic_idxPath        = "~/fhw"
     , ic_contextConfigs = ccs_fhw
     , ic_readAttributes = standardReadDocumentAttributes
     , ic_fCrawlFilter   = simpleCrawlFilter -- [ "^http://www\\.fh-wedel\\.de"] -- 

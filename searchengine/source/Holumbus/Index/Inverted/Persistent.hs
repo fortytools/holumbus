@@ -38,15 +38,11 @@ import Data.List
 import Data.Maybe
 import Data.Binary hiding (Word)
 
--- import qualified Data.ByteString.Lazy as B
-
 import Data.Map (Map)
 import qualified Data.Map as M
 
 import Holumbus.Index.Common
--- import Holumbus.Index.Compression
 
--- import Holumbus.Index.Inverted (Inverted (Inverted))
 import Holumbus.Control.MapReduce.MapReducible
 
 import Holumbus.Data.StrMap (StrMap)
@@ -61,7 +57,6 @@ data Persistent = Persistent
   { indexParts  :: Parts    -- ^ The parts of the index, each representing one context.
   , path        :: FilePath -- ^ Path to a directory containing occurences data
   , nextId      :: Int
---  , unusedIds   :: [Int]    -- ^ Unused IDs for file  naming
   } deriving (Show, Eq)
 
 -- | The index parts are identified by a name, which should denote the context of the words.
@@ -69,15 +64,6 @@ type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to a file pointer.
 type Part        = StrMap Int
 
-{-
-
-let p = fromList (emptyPersistent "/home/sms/tmp/persistent/") (toList (insertPosition "c" "foo" 1 42 (insertPosition "c" "bar" 1 43 (insertPosition "d" "batz" 1 77 emptyInverted ))))
-
-
-:m + Holumbus.Index.Common Holumbus.Index.Inverted Holumbus.Index.Inverted.Persistent
-
-
--}
 instance MapReducible Persistent Context (Word, DocId, Position) where
   mergeMR         = mergeIndexes
   reduceMR _ _ _  = undefined -- return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
@@ -109,6 +95,7 @@ instance HolIndex Persistent where
                         }
           else do  -- the interesting case. occurences for the word already exist 
                ind <- SM.lookup w part
+                 -- decoding has to be strict, else lazy io will lead to an exception
                occ <- strictDecodeFile ((path i) ++ escape c ++ "_" ++ show (ind))
                writeToBinFile ((path i) ++ escape c ++ "_" ++ show (ind)) (mergeOccurrences o occ)
                return i
@@ -140,16 +127,6 @@ instance NFData Persistent where
 
 emptyPersistent :: FilePath -> Persistent
 emptyPersistent f = Persistent M.empty f 1 --[1..]
-
-
--- | Create a persistent index from an inverted index.
-{-
-makePersistent :: FilePath -> Inverted -> Persistent
-makePersistent f (Inverted parts) = Persistent (store parts) f
-  where
-  store = M.map (SM.map (storeOcc f . inflateOcc))
--}
-
 
 -- | Return a part of the index for a given context.
 getPart :: Context -> Persistent -> Part
