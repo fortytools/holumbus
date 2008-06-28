@@ -65,4 +65,4 @@ library
     Holumbus.Query.Ranking,
     Holumbus.Query.Result
   hs-source-dirs: source
-  ghc-options: -Wall -O
+  ghc-options: -Wall -O -funbox-strict-fields

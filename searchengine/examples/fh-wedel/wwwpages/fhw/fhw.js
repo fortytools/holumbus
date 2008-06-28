@@ -11,15 +11,19 @@
 */
 
 prevInput = "";
+lastLocation = window.location.href;
 
 Event.observe(window, 'load', checkForQuery);
 
 function checkForQuery () {
-	var prev = window.location.hash.split(":");
-
-	if (prev.length == 2) {
-		$("querytext").value = prev[1];
-		processQuery(prev[0]);
+	if (lastLocation != window.location.href) {
+		lastLocation = window.location.href;
+		var prev = window.location.hash.split(":");
+	
+		if (prev.length == 2) {
+			$("querytext").value = prev[1];
+			processQuery(parseInt(prev[0].substr(1)));
+		}
 	}
 	
 	var argument = window.location.search.gsub(/\+/, '%20').toQueryParams()['query'];
@@ -28,6 +32,8 @@ function checkForQuery () {
 		$("querytext").value = argument;
 		processQuery(0);
 	}	
+	
+	window.setTimeout(checkForQuery, 200);
 }
 
 Event.observe(window.location, 'change', checkForQuery);
@@ -62,6 +68,7 @@ function processQuery (start) {
 					lastTXTResult = transport.responseText;
 					lastQuery = query;
 					window.location.hash = start + ":" + encodeURIComponent(query);
+					lastLocation = window.location.href;
 				  displayResult(transport.responseText, query);
 				},
 				onFailure: function() {

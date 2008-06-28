@@ -28,6 +28,7 @@ import Data.Maybe
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
+import qualified Data.IntSet as IS
 
 import Network.HTTP (urlDecode)
 
@@ -53,10 +54,14 @@ import Network.Server.Janus.JanusPaths
 
 import System.Time
 
+import System.IO.Unsafe
+
 import System.Log.Logger
 import System.Log.Handler.Simple
 
 import Control.Concurrent  -- For the global MVar
+
+import qualified Debug.Trace as D
 
 type CustomInfo = Int
 
@@ -185,12 +190,30 @@ arrLogRequest = proc inTxn -> do
                                     start
                                    )
 
+-- | Customized FHW! ranking function. Preferres exact matches.
+fhwRanking :: [(Context, Score)] -> [String] -> DocId -> DocInfo CustomInfo -> DocContextHits -> Score
+fhwRanking ws ts _ di dch = baseScore * (if isExactMatch then 3.0 else 1.0)
+  where
+  baseScore = M.foldWithKey calcWeightedScore 0.0 dch
+  isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
+  calcWeightedScore :: Context -> DocWordHits -> Score -> Score
+  calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
+    where
+    count = fromIntegral $ M.fold ((+) . IS.size) 0 h
+    mw = snd $ L.maximumBy (compare `on` snd) ws
+    lookupWeight [] = Nothing
+    lookupWeight (x:xs) = if fst x == c then
+                            if snd x /= 0.0
+                            then Just (snd x)
+                            else Nothing
+                          else lookupWeight xs
+
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) (String, Result CustomInfo)
 genResult = ifP (\(q, _) -> checkWith ((> 1) . length) q)
               (proc (q, idc) -> do
                 res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
-                cfg <- (arr $ (\_ -> RankConfig (docRankWeightedByCount contextWeights) wordRankByCount)) -< q
+                cfg <- (arr $ (\q' -> RankConfig (fhwRanking contextWeights (extractTerms q')) wordRankByCount)) -< q
                 rnk <- (arr $ rank cfg)            -<< res -- Rank the results
                 (arr $ (\r -> (msgSuccess r , r))) -< rnk -- Include a success message in the status
               )
@@ -267,16 +290,39 @@ xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePag
   where
   wrapper = (undefined, \v -> if v > 0 then Just v else Nothing)
 
-xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo CustomInfo, DocContextHits))
-xpDocInfoHtml _ = xpDivClass "document" $ xpWrap (docFromHtml, docToHtml) (xpTriple xpTitleHtml xpContextsHtml xpURIHtml)
+data PreviewWord = NormalWord String
+                 | ResultWord String
+                 deriving (Show)
+
+preview :: Int -> String -> [String] -> [[PreviewWord]]
+preview d c ws = preview' (words c) 0 [] [] 
   where
-  docToHtml (_, (DocInfo (Document t u _) _, dch)) = ((u, t), dch, shorten u 80)
-  docFromHtml ((u, t), dch, _) = (0, (DocInfo (Document t u Nothing) 0.0, dch))
+  preview' [] _ cr r = if L.null cr then D.trace ("preview: " ++ (show r) ++ (show ws)) r else D.trace ("preview: " ++ (show $ r ++ [cr]) ++ (show ws)) r ++ [cr]
+  preview' (cw:cws) a cr r = if cw `elem` ws then preview' cws d (cr ++ [ResultWord cw]) r else
+                               if a > 0 then preview' cws (a - 1) (cr ++ [NormalWord cw]) r else
+                                 if (foldl (\f w -> f || (w `elem` (take d cws))) False ws) then preview' cws a (cr ++ [NormalWord cw]) r else
+                                   preview' cws a [] (if L.null cr then r else r ++ [cr])
+
+xpPreviewWord :: PU PreviewWord
+xpPreviewWord = xpAlt getIdx [xpWrap (undefined, \(NormalWord w) -> w) xpText, xpWrap (undefined, \(ResultWord w) -> w) $ xpElem "span" $ xpClass "highlight" $ xpAppend " " $ xpText]
+  where
+  getIdx (NormalWord _) = 0
+  getIdx (ResultWord _) = 1
+
+xpPreviewWords :: PU [[PreviewWord]]
+xpPreviewWords = xpList $ xpAppend "..." $ xpList $ xpAppend " " $ xpPreviewWord
+
+xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo CustomInfo, DocContextHits))
+xpDocInfoHtml c = xpDivClass "document" $ xpWrap (undefined, docToHtml) (xpTriple xpTitleHtml xpContextsHtml xpURIHtml)
+  where
+  docToHtml (i, (DocInfo (Document t u _) _, dch)) = ((u, t), (i, dch), shorten u 80)
   xpTitleHtml = xpDivClass "title" $ xpElem "a" $ xpClass "link" $ (xpPair (xpAttr "href" xpText) xpText)
-  xpContextsHtml = xpDivClass "contexts" $ xpWrap (M.fromList, M.toList) (xpList xpContextHtml)
-  xpContextHtml = xpPair (xpElem "span" $ xpClass "context" $ xpAppend ": " $ xpText) xpWordsHtml
-  xpWordsHtml = xpWrap (M.fromList, M.toList) (xpList (xpPair (xpAppend " " $ xpText) xpZero))
   xpURIHtml = xpDivClass "uri" $ xpText
+  xpContextsHtml = xpDivClass "contexts" $ xpWrap (undefined, \(i, dch) -> zip [i,i..] (M.toList dch)) (xpList xpContextHtml)
+  xpContextHtml = xpWrap (undefined, \(i, (ct, dwh)) -> (ct, (preview 3 (getContent ct i) (map fst (M.toList dwh))))) xpPreview
+    where
+    getContent ct i = let r = fromMaybe "" $ unsafePerformIO $ putStrLn (show i) >> getDocText c ct i in D.trace ("cache: " ++ (show r)) r
+  xpPreview = xpPair (xpElem "span" $ xpClass "context" $ xpAppend ": " $ xpText) xpPreviewWords
 
 xpFixedElem :: String -> PU a -> PU a
 xpFixedElem e p = xpWrap (\(_, v) -> v, \v -> (" ", v)) (xpPair (xpElem e xpText) p)

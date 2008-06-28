@@ -191,6 +191,8 @@ p.cloud {
 .cloud8 { font-size:21pt; }
 .cloud9 { font-size:22pt; }
 
+.highlight { background-color: #00FFFF; }
+
 .link { color:navy; font-weight:bold;
 }
 .link:hover { 
