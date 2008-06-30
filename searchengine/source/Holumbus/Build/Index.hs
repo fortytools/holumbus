@@ -147,17 +147,20 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
                     )
                     docs
                  )
-    return mr -- $! snd (M.elemAt 0 mr)                       
+    return mr
+    -- return $! snd (M.elemAt 0 mr)                       
 
 
 -- | The MAP function in a MapReduce computation for building indexes.
 --   The first three parameters have to be passed to the function to receive
---   a function with a valid MapReduce-map signature. <br/>
+--   a function with a valid MapReduce-map signature.
+--
 --   The function optionally outputs some debug information and then starts
 --   the processing of a file by passing it together with the configuration
 --   for different contexts to the @processDocument@ function where the file
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
+
 computePositions :: HolCache c =>
                Int -> [ContextConfig] -> Attributes -> Maybe c  
             -> DocId -> String -> IO [(String, (String, DocId, Int))]
