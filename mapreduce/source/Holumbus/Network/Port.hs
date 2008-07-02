@@ -202,12 +202,12 @@ type ServerId = ThreadId
 
 
 -- | The stream datatype
-data Stream a = Stream 
-  SocketId           -- ^ socket-descriptor of the stream server  
-  ServerId           -- ^ threadid of the stream server
-  SiteId             -- ^ SiteId (hostname and pid)
-  (Chan (Message a)) -- ^ internal message queue
-
+data Stream a = Stream {
+    s_sockedId :: SocketId           -- ^ socket-descriptor of the stream server  
+  , s_serverId :: ServerId           -- ^ threadid of the stream server
+  , s_siteId   :: SiteId             -- ^ SiteId (hostname and pid)
+  , s_chan     :: (Chan (Message a)) -- ^ internal message queue
+  }
 
 instance Show (Stream a) where
   show (Stream i server site _)
@@ -532,7 +532,7 @@ getMessage hdl
     -- read the Package
     line <- hGetLine hdl
     --putStrLn line
-    let pkg = words line -- $ hGetLine hdl
+    let pkg = words line -- \$ hGetLine hdl
     --putStrLn $ show pkg
     -- read the raw data 
     raw <- B.hGet hdl (read $ head pkg)

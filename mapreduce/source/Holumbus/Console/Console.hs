@@ -25,7 +25,7 @@
   use of multiple OS threads. Foreign calls will block all other running 
   Haskell threads until the call returns.
   The System.IO library still does multiplexing, so there can be multiple
-  threads doing I/O, and this is handled internally by the runtime using 
+  threads doing IO, and this is handled internally by the runtime using 
   select."
    
   We make a foreign call, which is not in the System.IO library, so we
