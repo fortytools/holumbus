@@ -212,10 +212,11 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
           documentStatusOk `guards`   -- make sure that the document could be accessed
                 -- if it is set in the crawler options, write a temporary copy of the document to
                 -- the hard disk
-          (     ( withTraceLevel (traceLevel - traceOffset)
-                  (writeDocument [(a_indent, "1")] ((fromJust tmpPath) ++ (tmpFile docId theUri)))
-                  `whenP`
-                  const (isJust tmpPath ) 
+          (     ( if isJust tmpPath
+		  then withTraceLevel (traceLevel - traceOffset) $
+                       writeDocument standardWriteTmpDocumentAttributes
+                                     (fromJust tmpPath ++ tmpFile docId theUri)
+		  else this
                 ) 
                 -- compute a pair of Document b (Holumbus datatype) and a list of contained links
             >>> 

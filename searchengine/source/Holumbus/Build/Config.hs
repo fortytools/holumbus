@@ -39,6 +39,8 @@ module Holumbus.Build.Config
   , crawlFilter
   , simpleCrawlFilter
   , standardReadDocumentAttributes
+  , standardReadTmpDocumentAttributes
+  , standardWriteTmpDocumentAttributes
   
   -- * Tokenizing
   , parseWords
@@ -260,6 +262,7 @@ simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden )
          matches u a = isJust $ matchRegex (mkRegex a) u      
       
 -- | some standard options for the readDocument function
+
 standardReadDocumentAttributes :: [(String, String)]
 standardReadDocumentAttributes
     = [ (a_parse_html,			v_1)
@@ -271,3 +274,28 @@ standardReadDocumentAttributes
       , (a_use_curl,			v_1)	-- obsolete since hxt-8.1
       , ("curl--user-agent",  		"HolumBot/0.1@http://holumbus.fh-wedel.de --location")
       ]
+
+-- | options for writing the tmp files
+
+standardWriteTmpDocumentAttributes :: [(String, String)]
+standardWriteTmpDocumentAttributes
+    = [ (a_indent,			v_1)	-- for testing only, should be v_0 for efficiency
+      , (a_remove_whitespace,		v_0)
+      , (a_output_encoding,		utf8)
+      ]
+
+-- | options for reading the tmp files
+
+standardReadTmpDocumentAttributes :: [(String, String)]
+standardReadTmpDocumentAttributes
+    = [ (a_indent,			v_0)
+      , (a_remove_whitespace,		v_0)
+      , (a_encoding,			utf8)
+      , (a_parse_html,			v_0)	-- force XML parsing
+      , (a_parse_by_mimetype,		v_0)
+      , (a_validate,			v_0)
+      , (a_canonicalize,		v_0)
+      , (a_encoding,			utf8)	-- must correspond to defaultTmpWriteDocumentAttributes
+      ]
+
+-- ------------------------------------------------------------

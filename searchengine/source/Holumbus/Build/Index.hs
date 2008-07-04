@@ -164,18 +164,22 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 computePositions :: HolCache c =>
                Int -> [ContextConfig] -> Attributes -> Maybe c  
             -> DocId -> String -> IO [(String, (String, DocId, Int))]
-computePositions traceLevel contextConfigs attrs cache docId theUri = do
-    clt <- getClockTime
-    cat <- toCalendarTime clt
-    runX (  
-            setTraceLevel traceLevel
-        >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
-                                                   ++ show docId ++ " -> "
-                                                   ++ show theUri)
-        >>> processDocument traceLevel attrs contextConfigs cache docId theUri
-        >>> arr (\(c, w, d, p) -> (c, (w, d, p)))
-        >>> strictA
-      )
+computePositions traceLevel contextConfigs attrs cache docId theUri
+    = do
+      clt <- getClockTime
+      cat <- toCalendarTime clt
+      runX (     setTraceLevel traceLevel
+             >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
+                                                        ++ show docId ++ " -> "
+                                                        ++ show theUri)
+             >>> processDocument traceLevel attrs' contextConfigs cache docId theUri
+             >>> arr (\ (c, w, d, p) -> (c, (w, d, p)))
+             >>> strictA
+	   )
+    where
+    attrs' = addEntries standardReadTmpDocumentAttributes attrs
+
+
 
 {-      
 -- | The REDUCE function in a MapReduce computation for building indexes.
@@ -214,6 +218,7 @@ processContext ::
   -> DocId
   -> ContextConfig
   -> IOSLA (XIOState s) XmlTree (Context, Word, DocId, Position)
+{-
 processContext cache docId cc  = 
         (cc_preFilter cc)                                     -- convert XmlTree
     >>> listA (
@@ -232,6 +237,60 @@ processContext cache docId cc  =
     >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
     >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
+-}
 
+processContext cache docId cc
+    = cc_preFilter cc                                         -- convert XmlTree
+      >>>
+      fromLA extractWords
+      >>>
+      ( if ( isJust cache
+	     &&
+	     cc_addToCache cc
+	   )
+	then perform (arrIO storeInCache)
+	else this
+      )
+      >>>
+      arrL genWordList
+      >>>
+      strictA
+    where
+    extractWords	:: LA XmlTree [String]
+    extractWords
+	= listA
+	  ( xshow ( getXPathTrees (cc_XPath cc)               -- extract interesting parts
+		    >>>
+		    getTexts
+		  )
+	    >>>
+	    arrL ( filter (not . null) . cc_fTokenize cc )
+	  )
+
+    genWordList		:: [String] -> [(Context, Word, DocId, Position)]
+    genWordList
+	= zip [1..]                                           -- number words
+	  >>>                                                 -- arrow for pure functions
+	  filter (not . (cc_fIsStopWord cc) . snd)            -- delete boring words
+	  >>>
+	  map ( \ (p, w) -> (cc_name cc, w, docId, p) )       -- attach context and docId
+
+    storeInCache
+	= putDocText (fromJust cache) (cc_name cc) docId . unwords
+
+getTexts	:: LA XmlTree XmlTree
+getTexts                                                      -- select all text nodes
+    =  choiceA
+       [ isElem :-> ( space                                   -- substitute tags by a single space
+		      <+>                                     -- so tags act as word delimiter
+		      (getChildren >>> getTexts)
+		      <+>
+		      space
+		    )	                                      -- tags are interpreted as word delimiter
+       , isText :-> this				      -- take the text nodes
+       , this   :-> none				      -- ignore anything else
+       ]
+    where
+    space = txt " "
                
      
