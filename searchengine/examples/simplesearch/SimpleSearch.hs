@@ -137,7 +137,7 @@ startupLocal v (Index idxFile) (Documents docFile) =
   if v  then putStrLn ("Collected position total of " ++ (show $ walkIndex idx)) else return ()
   putStrLn ("Loaded " ++ show (sizeWords idx) ++ " words")
   putStrLn "Loading documents..."
-  doc <- (loadFromFile docFile) :: IO (Documents FunctionInfo)-- (Documents Int)
+  doc <- (loadFromFile docFile) :: IO (Documents Int) -- IO (Documents FunctionInfo)
 --  return (rnf doc)
   putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
   answerQueries (localQuery idx doc) v
@@ -297,6 +297,7 @@ printHelp =
   putStrLn "Use :q to exit and :? to show this help."
   return ()
 
+{-
   -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 
   { moduleName :: String      -- ^ The name of the module containing the function, e.g. Data.Map
@@ -317,4 +318,4 @@ instance XmlPickler FunctionInfo where
 instance Binary FunctionInfo where
   put (FunctionInfo m s r) = put m >> put s >> put r
   get = liftM3 FunctionInfo get get get
-  
+-}  

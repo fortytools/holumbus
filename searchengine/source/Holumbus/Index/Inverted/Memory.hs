@@ -68,7 +68,7 @@ type Part        = StrMap CompressedOccurrences
 
 instance MapReducible Inverted Context (Word, DocId, Position) where
   mergeMR       = mergeIndexes
-  reduceMR _ c os = return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
+  reduceMR _ c os = return $! Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
 
 
 instance HolIndex Inverted where

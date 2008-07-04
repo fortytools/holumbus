@@ -1,0 +1,303 @@
+html {
+	height:100%;
+}
+
+body {
+	font-family:Tahoma,Verdana,sans-serif;
+	margin:0px;
+	font-size:8pt;
+	height:100%;
+}
+
+a {
+	font-weight:bold;
+	color:gray;
+}
+a:link {
+	text-decoration:none;
+}
+a:hover {
+	text-decoration:none;
+	color:silver;
+}
+a:visited {
+	text-decoration:none;
+}
+a:active {
+	text-decoration:none;
+}
+
+img.logo { border: none; }
+
+span.query {
+	font-style: italic;
+}
+
+#throbber { 
+	vertical-align:text-bottom;
+}
+
+.author {
+	font-weight: bold;
+}
+
+#info {
+	float:right;
+	color:gray;
+	padding:5px;
+}
+
+#shutter {
+	background-color: #000000;
+	height: 100%;
+	width: 100%;
+	left: 0pt;
+	top: 0pt;
+	position: fixed;
+	opacity:0.5;
+	z-index:1000;
+}
+
+.text {
+	background-color: transparent;
+	height: 100%;
+	width: 100%;
+	left: 0pt;
+	top: 0pt;
+	position: fixed;
+	text-align: center;
+	z-index: 1002;
+	opacity:1.0;
+}
+
+.box {
+	margin-left: auto;
+	margin-right: auto;
+	margin-bottom: auto;
+	margin-top: 71px;
+	background-color: white;
+	visibility: visible;
+	opacity:1.0;
+	width: 720px;
+	height: 540px;
+	padding:10px;
+	z-index:1004;
+	color:gray;
+	text-align:left;
+	padding-left:20px;
+	padding-right:20px;
+}
+
+#container {
+	min-height:100%;
+	position:relative;
+}
+
+#fhw {
+	float:right;
+}
+
+#hol {
+	float:left;
+}
+
+#result {
+	padding-bottom:80px;
+}
+
+#credits {
+	border-top:1px solid silver;
+	border-bottom:1px solid silver;
+	margin-top:10px;
+	margin-bottom:10px;
+	color:gray;
+	padding-top:10px;
+	padding-bottom:5px;
+	background-color:#F4F4F4;
+	bottom:0;
+	position:absolute;
+	width:100%;
+}
+
+#powered {
+	margin-left:10px;
+	float:left;
+	vertical-align: middle;
+}
+
+#libs {
+	float: left;
+	padding-top: 10px;
+	margin-right:5px;
+}
+
+#authors {
+	text-align:right;
+	margin-right:10px;
+	float:right;
+}
+
+#feedback {
+	margin-bottom: 5px;
+}
+
+#logo {
+	float:left;
+}
+
+#status {
+	border-top:1px solid silver;
+	border-bottom:1px solid silver;
+	background-color:#F4F4F4;
+	clear:both;
+	color:gray;
+	font-weight:bold;
+	vertical-align:middle;
+	padding:2px;
+	padding-left:5px;
+}
+
+#documents {
+	padding:10px;
+}
+
+tr.description td {
+	padding-bottom: 10px;
+}
+
+td.module {
+	text-align: right;
+	vertical-align: top;
+}
+
+td.function {
+	vertical-align: top;
+}	
+
+td.description {
+	color: gray;
+	text-align: left;
+}
+
+td.signature {
+	color: black;
+	width: 100%;
+}
+
+a.module {
+	font-weight: normal;
+	color: #DD0000;
+	text-decoration: none;
+}
+
+a.module:hover {
+	text-decoration: underline;
+}
+
+a.function {
+	color: #0700C3;
+	font-weight: bold;
+}
+
+a.function:hover {
+	text-decoration: underline;
+}
+
+a.source {
+	color: #25CA00;
+	font-weight: bold;
+}
+
+a.source:hover {
+	text-decoration: underline;
+}
+
+#queryinterface {
+	height:25px;
+	padding-top:30px;
+	padding-left:300px;
+}
+
+#query {
+	color:gray;
+	margin:0px;
+}
+
+#querytext {
+	margin-top:5px;
+	border-color:silver;
+	border-width:1px;
+	border-style:solid;
+	width:300px;
+}
+
+#querybutton {
+	margin-top:5px;
+	border-color:silver;
+	border-width:1px;
+	border-style:solid;
+	background-color:#F4F4F4;
+}
+
+#pager {
+	text-align:center;
+	width:100%;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+a.page {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+.current {
+	font-weight:bold;
+	color:silver;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.next {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.previous {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.cloud {
+	font-weight:normal;
+}
+
+p.cloud {
+	padding-left: 10px;
+	padding-right: 10px;
+	margin-top: 5px;
+	margin-bottom: 5px;
+	text-align:center;
+	word-spacing: 1.5em;
+}
+
+.cloud1 { font-size:7pt; }
+.cloud2 { font-size:10pt; }
+.cloud3 { font-size:13pt; }
+.cloud4 { font-size:15pt; }
+.cloud5 { font-size:17pt; }
+.cloud6 { font-size:19pt; }
+.cloud7 { font-size:20pt; }
+.cloud8 { font-size:21pt; }
+.cloud9 { font-size:22pt; }
+
+.link { color:navy; }
+.link:hover { 
+	color:navy; 
+	text-decoration:underline;
+}
+.title { font-size:10pt; }
+.contexts { color:gray; }
+.context { font-weight:bold; }
+.uri { color:green; }
+.declaration { font-style: italic; }

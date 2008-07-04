@@ -257,7 +257,7 @@ crawlFilter theDefault ((expr, b):expressions) theUri =
 simpleCrawlFilter :: [String] -> [String] -> (URI -> Bool)
 simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden ) 
          where
-         isAllowed   = foldl (&&) True  (map (matches theUri) as)
+         isAllowed   = foldl (||) False (map (matches theUri) as)
          isForbidden = foldl (||) False (map (matches theUri) ds)
          matches u a = isJust $ matchRegex (mkRegex a) u      
       

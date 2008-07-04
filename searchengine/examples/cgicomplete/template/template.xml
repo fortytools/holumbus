@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+
+  <link rel="stylesheet" type="text/css" href="css/holumbus.css"/>	  
+ 
+ 
+  <title>Holumbus Search</title>  
+
+</head>
+
+<body>
+	<div id="container">	
+		<div id="query">
+			<div id="logo">
+				<a href="http://holumbus.fh-wedel.de/"><img class="logo" src="/img/holumbus.png" style="margin: 5px;" alt="Logo"/></a>
+			</div>		
+	
+			<form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="">
+				<div id="queryinterface">
+					<input id="querytext" type="text" onkeyup="tryProcessQuery()" name="querytext" autocomplete="off"/>
+					<input id="querybutton" type="submit" value="Search"/>
+					<img id="throbber" src="hayoo/loader.gif" alt="Throbber" style="display:none;"/>
+				</div>
+			</form>
+		</div>
+
+		<div id="result">
+			<div id="status">Enter some search terms above to start a search.</div>
+
+			<div id="words">&nbsp;</div>
+			<div id="documents">&nbsp;</div>
+			<div id="pager">&nbsp;</div>
+	  	</div>
+
+		<div id="credits">
+			<div id="powered">
+				<div id="libs">Powered by <a class="credits" href="http://www.haskell.org">Haskell</a>, 
+				<a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
+				<a class="credits" href="http://darcs.fh-wedel.de/janus/">Janus</a> and
+				</div>
+
+				<a href="http://holumbus.fh-wedel.de"><img class="logo" src="http://holumbus.fh-wedel.de/hayoo/hayoo/holumbus.png" alt="Holumbus logo"/></a>
+			</div>
+		</div>
+	</div>
+
+	<div id="shutter" style="display:none;">&nbsp;</div>
+
+</body>
+
+</html>

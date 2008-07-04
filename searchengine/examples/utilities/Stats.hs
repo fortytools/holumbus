@@ -24,6 +24,7 @@ import System.Exit
 import System.IO
 import System.Environment
 import System.Console.GetOpt
+import System.Console.Readline
 
 import Control.Parallel.Strategies
 
@@ -60,6 +61,9 @@ main = do
        if length doc > 1 then usage ["Only one documents file allowed!\n"] else return ()
 
        startup (head idx) (head doc)
+       
+       readline ("Press Enter to continue ")
+       
        return ()
 
 isIndex :: Flag -> Bool

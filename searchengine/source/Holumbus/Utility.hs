@@ -66,7 +66,7 @@ stripWith f = reverse . dropWhile f . reverse . dropWhile f
 strictDecodeFile :: Binary a => FilePath -> IO a
 strictDecodeFile f  =
     bracket (openBinaryFile f ReadMode) hClose $ \h -> do
-                                                       print ("Decoding " ++ f)
+--                                                       print ("Decoding " ++ f)
                                                        c <- B.hGetContents h
                                                        return $! decode c  
 
