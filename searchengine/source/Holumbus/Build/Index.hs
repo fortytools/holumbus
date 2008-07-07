@@ -80,9 +80,9 @@ buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches 
     return $ assert ((sizeWords emptyIndex) == 0) Nothing  
     indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
     docLists   <- return $ partitionList maxDocs docs
-    configs    <- return $ map (\i -> idxConfig {ic_idxPath = (ic_idxPath idxConfig) ++ (show i) }) [1..indexCount]
+    configs    <- return $ map (\i -> idxConfig {ic_idxPath = (fromMaybe "/tmp/" (ic_tmpPath idxConfig)) ++ (show i) }) [1..indexCount]
     pathes     <- mapM build (zip configs docLists) -- caches)
-    mergeCaches' ((ic_idxPath idxConfig) ++ "-cache.db") (map (\cfg -> (ic_idxPath cfg) ++ "-cache.db") configs) 
+    mergeCaches' ((ic_idxPath idxConfig) ++ "-cache.db") (map (\(i,cfg) -> (fromMaybe "/tmp/" (ic_tmpPath cfg)) ++ show i ++"-cache.db") (zip ([1..indexCount]) configs)) 
     return $ pathes
     where
       mergeCaches' :: String -> [String] -> IO ()
@@ -101,7 +101,6 @@ buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches 
         = do
           cache <- if buildCaches then mkCache (ic_idxPath idxConfig') else return $ Nothing
           idx   <- buildIndex' workerThreads traceLevel docs' idxConfig' emptyIndex cache
-          return $! rnf idx
 --          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
           writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
           return (ic_idxPath idxConfig')
@@ -275,8 +274,10 @@ processContext cache docId cc
 	  >>>
 	  map ( \ (p, w) -> (cc_name cc, w, docId, p) )       -- attach context and docId
 
-    storeInCache
-	= putDocText (fromJust cache) (cc_name cc) docId . unwords
+    storeInCache s
+	= let t = unwords s in 
+        if t /= "" then putDocText (fromJust cache) (cc_name cc) docId t
+                   else return()
 
 getTexts	:: LA XmlTree XmlTree
 getTexts                                                      -- select all text nodes
