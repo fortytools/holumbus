@@ -105,11 +105,11 @@ data CrawlerState d a
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
       , cs_wereProcessed    :: S.Set URI
-      , cs_docHashes        :: M.Map String URI
+      , cs_docHashes        :: Maybe (M.Map String URI)
       , cs_unusedDocIds     :: [DocId]        -- probably unneeded
       , cs_readAttributes   :: Attributes     -- passed to readDocument
       , cs_tempPath         :: Maybe String     
-      , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- filter that is applied before
+      , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- applied before link extraction
       , cs_fGetReferences   :: ArrowXml a' => a' XmlTree [URI]
       , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
       , cs_fGetCustom       :: Custom a
@@ -188,7 +188,7 @@ initialCrawlerState cic emptyDocuments getCustom
     , cs_docs           = emptyDocuments
     , cs_tempPath       = ic_tmpPath cic
     , cs_fGetCustom     = getCustom
-    , cs_docHashes      = M.empty
+    , cs_docHashes      = Just $ M.empty
     }
    
     
@@ -271,7 +271,7 @@ standardReadDocumentAttributes
       , (a_remove_whitespace,		v_1)
       , (a_tagsoup,			v_1)
       , (a_ignore_none_xml_contents,	v_1)
-      , (a_use_curl,			v_1)	-- obsolete since hxt-8.1
+--      , (a_use_curl,			v_1)	-- obsolete since hxt-8.1
       , ("curl--user-agent",  		"HolumBot/0.1@http://holumbus.fh-wedel.de --location")
       ]
 

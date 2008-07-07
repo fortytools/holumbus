@@ -134,18 +134,19 @@ processCrawlResults oldCs _ l =
       = if isJust mdoc
           then 
                do
-               if M.member theMD5 (cs_docHashes cs)
+               if isJust (cs_docHashes cs) && M.member theMD5 (fromJust $ cs_docHashes cs)
                  then do
-                      old  <- M.lookup theMD5 (cs_docHashes cs)
+                      let hashes = fromJust $ cs_docHashes cs
+                      old  <- M.lookup theMD5 hashes
                       new  <- return $ uri $ fromJust mdoc
-                      (newDocs, newHashes) <- update (cs_docs cs) (cs_docHashes cs) theMD5 old new
+                      (newDocs, newHashes) <- update (cs_docs cs) hashes theMD5 old new
                       return cs { cs_docs = newDocs 
                                 , cs_toBeProcessed = S.union 
                                        (cs_toBeProcessed cs) 
                                        (S.difference (S.filter (cs_fCrawlFilter cs) refs) 
                                                      (cs_wereProcessed cs)
                                        )
-                                , cs_docHashes = newHashes
+                                , cs_docHashes = Just $ newHashes
                                 }
                  else do
                       return $ 
@@ -154,7 +155,9 @@ processCrawlResults oldCs _ l =
                                              (cs_wereProcessed cs)
                                )
                            , cs_docs      = snd (insertDoc (cs_docs cs) (fromJust mdoc))                                                
-                           , cs_docHashes = M.insert theMD5 (uri $ fromJust mdoc) (cs_docHashes cs)
+                           , cs_docHashes = if isJust (cs_docHashes cs)
+                                              then Just $ M.insert theMD5 (uri $ fromJust mdoc) (fromJust $ cs_docHashes cs)
+                                              else Nothing
                            }
           else return cs
     update :: (HolDocuments d a, Binary a) => 
@@ -167,6 +170,8 @@ processCrawlResults oldCs _ l =
                oldDoc <- lookupById  docs docId
                newDoc <- return oldDoc {uri = newUri}
                return (updateDoc docs docId newDoc, M.insert md5String newUri hashes)
+
+
 
 -- | Wrapper function for the "real" crawlDoc functions. The current time is
 --   traced (to identify documents that take a lot of time to be processed while
