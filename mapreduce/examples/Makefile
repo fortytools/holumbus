@@ -1,8 +1,8 @@
 # Making all examples
 
-EXAMPLES	= filesystem distribution
+EXAMPLES	= filesystem distribution standalone
 
-all :
+all :	clean
 	$(foreach i,$(EXAMPLES),$(MAKE) -C $i all ;)
 
 wc :

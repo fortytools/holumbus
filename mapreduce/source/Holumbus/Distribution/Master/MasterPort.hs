@@ -72,14 +72,25 @@ instance Master MasterPort where
             _ -> return Nothing
 
 
-  unregisterWorker nodeId c@(MasterPort p)
+  unregisterWorker wid c@(MasterPort p)
     = do
       withStream $
-        \s -> performPortAction p s (MReqUnregister nodeId) $
+        \s -> performPortAction p s (MReqUnregister wid) $
           \rsp ->
           do
           case rsp of
             (MRspUnregister) -> return (Just c)
+            _ -> return Nothing
+
+
+  startJob ji c@(MasterPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (MReqStartJob ji) $
+          \rsp ->
+          do
+          case rsp of
+            (MRspSuccess) -> return (Just c)
             _ -> return Nothing
 
 

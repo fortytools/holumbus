@@ -23,7 +23,7 @@ module Holumbus.Distribution.Worker.WorkerPort
 )
 where
 
-
+import Holumbus.Network.Port
 import Holumbus.Distribution.Messages
 import Holumbus.Distribution.Worker
 
@@ -53,6 +53,15 @@ instance Worker WorkerPort where
   
   getWorkerRequestPort (WorkerPort p) = p
 
+  startTask td w@(WorkerPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (WReqStartTask td) $
+          \rsp ->
+          do
+          case rsp of
+            (WRspSuccess) -> return (Just w)
+            _ -> return Nothing
 
   printDebug (WorkerPort p)
       = do

@@ -29,11 +29,13 @@ import Control.Concurrent
 import qualified Control.Exception as E
 
 import Data.Maybe
+import qualified Data.Set as Set
 
 import System.Log.Logger
 
 import qualified Holumbus.Network.Port as P
 import Holumbus.Network.Site
+import Holumbus.MapReduce.JobController
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Master as MC
@@ -44,6 +46,11 @@ localLogger :: String
 localLogger = "Holumbus.Distribution.Master.MasterData"
 
 
+
+data WorkerMaps = WorkerMaps {
+    wm_TaskIds :: Set.Set TaskId
+  }
+
 data WorkerData = WorkerData {
     wd_WorkerId       :: MVar (Maybe M.WorkerId)
   , wd_SiteId         :: ! SiteId
@@ -51,6 +58,7 @@ data WorkerData = WorkerData {
   , wd_OwnStream      :: ! M.WorkerRequestStream
   , wd_OwnPort        :: ! M.WorkerRequestPort
   , wd_MasterPort     :: MVar MP.MasterPort
+  , wd_Maps           :: MVar WorkerMaps   
   }
   
   
@@ -65,8 +73,9 @@ newWorker mp
     tid     <- newMVar Nothing
     st      <- (P.newStream::IO M.WorkerRequestStream)
     po      <- ((P.newPort st)::IO M.WorkerRequestPort)
-    mMVar   <- newMVar mp
-    let wd'' = (WorkerData nidMVar sid tid st po mMVar)
+    mpMVar  <- newMVar mp
+    wmMVar  <- newMVar (WorkerMaps Set.empty)
+    let wd'' = (WorkerData nidMVar sid tid st po mpMVar wmMVar)
     -- first, we start the server, because we can't handle requests without it
     wd' <- startRequestDispatcher wd''
     -- then we try to register a the server
@@ -151,6 +160,10 @@ dispatch
 dispatch wd msg replyPort
   = do
     case msg of
+      (M.WReqStartTask td) ->
+        do
+        handleRequest replyPort (startTask td wd) (\_ -> M.WRspSuccess)
+        return ()
       _ -> 
         handleRequest replyPort (return ()) (\_ -> M.WRspUnknown)
 
@@ -215,12 +228,26 @@ unregisterWorker wd
 --
 -- ----------------------------------------------------------------------------
 
+-- ----------------------------------------------------------------------------
+--
+-- ----------------------------------------------------------------------------
+
+
 
 instance Worker WorkerData where
 
 
   getWorkerRequestPort wd = wd_OwnPort wd
   
+  startTask td wd
+    = do
+      modifyMVar (wd_Maps wd) $
+        \wm ->
+        do
+        -- create a new Action-Id 
+        debugM localLogger "executing Task..."
+        debugM localLogger $ show td
+        return (wm, wd)
   
   printDebug wd
     = do

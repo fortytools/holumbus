@@ -57,6 +57,9 @@ import qualified Holumbus.Network.Port as P
 import qualified Holumbus.Network.Site as Site
 import Holumbus.Network.Messages
 
+import Holumbus.MapReduce.Types
+import Holumbus.MapReduce.JobController
+
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -113,22 +116,25 @@ decodeWorkerResponsePort = decodeMaybe
 
 -- Messages to and from the Master
 data MasterRequestMessage 
-  = MReqRegister                   Site.SiteId WorkerRequestPort
-  | MReqUnregister                 WorkerId
+  = MReqRegister Site.SiteId WorkerRequestPort
+  | MReqUnregister WorkerId
+  | MReqStartJob JobInfo
   | MReqUnknown
   deriving (Show)
 
 
 instance Binary MasterRequestMessage where
-  put (MReqRegister s p)                    = putWord8 1  >> put s >> put p
-  put (MReqUnregister n)                    = putWord8 2  >> put n
-  put (MReqUnknown)                         = putWord8 0
+  put (MReqRegister s p) = putWord8 1 >> put s >> put p
+  put (MReqUnregister n) = putWord8 2 >> put n
+  put (MReqStartJob ji)  = putWord8 3 >> put ji
+  put (MReqUnknown)      = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1  -> get >>= \s -> get >>= \p -> return (MReqRegister s p) 
         2  -> get >>= \n -> return (MReqUnregister n)
+        3  -> get >>= \ji-> return (MReqStartJob ji)
         _ -> return (MReqUnknown)
 
 
@@ -183,17 +189,20 @@ instance Binary MasterResponseMessage where
 
 
 -- Messages to and from the Worker
-data WorkerRequestMessage 
-  = WReqUnknown
+data WorkerRequestMessage
+  = WReqStartTask TaskData
+  | WReqUnknown
   deriving (Show)
 
 
 instance Binary WorkerRequestMessage where
+  put (WReqStartTask td) = putWord8 1 >> put td
   put (WReqUnknown) = putWord8 0
   get
     = do
       t <- getWord8
       case t of
+        1 -> get >>= \td -> return (WReqStartTask td)
         _ -> return (WReqUnknown)
 
 

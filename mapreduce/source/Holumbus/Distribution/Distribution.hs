@@ -26,12 +26,15 @@ module Holumbus.Distribution.Distribution
 
 -- * Operations
 , getMySiteId
+, startJob
 , printDebug
 )
 where
 
 import Control.Concurrent
+import Data.Binary
 
+import Holumbus.MapReduce.JobController
 import qualified Holumbus.Distribution.Master as M
 import qualified Holumbus.Distribution.Worker as W
 import qualified Holumbus.Distribution.Worker.WorkerPort as WP
@@ -96,6 +99,15 @@ getMySiteId dist
     withMVar dist $
       \(DistributionData s _ _) -> return s
 
+startJob :: Distribution -> IO ()
+startJob dist
+  = do
+    withMVar dist $
+      \(DistributionData _ m _) -> 
+        do
+        let ji = JobInfo "testjob" (Just "WORDCOUNT") Nothing Nothing ["foo","foo2","foo3"] "foo_out2"
+        M.startJob ji m
+        return ()
       
 printDebug :: Distribution -> IO ()
 printDebug dist

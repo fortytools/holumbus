@@ -35,8 +35,10 @@ import System.Log.Logger
 
 import Holumbus.Network.Site
 import qualified Holumbus.Network.Port as P
+import Holumbus.MapReduce.JobController
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master as MC
+import qualified Holumbus.Distribution.Worker as WC
 import qualified Holumbus.Distribution.Worker.WorkerPort as WP
 import Holumbus.Distribution.Master
 import Holumbus.Common.Utils
@@ -57,12 +59,14 @@ type SiteData = (SiteId, WP.WorkerPort)
 type WorkerToSiteMap = Map.Map M.WorkerId SiteData
 type SiteToWorkerMap = Map.Map SiteId (Set.Set M.WorkerId)
 
+type JobMap = Map.Map JobId JobData
 
 data MasterMaps = MasterMaps {
     mm_WorkerToSiteMap :: ! WorkerToSiteMap
   , mm_SiteToWorkerMap :: ! SiteToWorkerMap
   , mm_SiteMap         :: ! SiteMap
   , mm_WorkerId        :: ! M.WorkerId
+  , mm_JobMap          :: ! JobMap
   }
 
 data MasterData = MasterData {
@@ -83,7 +87,7 @@ newMaster :: IO MasterData
 newMaster
   = do
     -- initialize values
-    let maps = MasterMaps Map.empty Map.empty emptySiteMap 0 
+    let maps = MasterMaps Map.empty Map.empty emptySiteMap 0 Map.empty 
     mapMVar <- newMVar maps
     st    <- (P.newStream::IO M.MasterRequestStream)
     po    <- ((P.newPort st)::IO M.MasterRequestPort)
@@ -182,8 +186,11 @@ dispatch md msg replyPort
         do
         handleRequest replyPort (MC.unregisterWorker n md) (\_ -> M.MRspUnregister)
         return ()
+      (M.MReqStartJob ji) ->
+        do
+        handleRequest replyPort (MC.startJob ji md) (\_ -> M.MRspSuccess)
+        return ()
       _ -> handleRequest replyPort (return ()) (\_ -> M.MRspUnknown)
-
 
 handleRequest
   :: M.MasterResponsePort
@@ -210,8 +217,8 @@ handleRequest po fhdl fres
 -- ----------------------------------------------------------------------------
 
 
-getNextId :: MasterMaps -> (M.WorkerId, MasterMaps)
-getNextId mm 
+getNextWorkerId :: MasterMaps -> (M.WorkerId, MasterMaps)
+getNextWorkerId mm 
   = (wid, mm { mm_WorkerId = wid })
   where
     wid = (mm_WorkerId mm) + 1
@@ -224,6 +231,15 @@ lookupWorkerSiteId wid mm = convertSite sd
     sd = Map.lookup wid wsm
     convertSite Nothing = Nothing
     convertSite (Just (sid, _)) = Just sid
+
+
+lookupWorkerPort :: M.WorkerId -> MasterMaps -> Maybe WP.WorkerPort
+lookupWorkerPort wid mm = getPort sd
+  where
+    wsm = mm_WorkerToSiteMap mm
+    sd = Map.lookup wid wsm
+    getPort Nothing = Nothing
+    getPort (Just (_, wp)) = Just wp
 
 
 addWorkerToMaster :: M.WorkerId -> SiteId -> WP.WorkerPort -> MasterMaps -> MasterMaps
@@ -265,7 +281,92 @@ deleteWorkerFromMaster wid mm
           | otherwise = Just set
 
 
+addJob :: JobData -> MasterMaps -> MasterMaps
+addJob jd mm = mm { mm_JobMap = jm' }
+  where
+    jid = jd_JobId jd
+    jm  = mm_JobMap mm 
+    jm' = Map.insert jid jd jm
 
+{-
+getJobIds :: [JobState] -> MasterMaps -> [JobId]
+getJobIds = undefined
+
+getTaskIds :: [JobId] -> [TaskType] -> [TaskState] -> MasterMaps -> Set.Set TaskId
+getTaskIds = undefined
+
+-- anderen zuweisen und inprogress setzen
+assignTasks :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
+assignTasks = undefined
+
+-- anderen entziehen und finished
+setFinished :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
+setFinished = undefined
+
+createCombiners :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
+createCombiners = undefined
+
+allTypes :: [TaskType]
+allTypes = undefined
+
+splitByCombinerType :: [JobId] -> ([JobId], [JobId])
+splitByCombinerType = undefined
+
+splitByReducerType :: [JobId] -> ([JobId], [JobId])
+splitByReducerType = undefined
+
+startCombiners :: MasterMaps -> IO (MasterMaps)
+startCombiners mm
+  = do
+    -- handle the jobs with single combiners
+    let allJobs = getJobIds [JSIdle] [CTSingle] mm
+    let mapCompleted = getTaskIds allJobs [TTMap] [TSCompleted] mm
+    sequence $ map (startSingleCombiner) mapCompleted
+    
+    -- handle the jobs with multiple combiners
+    let allJobs = getJobIds [JSIdle] [CTMultiple] mm
+    
+    for every Job... Partition Combiners
+    let mapNotFinished = getTaskIds myJob [TTMap] [TSIdle, TSInProgress, TSCompleted] mm
+    let mapFinished = getTaskIds myJob [TTMap] [TSFinished] mm
+    
+    if (null mapNotFinished) then
+      partition and set combiners to idle
+    
+    return mm
+
+startReducers :: MasterMaps -> IO (MasterMaps)
+startReducers mm
+  = do
+    -- handle jobs with no combiners
+
+
+schedule :: MasterData -> IO ()
+schedule md
+  = do
+    md' <- modifyMVar (md_Maps md) $
+      \mm ->
+      do
+      -- for all jobs we keep the weasel running...
+      let allJobs      = getJobIds [JSIdle] mm 
+      let allIdle      = getTaskIds allJobs allTypes [TSIdle] mm
+      let allCompleted = getTaskIds allJobs allTypes [TSCompleted] mm
+      
+      -- assign idle Tasks
+      mm' <- assignTasks allIdle mm
+      -- set finished and stop other workers
+      mm'' <- setFinished allCompleted mm'
+      
+      -- start combiners
+      mm''' <- startCombiners mm''
+      
+      -- start reducers
+      mm'''' <- startReducers mm'''
+      
+      return (mm'''', md)
+    threadDelay 1000000 -- 1.0 sec
+    schedule md'
+-}
 -- ----------------------------------------------------------------------------
 -- typeclass instanciation
 -- ----------------------------------------------------------------------------
@@ -281,7 +382,7 @@ instance Master MasterData where
         \mm ->
         do
         -- create a new Id and a new Port
-        let (wid, mm') = getNextId mm
+        let (wid, mm') = getNextWorkerId mm
         let wp = WP.newWorkerPort po
         -- add worker to master
         let mm'' = addWorkerToMaster wid sid wp mm'
@@ -298,6 +399,27 @@ instance Master MasterData where
         return (mm', md) 
 
 
+  startJob _ md
+    = do
+      return md
+{-      modifyMVar (md_Maps md) $
+        \mm ->
+        do
+        jd <- newJobData ji
+        let mm' = addJob jd mm
+        return (mm', md)
+
+
+        let wp = lookupWorkerPort 1 mm
+        case wp of 
+          (Nothing) -> return (mm, md)
+          (Just p) ->
+            do
+            td <- newTaskData 1 TTMap "foo" "foo_out" "WORDCOUNT"
+            WC.startTask td p            
+-}
+
+
   printDebug md
     = do
       putStrLn "Master-Object (full)"
@@ -312,5 +434,9 @@ instance Master MasterData where
         putStrLn $ prettyRecordLine gap "SiteToWorkerMap:" (mm_SiteToWorkerMap mm)
         putStrLn $ prettyRecordLine gap "SiteMap:" (mm_SiteMap mm)
         putStrLn $ prettyRecordLine gap "Last NodeId:" (mm_WorkerId mm)
+        putStrLn $ prettyRecordLine gap "JobMapMap:" (mm_JobMap mm)
       where
         gap = 20
+        
+        
+        

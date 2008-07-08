@@ -1,4 +1,4 @@
-name:          MrHaskell
+name:          Holumbus-Mapreduce
 version:       0.1
 license:       OtherLicense
 license-file:  LICENSE
@@ -47,6 +47,14 @@ library
                 , Holumbus.Distribution.Master
                 , Holumbus.Distribution.Master.MasterData
                 , Holumbus.Distribution.Master.MasterPort
+                , Holumbus.Standalone.Standalone
+                , Holumbus.Standalone.UserInterface
+                , Holumbus.MapReduce.MultiMap
+                , Holumbus.MapReduce.TaskProcessor
+                , Holumbus.MapReduce.JobController
+                , Holumbus.MapReduce.Types
+                , Holumbus.MapReduce.TypeCheck
+                , Holumbus.MapReduce.Demo
                 , Holumbus.FileSystem.UserInterface
                 , Holumbus.FileSystem.FileSystem
                 , Holumbus.FileSystem.Storage

@@ -20,6 +20,7 @@ module Holumbus.Distribution.Worker
 where
 
 import qualified Holumbus.Distribution.Messages as M
+import qualified Holumbus.MapReduce.JobController as J
 
 -- ----------------------------------------------------------------------------
 --
@@ -30,4 +31,7 @@ class Worker w where
 
   getWorkerRequestPort :: w -> M.WorkerRequestPort
 
+  startTask :: J.TaskData -> w -> IO w
+
   printDebug :: w -> IO ()
+  

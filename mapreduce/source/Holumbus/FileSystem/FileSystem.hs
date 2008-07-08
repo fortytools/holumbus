@@ -22,6 +22,7 @@ module Holumbus.FileSystem.FileSystem
   FileSystem
 
 -- * Creation and Destruction
+, standaloneFileSystem
 , newFileSystem
 , setFileSystemNode
 , closeFileSystem
@@ -57,9 +58,13 @@ import Holumbus.Network.Site
 
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Controller as C
+import qualified Holumbus.FileSystem.Controller.ControllerData as CD
+import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
 import qualified Holumbus.FileSystem.Node as N
+import qualified Holumbus.FileSystem.Node.NodeData as ND
 import qualified Holumbus.FileSystem.Node.NodePort as NP
 import qualified Holumbus.FileSystem.Storage as S
+import qualified Holumbus.FileSystem.Storage.FileStorage as FST
 
 
  
@@ -82,6 +87,20 @@ type FileSystem = MVar FileSystemData
 -- Creation and Destruction
 -- ---------------------------------------------------------------------------
 
+
+standaloneFileSystem
+  :: FilePath           -- ^ the path of the filestorage on disk 
+  -> (Maybe FilePath)   -- ^ the name of the directory file, if "Nothing" the default name will be used
+  -> IO (FileSystem)
+standaloneFileSystem fp fn
+  = do
+    controller <- CD.newController
+    let storage = FST.newFileStorage fp fn
+    let cp = CP.newControllerPort $ C.getControllerRequestPort controller
+    n <- ND.newNode cp storage
+    fs <- newFileSystem controller
+    fs' <- setFileSystemNode n fs
+    return fs'
 
 --TODO
 -- | Creates a new FileSystem with a controller and (maybe) a node.

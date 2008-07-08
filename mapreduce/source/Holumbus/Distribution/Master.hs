@@ -21,6 +21,7 @@ where
 
 
 import qualified Holumbus.Distribution.Messages as M
+import qualified Holumbus.MapReduce.JobController as J
 import Holumbus.Network.Site
 
 
@@ -37,5 +38,7 @@ class Master m where
   registerWorker :: SiteId -> M.WorkerRequestPort -> m -> IO (M.WorkerId, m)
   
   unregisterWorker :: M.WorkerId -> m -> IO m
+
+  startJob :: J.JobInfo -> m -> IO m
 
   printDebug :: m -> IO ()

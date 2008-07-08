@@ -1,6 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
-  Module     : Holumbus.Distribution.UserInterface
+  Module     : Holumbus.Standalone.UserInterface
   Copyright  : Copyright (C) 2008 Stefan Schmidt
   License    : MIT
 
@@ -9,14 +9,11 @@
   Portability: portable
   Version    : 0.1
 
-  A nice console-user interface for the Holumbus-Distribution based on the
-  Holumbus-Commandline-Interface. To get a standalone Distribution-Site, just
-  add a distribution-object.
 
 -}
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Distribution.UserInterface
+module Holumbus.Standalone.UserInterface
 (
 -- * operations
   runUI
@@ -26,16 +23,15 @@ where
 import Control.Exception
 
 import qualified Holumbus.Console.Console as Console
-import qualified Holumbus.Distribution.Distribution as D
-
-
+import qualified Holumbus.Standalone.Standalone as S
+import qualified Holumbus.MapReduce.Demo as DEMO
 
 -- ----------------------------------------------------------------------------
 -- Operations
 -- ----------------------------------------------------------------------------
 
 -- | runs the user interface... just add an fileSystem an a fancy version-number
-runUI :: D.Distribution -> String -> IO ()
+runUI :: S.Standalone -> String -> IO ()
 runUI fs version
   = do
     -- starts the console with the specified commands
@@ -48,41 +44,42 @@ runUI fs version
 -- ----------------------------------------------------------------------------
 
 
-createConsole :: String -> Console.ConsoleData (D.Distribution)
+createConsole :: String -> Console.ConsoleData (S.Standalone)
 createConsole version =
-  Console.addConsoleCommand "id" getMySiteId "get my siteId" $
-  Console.addConsoleCommand "start" startAction "starts an action (DEBUG)" $
+  Console.addConsoleCommand "step" step "perform a single step" $
+  Console.addConsoleCommand "addJob" addJob "adds a new job" $
   Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
   Console.initializeConsole
   
-
-getMySiteId :: D.Distribution -> [String] -> IO ()
-getMySiteId d _
+step :: S.Standalone -> [String] -> IO ()
+step s _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      i <- D.getMySiteId d
-      putStrLn $ show i
-         
-         
-startAction :: D.Distribution -> [String] -> IO ()
-startAction d _
+      S.doSingleStep s
+      return ()
+  
+  
+addJob :: S.Standalone -> [String] -> IO ()
+addJob s _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      D.startJob d
+      S.addJob DEMO.demoJob s
+      return ()
 
       
-printDebug :: D.Distribution -> [String] -> IO ()
-printDebug d _
+printDebug :: S.Standalone -> [String] -> IO ()
+printDebug s _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      D.printDebug d
+      S.printDebug s
   
   
-printVersion :: String -> D.Distribution -> [String] -> IO ()
+printVersion :: String -> S.Standalone -> [String] -> IO ()
 printVersion version _ _
   = do
     putStrLn version
+
