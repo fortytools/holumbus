@@ -140,6 +140,7 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
                     workerThreads
                     emptyIndex
                     (computePositions traceLevel
+                              (isJust $ ic_tmpPath idxConfig)
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
                               cache
@@ -161,9 +162,9 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 --   context configurations are extracted.
 
 computePositions :: HolCache c =>
-               Int -> [ContextConfig] -> Attributes -> Maybe c  
+               Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
             -> DocId -> String -> IO [(String, (String, DocId, Int))]
-computePositions traceLevel contextConfigs attrs cache docId theUri
+computePositions traceLevel fromTmp contextConfigs attrs cache docId theUri
     = do
       clt <- getClockTime
       cat <- toCalendarTime clt
@@ -176,7 +177,9 @@ computePositions traceLevel contextConfigs attrs cache docId theUri
              >>> strictA
 	   )
     where
-    attrs' = addEntries standardReadTmpDocumentAttributes attrs
+    attrs' = if fromTmp
+               then addEntries standardReadTmpDocumentAttributes attrs
+               else attrs
 
 
 
