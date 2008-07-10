@@ -26,7 +26,12 @@ module Holumbus.MapReduce.TaskProcessor
 , closeTaskProcessor
 , setMapFunctionMap
 , setReduceFunctionMap
+, setTaskCompletedHook  
+, setTaskErrorHook
 
+-- * TaskProcessor 
+, startTaskProcessor
+, stopTaskProcessor
 
 -- * Info an Debug
 , listTaskIds 
@@ -136,9 +141,10 @@ newTaskProcessor
   = do
     let tpd = defaultTaskProcessorData
     tp <- newMVar tpd
-    startTaskProcessor tp
+    -- do not start this, perhaps the user want to change something first
+    -- startTaskProcessor tp
     return tp
-  -- TaskProcessorData fs emptyMapFunctionMap emptyReduceFunctionMap
+
 
 closeTaskProcessor :: TaskProcessor -> IO ()
 closeTaskProcessor tp
@@ -160,6 +166,25 @@ setReduceFunctionMap m tp
   = modifyMVar tp $
       \tpd -> return $ (tpd { tpd_ReduceFunctionMap = m }, ())
 
+
+setTaskCompletedHook :: TaskResultFunction -> TaskProcessor -> IO ()  
+setTaskCompletedHook f tp
+  = modifyMVar tp $
+      \tpd ->
+      do
+      let funs = tpd_Functions tpd
+      let funs' = funs { tpf_TaskCompleted = f }
+      return (tpd { tpd_Functions = funs' }, ())
+
+
+setTaskErrorHook :: TaskResultFunction -> TaskProcessor -> IO ()
+setTaskErrorHook f tp
+  = modifyMVar tp $
+      \tpd ->
+      do
+      let funs = tpd_Functions tpd
+      let funs' = funs { tpf_TaskError = f }
+      return (tpd { tpd_Functions = funs' }, ())
 
 -- ----------------------------------------------------------------------------
 -- server functions

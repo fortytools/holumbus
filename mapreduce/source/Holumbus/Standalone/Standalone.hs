@@ -54,11 +54,23 @@ data StandaloneData = StandaloneData {
 type Standalone = MVar StandaloneData
 
 
-sendTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
-sendTask tp td
+sendStartTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
+sendStartTask tp td
   = do
     startTask td tp
     return TSRSend
+
+
+sendTaskCompleted :: JobControlData -> TaskData -> IO Bool
+sendTaskCompleted jc td
+  = do
+    undefined
+
+sendTaskError :: JobControlData -> TaskData -> IO Bool
+sendTaskError jc td
+  = do
+    undefined
+
 
 -- ----------------------------------------------------------------------------
 -- Creation and Initialisation
@@ -69,9 +81,15 @@ newStandalone :: FS.FileSystem -> MapFunctionMap -> ReduceFunctionMap-> IO Stand
 newStandalone fs mm rm
   = do
     tp <- newTaskProcessor
+    let jcd = newJobControlData (sendStartTask tp)
+    
     setMapFunctionMap mm tp
     setReduceFunctionMap rm tp
-    let jcd = newJobControlData (sendTask tp)
+    setTaskCompletedHook (sendTaskCompleted jcd) tp
+    setTaskErrorHook (sendTaskError jcd) tp
+     
+    startTaskProcessor tp
+    
     let sad = StandaloneData fs jcd tp
     newMVar sad 
 
