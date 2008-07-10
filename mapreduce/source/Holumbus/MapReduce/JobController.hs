@@ -13,6 +13,7 @@
 -}
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.MapReduce.JobController
 (
   JobId
@@ -21,9 +22,6 @@ module Holumbus.MapReduce.JobController
 , JobState(..)
 
 , TaskType(..)
-, TaskAction
-, InputPattern
-, OutputPattern
 , TaskState(..)
 
 , TaskData(..)
@@ -59,6 +57,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import System.IO.Unsafe
 
+import Holumbus.MapReduce.Types
 import Holumbus.FileSystem.Storage as S
 import qualified Holumbus.MapReduce.MultiMap as MMap
 
@@ -90,18 +89,6 @@ instance Binary TaskType where
        _ -> return (TTError)
 
 
--- | the indentifier of the performed Task-Function
-type TaskAction = String
-
-
--- | the input-files
-type InputPattern = String
-
-
--- | the output-files
-type OutputPattern = String
-
-
 -- | the task state
 data TaskState = TSIdle | TSInProgress | TSCompleted | TSFinished | TSError
   deriving (Show, Eq, Ord, Enum)
@@ -129,10 +116,10 @@ data TaskData = TaskData {
   , td_TaskId    :: ! TaskId
   , td_Type      :: TaskType
   , td_State     :: TaskState
-  , td_Input     :: [S.FileId]
-  , td_Output    :: [S.FileId]
-  , td_Action    :: TaskAction
-  } deriving (Show)
+  , td_Input     :: Maybe FunctionData
+  , td_Output    :: Maybe FunctionData
+  , td_Action    :: FunctionName
+  } deriving (Show, Eq, Ord)
 
 instance Binary TaskData where
   put (TaskData jid tid tt ts i o a)
@@ -184,15 +171,20 @@ instance Binary JobState where
         _ -> return (JSError)
 
 
+
+
+type OutputMap = MMap.MultiMap JobState FunctionData
+
+
 -- | defines a job, this is all data the user has to give to run a job
 data JobInfo = JobInfo {
     ji_Descrition      :: ! String
   -- , ji_PartitionAction :: ! (Maybe TaskAction)
-  , ji_MapAction       :: ! (Maybe TaskAction)
-  , ji_CombineAction   :: ! (Maybe TaskAction)
-  , ji_ReduceAction    :: ! (Maybe TaskAction)
-  , ji_Input           :: ! [InputPattern]
-  , ji_Ouput           :: ! OutputPattern
+  , ji_MapAction       :: ! (Maybe FunctionName)
+  , ji_CombineAction   :: ! (Maybe FunctionName)
+  , ji_ReduceAction    :: ! (Maybe FunctionName)
+  , ji_Input           :: ! [FunctionData]
+  , ji_Ouput           :: ! [FunctionData]
   } deriving (Show)
 
 instance Binary JobInfo where
@@ -208,7 +200,6 @@ instance Binary JobInfo where
       o <- get
       return (JobInfo d m c r i o)
 
-type OutputMap = MMap.MultiMap JobState InputPattern
 
 -- | the job data, include the user-input and some additional control-data
 data JobData = JobData {
@@ -275,11 +266,11 @@ newJobData info
     let outputMap = MMap.insertList JSIdle (ji_Input info) MMap.empty
     return (JobData i JSIdle outputMap info t t)
     
-newTaskData :: JobId -> TaskType -> TaskState -> [S.FileId] -> [S.FileId] -> TaskAction -> IO TaskData
-newTaskData jid tt ts i o a
+newTaskData :: JobId -> TaskType -> TaskState -> FunctionData -> FunctionName -> IO TaskData
+newTaskData jid tt ts i a
   = do
     tid <- nextTaskId
-    return (TaskData jid tid tt ts i o a) 
+    return (TaskData jid tid tt ts (Just i) Nothing a) 
 
     
 data TaskSendResult = TSRSend | TSRNotSend | TSRError
@@ -493,7 +484,7 @@ getCurrentTaskInfo jd = (a, t, i)
   i = getCurrentTaskInput jd
 -}
 
-getCurrentTaskAction :: JobData -> Maybe TaskAction
+getCurrentTaskAction :: JobData -> Maybe FunctionName
 getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   where
   getTaskAction' ji JSMap     = ji_MapAction ji
@@ -526,7 +517,7 @@ createTasks jcd jd
         let a = fromJust $ getCurrentTaskAction jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        taskDatas <- mapM (\i -> newTaskData jid tt TSIdle [i] [i++"_out"] a) inputList
+        taskDatas <- mapM (\i -> newTaskData jid tt TSIdle i a) inputList
         -- add task to controller
         let jcd' = foldl addTask jcd taskDatas        
         return jcd'

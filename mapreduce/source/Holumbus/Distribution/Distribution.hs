@@ -105,8 +105,8 @@ startJob dist
     withMVar dist $
       \(DistributionData _ m _) -> 
         do
-        let ji = JobInfo "testjob" (Just "WORDCOUNT") Nothing Nothing ["foo","foo2","foo3"] "foo_out2"
-        M.startJob ji m
+        -- let ji = JobInfo "testjob" (Just "WORDCOUNT") Nothing Nothing ["foo","foo2","foo3"] "foo_out2"
+        -- M.startJob ji m
         return ()
       
 printDebug :: Distribution -> IO ()

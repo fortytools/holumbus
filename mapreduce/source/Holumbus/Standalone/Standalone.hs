@@ -48,16 +48,16 @@ import Holumbus.MapReduce.TaskProcessor
 data StandaloneData = StandaloneData {
     sad_fileSystem :: FS.FileSystem
   , sad_controller :: JobControlData
-  , sad_processor  :: TaskProcessorData
+  , sad_processor  :: TaskProcessor
   }
 
 type Standalone = MVar StandaloneData
 
 
-sendTask :: TaskProcessorData -> TaskData -> IO (TaskSendResult)
-sendTask tpd td
+sendTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
+sendTask tp td
   = do
-    performTask tpd td
+    startTask td tp
     return TSRSend
 
 -- ----------------------------------------------------------------------------
@@ -68,9 +68,11 @@ sendTask tpd td
 newStandalone :: FS.FileSystem -> MapFunctionMap -> ReduceFunctionMap-> IO Standalone
 newStandalone fs mm rm
   = do
-    let tpd = setReduceFunctionMap rm $ setMapFunctionMap mm $ newTaskProcessor fs
-    let jcd = newJobControlData (sendTask tpd)
-    let sad = StandaloneData fs jcd tpd
+    tp <- newTaskProcessor
+    setMapFunctionMap mm tp
+    setReduceFunctionMap rm tp
+    let jcd = newJobControlData (sendTask tp)
+    let sad = StandaloneData fs jcd tp
     newMVar sad 
 
 closeStandalone :: Standalone -> IO ()
@@ -111,8 +113,10 @@ printDebug sa
       putStrLn $ show (sad_controller sad)
       putStrLn "--------------------------------------------------------"
       putStrLn "Map-Functions"
-      putStrLn $ show $ getMapFunctions (sad_processor sad)
+      mapFuns <- getMapFunctions (sad_processor sad)
+      putStrLn $ show $ mapFuns
       putStrLn "--------------------------------------------------------"
       putStrLn "Reduce-Functions"
-      putStrLn $ show $ getReduceFunctions (sad_processor sad)
+      reduceFuns <- getReduceFunctions (sad_processor sad)
+      putStrLn $ show $ reduceFuns
       putStrLn "--------------------------------------------------------"

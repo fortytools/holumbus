@@ -17,6 +17,8 @@ module Holumbus.MapReduce.Types
 (
   FunctionName
 , FunctionDescription
+, FunctionData
+, mkTupleData
 
 , MapFunction
 , BinaryMapFunction
@@ -55,7 +57,20 @@ type FunctionName = String
 
 type FunctionDescription = String
 
+data FunctionData = TupleData (B.ByteString, B.ByteString)
+  deriving (Show, Eq, Ord)
+  
+instance Binary FunctionData where
+  put (TupleData (k, v)) = put k >> put v
+  get
+    = do
+      k <- get
+      v <- get
+      return (TupleData (k, v))
 
+
+mkTupleData :: (Binary k, Binary v) => (k, v) -> FunctionData
+mkTupleData t = TupleData (encodeTupel t)
 
 -- ----------------------------------------------------------------------------
 -- general encoding / decoding
@@ -93,7 +108,7 @@ decodeMaybe (Just b) = Just (decode b)
 type MapFunction k1 v1 k2 v2 = (k1 -> v1 -> IO [(k2, v2)])
 
 -- | MapFunction on ByteStrings
-type BinaryMapFunction = (B.ByteString -> B.ByteString -> IO [(B.ByteString, B.ByteString)])
+type BinaryMapFunction = (B.ByteString -> B.ByteString -> IO [FunctionData])
 
 type MapFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryMapFunction)
 
@@ -105,12 +120,12 @@ type MapFunctionMap = Map.Map FunctionName MapFunctionData
 encodeMapFunction 
   :: (Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction k1 v1 k2 v2 
-  -> B.ByteString -> B.ByteString -> IO [(B.ByteString, B.ByteString)]
+  -> B.ByteString -> B.ByteString -> IO [FunctionData]
 encodeMapFunction f k1 v1
   = do
     --TODO catch exception...  
     ls <- f (decode k1) (decode v1)
-    return $ encodeTupelList ls
+    return $ map mkTupleData $ encodeTupelList ls
 
 
 emptyMapFunctionMap :: MapFunctionMap
