@@ -163,7 +163,7 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 
 computePositions :: HolCache c =>
                Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
-            -> DocId -> String -> IO [(String, (String, DocId, Int))]
+            -> DocId -> String -> IO [(Context, (Word, DocId, Position))]
 computePositions traceLevel fromTmp contextConfigs attrs cache docId theUri
     = do
       clt <- getClockTime
