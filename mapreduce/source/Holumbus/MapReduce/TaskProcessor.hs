@@ -499,14 +499,23 @@ sendTasksResults set fun
 
 -- | doing a map task
 performMapTask :: TaskData -> TaskProcessor-> IO TaskData
-performMapTask td _
+performMapTask td tp
   = do
     putStrLn "MapTask"
-    putStrLn $ show td 
-    return td
+    putStrLn $ show td
+    (mapFct, TupleData (k, v)) <- withMVar tp $
+      \tpd ->
+      do
+      --TODO hier exception werfen
+      let mapFct = fromJust $ dispatchMapFunction (tpd_MapFunctionMap tpd) (td_Action td)
+      let input = (td_Input td)
+      return (mapFct, input)
+    output <- mapFct k v
+    let td' = td { td_Output = output }
+    return td'
     -- content <- F.getFileContent fid fs
     -- let input = fileReader fid content
-    -- let fct = dispatchMapFunction myFunctions a
+    -- let fct = 
     -- let outputs = map (\(k,v) -> fct k v) input
     -- results <- sequence outputs
     -- putStrLn $ show results
@@ -516,20 +525,39 @@ performMapTask td _
 
 
 performCombineTask :: TaskData -> TaskProcessor-> IO TaskData
-performCombineTask td _
+performCombineTask td tp
   = do
     putStrLn "CombineTask"
     putStrLn $ show td 
-    return td
+    (combineFct, TupleData (k, v)) <- withMVar tp $
+      \tpd ->
+      do
+      --TODO hier exception werfen
+      let combineFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
+      let input = (td_Input td)
+      return (combineFct, input)
+    mbv' <- combineFct k v
+    let output = maybe [] (\v' -> [TupleData (k, v')]) mbv' 
+    let td' = td { td_Output = output }
+    return td'
   
 
 performReduceTask :: TaskData -> TaskProcessor-> IO TaskData
-performReduceTask td _
+performReduceTask td tp
   = do
     putStrLn "ReduceTask"
-    putStrLn $ show td 
-    return td
-
+    putStrLn $ show td
+    (reduceFct, TupleData (k, v)) <- withMVar tp $
+      \tpd ->
+      do
+      --TODO hier exception werfen
+      let reduceFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
+      let input = (td_Input td)
+      return (reduceFct, input)
+    mbv' <- reduceFct k v
+    let output = maybe [] (\v' -> [TupleData (k, v')]) mbv' 
+    let td' = td { td_Output = output }
+    return td'
 
 
 

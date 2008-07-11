@@ -133,8 +133,8 @@ data TaskData = TaskData {
   , td_TaskId    :: ! TaskId
   , td_Type      :: TaskType
   , td_State     :: TaskState
-  , td_Input     :: Maybe FunctionData
-  , td_Output    :: Maybe FunctionData
+  , td_Input     :: FunctionData
+  , td_Output    :: [FunctionData]
   , td_Action    :: FunctionName
   } deriving (Show, Eq, Ord)
 
@@ -281,7 +281,7 @@ newTaskData jcd jid tt ts i a
   = do
     let tid = jcd_NextTaskId jcd
     let jcd' = jcd { jcd_NextTaskId = (tid+1) }
-    return (jcd', TaskData jid tid tt ts (Just i) Nothing a) 
+    return (jcd', TaskData jid tid tt ts i [] a) 
     
 data TaskSendResult = TSRSend | TSRNotSend | TSRError
   deriving (Show, Eq, Ord, Enum)    
@@ -536,8 +536,8 @@ changeTaskState tid ts jcd = changeTaskState' (Map.lookup tid (jcd_TaskMap jcd))
     stm' = MMap.insert ts tid $ MMap.deleteElem ts' tid (jcd_StateTaskIdMap jcd) -- change StateTaskIdMap
 
 
-updateTaskOutput :: TaskId -> Maybe FunctionData -> JobControllerData -> JobControllerData
-updateTaskOutput _ Nothing jcd = jcd
+updateTaskOutput :: TaskId -> [FunctionData] -> JobControllerData -> JobControllerData
+updateTaskOutput _ [] jcd = jcd
 updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
   where
   updateTaskOuput' (Nothing) = jcd

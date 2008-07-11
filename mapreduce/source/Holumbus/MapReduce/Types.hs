@@ -17,7 +17,7 @@ module Holumbus.MapReduce.Types
 (
   FunctionName
 , FunctionDescription
-, FunctionData
+, FunctionData(..)
 , mkTupleData
 
 , MapFunction
