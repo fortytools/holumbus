@@ -45,21 +45,12 @@ module Holumbus.MapReduce.JobController
 -- * TaskProcessor 
 , startJobController
 , stopJobController
+, singleStepJobControlling
 
 -- * TaskControlling
 , startJob
 , stopJob
 , performJob
-
--- , createNewJob
-
---, newJobData
---, newTaskData
-
--- , getJobIds
--- , getTaskIds
-
--- , doControlling
 )
 where
 
@@ -263,40 +254,6 @@ data JobResult = JobResult {
 
 
 
-
--- ----------------------------------------------------------------------------
---
--- ----------------------------------------------------------------------------
-
-{- # NOINLINE globalJobId #-}
-{-
-globalJobId :: MVar JobId
-globalJobId = unsafePerformIO $ newMVar 0
-
-nextJobId :: IO JobId
-nextJobId 
-  = do
-    modifyMVar globalJobId $
-      \i ->
-      do
-      let i' = i + 1
-      return (i', i')
--}
-
-{- # NOINLINE globalTaskId #-}
-{- globalTaskId :: MVar TaskId
-globalTaskId = unsafePerformIO $ newMVar 0
-
-nextTaskId :: IO TaskId
-nextTaskId
-  = do
-    modifyMVar globalTaskId $
-      \i ->
-      do
-      let i' = i + 1
-      return (i', i')
--}
-
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -334,12 +291,13 @@ intersections (s:ss) = foldl Set.intersection s ss
 
 
 mapAccumLM
-  :: (acc -> x -> IO (acc, y)) -- Function of of input list
+  :: (Monad m) 
+  => (acc -> x -> m (acc, y)) -- Function of of input list
                                -- and accumulator, returning new
                                -- accumulator and of result list
   -> acc                       -- Initial accumulator 
   -> [x]                       -- Input list
-  -> IO (acc, [y])             -- Final accumulator and result list
+  -> m (acc, [y])             -- Final accumulator and result list
 mapAccumLM _ s [] = return (s, [])
 mapAccumLM f s (x:xs) 
   = do
@@ -393,6 +351,10 @@ data JobControllerData = JobControllerData {
 
 
 type JobController = MVar JobControllerData
+
+printJobController :: JobController -> IO String
+printJobController jc
+  = withMVar jc $ \jcd -> return $ show jcd
 
 
 data JobControllerException
@@ -458,7 +420,7 @@ startJobController jc
         (Just i) -> return i
         (Nothing) ->
           do
-          i <- forkIO $ doProcessing jc
+          i <- forkIO $ doProcessing jc True
           return i
       return (jcd {jcd_ServerThreadId = (Just thd)}, ())
 
@@ -479,6 +441,16 @@ stopJobController jc
           return ()
       return (jcd {jcd_ServerThreadId = Nothing}, ())
 
+
+singleStepJobControlling :: JobController -> IO ()
+singleStepJobControlling jc
+  = do
+    withMVar jc $ 
+      \jcd -> 
+      do
+      case (jcd_ServerThreadId jcd) of
+        (Nothing) -> doProcessing jc False
+        (Just _)  -> return ()
 
 -- ----------------------------------------------------------------------------
 -- private functions
@@ -599,21 +571,21 @@ performJob ji jc
 -- ----------------------------------------------------------------------------
 
 
-doProcessing :: JobController -> IO ()
-doProcessing jc
+doProcessing :: JobController -> Bool -> IO ()
+doProcessing jc loop
   = do
-    E.catchDyn (doProcessing' jc)
+    E.catchDyn (doProcessing' jc loop)
       handler
     where
       handler :: JobControllerException -> IO ()
       handler err = putStrLn (show err)
-      doProcessing' jc'
+      doProcessing' jc' loop'
         = do
           handleTasks jc'
           handleJobs jc'
           delay <- withMVar jc' (\jcd -> return $ jcd_ServerDelay jcd)
           threadDelay delay
-          doProcessing' jc'
+          if loop' then (doProcessing' jc' loop') else return ()
 
 
 
@@ -761,146 +733,3 @@ handleJobs jc
       -- create new tasks for each Job
       jcd'' <- foldM createTasks jcd' newJobDatas
       return (jcd'', ())
-
-
-
-{-
-
--- ----------------------------------------------------------------------------
-
-
--- type AssignTaskHook = [TaskId] -> IO [(TaskId, Bool)]
-
--- ----------------------------------------------------------------------------
-
--- type AssignJobHook = [JobId] -> IO [(JobId, Bool)]
-
-
-getCurrentTaskInfo :: JobData -> (Maybe TaskAction, Maybe TaskType, InputPattern)
-getCurrentTaskInfo jd = (a, t, i)
-  where
-  a = getCurrentTaskAction jd
-  t = fromJobStatetoTaskType (jd_State jd)
-  i = getCurrentTaskInput jd
-
-
-
-
-
-
--- getCurrentTaskInput :: JobData -> InputPattern
--- getCurrentTaskInput = undefined
-
-
-
- 
-
-
-
-    
--- ----------------------------------------------------------------------------
-
-
--}  
-    
-  {-
-    -- assign all idle tasks from all running jobs to InProgress
-    let runningJobs = getJobIds [JSMap, JSCombine, JSReduce] jcd 
-    let idleTasks   = getTaskIds runningJobs [] [TSIdle] jcd    
-   
-    
-    -- assign all completed tasks from all running jobs to Finished
-    let completedTasks = getTaskIds runningJobs [] [TSCompleted] jcd1
-    jcd2 <- assignTasksToCompleted completedTasks jcd1
-  
-    -- assign idle jobs to map-phase
-    let idleJobs = getJobIds [JSIdle] jcd2
-    jcd3 <- assignJobsToMap idleJobs jcd2
-    
-    -- assign completed map-phase to combine-phase
-    let mapJobs = getJobIds [JSMap] jcd3
-    assignJobsToCombine
-    
-    assignJobsToReduce
-    
-    -- assign completed combine-phase to reduce-phase
-    
-    -- assign completed reduce-phase to finished
-      
-    threadDelay 1000000 -- 1.0 sec
-    doJobControlling jcd''
--}
-
-
-
-
-
-
-{-    
-addJob :: JobData -> MasterMaps -> MasterMaps
-addJob jd mm = mm { mm_JobMap = jm' }
-  where
-    jid = jd_JobId jd
-    jm  = mm_JobMap mm 
-    jm' = Map.insert jid jd jm
-
--- anderen zuweisen und inprogress setzen
-assignTasks :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
-assignTasks = undefined
-
--- anderen entziehen und finished
-setFinished :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
-setFinished = undefined
-
-createCombiners :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
-createCombiners = undefined
-
-allTypes :: [TaskType]
-allTypes = undefined
-
-splitByCombinerType :: [JobId] -> ([JobId], [JobId])
-splitByCombinerType = undefined
-
-splitByReducerType :: [JobId] -> ([JobId], [JobId])
-splitByReducerType = undefined
-
-startCombiners :: MasterMaps -> IO (MasterMaps)
-startCombiners mm
-  = do
-    -- handle the jobs with single combiners
-    let allJobs = getJobIds [JSIdle] [CTSingle] mm
-    let mapCompleted = getTaskIds allJobs [TTMap] [TSCompleted] mm
-    sequence $ map (startSingleCombiner) mapCompleted
-    
-    -- handle the jobs with multiple combiners
-    let allJobs = getJobIds [JSIdle] [CTMultiple] mm
-    
-    for every Job... Partition Combiners
-    let mapNotFinished = getTaskIds myJob [TTMap] [TSIdle, TSInProgress, TSCompleted] mm
-    let mapFinished = getTaskIds myJob [TTMap] [TSFinished] mm
-    
-    -- if (null mapNotFinished) then
-    --   partition and set combiners to idle
-    
-    return mm
-
-startReducers :: MasterMaps -> IO (MasterMaps)
-startReducers mm
-  = do
-    -- handle jobs with no combiners
--}
-
-    
-    
-    
-    
-    
-{-
-    
-type JobMap = Map.Map JobId JobData
-type JobQueue = [JobId]
-type TaskMap = Map.Map TaskId TaskData
-type TaskStateMap = (Map.Map TaskId TaskState, Set.Set TaskId, Set.Set TaskId, Set.Set TaskId, Set.Set TaskId)
-
-
--}

@@ -20,6 +20,7 @@ module Holumbus.MapReduce.TaskProcessor
   TaskResultFunction
 , TaskProcessor
 
+, printTaskProcessor
 
 -- * Creation / Destruction
 , newTaskProcessor
@@ -79,7 +80,6 @@ data TaskProcessorFunctions = TaskProcessorFunctions {
   , tpf_TaskError     :: TaskResultFunction
   }
 
-
 instance Show TaskProcessorFunctions where
   show _ = "{TaskProcessorFunctions}"
 
@@ -109,10 +109,14 @@ data TaskProcessorData = TaskProcessorData {
   , tpd_CompletedTasks    :: Set.Set TaskData
   , tpd_ErrorTasks        :: Set.Set TaskData
   , tpd_TaskIdThreadMap   :: Map.Map TaskId ThreadId
-  
-  }
+  } deriving (Show)
 
 type TaskProcessor = MVar TaskProcessorData
+
+
+printTaskProcessor :: TaskProcessor -> IO String
+printTaskProcessor tp
+  = withMVar tp $ \tpd -> return $ show tpd
 
 
 
@@ -131,8 +135,8 @@ defaultTaskProcessorData = tpd
       1000000 -- one second delay
       1
       funs
-      Map.empty
-      Map.empty
+      emptyMapFunctionMap
+      emptyReduceFunctionMap
       []
       Set.empty
       Set.empty
@@ -292,23 +296,14 @@ listTaskIds tp
 getMapFunctions :: TaskProcessor -> IO [(FunctionName, FunctionDescription, TypeRep)]
 getMapFunctions tp
   = withMVar tp $
-      \tpd -> 
-      do
-      let m = tpd_MapFunctionMap tpd
-      let ls = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
-      return ls
+      \tpd -> return $ listMapFunctions (tpd_MapFunctionMap tpd)
 
 
 -- | Lists all Reduce-Functions with Name, Descrition and Type
 getReduceFunctions :: TaskProcessor -> IO [(FunctionName, FunctionDescription, TypeRep)]
 getReduceFunctions tp 
   = withMVar tp $
-      \tpd -> 
-      do
-      let m = tpd_ReduceFunctionMap tpd
-      let ls = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
-      return ls
-
+      \tpd -> return $ listReduceFunctions (tpd_ReduceFunctionMap tpd) 
 
 
 -- ----------------------------------------------------------------------------

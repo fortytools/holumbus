@@ -46,9 +46,8 @@ import Holumbus.MapReduce.TaskProcessor
 
 
 data StandaloneData = StandaloneData {
-    sad_fileSystem :: FS.FileSystem
-  , sad_controller :: JobController
-  , sad_processor  :: TaskProcessor
+    sad_JobController :: JobController
+  , sad_TaskProcessor :: TaskProcessor
   }
 
 type Standalone = MVar StandaloneData
@@ -60,16 +59,17 @@ sendStartTask tp td
     startTask td tp
     return TSRSend
 
-
 sendTaskCompleted :: JobController -> TaskData -> IO Bool
-sendTaskCompleted jc td
+sendTaskCompleted _ _
   = do
-    undefined
+    return True
+
 
 sendTaskError :: JobController -> TaskData -> IO Bool
-sendTaskError jc td
+sendTaskError _ _
   = do
-    undefined
+    return True
+
 
 
 -- ----------------------------------------------------------------------------
@@ -77,26 +77,39 @@ sendTaskError jc td
 -- ----------------------------------------------------------------------------
 
 
-newStandalone :: FS.FileSystem -> MapFunctionMap -> ReduceFunctionMap-> IO Standalone
-newStandalone fs mm rm
+newStandalone :: MapFunctionMap -> ReduceFunctionMap-> IO Standalone
+newStandalone mm rm
   = do
+    -- get a new JobController an TaskProcessor
+    jc <- newJobController
     tp <- newTaskProcessor
-    let jcd = undefined -- newJobControlData (sendStartTask tp)
     
+    -- configure the JobController
+    setTaskSendHook (sendStartTask tp) jc
+    
+    -- configure the TaskProcessor
     setMapFunctionMap mm tp
     setReduceFunctionMap rm tp
-    setTaskCompletedHook (sendTaskCompleted jcd) tp
-    setTaskErrorHook (sendTaskError jcd) tp
+    setTaskCompletedHook (sendTaskCompleted jc) tp
+    setTaskErrorHook (sendTaskError jc) tp
      
+    -- startJobController jc
     startTaskProcessor tp
     
-    let sad = StandaloneData fs jcd tp
+    let sad = StandaloneData jc tp
     newMVar sad 
 
+
 closeStandalone :: Standalone -> IO ()
-closeStandalone _
+closeStandalone sa
   = do
-    return ()
+    modifyMVar sa $
+      \sad ->
+      do
+      closeTaskProcessor (sad_TaskProcessor sad)
+      closeJobController (sad_JobController sad)
+      return (sad, ())
+      
 
 
 addJob :: JobInfo -> Standalone -> IO ()
@@ -105,10 +118,9 @@ addJob ji sa
     modifyMVar sa $
       \sad ->
       do
-      undefined
-      -- jc' <- createNewJob ji (sad_controller sad)
-      -- let sad' = sad { sad_controller = jc' }
-      -- return (sad', ())
+      startJob ji (sad_JobController sad)
+      return (sad, ())
+
 
 doSingleStep :: Standalone -> IO ()
 doSingleStep sa
@@ -116,10 +128,8 @@ doSingleStep sa
     modifyMVar sa $
       \sad ->
       do
-      undefined
-      -- jc' <- doControlling (sad_controller sad)
-      -- let sad' = sad { sad_controller = jc' }
-      -- return (sad', ())
+      singleStepJobControlling (sad_JobController sad)
+      return (sad, ())
       
 
 printDebug :: Standalone -> IO ()
@@ -130,13 +140,18 @@ printDebug sa
       do
       putStrLn "--------------------------------------------------------"      
       putStrLn "Job-Controller"
-      -- putStrLn $ show (sad_controller sad)
+      showJC <- printJobController (sad_JobController sad)
+      putStrLn showJC
+      putStrLn "--------------------------------------------------------"
+      putStrLn "Task-Processor"
+      showTP <- printTaskProcessor (sad_TaskProcessor sad)
+      putStrLn $showTP
       putStrLn "--------------------------------------------------------"
       putStrLn "Map-Functions"
-      mapFuns <- getMapFunctions (sad_processor sad)
+      mapFuns <- getMapFunctions (sad_TaskProcessor sad)
       putStrLn $ show $ mapFuns
       putStrLn "--------------------------------------------------------"
       putStrLn "Reduce-Functions"
-      reduceFuns <- getReduceFunctions (sad_processor sad)
+      reduceFuns <- getReduceFunctions (sad_TaskProcessor sad)
       putStrLn $ show $ reduceFuns
       putStrLn "--------------------------------------------------------"

@@ -27,7 +27,7 @@ module Holumbus.MapReduce.Types
 , emptyMapFunctionMap
 , addMapFunctionToMap
 , dispatchMapFunction
-
+, listMapFunctions
 
 , ReduceFunction
 , BinaryReduceFunction
@@ -36,7 +36,7 @@ module Holumbus.MapReduce.Types
 , emptyReduceFunctionMap
 , addReduceFunctionToMap
 , dispatchReduceFunction
-
+, listReduceFunctions
 )
 where
 
@@ -113,7 +113,10 @@ type BinaryMapFunction = (B.ByteString -> B.ByteString -> IO [FunctionData])
 type MapFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryMapFunction)
 
 -- | map for storing the MapFunctions
-type MapFunctionMap = Map.Map FunctionName MapFunctionData
+data MapFunctionMap = MapFunctionMap (Map.Map FunctionName MapFunctionData)
+
+instance Show MapFunctionMap where
+  show _ = "MapFunctionMap"
 
 -- | a wrapper for invoking genaral MapFunctions from ByteString from 
 --   input and output  
@@ -129,7 +132,7 @@ encodeMapFunction f k1 v1
 
 
 emptyMapFunctionMap :: MapFunctionMap
-emptyMapFunctionMap = Map.empty
+emptyMapFunctionMap = MapFunctionMap Map.empty
 
 
 addMapFunctionToMap
@@ -140,19 +143,24 @@ addMapFunctionToMap
   -> FunctionDescription
   -> MapFunctionMap
   -> MapFunctionMap
-addMapFunctionToMap f n d m 
-  = Map.insert n (n,d,t,f') m
+addMapFunctionToMap f n d (MapFunctionMap m) 
+  = MapFunctionMap $ Map.insert n (n,d,t,f') m
   where
     f' = encodeMapFunction f
     t  = typeOf f
 
 
 dispatchMapFunction :: MapFunctionMap -> FunctionName -> Maybe BinaryMapFunction
-dispatchMapFunction mfm fn 
+dispatchMapFunction (MapFunctionMap mfm) fn 
   = check $ Map.lookup fn mfm
     where
       check (Nothing) = Nothing
       check (Just (_,_,_,f)) = Just f
+
+
+listMapFunctions :: MapFunctionMap -> [(FunctionName, FunctionDescription, TypeRep)]
+listMapFunctions (MapFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
+
 
 
 
@@ -168,7 +176,10 @@ type BinaryReduceFunction = B.ByteString -> B.ByteString -> IO (Maybe B.ByteStri
 
 type ReduceFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryReduceFunction)
 
-type ReduceFunctionMap = Map.Map FunctionName ReduceFunctionData
+data ReduceFunctionMap = ReduceFunctionMap (Map.Map FunctionName ReduceFunctionData)
+
+instance Show ReduceFunctionMap where
+  show _ = "ReduceFunctionMap"
 
 
 -- | a wrapper for invoking genaral MapFunctions from ByteString from 
@@ -185,7 +196,7 @@ encodeReduceFunction f k1 v1
 
 
 emptyReduceFunctionMap :: ReduceFunctionMap
-emptyReduceFunctionMap = Map.empty
+emptyReduceFunctionMap = ReduceFunctionMap Map.empty
 
 
 addReduceFunctionToMap
@@ -196,17 +207,20 @@ addReduceFunctionToMap
   -> FunctionDescription
   -> ReduceFunctionMap
   -> ReduceFunctionMap
-addReduceFunctionToMap f n d m 
-  = Map.insert n (n,d,t,f') m
+addReduceFunctionToMap f n d (ReduceFunctionMap m) 
+  = ReduceFunctionMap $ Map.insert n (n,d,t,f') m
   where
     f' = encodeReduceFunction f
     t  = typeOf f
 
 
 dispatchReduceFunction :: ReduceFunctionMap -> FunctionName -> Maybe BinaryReduceFunction
-dispatchReduceFunction mfm fn
+dispatchReduceFunction (ReduceFunctionMap mfm) fn
   = check $ Map.lookup fn mfm
     where
       check (Nothing) = Nothing
       check (Just (_,_,_,f)) = Just f
       
+
+listReduceFunctions :: ReduceFunctionMap -> [(FunctionName, FunctionDescription, TypeRep)]
+listReduceFunctions (ReduceFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
