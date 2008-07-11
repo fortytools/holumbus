@@ -56,7 +56,7 @@ import Data.Maybe
 import Data.Typeable
 
 import Holumbus.MapReduce.Types
-import Holumbus.MapReduce.JobController
+import Holumbus.MapReduce.JobController hiding (setTaskCompleted, setTaskError)
 
 import Holumbus.FileSystem.FileSystem as F
 import Holumbus.FileSystem.Storage as S

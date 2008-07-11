@@ -36,21 +36,26 @@ module Holumbus.MapReduce.JobController
 
 , JobController
 
+, printJobController
 
 -- * Creation / Destruction
 , newJobController
 , closeJobController
 , setTaskSendHook
 
--- * TaskProcessor 
+-- * Job Controller 
 , startJobController
 , stopJobController
 , singleStepJobControlling
 
--- * TaskControlling
+-- * performing MapReduce-Jobs
 , startJob
 , stopJob
 , performJob
+
+-- * handling Task-Responses
+, setTaskCompleted
+, setTaskError
 )
 where
 
@@ -531,6 +536,15 @@ changeTaskState tid ts jcd = changeTaskState' (Map.lookup tid (jcd_TaskMap jcd))
     stm' = MMap.insert ts tid $ MMap.deleteElem ts' tid (jcd_StateTaskIdMap jcd) -- change StateTaskIdMap
 
 
+updateTaskOutput :: TaskId -> Maybe FunctionData -> JobControllerData -> JobControllerData
+updateTaskOutput _ Nothing jcd = jcd
+updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
+  where
+  updateTaskOuput' (Nothing) = jcd
+  updateTaskOuput' (Just td) = jcd { jcd_TaskMap = tm' }
+    where
+    td' = td { td_Output = o }  -- change TaskData
+    tm' = Map.insert tid td' (jcd_TaskMap jcd) -- change TaskData
 
 -- ----------------------------------------------------------------------------
 -- Info an Debug
@@ -665,6 +679,12 @@ toNextJobState jcd jd = changeJobState (jd_JobId jd) (getNextJobState (jd_State 
 toErrorTaskState :: JobControllerData -> TaskData -> JobControllerData
 toErrorTaskState jcd td = changeTaskState (td_TaskId td) TSError jcd
 
+toCompletedTaskState :: JobControllerData -> TaskData -> JobControllerData
+toCompletedTaskState jcd td = updateTaskOutput tid o $ changeTaskState tid TSCompleted jcd
+  where
+  tid = td_TaskId td
+  o = td_Output td
+  
 
 hasPhase :: JobData -> Bool
 hasPhase jd = isJust $ getCurrentTaskAction jd
@@ -733,3 +753,30 @@ handleJobs jc
       -- create new tasks for each Job
       jcd'' <- foldM createTasks jcd' newJobDatas
       return (jcd'', ())
+
+
+
+
+-- ----------------------------------------------------------------------------   
+-- handling Task-Responses
+-- ----------------------------------------------------------------------------
+
+setTaskCompleted :: JobController -> TaskData -> IO ()
+setTaskCompleted jc td
+  = do
+    modifyMVar jc $
+      \jcd ->
+      do
+      let jcd' = toCompletedTaskState jcd td
+      return (jcd', ())
+
+    
+setTaskError :: JobController -> TaskData -> IO ()
+setTaskError jc td
+  = do
+    modifyMVar jc $
+      \jcd ->
+      do
+      let jcd' = toErrorTaskState jcd td
+      return (jcd', ())
+    

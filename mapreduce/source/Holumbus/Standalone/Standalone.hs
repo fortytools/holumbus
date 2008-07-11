@@ -60,14 +60,16 @@ sendStartTask tp td
     return TSRSend
 
 sendTaskCompleted :: JobController -> TaskData -> IO Bool
-sendTaskCompleted _ _
+sendTaskCompleted jc td
   = do
+    setTaskCompleted jc td
     return True
 
 
 sendTaskError :: JobController -> TaskData -> IO Bool
-sendTaskError _ _
+sendTaskError jc td
   = do
+    setTaskError jc td
     return True
 
 
