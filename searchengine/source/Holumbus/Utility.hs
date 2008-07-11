@@ -62,7 +62,7 @@ stripWith f = reverse . dropWhile f . reverse . dropWhile f
 
  
 -- | found on the haskell cafe mailing list
---   http:\/\/www.haskell.org\/pipermail\/haskell-cafe\/2008-April\/041970.html
+--   <http://www.haskell.org/pipermail/haskell-cafe/2008-April/041970.html>
 strictDecodeFile :: Binary a => FilePath -> IO a
 strictDecodeFile f  =
     bracket (openBinaryFile f ReadMode) hClose $ \h -> do
