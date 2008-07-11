@@ -35,6 +35,7 @@ module Holumbus.Index.Common
   , Positions
   , RawResult
   , HolIndex (..)
+  , HolIndexM (..)
   , HolDocuments (..)
   , HolCache (..)
 
@@ -72,7 +73,7 @@ import qualified Data.List as L
 import Data.Binary (Binary (..))
 import qualified Data.Binary as B
 
-import Control.Monad (liftM3)
+import Control.Monad (liftM3, foldM)
 
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
@@ -132,6 +133,52 @@ type Positions     = IntSet
 -- | The raw result returned when searching the index.
 type RawResult     = [(Word, Occurrences)]
 
+class (Monad m) => HolIndexM m i where
+  -- | Returns the number of unique words in the index.
+  sizeWordsM    :: i -> m Int
+  -- | Returns a list of all contexts avaliable in the index.
+  contextsM     :: i -> m [Context]
+
+  -- | Returns the occurrences for every word. A potentially expensive operation.
+  allWordsM     :: i -> Context -> m RawResult
+  -- | Searches for words beginning with the prefix in a given context (case-sensitive).
+  prefixCaseM   :: i -> Context -> String -> m RawResult
+  -- | Searches for words beginning with the prefix in a given context (case-insensitive).
+  prefixNoCaseM :: i -> Context -> String -> m RawResult
+  -- | Searches for and exact word in a given context (case-sensitive).
+  lookupCaseM   :: i -> Context -> String -> m RawResult
+  -- | Searches for and exact word in a given context (case-insensitive).
+  lookupNoCaseM :: i -> Context -> String -> m RawResult
+  
+    -- | Insert occurrences.
+  insertOccurrencesM :: Context -> Word -> Occurrences -> i -> m i
+  -- | Delete occurrences.
+  deleteOccurrencesM :: Context -> Word -> Occurrences -> i -> m i
+  
+  -- | Insert a position for a single document.
+  insertPositionM :: Context -> Word -> DocId -> Position -> i -> m i
+  insertPositionM c w d p i = insertOccurrencesM c w (IM.singleton d (IS.singleton p)) i
+  -- | Delete a position for a single document.
+  deletePositionM :: Context -> Word -> DocId -> Position -> i -> m i
+  deletePositionM c w d p i = deleteOccurrencesM c w (IM.singleton d (IS.singleton p)) i
+
+  -- | Merges two indexes. 
+  mergeIndexesM  :: i -> i -> m i
+
+  -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
+  -- to the same new id, the two sets of word positions will be merged if both old id's are present
+  -- in the occurrences for a word in a specific context.
+  updateDocIdsM:: (Context -> Word -> DocId -> DocId) -> i -> m i
+
+  -- Convert an Index to a list. Can be used for easy conversion between different index  
+  -- implementations
+  toListM   :: i -> m [(Context, Word, Occurrences)]
+  
+  -- Create an Index from a a list. Can be used vor easy conversion between different index  
+  -- implementations. Needs an empty index as first argument
+  fromListM :: i -> [(Context, Word, Occurrences)] -> m i
+  fromListM e = foldM (\i (c,w,o) -> insertOccurrencesM c w o i) e
+
 -- | This class provides a generic interface to different types of index implementations.
 class (Binary i, MapReducible i Context (Word, DocId, Position) ) => HolIndex i where
   -- | Returns the number of unique words in the index.
@@ -179,7 +226,7 @@ class (Binary i, MapReducible i Context (Word, DocId, Position) ) => HolIndex i 
   -- in the occurrences for a word in a specific context.
   updateDocIds:: (Context -> Word -> DocId -> DocId) -> i -> i
   
-  -- Convert an Index to a list. Can be used vor easy conversion between different index  
+  -- Convert an Index to a list. Can be used for easy conversion between different index  
   -- implementations
   toList   :: i -> [(Context, Word, Occurrences)]
   
