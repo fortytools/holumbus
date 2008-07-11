@@ -33,7 +33,7 @@ library
                 , bzlib
                 , regex-compat
                 , readline
-                , Holumbus
+                , Holumbus-Searchengine
 
   hs-source-dirs: 
                   source
