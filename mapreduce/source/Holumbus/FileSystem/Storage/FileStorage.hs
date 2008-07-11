@@ -152,7 +152,11 @@ instance S.Storage FileStorage where
 
   createFile stor fn c 
     = do
-      bracket 
+      writeToBinFile path c
+      -- update the directory   
+      dat <- S.createFileData fn c
+      writeDirectory $ stor {fs_directory = newdir dat} 
+      {-bracket 
         (openFile path WriteMode)
         (hClose)
         (\hdl ->
@@ -165,7 +169,7 @@ instance S.Storage FileStorage where
           -- update the directory   
           dat <- S.createFileData fn c
           writeDirectory $ stor {fs_directory = newdir dat} 
-        )
+        )-}
       where
         path = (fs_path stor) ++ fn
         newdir d = addFileData (fs_directory stor) d 
@@ -189,7 +193,12 @@ instance S.Storage FileStorage where
   appendFile stor i c
     = do
       if isMember (fs_directory stor) i
-        then do    
+        then do
+          appendToBinFile path c
+          -- update directory 
+          dat <- S.createFileData i c
+          writeDirectory $ stor { fs_directory = newdir dat }
+          {-
           bracket
             (openFile path AppendMode)
             (hClose)
@@ -204,7 +213,7 @@ instance S.Storage FileStorage where
               -- update directory 
               dat <- S.createFileData i c
               writeDirectory $ stor { fs_directory = newdir dat }
-            )
+            )-}
         else do
           S.createFile stor i c      
       where
@@ -223,7 +232,9 @@ instance S.Storage FileStorage where
         then do
           handle (\_ -> return Nothing) $ 
             do
-            bracket
+            c <- strictReadFileFile path
+            return (Just c)
+            {-bracket
               (do 
                debugM localLogger ("opening file - path: " ++ path)
                openFile path ReadMode
@@ -237,7 +248,7 @@ instance S.Storage FileStorage where
                 let p = (decode raw)
                 debugM localLogger ("file content: " ++ show p)
                 return (Just p)
-              )
+              )-}
         else do return Nothing
       where
         path = (fs_path stor) ++ i
@@ -251,6 +262,30 @@ instance S.Storage FileStorage where
     = do
       return (getIds (fs_directory stor))
 
+
+-- ----------------------------------------------------------------------------
+-- Binary file Handling
+-- ----------------------------------------------------------------------------
+
+-- loadFromBinFile :: Binary a => FilePath -> IO a
+-- loadFromBinFile f = decodeFile f
+
+writeToBinFile :: Binary a => FilePath -> a -> IO ()
+writeToBinFile = encodeFile
+
+appendToBinFile :: Binary a => FilePath -> a -> IO ()
+appendToBinFile f = B.appendFile f . encode
+
+
+-- found on the haskell cafe mailing list
+-- http:\/\/www.haskell.org\/pipermail\/haskell-cafe\/2008-April\/041970.html
+strictReadFileFile :: Binary a => FilePath -> IO a
+strictReadFileFile f  
+   = bracket (openBinaryFile f ReadMode) hClose $ 
+       \h -> do
+       c <- B.hGetContents h
+       return $! decode c
+  
 
 {-
   getFilePath stor fp

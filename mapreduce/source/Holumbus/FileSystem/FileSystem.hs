@@ -285,17 +285,3 @@ printDebug fs
       putStrLn "Node:"
       maybe (putStrLn "NOTHING") (\n' -> N.printDebug n') n
       putStrLn "--------------------------------------------------------"
-      
-{-
-loadFromBinFile :: Binary a => FilePath -> IO a loadFromBinFile f = B.decodeFile f
-writeToBinFile :: Binary a => FilePath -> a -> IO () writeToBinFile =  B.encodeFile
-
- -- found on the haskell cafe mailing list
- -- http:\/\/www.haskell.org\/pipermail\/haskell-cafe\/2008-April\/041970.html
- strictDecodeFile :: Binary a => FilePath -> IO a
- strictDecodeFile f  
-   = bracket (openBinaryFile f ReadMode) hClose $ 
-       \h -> do
-       c <- B.hGetContents h
-       return $! decode c
--}  
