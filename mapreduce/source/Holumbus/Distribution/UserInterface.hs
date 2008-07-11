@@ -51,7 +51,7 @@ runUI fs version
 createConsole :: String -> Console.ConsoleData (D.Distribution)
 createConsole version =
   Console.addConsoleCommand "id" getMySiteId "get my siteId" $
-  Console.addConsoleCommand "start" startAction "starts an action (DEBUG)" $
+  -- Console.addConsoleCommand "start" startAction "starts an action (DEBUG)" $
   Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
   Console.initializeConsole
@@ -65,14 +65,14 @@ getMySiteId d _
       i <- D.getMySiteId d
       putStrLn $ show i
          
-         
+{-         
 startAction :: D.Distribution -> [String] -> IO ()
 startAction d _
   = do
     handle (\e -> putStrLn $ show e) $
       do
       D.startJob d
-
+-}
       
 printDebug :: D.Distribution -> [String] -> IO ()
 printDebug d _

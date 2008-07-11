@@ -47,7 +47,7 @@ import Holumbus.MapReduce.TaskProcessor
 
 data StandaloneData = StandaloneData {
     sad_fileSystem :: FS.FileSystem
-  , sad_controller :: JobControlData
+  , sad_controller :: JobController
   , sad_processor  :: TaskProcessor
   }
 
@@ -61,12 +61,12 @@ sendStartTask tp td
     return TSRSend
 
 
-sendTaskCompleted :: JobControlData -> TaskData -> IO Bool
+sendTaskCompleted :: JobController -> TaskData -> IO Bool
 sendTaskCompleted jc td
   = do
     undefined
 
-sendTaskError :: JobControlData -> TaskData -> IO Bool
+sendTaskError :: JobController -> TaskData -> IO Bool
 sendTaskError jc td
   = do
     undefined
@@ -81,7 +81,7 @@ newStandalone :: FS.FileSystem -> MapFunctionMap -> ReduceFunctionMap-> IO Stand
 newStandalone fs mm rm
   = do
     tp <- newTaskProcessor
-    let jcd = newJobControlData (sendStartTask tp)
+    let jcd = undefined -- newJobControlData (sendStartTask tp)
     
     setMapFunctionMap mm tp
     setReduceFunctionMap rm tp
@@ -105,9 +105,10 @@ addJob ji sa
     modifyMVar sa $
       \sad ->
       do
-      jc' <- createNewJob ji (sad_controller sad)
-      let sad' = sad { sad_controller = jc' }
-      return (sad', ())
+      undefined
+      -- jc' <- createNewJob ji (sad_controller sad)
+      -- let sad' = sad { sad_controller = jc' }
+      -- return (sad', ())
 
 doSingleStep :: Standalone -> IO ()
 doSingleStep sa
@@ -115,9 +116,10 @@ doSingleStep sa
     modifyMVar sa $
       \sad ->
       do
-      jc' <- doControlling (sad_controller sad)
-      let sad' = sad { sad_controller = jc' }
-      return (sad', ())
+      undefined
+      -- jc' <- doControlling (sad_controller sad)
+      -- let sad' = sad { sad_controller = jc' }
+      -- return (sad', ())
       
 
 printDebug :: Standalone -> IO ()
@@ -128,7 +130,7 @@ printDebug sa
       do
       putStrLn "--------------------------------------------------------"      
       putStrLn "Job-Controller"
-      putStrLn $ show (sad_controller sad)
+      -- putStrLn $ show (sad_controller sad)
       putStrLn "--------------------------------------------------------"
       putStrLn "Map-Functions"
       mapFuns <- getMapFunctions (sad_processor sad)

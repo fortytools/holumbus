@@ -84,10 +84,14 @@ instance Show TaskProcessorFunctions where
   show _ = "{TaskProcessorFunctions}"
 
 
-data TaskException
-  = KillTaskException
-  | UnkownTaskException
+data TaskProcessorException 
+  = KillServerException
   deriving (Show, Typeable)
+
+data TaskException
+   = KillTaskException
+   | UnkownTaskException
+   deriving (Show, Typeable)
 
 
 -- | data, needed by the MapReduce-System to run the tasks
@@ -194,7 +198,7 @@ startTaskProcessor :: TaskProcessor -> IO ()
 startTaskProcessor tp
   = do
     modifyMVar tp $ 
-      \ tpd -> 
+      \tpd -> 
       do
       thd <- case (tpd_ServerThreadId tpd) of
         (Just i) -> return i
@@ -210,13 +214,13 @@ stopTaskProcessor :: TaskProcessor -> IO ()
 stopTaskProcessor tp
   = do
     modifyMVar tp $ 
-      \ tpd -> 
+      \tpd -> 
       do
       case (tpd_ServerThreadId tpd) of
         (Nothing) -> return ()
         (Just i) -> 
           do
-          E.throwDynTo i myThreadId
+          E.throwDynTo i KillServerException
           yield
           return ()
       return (tpd {tpd_ServerThreadId = Nothing}, ())
@@ -412,7 +416,7 @@ doProcessing tp
     E.catchDyn (doProcessing' tp)
       handler
     where
-      handler :: TaskException -> IO ()
+      handler :: TaskProcessorException -> IO ()
       handler err = putStrLn (show err)
       doProcessing' tp'
         = do

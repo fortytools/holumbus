@@ -26,7 +26,7 @@ module Holumbus.Distribution.Distribution
 
 -- * Operations
 , getMySiteId
-, startJob
+-- , startJob
 , printDebug
 )
 where
@@ -99,6 +99,7 @@ getMySiteId dist
     withMVar dist $
       \(DistributionData s _ _) -> return s
 
+{-
 startJob :: Distribution -> IO ()
 startJob dist
   = do
@@ -108,7 +109,8 @@ startJob dist
         -- let ji = JobInfo "testjob" (Just "WORDCOUNT") Nothing Nothing ["foo","foo2","foo3"] "foo_out2"
         -- M.startJob ji m
         return ()
-      
+-}
+    
 printDebug :: Distribution -> IO ()
 printDebug dist
   = do
