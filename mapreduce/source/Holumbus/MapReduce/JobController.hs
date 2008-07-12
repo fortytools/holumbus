@@ -450,12 +450,13 @@ stopJobController jc
 singleStepJobControlling :: JobController -> IO ()
 singleStepJobControlling jc
   = do
-    withMVar jc $ 
+    singleStepAllowed <- withMVar jc $ 
       \jcd -> 
       do
       case (jcd_ServerThreadId jcd) of
-        (Nothing) -> doProcessing jc False
-        (Just _)  -> return ()
+        (Nothing) -> return True
+        (Just _)  -> return False
+    if singleStepAllowed then doProcessing jc False else return ()
 
 -- ----------------------------------------------------------------------------
 -- private functions

@@ -130,6 +130,7 @@ doSingleStep sa
     modifyMVar sa $
       \sad ->
       do
+      putStrLn "doSingleStep"
       singleStepJobControlling (sad_JobController sad)
       return (sad, ())
       
