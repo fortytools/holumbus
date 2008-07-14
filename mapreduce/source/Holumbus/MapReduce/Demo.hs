@@ -64,10 +64,17 @@ demoMapFunctions
 -- ReduceFunctions
 -- ----------------------------------------------------------------------------
 
+reduceId :: B.ByteString -> [B.ByteString] -> IO (Maybe [B.ByteString])
+reduceId _ vs = return (Just vs)
+
+reduceWordCount :: String -> [Integer] -> IO (Maybe Integer)
+reduceWordCount _ vs = return (Just $ sum vs)
     
 demoReduceFunctions :: ReduceFunctionMap
 demoReduceFunctions 
-  = emptyReduceFunctionMap
+  = addReduceFunctionToMap reduceWordCount "WORDCOUNT" "counts the words in a text" $
+    addReduceFunctionToMap reduceId "ID" "does nothing" $
+    emptyReduceFunctionMap
   
   
 
