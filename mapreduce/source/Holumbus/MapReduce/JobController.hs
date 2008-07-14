@@ -636,19 +636,11 @@ sendTask jcd td
 
 
 finishTask :: JobControllerData -> TaskData -> JobControllerData
-finishTask jcd td = toNextTaskState jcd td
--- TODO record files to next job phase...
---  where
---    jd = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
---    output = td_Output td
---    inputMap' = MMap.insertSet (getNextJobState state) input inputMap 
---    
---    let 
---        let jd' = jd { jd_Inputs = inputMap' }
---        return $ updateJob jd' jcd
---    
---    jcd'' = 
-
+finishTask jcd td = toNextTaskState jcd' td
+  where
+    jd = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
+    outputMap = MMap.insertList (jd_State jd) (td_Output td) (jd_OutputMap jd) 
+    jcd' = updateJob (jd {jd_OutputMap = outputMap}) jcd 
 
 
 handleTasks :: JobController -> IO ()
@@ -769,9 +761,11 @@ handleJobs jc
 setTaskCompleted :: JobController -> TaskData -> IO ()
 setTaskCompleted jc td
   = do
+    putStrLn "JobController: setTaskCompleted waiting..."
     modifyMVar jc $
       \jcd ->
       do
+      putStrLn "JobController: setTaskCompleted setting..."
       let jcd' = toCompletedTaskState jcd td
       return (jcd', ())
 
