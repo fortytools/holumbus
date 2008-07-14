@@ -6,24 +6,37 @@
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
-  Version    : 0.1
+  Version    : 0.2
 
 */
 
 prevInput = "";
+lastLocation = window.location.href;
 
-document.observe("dom:loaded", function() {
-	checkForQuery();
-});
+Event.observe(window, 'load', checkForQuery);
 
 function checkForQuery () {
+	if (lastLocation != window.location.href) {
+		lastLocation = window.location.href;
+		var prev = window.location.hash.split(":");
+
+		if (prev.length == 2) {
+			$("querytext").value = prev[1];
+			processQuery(parseInt(prev[0].substr(1)));
+		}
+	}
+
 	var argument = window.location.search.gsub(/\+/, '%20').toQueryParams()['query'];
 	
 	if (argument) {
 		$("querytext").value = argument;
-		processQuery();
+		processQuery(0);
 	}
+
+	window.setTimeout(checkForQuery, 200);
 }
+
+Event.observe(window.location, 'change', checkForQuery);
 
 function tryProcessQuery () {
   var query = $("querytext").value;
@@ -54,7 +67,8 @@ function processQuery (start) {
 					lastXMLResult = transport.responseXML;
 					lastTXTResult = transport.responseText;
 					lastQuery = query;
-					window.location.hash = start + ":" + query;
+					window.location.hash = start + ":" + encodeURIComponent(query);
+					lastLocation = window.location.href;
 				  displayResult(transport.responseText, query);
 				},
 				onFailure: function() {
