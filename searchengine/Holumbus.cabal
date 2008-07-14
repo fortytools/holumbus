@@ -9,7 +9,7 @@ stability:     experimental
 category:      Text, Data
 synopsis:      A distributed search and indexing engine.
 homepage:      http://holumbus.fh-wedel.de
-description:   The Holumbus library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
+description:   The Holumbus-Searchengine library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
 cabal-version: >=1.2
 
 flag splitBase
@@ -24,7 +24,7 @@ library
                , parallel
                , parsec
                , network
-               , bytestring >= 0.9.0.4
+               , bytestring
                , unix
                , utf8-string
                , hxt
