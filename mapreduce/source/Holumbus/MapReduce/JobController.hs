@@ -211,18 +211,18 @@ type OutputMap = MMap.MultiMap JobState FunctionData
 
 -- | defines a job, this is all data the user has to give to run a job
 data JobInfo = JobInfo {
-    ji_Descrition      :: ! String
+    ji_Description      :: ! String
   -- , ji_PartitionAction :: ! (Maybe TaskAction)
   , ji_MapAction       :: ! (Maybe FunctionName)
   , ji_CombineAction   :: ! (Maybe FunctionName)
   , ji_ReduceAction    :: ! (Maybe FunctionName)
   , ji_Input           :: ! [FunctionData]
-  , ji_Ouput           :: ! [FunctionData]
+  -- , ji_Output          :: ! [FunctionData]
   } deriving (Show)
 
 instance Binary JobInfo where
-  put (JobInfo d m c r i o)
-    = put d >> put m >> put c >> put r >> put i >> put o
+  put (JobInfo d m c r i)
+    = put d >> put m >> put c >> put r >> put i
   get
     = do
       d <- get
@@ -230,8 +230,7 @@ instance Binary JobInfo where
       c <- get
       r <- get
       i <- get
-      o <- get
-      return (JobInfo d m c r i o)
+      return (JobInfo d m c r i)
 
 
 -- | the job data, include the user-input and some additional control-data
