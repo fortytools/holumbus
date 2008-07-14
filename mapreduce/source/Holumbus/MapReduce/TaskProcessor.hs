@@ -344,6 +344,7 @@ stopAllTasks tp
 -- Task Processing
 -- ----------------------------------------------------------------------------
 
+
 setTaskCompleted :: TaskData -> TaskProcessorData -> TaskProcessorData
 setTaskCompleted td tpd = tpd { tpd_TaskIdThreadMap = ttm', tpd_CompletedTasks = ct' }
   where
@@ -367,8 +368,8 @@ reportErrorTask td tp
       \tpd -> 
       do 
       let tpd' = setTaskError td tpd
-      let f = tpf_TaskError $ tpd_Functions tpd'
-      f td
+      -- let f = tpf_TaskError $ tpd_Functions tpd'
+      -- f td
       return (tpd', ())
 
 
@@ -379,8 +380,8 @@ reportCompletedTask td tp
       \tpd -> 
       do 
       let tpd' = setTaskCompleted td tpd
-      let f = tpf_TaskCompleted $ tpd_Functions tpd'
-      f td
+      -- let f = tpf_TaskCompleted $ tpd_Functions tpd'
+      -- f td
       return (tpd', ())
 
 
@@ -467,7 +468,7 @@ runTask td tp
           _         -> E.throwDyn UnkownTaskException
         reportCompletedTask td' tp
       
-    
+-- not used, because we are doi    
 handleFinishedTasks :: TaskProcessor -> IO ()
 handleFinishedTasks tp
   = do

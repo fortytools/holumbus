@@ -56,12 +56,18 @@ type Standalone = MVar StandaloneData
 sendStartTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
 sendStartTask tp td
   = do
+    putStrLn "starting Task"
+    putStrLn "TaskData:"
+    putStrLn $ show td
     startTask td tp
     return TSRSend
 
 sendTaskCompleted :: JobController -> TaskData -> IO Bool
 sendTaskCompleted jc td
   = do
+    putStrLn "Task completed"
+    putStrLn "TaskData:"
+    putStrLn $ show td
     setTaskCompleted jc td
     return True
 
@@ -69,6 +75,9 @@ sendTaskCompleted jc td
 sendTaskError :: JobController -> TaskData -> IO Bool
 sendTaskError jc td
   = do
+    putStrLn "Task error"
+    putStrLn "TaskData:"
+    putStrLn $ show td
     setTaskError jc td
     return True
 
