@@ -244,7 +244,6 @@ data JobData = JobData {
   , jd_Result      :: JobResultContainer
   } deriving (Show)
 
-
 data JobResultContainer = JobResultContainer (MVar JobResult)
 
 instance Show JobResultContainer where
@@ -352,6 +351,8 @@ data JobControllerData = JobControllerData {
   , jcd_TypeTaskIdMap  :: ! TypeTaskIdMap
   , jcd_StateTaskIdMap :: ! StateTaskIdMap
   } deriving (Show)
+
+
 
 
 type JobController = MVar JobControllerData
@@ -597,9 +598,13 @@ doProcessing jc loop
         = do
           handleTasks jc'
           handleJobs jc'
-          delay <- withMVar jc' (\jcd -> return $ jcd_ServerDelay jcd)
-          threadDelay delay
-          if loop' then (doProcessing' jc' loop') else return ()
+          if loop' 
+            then do
+              delay <- withMVar jc' (\jcd -> return $ jcd_ServerDelay jcd)
+              threadDelay delay
+              doProcessing' jc' loop'
+            else
+              return ()
 
 
 
