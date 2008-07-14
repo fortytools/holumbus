@@ -172,7 +172,7 @@ listMapFunctions (MapFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
 
 type ReduceFunction k1 v1 v2 = k1 -> [v1] -> IO (Maybe v2)
 
-type BinaryReduceFunction = B.ByteString -> B.ByteString -> IO (Maybe B.ByteString)
+type BinaryReduceFunction = B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
 
 type ReduceFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryReduceFunction)
 
@@ -187,11 +187,11 @@ instance Show ReduceFunctionMap where
 encodeReduceFunction
   :: (Binary k1, Binary v1, Binary v2)
   => ReduceFunction k1 v1 v2 
-  -> B.ByteString -> B.ByteString -> IO (Maybe B.ByteString)
+  -> B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
 encodeReduceFunction f k1 v1
   = do
     --TODO catch exception...  
-    r <- f (decode k1) (decode v1)
+    r <- f (decode k1) (map decode v1)
     return $ encodeMaybe r
 
 

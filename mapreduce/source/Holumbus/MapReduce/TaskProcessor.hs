@@ -537,7 +537,7 @@ performCombineTask td tp
       let combineFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (combineFct, input)
-    mbv' <- combineFct k v
+    mbv' <- combineFct k [v]
     let output = maybe [] (\v' -> [TupleData (k, v')]) mbv' 
     let td' = td { td_Output = output }
     return td'
@@ -555,7 +555,7 @@ performReduceTask td tp
       let reduceFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (reduceFct, input)
-    mbv' <- reduceFct k v
+    mbv' <- reduceFct k [v]
     let output = maybe [] (\v' -> [TupleData (k, v')]) mbv' 
     let td' = td { td_Output = output }
     return td'
