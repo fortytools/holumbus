@@ -68,7 +68,13 @@ reduceId :: B.ByteString -> [B.ByteString] -> IO (Maybe [B.ByteString])
 reduceId _ vs = return (Just vs)
 
 reduceWordCount :: String -> [Integer] -> IO (Maybe Integer)
-reduceWordCount _ vs = return (Just $ sum vs)
+reduceWordCount k vs 
+  = do
+    putStrLn "reduce/combine CountWords"
+    putStrLn $ show (k ++ " - " ++ show vs)
+    let s = sum vs
+    putStrLn $ show s
+    return (Just s)
     
 demoReduceFunctions :: ReduceFunctionMap
 demoReduceFunctions 

@@ -507,7 +507,6 @@ performMapTask td tp
     (mapFct, TupleData (k, v)) <- withMVar tp $
       \tpd ->
       do
-      --TODO hier exception werfen
       let mapFct = fromJust $ dispatchMapFunction (tpd_MapFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (mapFct, input)
@@ -533,7 +532,6 @@ performCombineTask td tp
     (combineFct, TupleData (k, v)) <- withMVar tp $
       \tpd ->
       do
-      --TODO hier exception werfen
       let combineFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (combineFct, input)
@@ -551,7 +549,6 @@ performReduceTask td tp
     (reduceFct, TupleData (k, v)) <- withMVar tp $
       \tpd ->
       do
-      --TODO hier exception werfen
       let reduceFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (reduceFct, input)
