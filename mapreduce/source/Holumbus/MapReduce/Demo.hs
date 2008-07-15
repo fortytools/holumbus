@@ -91,7 +91,15 @@ demoReduceFunctions
 
   
 demoJob :: JobInfo
-demoJob = JobInfo "demo-WordcountJob" (Just "WORDCOUNT") (Just "WORDCOUNT") Nothing [mkTupleData ("text1", "aaa bbb ccc")]
+demoJob = JobInfo 
+  "demo-WordcountJob"
+  (Just "WORDCOUNT")
+  (Just "WORDCOUNT")
+  Nothing
+  Nothing
+  Nothing
+  Nothing
+  [mkTupleData ("text1", "aaa bb c dd dd"), mkTupleData ("text2", "aaa bb"), mkTupleData ("text2", "aaa")]
 
 
 
