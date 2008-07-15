@@ -19,11 +19,8 @@ module Holumbus.MapReduce.MultiMap
 , empty
 , null
 , insert
-, insertList
 , insertSet
 , lookup
--- , lookupKeys
--- , elems
 , filterElements
 , member
 , delete
@@ -42,6 +39,14 @@ import qualified Data.Set as Set
 data MultiMap k a = MM (Map.Map k (Set.Set a))
   deriving (Show, Eq, Ord)
 
+{-
+instance (Show k, Show a) => Show (MultiMap k a) where
+  show (MM m) = msShow
+    where
+    ms = map (\(k,s) -> (k, Set.toList s)) (Map.toList m)
+    msShow = concat $ map (\(k,s) -> (show k) ++ "\n" ++ (showL s)) ms
+    showL ls = concat $ map (\s -> show s ++ "\n") ls 
+-}
 
 -- | the empty MultiMap
 empty :: (Ord k, Ord a) => MultiMap k a
@@ -59,11 +64,6 @@ insert k a (MM m) = MM $ Map.alter altering k m
   where
     altering Nothing = Just $ Set.singleton a
     altering (Just s) = Just $ Set.insert a s
-
-
--- | inserts multiple elements in a list to the MultiMap
-insertList :: (Ord k, Ord a) => k -> [a] -> MultiMap k a -> MultiMap k a
-insertList k as m = insertSet k (Set.fromList as) m
   
 
 -- | inserts multiple elements in a set to the MultiMap
