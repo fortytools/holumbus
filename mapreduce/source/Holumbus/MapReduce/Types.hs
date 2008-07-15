@@ -132,7 +132,7 @@ encodeMapFunction f k1 v1
   = do
     --TODO catch exception...  
     ls <- f (decode k1) (decode v1)
-    return $ map mkTupleData $ encodeTupelList ls
+    return $ map mkTupleData ls
 
 
 emptyMapFunctionMap :: MapFunctionMap
