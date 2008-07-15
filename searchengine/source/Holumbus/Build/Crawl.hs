@@ -238,10 +238,11 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
                 -- if it is set in the crawler options, write a temporary copy of the document to
                 -- the hard disk
           (     ( if isJust tmpPath
-		  then withTraceLevel (traceLevel - traceOffset) $
-                       writeDocument standardWriteTmpDocumentAttributes
+          then withTraceLevel (traceLevel - traceOffset) $
+                        (replaceBaseElement $< computeDocBase)    -- make sure that there ist a <base> tag
+                        >>> writeDocument standardWriteTmpDocumentAttributes
                                      (fromJust tmpPath ++ tmpFile docId theUri)
-		  else this
+          else this
                 ) 
                 -- compute a pair of Document b (Holumbus datatype) and a list of contained links
             >>> 
@@ -251,13 +252,27 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
                 )   >>^ (\(a,(b,c)) -> (a,b,c))
           )
           `orElse` (                  -- if an error occurs with the current document, the global 
-                clearErrStatus        -- error status has to be reset, else the crawler would stop
-            >>> traceMsg 0 (  "something went wrong with doc: \"" ++ theUri ++"\"")    
+                traceMsg 0 (  "something went wrong with doc: \"" ++ theUri ++"\"")    
+            >>> clearErrStatus        -- error status has to be reset, else the crawler would stop
             >>> constA (show ( md5 (pack "foo")) , Nothing, [])  -- Nothing indicates the error, the empty list shows
           )                           -- that - caused by the error - no new links were found
         )
         where 
           theTrace i = traceMsg 2 ("found " ++ (show i) ++ " references")
+
+
+-- | Replaces the <base> tag in the Document. If there is no <base> tag, a new one is inserted.
+-- This is especially usefull when saving the document to a local file. With a <base> tag
+-- links in the document can be properly resolved.
+replaceBaseElement :: ArrowXml a => String -> a XmlTree XmlTree
+replaceBaseElement base = processTopDownUntil ( (isElem >>> hasName "html") `guards` processHtml )
+    where
+    processHtml = processTopDownUntil ( (isElem >>> hasName "head") `guards` processHead)
+    processHead = ifA (getChildren >>> isElem >>> hasName "base") 
+                        (processTopDownUntil ( (isElem >>> hasName "base") `guards` processAttr) )
+                        addBaseElem
+    processAttr = processAttrl ( changeAttrValue (\_ -> base ) `when` hasName "href")
+    addBaseElem = replaceChildren (getChildren <+> aelem "base" [sattr "href" base]) 
           
 
 -- | extract the Title of a Document (for web pages the <title> tag) and combine
