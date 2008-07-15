@@ -249,7 +249,17 @@ data JobData = JobData {
   , jd_startTime   :: UTCTime
   , jd_endTime     :: UTCTime
   , jd_Result      :: JobResultContainer
-  } deriving (Show)
+  }
+
+instance Show JobData where
+  show (JobData jid state om _ t1 t2 _) =
+    "JobId:\t" ++ show jid ++ "\n" ++
+    "State:\t" ++ show state ++ "\n" ++
+    "Info:\tJobInfo\n" ++
+    "StartTime:\t" ++  show t1 ++ "\n" ++
+    "EndTime:\t" ++ show t2 ++ "\n" ++
+    "OutputMap:\n" ++ show om ++ "\n"
+
 
 data JobResultContainer = JobResultContainer (MVar JobResult)
 

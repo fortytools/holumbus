@@ -44,11 +44,12 @@ mapId k v
 
 
 mapWordCount :: String -> String -> IO [(String, Integer)]
-mapWordCount _ v
-  = do
+mapWordCount k v
+  = do 
     putStrLn "mapCountWords"
+    putStrLn $ show ("input: " ++ k ++ " - " ++ show v)
     let v' = map (\s -> (s,1)) $ words v
-    putStrLn $ show v'
+    putStrLn $ show $ "output: " ++ show v'
     return v'
 
 
@@ -71,9 +72,9 @@ reduceWordCount :: String -> [Integer] -> IO (Maybe Integer)
 reduceWordCount k vs 
   = do
     putStrLn "reduce/combine CountWords"
-    putStrLn $ show (k ++ " - " ++ show vs)
+    putStrLn $ show ("input: " ++ k ++ " - " ++ show vs)
     let s = sum vs
-    putStrLn $ show s
+    putStrLn $ show $ "output: " ++ show s
     return (Just s)
     
 demoReduceFunctions :: ReduceFunctionMap
