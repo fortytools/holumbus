@@ -59,6 +59,8 @@ import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 import Data.Typeable
 
+import qualified Holumbus.MapReduce.AccuMap as AMap
+
 
 
 
@@ -116,14 +118,20 @@ instance Show MapFunctionMap where
 -- | a wrapper for invoking genaral MapFunctions from ByteString from 
 --   input and output  
 encodeMapFunction 
-  :: (Binary k1, Binary v1, Binary k2, Binary v2)
+  :: (Ord k2,
+      Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction k1 v1 k2 v2 
   -> B.ByteString -> IO [FunctionData]
 encodeMapFunction f b
   = do
     let (k, v) = decodeTuple b  
     ls <- f k v
-    return $ encodeTupleList ls
+    let sortedList = mapGroupByKey ls 
+    return $ encodeTupleList sortedList
+
+
+mapGroupByKey :: (Ord k2) => [(k2, v2)] -> [(k2,[v2])]
+mapGroupByKey ls = AMap.toList $ AMap.fromTupleList ls 
 
 
 emptyMapFunctionMap :: MapFunctionMap
@@ -131,7 +139,8 @@ emptyMapFunctionMap = MapFunctionMap Map.empty
 
 
 addMapFunctionToMap
-  :: (Typeable k1, Typeable v1, Typeable k2, Typeable v2, 
+  :: (Ord k2,
+      Typeable k1, Typeable v1, Typeable k2, Typeable v2, 
       Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction k1 v1 k2 v2
   -> FunctionName
@@ -228,7 +237,7 @@ listReduceFunctions (ReduceFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems
 -- Partition
 -- ----------------------------------------------------------------------------
 
-type PartitionFunction k1 v1 = ( [(k1,v1)] -> IO [(k1,[v1])] )
+type PartitionFunction k1 v1 = ( [(k1,[v1])] -> IO [(k1,[v1])] )
 
 type BinaryPartitionFunction = [B.ByteString] -> IO [B.ByteString]
 
@@ -268,8 +277,9 @@ addPartitionFunctionToMap f n d (PartitionFunctionMap m)
     t  = typeOf f
 
 
-dispatchPartitionFunction :: PartitionFunctionMap -> FunctionName -> Maybe BinaryPartitionFunction
-dispatchPartitionFunction (PartitionFunctionMap mfm) fn
+dispatchPartitionFunction :: PartitionFunctionMap -> Maybe FunctionName -> Maybe BinaryPartitionFunction
+dispatchPartitionFunction _ Nothing = Nothing
+dispatchPartitionFunction (PartitionFunctionMap mfm) (Just fn)
   = check $ Map.lookup fn mfm
     where
       check (Nothing) = Nothing

@@ -17,6 +17,7 @@ module Holumbus.MapReduce.Demo
 (
   demoMapFunctions
 , demoReduceFunctions
+, demoPartitionFunctions
 , demoJob
 , createDemoFiles
 )
@@ -30,7 +31,7 @@ import qualified Holumbus.FileSystem.Storage as S
 
 import Holumbus.MapReduce.Types
 import Holumbus.MapReduce.JobController
-
+import qualified Holumbus.MapReduce.AccuMap as AMap
 
 -- ----------------------------------------------------------------------------
 -- MapFunctions
@@ -83,7 +84,22 @@ demoReduceFunctions
     addReduceFunctionToMap reduceId "ID" "does nothing" $
     emptyReduceFunctionMap
   
-  
+
+-- ----------------------------------------------------------------------------
+-- PartitionFunctions
+-- ----------------------------------------------------------------------------  
+
+partitionWordCount :: [(String, [Integer])] -> IO [(String, [Integer])]
+partitionWordCount ls 
+  = do
+    let ls' = AMap.toList $ AMap.fromList ls
+    return ls' 
+
+
+demoPartitionFunctions :: PartitionFunctionMap
+demoPartitionFunctions
+  = addPartitionFunctionToMap partitionWordCount "WORDCOUNT" "counts the words in a text" $
+    emptyPartitionFunctionMap
 
   
 -- ----------------------------------------------------------------------------
@@ -98,7 +114,7 @@ demoJob = JobInfo
   (Just "WORDCOUNT")
   Nothing
   Nothing
-  Nothing
+  (Just "WORDCOUNT")
   Nothing
   (encodeTupleList [("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa")])
 

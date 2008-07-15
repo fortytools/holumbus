@@ -132,7 +132,7 @@ defaultTaskProcessorData = tpd
       dummyTaskResultFunction
     tpd = TaskProcessorData
       Nothing
-      1000000 -- one second delay
+      1000 -- one millisecond delay
       1
       funs
       emptyMapFunctionMap
@@ -517,7 +517,7 @@ performMapTask td tp
     putStrLn $ "output td: " ++ show td'
     return td'
     where
-    p :: [(String, Integer)] -> IO ()
+    p :: [(String, [Integer])] -> IO ()
     p os
       = do
         putStrLn $ show $ "DECODEDLIST: " ++ show os

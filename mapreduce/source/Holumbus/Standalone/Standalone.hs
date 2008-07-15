@@ -88,14 +88,15 @@ sendTaskError jc td
 -- ----------------------------------------------------------------------------
 
 
-newStandalone :: MapFunctionMap -> ReduceFunctionMap-> IO Standalone
-newStandalone mm rm
+newStandalone :: MapFunctionMap -> ReduceFunctionMap-> PartitionFunctionMap -> IO Standalone
+newStandalone mm rm pm
   = do
     -- get a new JobController an TaskProcessor
     jc <- newJobController
     tp <- newTaskProcessor
     
     -- configure the JobController
+    setPartitionFunctionMap pm jc
     setTaskSendHook (sendStartTask tp) jc
     
     -- configure the TaskProcessor
@@ -121,7 +122,19 @@ closeStandalone sa
       closeJobController (sad_JobController sad)
       return (sad, ())
       
-
+printJobResult :: MVar JobResult -> IO ()
+printJobResult mVarRes
+  = do
+    forkIO $
+      withMVar mVarRes $ 
+        \(JobResult outs) -> 
+        do
+        putStrLn "RESULT:" 
+        putStrLn $ show (decodeResult outs)
+    return ()
+    where
+      decodeResult :: [FunctionData] -> [(String, Integer)]
+      decodeResult ls = decodeTupleList ls
 
 addJob :: JobInfo -> Standalone -> IO ()
 addJob ji sa
@@ -129,7 +142,8 @@ addJob ji sa
     modifyMVar sa $
       \sad ->
       do
-      startJob ji (sad_JobController sad)
+      (_,res) <- startJob ji (sad_JobController sad)
+      printJobResult res
       return (sad, ())
 
 

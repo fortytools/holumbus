@@ -46,9 +46,10 @@ initializeData
   = do
     let maps = DEMO.demoMapFunctions
     let reduces = DEMO.demoReduceFunctions
+    let partitions = DEMO.demoPartitionFunctions
     -- fs <- FS.standaloneFileSystem "storage/" Nothing
     -- DEMO.createDemoFiles fs
-    SA.newStandalone maps reduces
+    SA.newStandalone maps reduces partitions
 
 
 deinitializeData :: SA.Standalone -> IO ()

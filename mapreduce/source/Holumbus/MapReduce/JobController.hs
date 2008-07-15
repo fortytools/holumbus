@@ -41,6 +41,7 @@ module Holumbus.MapReduce.JobController
 -- * Creation / Destruction
 , newJobController
 , closeJobController
+, setPartitionFunctionMap
 , setTaskSendHook
 
 -- * Job Controller 
@@ -165,7 +166,7 @@ type JobId = Integer
 
 
 -- | the job state
-data JobState = JSPlanned | JSIdle | JSMap | JSCombine | JSReduce | JSFinished | JSError
+data JobState = JSPlanned | JSIdle | JSMap | JSCombine | JSReduce | JSCompleted | JSFinished | JSError
   deriving(Show, Eq, Ord, Enum)
 
 getNextJobState :: JobState -> JobState
@@ -190,7 +191,8 @@ instance Binary JobState where
   put (JSMap)        = putWord8 3
   put (JSCombine)    = putWord8 4
   put (JSReduce)     = putWord8 5
-  put (JSFinished)   = putWord8 6
+  put (JSCompleted)  = putWord8 6
+  put (JSFinished)   = putWord8 7
   put (JSError)      = putWord8 0
   get
     = do
@@ -201,7 +203,8 @@ instance Binary JobState where
         3 -> return (JSMap)
         4 -> return (JSCombine)
         5 -> return (JSReduce)
-        6 -> return (JSFinished)
+        6 -> return (JSCompleted)
+        7 -> return (JSFinished)
         _ -> return (JSError)
 
 
@@ -360,6 +363,8 @@ data JobControllerData = JobControllerData {
   , jcd_NextJobId      :: JobId
   , jcd_NextTaskId     :: TaskId
   , jcd_Functions      :: JobControlFunctions
+  , jcd_PartitionMap   :: PartitionFunctionMap
+  
   -- job control
   , jcd_JobMap         :: ! JobMap
   , jcd_TaskMap        :: ! TaskMap
@@ -396,6 +401,7 @@ defaultJobControllerData = jcd
     1
     1
     jcf
+    emptyPartitionFunctionMap
     Map.empty
     Map.empty
     MMap.empty
@@ -416,6 +422,12 @@ closeJobController :: JobController -> IO ()
 closeJobController jc
   = do
     stopJobController jc
+
+
+setPartitionFunctionMap :: PartitionFunctionMap -> JobController -> IO ()
+setPartitionFunctionMap m jc
+  = modifyMVar jc $
+    \jcd -> return $ (jcd { jcd_PartitionMap = m }, ())
 
 
 setTaskSendHook :: TaskSendFunction -> JobController -> IO ()
@@ -713,12 +725,25 @@ getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   getTaskAction' _  _         = Nothing
   
 
-groupByKey :: JobState -> [FunctionData] -> [FunctionData]
-groupByKey JSMap fs = fs
-groupByKey _ fs = encodeTupleList $ convertList $ decodeTupleList fs 
+getCurrentPartitionFunction :: JobData -> Maybe FunctionName
+getCurrentPartitionFunction jd = getPartitionFunction' (jd_Info jd) (jd_State jd)
   where
-    convertList :: [(String, Integer)] -> [(String, [Integer])]
-    convertList ls = AMap.toList $ AMap.fromTupleList ls
+  getPartitionFunction' ji JSMap     = ji_MapPartition ji
+  getPartitionFunction' ji JSCombine = ji_CombinePartition ji
+  getPartitionFunction' ji JSReduce  = ji_ReducePartition ji 
+  getPartitionFunction' _  _         = Nothing  
+
+
+performPartition :: JobControllerData -> JobData -> [FunctionData] -> IO [FunctionData]
+performPartition jcd jd bin
+  = do
+    let pmap = jcd_PartitionMap jcd
+    let fn = getCurrentPartitionFunction jd
+    let maybeP = dispatchPartitionFunction pmap fn
+    let p = maybe (\t -> return t) id maybeP
+    bout <- p bin
+    return bout
+
 
 createTasks :: JobControllerData -> JobData -> IO JobControllerData
 createTasks jcd jd
@@ -730,7 +755,7 @@ createTasks jcd jd
     if (hasPhase jd)
       then do
         -- TODO do partitioning here and better file naming
-        let sortedInputs =  groupByKey state inputList
+        sortedInputs <- performPartition jcd jd inputList
         
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
@@ -748,6 +773,15 @@ createTasks jcd jd
         return $ updateJob jd' jcd
 
 
+createResults :: JobControllerData -> JobData -> IO JobControllerData
+createResults jcd jd
+  = do
+    let outputList = AMap.lookup JSCompleted (jd_OutputMap jd)
+    let (JobResultContainer mVarResult) = jd_Result jd
+    let res = JobResult outputList
+    putMVar mVarResult res
+    return jcd  
+
 
 handleJobs :: JobController -> IO ()
 handleJobs jc
@@ -763,15 +797,28 @@ handleJobs jc
       putStrLn $ "jobsWithoutTasks:\n" ++ show jobsWithoutTasks
       -- get the old jobdatas
       let oldJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd)) jobsWithoutTasks
-      putStrLn $ "oldJobDatas:\n" ++ show oldJobDatas
+      -- putStrLn $ "oldJobDatas:\n" ++ show oldJobDatas
       -- change the job states to the next phase
-      let jcd' = foldl toNextJobState jcd oldJobDatas
+      let jcd1 = foldl toNextJobState jcd oldJobDatas
       -- get the new jobdatas
-      let newJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd')) jobsWithoutTasks
-      putStrLn $ "newJobDatas:\n" ++ show newJobDatas
+      let newJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd1)) jobsWithoutTasks
+      -- putStrLn $ "newJobDatas:\n" ++ show newJobDatas
       -- create new tasks for each Job
-      jcd'' <- foldM createTasks jcd' newJobDatas
-      return (jcd'', ())
+      jcd2 <- foldM createTasks jcd1 newJobDatas
+      
+      -- get all completed Jobs
+      let completedJobs = getJobIds [JSCompleted] jcd2
+      putStrLn $ "completed Jobs:\n" ++ show completedJobs
+      -- get the completed JobDatas
+      let completedJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd2)) completedJobs
+      -- change the job states to the next phase
+      let jcd3 = foldl toNextJobState jcd2 completedJobDatas
+      -- get the new jobdatas
+      let finishedJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd3)) completedJobs
+      -- create new tasks for each Job
+      jcd4 <- foldM createResults jcd3 finishedJobDatas
+      
+      return (jcd4, ())
 
 
 
