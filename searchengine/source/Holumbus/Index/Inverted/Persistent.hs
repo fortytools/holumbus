@@ -2,10 +2,10 @@
 
 {- |
   Module     : Holumbus.Index.Persistent
-  Copyright  : Copyright (C) 2008 Timo B. Huebel
+  Copyright  : Copyright (C) 2008 Sebastian M. Schlatt
   License    : MIT
   
-  Maintainer : Timo B. Huebel (tbh@holumbus.org)
+  Maintainer : Sebastian M. Schlatt (sms@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
@@ -13,6 +13,8 @@
   A persistent version of the inverted index, which keeps the dictionary
   in memory but stores the Occurrences on disk. For extensive documentation 
   of the index interface, see class 'HolIndex' in "Holumbus.Index.Common".
+
+  Implementation has been discontinued.
 
 -}
 
@@ -64,7 +66,7 @@ type Parts       = Map Context Part
 -- | The index part is the real inverted index. Words are mapped to a file pointer.
 type Part        = StrMap Int
 
-instance MapReducible Persistent Context (Word, DocId, Position) where
+instance MapReducible Persistent (Context, Word) Occurrences where
   mergeMR         = mergeIndexes
   reduceMR _ _ _  = undefined -- return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
 

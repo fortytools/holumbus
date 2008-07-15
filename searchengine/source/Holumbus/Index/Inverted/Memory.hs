@@ -66,10 +66,17 @@ type Parts       = Map Context Part
 type Part        = StrMap CompressedOccurrences
 
 
-instance MapReducible Inverted Context (Word, DocId, Position) where
-  mergeMR       = mergeIndexes
-  reduceMR _ c os = return $! Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
-
+instance MapReducible Inverted (Context, Word) Occurrences where
+  mergeMR             = mergeIndexes
+  reduceMR _ (c,w) os = do
+                        let idx = singleton c w (IM.unionsWith IS.union os)
+                            _   = rnf idx
+                        return $ Just $ idx 
+--    do
+--    idx <- mapReduce 10 ("/scratch30/db_" ++ c ++ ".db") emptyInverted 
+--                 (\_ (w,o) -> return $ [(c, (w,o))]) 
+--                 (zip (repeat ()) os)
+--    return $ Just idx   
 
 instance HolIndex Inverted where
   sizeWords = M.fold ((+) . SM.size) 0 . indexParts

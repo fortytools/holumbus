@@ -180,7 +180,7 @@ class (Monad m) => HolIndexM m i where
   fromListM e = foldM (\i (c,w,o) -> insertOccurrencesM c w o i) e
 
 -- | This class provides a generic interface to different types of index implementations.
-class (Binary i, MapReducible i Context (Word, DocId, Position) ) => HolIndex i where
+class (Binary i, MapReducible i (Context, Word) Occurrences) => HolIndex i where
   -- | Returns the number of unique words in the index.
   sizeWords     :: i -> Int
   -- | Returns a list of all contexts avaliable in the index.

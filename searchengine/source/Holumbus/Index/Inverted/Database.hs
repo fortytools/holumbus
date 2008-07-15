@@ -31,21 +31,15 @@ where
 
 import Control.Monad
 
-import Control.Parallel.Strategies
-
 import Data.List 
 import Data.Maybe
 import Data.Binary hiding (Word)
 
-import Data.ByteString.Char8 (unpack, pack)
 import qualified Data.ByteString as B 
 import qualified Data.ByteString.Lazy as BL -- hiding (head, map, foldl)
 
 import Data.Map (Map)
 import qualified Data.Map as M
-
-import qualified Data.IntMap as IM
-import qualified Data.IntSet as IS
 
 import Holumbus.Index.Common
 
@@ -55,8 +49,6 @@ import Holumbus.Data.StrMap (StrMap)
 import qualified Holumbus.Data.StrMap as SM
 
 -- import Holumbus.Utility
-
-import Text.XML.HXT.Arrow.Pickle.Xml
 
 import Database.HDBC
 import Database.HDBC.Sqlite3
@@ -97,8 +89,7 @@ instance HolIndexM IO InvertedM where
   mergeIndexesM i1 i2 = do; l <- toListM i2; foldM (\i (c,w,o) -> insertOccurrencesM c w o i) i1 l
 
   insertOccurrencesM c w o i 
-    =   let part = M.findWithDefault SM.empty c (indexParts i) 
-            conn = connection i in
+    =   let part = M.findWithDefault SM.empty c (indexParts i) in 
         if (not $ SM.member w part)
           then do
                storeOcc i (nextId i) o
@@ -122,15 +113,6 @@ instance HolIndexM IO InvertedM where
                           res <- mapM (\(w, di) -> do; o <- retrieveOcc i di; return (c, w, o)) $ SM.toList $ p
                           return $ res ++ l
 
-t = (IM.singleton 1 (IS.singleton 43))
-
-{-
-instance XmlPickler InvertedM where
-  xpickle = xpZero
-
-instance NFData InvertedM where
-  rnf (InvertedM parts _ _ ) = rnf parts
--}
 emptyInvertedM :: FilePath -> IO InvertedM
 emptyInvertedM f = do; conn <- createConnection f; return $ InvertedM M.empty f conn 1
 
@@ -158,9 +140,10 @@ retrieveOcc i di = let conn = connection i in
                    return $ decode $ BL.fromChunks [fromSql $ head $ head r]
 
 storeOcc :: InvertedM -> Int -> Occurrences -> IO ()
-storeOcc i di o = let conn = connection i in 
-                  quickQuery conn insertQuery [toSql (di), toSql (B.concat . BL.toChunks $ encode o)] 
-                  >> commit conn
+storeOcc i di o = 
+  let conn = connection i in 
+  quickQuery conn insertQuery [toSql (di), toSql (B.concat . BL.toChunks $ encode o)] 
+  >> commit conn
 
 createQuery :: String
 createQuery = "CREATE TABLE holumbus_occurrences (id INTEGER PRIMARY KEY, occurrences BLOB)"

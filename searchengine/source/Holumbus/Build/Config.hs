@@ -10,8 +10,8 @@
   Portability: portable
   Version    : 0.1
   
-  Sample Configurations for Indexer Applications. This will later change to be
-  the interface for configuring indexers by xml files.
+  Data types for the configuration of crawlers and indexers as well as helper functions
+  to create configuriations. 
 
 -}
 

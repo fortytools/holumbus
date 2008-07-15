@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
   
-  Indexer functions
+  Indexer functions for the monadic index class
 
 -}
 
@@ -18,11 +18,10 @@
 {-# OPTIONS -fglasgow-exts #-}
 -- -----------------------------------------------------------------------------
 
-module Holumbus.Build.Index 
+module Holumbus.Build.IndexM 
   (
   -- * Building indexes
     buildIndex
-  , buildSplitIndex
   
   -- * Indexer Configuration
   , IndexerConfig (..)
@@ -38,14 +37,12 @@ import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 import           Data.Maybe
 
-import           Control.Exception
+-- import           Control.Exception
 import           Control.Monad
-import           Control.Parallel.Strategies
 
 import           Holumbus.Build.Config
 import           Holumbus.Control.MapReduce.ParallelWithClassPersistent
 import           Holumbus.Index.Common
-import           Holumbus.Index.Cache
 import           Holumbus.Utility
 
 import           System.Time
@@ -53,66 +50,6 @@ import           System.Time
 import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
 import           Text.XML.HXT.Arrow.XPathSimple --(getXPathTrees)
 -- -----------------------------------------------------------------------------
-
-buildSplitIndex :: ( NFData i, HolDocuments d a, HolIndex i, XmlPickler i )=>
-     Int
-  -> Int
-  -> d a
-  -> IndexerConfig
-  -> i
-  -> Bool
-  -> Int
-  -> IO [String]
-buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
-    in  buildSplitIndex' workerThreads traceLevel docs' idxConfig emptyIndex buildCaches maxDocs
-     
-    
-buildSplitIndex' :: (NFData i, HolIndex i, XmlPickler i) =>
-     Int
-  -> Int
-  -> [(DocId, URI)]
-  -> IndexerConfig
-  -> i
-  -> Bool
-  -> Int
-  -> IO [String]
-buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
-  = do
-    return $ assert ((sizeWords emptyIndex) == 0) Nothing  
-    indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
-    docLists   <- return $ partitionList maxDocs docs
-    configs    <- return $ map (\i -> idxConfig {ic_idxPath = (fromMaybe "/tmp/" (ic_tmpPath idxConfig)) ++ (show i) }) [1..indexCount]
-    pathes     <- mapM build (zip configs docLists) -- caches)
-    mergeCaches' ((ic_idxPath idxConfig) ++ "-cache.db") (map (\(i,cfg) -> (fromMaybe "/tmp/" (ic_tmpPath cfg)) ++ show i ++"-cache.db") (zip ([1..indexCount]) configs)) 
-    return $ pathes
-    where
-      mergeCaches' :: String -> [String] -> IO ()
-      mergeCaches' newCache oldCaches 
-        = do
-          new <- createCache newCache
-          foldM mergeCaches'' new oldCaches 
-          return()                           
-      mergeCaches'' :: Cache -> String -> IO Cache
-      mergeCaches'' c1 s 
-        = do
-          c2 <- createCache s
-          mergeCaches c1 c2
-      build :: (IndexerConfig, [(DocId, URI)]) -> IO (String)
-      build (idxConfig', docs') 
-        = do
-          cache <- if buildCaches then mkCache (ic_idxPath idxConfig') else return $ Nothing
-          idx   <- buildIndex' workerThreads traceLevel docs' idxConfig' emptyIndex cache
---          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
-          writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
-          return (ic_idxPath idxConfig')
-      mkCache path
-        = do 
-          c <- createCache (path ++ "-cache.db")
-          return $ Just c   
-    
--- -----------------------------------------------------------------------------
-
 
 buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) => 
               Int                -- ^ Number of parallel threads for MapReduce
@@ -123,35 +60,21 @@ buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) =>
            -> Maybe c
            -> IO i               -- ^ returns a HolIndex
 buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
-    in  buildIndex' workerThreads traceLevel docs' idxConfig emptyIndex cache
-
--- | Build an Index over a list of Files.
-buildIndex' :: (HolIndex i, HolCache c) => 
-              Int                -- ^ Number of parallel threads for MapReduce
-           -> Int                -- ^ TraceLevel for Arrows
-           -> [(DocId, String)]  -- ^ List of input Data
-           -> IndexerConfig      -- ^ Configuration for the Indexing process
-           -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
-           -> Maybe c
-           -> IO i               -- ^ returns a HolIndex
-buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
-  = do
-    mr <- -- assert ((sizeWords emptyIndex) == 0) 
+  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
+       -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 
                     workerThreads
-                    "/home/sms/mr.db"
+                    (( fromMaybe "/tmp/" (ic_tmpPath idxConfig)) ++ "MapReduce.db")
                     emptyIndex
-                    (computePositions traceLevel 
+                    (computeOccurrences traceLevel 
                               (isJust $ ic_tmpPath idxConfig)
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
                               cache
                     )
-                    docs
+                    docs'
                  )
-    return mr
-    -- return $! snd (M.elemAt 0 mr)                       
+
 
 
 -- | The MAP function in a MapReduce computation for building indexes.
@@ -164,10 +87,10 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
 
-computePositions :: HolCache c =>
+computeOccurrences :: HolCache c =>
                Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
             -> DocId -> String -> IO [((Context, Word), Occurrences)]
-computePositions traceLevel fromTmp contextConfigs attrs cache docId theUri
+computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
     = do
       clt <- getClockTime
       cat <- toCalendarTime clt
@@ -178,13 +101,14 @@ computePositions traceLevel fromTmp contextConfigs attrs cache docId theUri
                     >>> processDocument traceLevel attrs' contextConfigs cache docId theUri
 --                    >>> arr (\ (c, w, d, p) -> (c, (w, d, p)))
                     >>> strictA
-	           )
-      return $ buildPositions res
+         	   )
+      return $ buildPositions res 
     where
     attrs' = if fromTmp then addEntries standardReadTmpDocumentAttributes attrs else attrs
     buildPositions :: [(Context, Word, DocId, Position)] -> [((Context, Word),  Occurrences)]
     buildPositions l = M.foldWithKey (\(c,w,d) ps acc -> ((c,w),IM.singleton d ps) : acc) [] $
-      foldl (\m (c,w,d,p) -> M.insertWith IS.union(c,w,d) (IS.singleton p) m) M.empty l 
+      foldl (\m (c,w,d,p) -> M.insertWith IS.union (c,w,d) (IS.singleton p) m) M.empty l 
+                             
 
 
 {-      

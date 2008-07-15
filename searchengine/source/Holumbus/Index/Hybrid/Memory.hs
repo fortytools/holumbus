@@ -70,7 +70,7 @@ type WordId        = Int
 type BlockId       = Int
 
 
-instance MapReducible Hybrid Context (Word, DocId, Position) where
+instance MapReducible Hybrid (Context, Word) Occurrences where
   mergeMR         = mergeIndexes
   reduceMR _ _ _  = undefined
   
