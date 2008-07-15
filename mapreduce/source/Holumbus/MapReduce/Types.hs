@@ -15,12 +15,14 @@
 
 module Holumbus.MapReduce.Types
 (
-  FunctionName
-, FunctionDescription
-, FunctionData(..)
-, mkTupleData
-, getTuple
+  decodeTupleList
+, encodeTupleList
 
+, FunctionName
+, FunctionDescription
+, FunctionData
+
+-- * Map-Function
 , MapFunction
 , BinaryMapFunction
 
@@ -30,6 +32,7 @@ module Holumbus.MapReduce.Types
 , dispatchMapFunction
 , listMapFunctions
 
+-- * Reduce/Combine-Function
 , ReduceFunction
 , BinaryReduceFunction
 
@@ -38,6 +41,16 @@ module Holumbus.MapReduce.Types
 , addReduceFunctionToMap
 , dispatchReduceFunction
 , listReduceFunctions
+
+-- * Partition-Function
+, PartitionFunction
+, BinaryPartitionFunction
+
+, PartitionFunctionMap
+, emptyPartitionFunctionMap
+, addPartitionFunctionToMap
+, dispatchPartitionFunction
+, listPartitionFunctions
 )
 where
 
@@ -58,50 +71,28 @@ type FunctionName = String
 
 type FunctionDescription = String
 
-data FunctionData = TupleData (B.ByteString, B.ByteString)
-  deriving (Show, Eq, Ord)
+type FunctionData = B.ByteString
+--  deriving (Show, Eq, Ord)  
 
-getTuple :: FunctionData -> (B.ByteString,  B.ByteString)
-getTuple (TupleData t) = t
-  
-instance Binary FunctionData where
-  put (TupleData (k, v)) = put k >> put v
-  get
-    = do
-      k <- get
-      v <- get
-      return (TupleData (k, v))
-
-
-mkTupleData :: (Binary k, Binary v) => (k, v) -> FunctionData
-mkTupleData t = TupleData (encodeTupel t)
 
 -- ----------------------------------------------------------------------------
 -- general encoding / decoding
 -- ----------------------------------------------------------------------------
 
-encodeTupel :: (Binary k, Binary v) => (k, v) -> (B.ByteString, B.ByteString)
-encodeTupel (k, v) = (encode k, encode v)
+encodeTuple :: (Binary k, Binary v) => (k, v) -> B.ByteString
+encodeTuple t = encode t
 
 
-decodeTupel :: (Binary k, Binary v) => (B.ByteString, B.ByteString) -> (k, v)
-decodeTupel (b1, b2) = (decode b1, decode b2)
+decodeTuple :: (Binary k, Binary v) => B.ByteString -> (k, v)
+decodeTuple b = decode b
 
 
-encodeTupelList :: (Binary k, Binary v) => [(k, v)] -> [(B.ByteString, B.ByteString)]
-encodeTupelList ls = map encodeTupel ls
+encodeTupleList :: (Binary k, Binary v) => [(k, v)] -> [B.ByteString]
+encodeTupleList ls = map encodeTuple ls
 
 
-decodeTupelList :: (Binary k, Binary v) => [(B.ByteString, B.ByteString)] -> [(k, v)]
-decodeTupelList ls = map decodeTupel ls
-
-encodeMaybe :: (Binary v) => Maybe v -> Maybe B.ByteString
-encodeMaybe Nothing = Nothing
-encodeMaybe (Just v) = Just (encode v)
-
-decodeMaybe :: (Binary v) => Maybe B.ByteString -> Maybe v
-decodeMaybe Nothing = Nothing
-decodeMaybe (Just b) = Just (decode b)
+decodeTupleList :: (Binary k, Binary v) => [B.ByteString] -> [(k, v)]
+decodeTupleList ls = map decodeTuple ls
 
 
 -- ----------------------------------------------------------------------------
@@ -112,7 +103,7 @@ decodeMaybe (Just b) = Just (decode b)
 type MapFunction k1 v1 k2 v2 = (k1 -> v1 -> IO [(k2, v2)])
 
 -- | MapFunction on ByteStrings
-type BinaryMapFunction = (B.ByteString -> B.ByteString -> IO [FunctionData])
+type BinaryMapFunction = (B.ByteString -> IO [FunctionData])
 
 type MapFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryMapFunction)
 
@@ -127,12 +118,12 @@ instance Show MapFunctionMap where
 encodeMapFunction 
   :: (Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction k1 v1 k2 v2 
-  -> B.ByteString -> B.ByteString -> IO [FunctionData]
-encodeMapFunction f k1 v1
+  -> B.ByteString -> IO [FunctionData]
+encodeMapFunction f b
   = do
-    --TODO catch exception...  
-    ls <- f (decode k1) (decode v1)
-    return $ map mkTupleData ls
+    let (k, v) = decodeTuple b  
+    ls <- f k v
+    return $ encodeTupleList ls
 
 
 emptyMapFunctionMap :: MapFunctionMap
@@ -170,13 +161,13 @@ listMapFunctions (MapFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
 
 
 
-      -- ----------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
 -- Combine- / ReduceTask
 -- ----------------------------------------------------------------------------
 
-type ReduceFunction k1 v1 v2 = k1 -> [v1] -> IO (Maybe v2)
+type ReduceFunction k1 v1 v2 = (k1 -> [v1] -> IO (Maybe v2))
 
-type BinaryReduceFunction = B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
+type BinaryReduceFunction = (B.ByteString -> IO (Maybe B.ByteString))
 
 type ReduceFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryReduceFunction)
 
@@ -191,12 +182,15 @@ instance Show ReduceFunctionMap where
 encodeReduceFunction
   :: (Binary k1, Binary v1, Binary v2)
   => ReduceFunction k1 v1 v2 
-  -> B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
-encodeReduceFunction f k1 v1
+  -> B.ByteString -> IO (Maybe B.ByteString)
+encodeReduceFunction f b
   = do
-    --TODO catch exception...  
-    r <- f (decode k1) (map decode v1)
-    return $ encodeMaybe r
+    --TODO catch exception...
+    let (k, vs) = decodeTuple b   
+    r <- f k vs
+    case r of
+      (Nothing) -> return Nothing
+      (Just v)  -> return $ Just $ encodeTuple (k, v)
 
 
 emptyReduceFunctionMap :: ReduceFunctionMap
@@ -228,3 +222,59 @@ dispatchReduceFunction (ReduceFunctionMap mfm) fn
 
 listReduceFunctions :: ReduceFunctionMap -> [(FunctionName, FunctionDescription, TypeRep)]
 listReduceFunctions (ReduceFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)
+
+
+-- ----------------------------------------------------------------------------
+-- Partition
+-- ----------------------------------------------------------------------------
+
+type PartitionFunction k1 v1 = ( [(k1,v1)] -> IO [(k1,[v1])] )
+
+type BinaryPartitionFunction = [B.ByteString] -> IO [B.ByteString]
+
+type PartitionFunctionData = (FunctionName, FunctionDescription, TypeRep, BinaryPartitionFunction)
+
+data PartitionFunctionMap = PartitionFunctionMap (Map.Map FunctionName PartitionFunctionData)
+
+instance Show PartitionFunctionMap where
+  show _ = "PartitionFunctionMap"
+
+
+encodePartitionFunction
+  :: (Binary k1, Binary v1)
+  => PartitionFunction k1 v1 
+  -> [B.ByteString] -> IO [B.ByteString]
+encodePartitionFunction f ls
+  = do  
+    rs <- f (decodeTupleList ls)
+    return $ encodeTupleList rs
+
+emptyPartitionFunctionMap :: PartitionFunctionMap
+emptyPartitionFunctionMap = PartitionFunctionMap Map.empty
+
+
+addPartitionFunctionToMap
+  :: (Typeable k1, Typeable v1,
+     Binary k1, Binary v1)
+  => PartitionFunction k1 v1
+  -> FunctionName
+  -> FunctionDescription
+  -> PartitionFunctionMap
+  -> PartitionFunctionMap
+addPartitionFunctionToMap f n d (PartitionFunctionMap m) 
+  = PartitionFunctionMap $ Map.insert n (n,d,t,f') m
+  where
+    f' = encodePartitionFunction f
+    t  = typeOf f
+
+
+dispatchPartitionFunction :: PartitionFunctionMap -> FunctionName -> Maybe BinaryPartitionFunction
+dispatchPartitionFunction (PartitionFunctionMap mfm) fn
+  = check $ Map.lookup fn mfm
+    where
+      check (Nothing) = Nothing
+      check (Just (_,_,_,f)) = Just f
+      
+
+listPartitionFunctions :: PartitionFunctionMap -> [(FunctionName, FunctionDescription, TypeRep)]
+listPartitionFunctions (PartitionFunctionMap m) = map (\(n,d,t,_)->(n,d,t)) (Map.elems m)

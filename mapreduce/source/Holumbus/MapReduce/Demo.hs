@@ -99,7 +99,7 @@ demoJob = JobInfo
   Nothing
   Nothing
   Nothing
-  [mkTupleData ("text1", "aaa bb c dd dd"), mkTupleData ("text2", "aaa bb"), mkTupleData ("text2", "aaa")]
+  (encodeTupleList [("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa")])
 
 
 

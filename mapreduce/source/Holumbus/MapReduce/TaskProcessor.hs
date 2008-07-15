@@ -503,16 +503,25 @@ performMapTask :: TaskData -> TaskProcessor-> IO TaskData
 performMapTask td tp
   = do
     putStrLn "MapTask"
-    putStrLn $ show td
-    (mapFct, TupleData (k, v)) <- withMVar tp $
+    putStrLn $ "input td: " ++ show td
+    (mapFct, bin) <- withMVar tp $
       \tpd ->
       do
       let mapFct = fromJust $ dispatchMapFunction (tpd_MapFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (mapFct, input)
-    output <- mapFct k v
-    let td' = td { td_Output = output }
+    bout <- mapFct bin
+    let rs = decodeTupleList $ bout
+    p rs
+    let td' = td { td_Output = bout }
+    putStrLn $ "output td: " ++ show td'
     return td'
+    where
+    p :: [(String, Integer)] -> IO ()
+    p os
+      = do
+        putStrLn $ show $ "DECODEDLIST: " ++ show os
+      
     -- content <- F.getFileContent fid fs
     -- let input = fileReader fid content
     -- let fct = 
@@ -528,16 +537,17 @@ performCombineTask :: TaskData -> TaskProcessor-> IO TaskData
 performCombineTask td tp
   = do
     putStrLn "CombineTask"
-    putStrLn $ show td 
-    (combineFct, TupleData (k, v)) <- withMVar tp $
+    putStrLn $ "input td: " ++ show td
+    (combineFct, bin) <- withMVar tp $
       \tpd ->
       do
       let combineFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (combineFct, input)
-    mbv' <- combineFct k [v]
-    let output = maybe [] (\v' -> [TupleData (k, v')]) mbv' 
-    let td' = td { td_Output = output }
+    mbout <- combineFct bin
+    let bout = maybe [] (\b -> [b]) mbout 
+    let td' = td { td_Output = bout }
+    putStrLn $ "output td: " ++ show td'
     return td'
   
 
@@ -545,16 +555,17 @@ performReduceTask :: TaskData -> TaskProcessor-> IO TaskData
 performReduceTask td tp
   = do
     putStrLn "ReduceTask"
-    putStrLn $ show td
-    (reduceFct, TupleData (k, v)) <- withMVar tp $
+    putStrLn $ "input td: " ++ show td
+    (reduceFct, bin) <- withMVar tp $
       \tpd ->
       do
       let reduceFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
       let input = (td_Input td)
       return (reduceFct, input)
-    mbv' <- reduceFct k [v]
-    let output = maybe [] (\v' -> [TupleData (k, v')]) mbv' 
-    let td' = td { td_Output = output }
+    mbout <- reduceFct bin
+    let bout = maybe [] (\b -> [b]) mbout 
+    let td' = td { td_Output = bout }
+    putStrLn $ "output td: " ++ show td'
     return td'
 
 

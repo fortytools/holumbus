@@ -703,13 +703,12 @@ getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   getTaskAction' _  _         = Nothing
   
 
-groupByKey :: [FunctionData] -> [FunctionData]
-groupByKey tds = funDatList
+groupByKey :: JobState -> [FunctionData] -> [FunctionData]
+groupByKey JSMap fs = fs
+groupByKey _ fs = encodeTupleList $ convertList $ decodeTupleList fs 
   where
-  tupleList = map getTuple tds
-  amap = foldl (\m (k,v) -> AMap.insert k v m) AMap.empty tupleList
-  sortedList = AMap.toList amap
-  funDatList = map mkTupleData sortedList
+    convertList :: [(String, Integer)] -> [(String, [Integer])]
+    convertList ls = AMap.toList $ AMap.fromTupleList ls
 
 createTasks :: JobControllerData -> JobData -> IO JobControllerData
 createTasks jcd jd
@@ -721,7 +720,7 @@ createTasks jcd jd
     if (hasPhase jd)
       then do
         -- TODO do partitioning here and better file naming
-        let sortedInputs =  groupByKey inputList
+        let sortedInputs =  groupByKey state inputList
         
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
