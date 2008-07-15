@@ -25,8 +25,7 @@ module Holumbus.MapReduce.AccuMap
 , deleteKey
 , toList
 , fromList
---, liftMap
---, mergeValues
+, fromTupleList
 )
 where
 
@@ -65,6 +64,7 @@ insert k a (AM m) = AM $ Map.alter altering k m
 
 
 insertList :: (Ord k) => k -> [a] -> AccuMap k a -> AccuMap k a
+insertList _ [] m      = m
 insertList k as (AM m) = AM $ Map.alter altering k m
   where
     altering Nothing = Just $ as
@@ -90,9 +90,6 @@ toList (AM m) = Map.toList m
 fromList :: (Ord k) => [(k,[a])] -> AccuMap k a
 fromList ks = foldl (\m (k,as) -> insertList k as m) empty ks
 
-{-
-liftMap :: (Ord k1, Ord k2) => AccuMap k1 (k2,a) -> AccuMap k2 a
-liftMap m = foldl (\m' (_,vs) -> insert' vs m') empty (toList m)
-  where
-  insert' vs m' = foldl (\m'' (k2,a) -> insert k2 a m'') m' vs
--}  
+
+fromTupleList :: (Ord k) => [(k,a)] -> AccuMap k a
+fromTupleList ts = fromList $ map (\(k,a) -> (k,[a])) ts
