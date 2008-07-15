@@ -71,6 +71,7 @@ import qualified Data.Set as Set
 
 import Holumbus.MapReduce.Types
 import Holumbus.FileSystem.Storage as S
+import qualified Holumbus.MapReduce.AccuMap as AMap
 import qualified Holumbus.MapReduce.MultiMap as MMap
 
 
@@ -206,7 +207,7 @@ instance Binary JobState where
 
 
 
-type OutputMap = MMap.MultiMap JobState FunctionData
+type OutputMap = AMap.AccuMap JobState FunctionData
 
 
 -- | defines a job, this is all data the user has to give to run a job
@@ -276,7 +277,7 @@ newJobData jcd info
     let jrc = JobResultContainer mVar 
     let jid = jcd_NextJobId jcd
     let jcd' = jcd { jcd_NextJobId = (jid+1) }
-    let outputMap = MMap.insertList JSIdle (ji_Input info) MMap.empty
+    let outputMap = AMap.insertList JSIdle (ji_Input info) AMap.empty
     return (jcd', JobData jid JSIdle outputMap info t t jrc, mVar)
 
 
@@ -645,7 +646,7 @@ finishTask :: JobControllerData -> TaskData -> JobControllerData
 finishTask jcd td = toNextTaskState jcd' td
   where
     jd = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
-    outputMap = MMap.insertList (jd_State jd) (td_Output td) (jd_OutputMap jd) 
+    outputMap = AMap.insertList (jd_State jd) (td_Output td) (jd_OutputMap jd) 
     jcd' = updateJob (jd {jd_OutputMap = outputMap}) jcd 
 
 
@@ -702,8 +703,13 @@ getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   getTaskAction' _  _         = Nothing
   
 
-  
-
+groupByKey :: [FunctionData] -> [FunctionData]
+groupByKey tds = funDatList
+  where
+  tupleList = map getTuple tds
+  amap = foldl (\m (k,v) -> AMap.insert k v m) AMap.empty tupleList
+  sortedList = AMap.toList amap
+  funDatList = map mkTupleData sortedList
 
 createTasks :: JobControllerData -> JobData -> IO JobControllerData
 createTasks jcd jd
@@ -711,23 +717,24 @@ createTasks jcd jd
     let state = jd_State jd
     let outputMap = (jd_OutputMap jd)
     -- our input is the output of the previous state
-    let input = MMap.lookup (getPrevJobState state) outputMap
+    let inputList = AMap.lookup (getPrevJobState state) outputMap
     if (hasPhase jd)
       then do
         -- TODO do partitioning here and better file naming
-        let inputList = Set.toList input
+        let sortedInputs =  groupByKey inputList
+        
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        (jcd', taskDatas) <- mapAccumLM (\d i -> newTaskData d jid tt TSIdle i a) jcd inputList
+        (jcd', taskDatas) <- mapAccumLM (\d i -> newTaskData d jid tt TSIdle i a) jcd sortedInputs -- inputList
         -- taskDatas <- mapM (\i -> newTaskData jid tt TSIdle i a) inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
         return jcd''
       else do
         -- there is no action in this state, so we copy the input to the output
-        let outputMap' = MMap.insertSet state input outputMap 
+        let outputMap' = AMap.insertList state inputList outputMap 
         let jd' = jd { jd_OutputMap = outputMap' }
         return $ updateJob jd' jcd
 

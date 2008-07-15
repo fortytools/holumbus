@@ -19,6 +19,7 @@ module Holumbus.MapReduce.Types
 , FunctionDescription
 , FunctionData(..)
 , mkTupleData
+, getTuple
 
 , MapFunction
 , BinaryMapFunction
@@ -59,6 +60,9 @@ type FunctionDescription = String
 
 data FunctionData = TupleData (B.ByteString, B.ByteString)
   deriving (Show, Eq, Ord)
+
+getTuple :: FunctionData -> (B.ByteString,  B.ByteString)
+getTuple (TupleData t) = t
   
 instance Binary FunctionData where
   put (TupleData (k, v)) = put k >> put v
