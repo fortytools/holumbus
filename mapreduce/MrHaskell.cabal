@@ -49,6 +49,7 @@ library
                 , Holumbus.Distribution.Master.MasterPort
                 , Holumbus.Standalone.Standalone
                 , Holumbus.Standalone.UserInterface
+                , Holumbus.MapReduce.AccuMap                
                 , Holumbus.MapReduce.MultiMap
                 , Holumbus.MapReduce.TaskProcessor
                 , Holumbus.MapReduce.JobController
