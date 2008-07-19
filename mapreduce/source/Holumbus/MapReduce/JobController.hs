@@ -16,23 +16,9 @@
 {-# OPTIONS -fglasgow-exts #-}
 module Holumbus.MapReduce.JobController
 (
-  JobId
-, TaskId
 
-, JobState(..)
-
-, TaskType(..)
-, TaskState(..)
-
-, TaskData(..)
-
-, JobInfo(..)
-, JobData(..)
-, JobResult(..)
-
-, TaskSendResult(..)
+  TaskSendResult(..)
 , TaskSendFunction
-
 
 , JobController
 
@@ -41,8 +27,9 @@ module Holumbus.MapReduce.JobController
 -- * Creation / Destruction
 , newJobController
 , closeJobController
-, setPartitionFunctionMap
 , setTaskSendHook
+, setMapActions
+, setReduceActions
 
 -- * Job Controller 
 , startJobController
@@ -61,220 +48,19 @@ module Holumbus.MapReduce.JobController
 where
 
 import qualified Control.Exception as E
-import Control.Concurrent
-import Control.Monad
-import Data.Binary
-import Data.Maybe
-import Data.Time
-import Data.Typeable
+import           Control.Concurrent
+import           Control.Monad
+import           Data.Binary
+import           Data.Maybe
+import           Data.Time
+import           Data.Typeable
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Holumbus.MapReduce.Types
-import Holumbus.FileSystem.Storage as S
+import           Holumbus.MapReduce.Types
+import           Holumbus.FileSystem.Storage as S
 import qualified Holumbus.MapReduce.AccuMap as AMap
 import qualified Holumbus.MapReduce.MultiMap as MMap
-
-
--- ----------------------------------------------------------------------------
--- Task DataTypes
--- ----------------------------------------------------------------------------
-
-
--- | the task id (should be unique in the system)
-type TaskId = Integer
-
--- | which type (map, combine, reduce)
-data TaskType = TTMap | TTCombine | TTReduce | TTError
-  deriving (Show, Eq, Ord)
-
-instance Binary TaskType where
-  put (TTMap)     = putWord8 1
-  put (TTCombine) = putWord8 2
-  put (TTReduce)  = putWord8 3
-  put (TTError)   = putWord8 0
-  get
-    = do
-      t <- getWord8
-      case t of
-       1 -> return (TTMap)
-       2 -> return (TTCombine)
-       3 -> return (TTReduce)
-       _ -> return (TTError)
-
-
--- | the task state
-data TaskState = TSIdle | TSInProgress | TSCompleted | TSFinished | TSError
-  deriving (Show, Eq, Ord, Enum)
-
-getNextTaskState :: TaskState -> TaskState
-getNextTaskState TSError    = TSError
-getNextTaskState TSFinished = TSFinished
-getNextTaskState s          = succ s
-
-instance Binary TaskState where
-  put (TSIdle)       = putWord8 1
-  put (TSInProgress) = putWord8 2
-  put (TSCompleted)  = putWord8 3
-  put (TSFinished)   = putWord8 4
-  put (TSError)      = putWord8 0
-  get
-    = do
-      t <- getWord8
-      case t of
-        1 -> return (TSIdle)
-        2 -> return (TSInProgress)
-        3 -> return (TSCompleted)
-        4 -> return (TSFinished)
-        _ -> return (TSError)
-        
-
--- | the TaskData, contains all information to do the task
-data TaskData = TaskData {
-    td_JobId     :: ! JobId
-  , td_TaskId    :: ! TaskId
-  , td_Type      :: TaskType
-  , td_State     :: TaskState
-  , td_Input     :: FunctionData
-  , td_Output    :: [FunctionData]
-  , td_Action    :: FunctionName
-  } deriving (Show, Eq, Ord)
-
-instance Binary TaskData where
-  put (TaskData jid tid tt ts i o a)
-    = put jid >> put tid >> put tt >> put ts >> put i >> put o >> put a
-  get
-    = do
-      jid <- get
-      tid <- get
-      tt <- get
-      ts <- get
-      i <- get
-      o <- get
-      a <- get
-      return (TaskData jid tid tt ts i o a)
-
-
-
--- ----------------------------------------------------------------------------
--- Job Datatypes
--- ----------------------------------------------------------------------------
-
-
--- | the job id (should be unique in the system)
-type JobId = Integer
-
-
--- | the job state
-data JobState = JSPlanned | JSIdle | JSMap | JSCombine | JSReduce | JSCompleted | JSFinished | JSError
-  deriving(Show, Eq, Ord, Enum)
-
-getNextJobState :: JobState -> JobState
-getNextJobState JSError    = JSError
-getNextJobState JSFinished = JSFinished
-getNextJobState s          = succ s
-
-getPrevJobState :: JobState -> JobState
-getPrevJobState JSIdle  = JSIdle
-getPrevJobState JSError = JSError
-getPrevJobState s       = pred s
-
-fromJobStatetoTaskType :: JobState -> Maybe TaskType
-fromJobStatetoTaskType JSMap     = Just TTMap
-fromJobStatetoTaskType JSCombine = Just TTCombine
-fromJobStatetoTaskType JSReduce  = Just TTReduce
-fromJobStatetoTaskType _         = Nothing
-
-instance Binary JobState where
-  put (JSPlanned)    = putWord8 1
-  put (JSIdle)       = putWord8 2
-  put (JSMap)        = putWord8 3
-  put (JSCombine)    = putWord8 4
-  put (JSReduce)     = putWord8 5
-  put (JSCompleted)  = putWord8 6
-  put (JSFinished)   = putWord8 7
-  put (JSError)      = putWord8 0
-  get
-    = do
-      t <- getWord8
-      case t of
-        1 -> return (JSPlanned)
-        2 -> return (JSIdle)
-        3 -> return (JSMap)
-        4 -> return (JSCombine)
-        5 -> return (JSReduce)
-        6 -> return (JSCompleted)
-        7 -> return (JSFinished)
-        _ -> return (JSError)
-
-
-
-
-type OutputMap = AMap.AccuMap JobState FunctionData
-
-
--- | defines a job, this is all data the user has to give to run a job
-data JobInfo = JobInfo {
-    ji_Description      :: ! String
-  -- , ji_PartitionAction :: ! (Maybe TaskAction)
-  , ji_MapAction        :: ! (Maybe FunctionName)
-  , ji_CombineAction    :: ! (Maybe FunctionName)
-  , ji_ReduceAction     :: ! (Maybe FunctionName)
-  , ji_MapPartition     :: ! (Maybe FunctionName)
-  , ji_CombinePartition :: ! (Maybe FunctionName)
-  , ji_ReducePartition  :: ! (Maybe FunctionName)
-  , ji_Input            :: ! [FunctionData]
-  -- , ji_Output          :: ! [FunctionData]
-  } deriving (Show)
-
-instance Binary JobInfo where
-  put (JobInfo d ma ca ra mp cp rp i)
-    = put d >> put ma >> put ca >> put ra >> put mp >> put cp >> put rp >> put i
-  get
-    = do
-      d <- get
-      ma <- get
-      ca <- get
-      ra <- get
-      mp <- get
-      cp <- get
-      rp <- get
-      i <- get
-      return (JobInfo d ma ca ra mp cp rp i)
-
-
--- | the job data, include the user-input and some additional control-data
-data JobData = JobData {
-    jd_JobId       :: JobId
-  , jd_State       :: JobState
-  , jd_OutputMap   :: OutputMap
-  , jd_Info        :: JobInfo
-  , jd_startTime   :: UTCTime
-  , jd_endTime     :: UTCTime
-  , jd_Result      :: JobResultContainer
-  }
-
-instance Show JobData where
-  show (JobData jid state om _ t1 t2 _) =
-    "JobId:\t" ++ show jid ++ "\n" ++
-    "State:\t" ++ show state ++ "\n" ++
-    "Info:\tJobInfo\n" ++
-    "StartTime:\t" ++  show t1 ++ "\n" ++
-    "EndTime:\t" ++ show t2 ++ "\n" ++
-    "OutputMap:\n" ++ show om ++ "\n"
-
-
-data JobResultContainer = JobResultContainer (MVar JobResult)
-
-instance Show JobResultContainer where
-  show _ = "JobResultContainer"
-
--- | the result of the job, given by the master
-data JobResult = JobResult {
-    jr_Output        :: [FunctionData]
-  } deriving (Show)
-
-
 
 
 -- ----------------------------------------------------------------------------
@@ -290,11 +76,16 @@ newJobData jcd info
     let jrc = JobResultContainer mVar 
     let jid = jcd_NextJobId jcd
     let jcd' = jcd { jcd_NextJobId = (jid+1) }
-    let outputMap = AMap.insertList JSIdle (ji_Input info) AMap.empty
+    let bout = encodeTupleList (ji_Input info)
+    --TODO
+    let outputMap = AMap.insertList JSIdle [(1,bout)] AMap.empty
     return (jcd', JobData jid JSIdle outputMap info t t jrc, mVar)
 
 
-newTaskData :: JobControllerData -> JobId -> TaskType -> TaskState -> FunctionData -> FunctionName -> IO (JobControllerData, TaskData)
+newTaskData 
+  :: JobControllerData 
+  -> JobId -> TaskType -> TaskState -> [FunctionData] -> TaskAction 
+  -> IO (JobControllerData, TaskData)
 newTaskData jcd jid tt ts i a
   = do
     let tid = jcd_NextTaskId jcd
@@ -363,7 +154,9 @@ data JobControllerData = JobControllerData {
   , jcd_NextJobId      :: JobId
   , jcd_NextTaskId     :: TaskId
   , jcd_Functions      :: JobControlFunctions
-  , jcd_PartitionMap   :: PartitionFunctionMap
+  
+  , jcd_MapActionMap   :: MapActionMap
+  , jcd_ReduceActionMap :: ReduceActionMap
   
   -- job control
   , jcd_JobMap         :: ! JobMap
@@ -401,7 +194,9 @@ defaultJobControllerData = jcd
     1
     1
     jcf
-    emptyPartitionFunctionMap
+    Map.empty
+    Map.empty
+    -- emptyPartitionFunctionMap
     Map.empty
     Map.empty
     MMap.empty
@@ -424,12 +219,6 @@ closeJobController jc
     stopJobController jc
 
 
-setPartitionFunctionMap :: PartitionFunctionMap -> JobController -> IO ()
-setPartitionFunctionMap m jc
-  = modifyMVar jc $
-    \jcd -> return $ (jcd { jcd_PartitionMap = m }, ())
-
-
 setTaskSendHook :: TaskSendFunction -> JobController -> IO ()
 setTaskSendHook f jc
   = do
@@ -439,6 +228,17 @@ setTaskSendHook f jc
       let funs = jcd_Functions jcd
       let funs' = funs { jcf_TaskSend = f }
       return (jcd { jcd_Functions = funs' }, ())
+
+
+setMapActions :: MapActionMap -> JobController -> IO ()
+setMapActions mm jc
+  = modifyMVar jc $ \jcd -> return (jcd {jcd_MapActionMap = mm }, ())
+
+
+setReduceActions :: ReduceActionMap -> JobController -> IO ()
+setReduceActions rm jc
+  = modifyMVar jc $ \jcd -> return (jcd {jcd_ReduceActionMap = rm }, ())
+
 
 -- ----------------------------------------------------------------------------
 -- server functions
@@ -566,7 +366,7 @@ changeTaskState tid ts jcd = changeTaskState' (Map.lookup tid (jcd_TaskMap jcd))
     stm' = MMap.insert ts tid $ MMap.deleteElem ts' tid (jcd_StateTaskIdMap jcd) -- change StateTaskIdMap
 
 
-updateTaskOutput :: TaskId -> [FunctionData] -> JobControllerData -> JobControllerData
+updateTaskOutput :: TaskId -> [(Int, [FunctionData])] -> JobControllerData -> JobControllerData
 updateTaskOutput _ [] jcd = jcd
 updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
   where
@@ -586,14 +386,20 @@ updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
 -- ----------------------------------------------------------------------------
 
 
-startJob :: JobInfo -> JobController -> IO (JobId, MVar JobResult)
+startJob :: JobInfo -> JobController -> IO (Either String (JobId, MVar JobResult))
 startJob ji jc
   = do
     modifyMVar jc $
       \jcd ->
       do
-      (jcd',jd, jr) <- newJobData jcd ji
-      return (addJob jd jcd', (jd_JobId jd, jr)) 
+      -- test the job info... we don't want false jobs
+      let (b, m) = testJobInfo ji (jcd_MapActionMap jcd) (jcd_ReduceActionMap jcd)
+      if b 
+        then do
+          (jcd',jd, jr) <- newJobData jcd ji
+          return (addJob jd jcd', Right (jd_JobId jd, jr))
+        else do
+          return (jcd, Left m)
 
 
 stopJob :: JobId -> JobController -> IO ()
@@ -601,14 +407,18 @@ stopJob _ _
   = do
     undefined
 
-performJob :: JobInfo -> JobController -> IO JobResult
+performJob :: JobInfo -> JobController -> IO (Either String JobResult)
 performJob ji jc
   = do
     -- start the Job
-    (_, mjr) <- startJob ji jc
-    -- wait until the result is ready
-    withMVar mjr $
-      \jr -> return jr
+    res <- startJob ji jc
+    case res of
+      (Left m) -> return $ Left m
+      (Right (_, mjr)) ->
+        do
+        -- wait until the result is ready
+        r <- withMVar mjr $ \jr -> return jr
+        return $ Right r
 
 -- ----------------------------------------------------------------------------
 -- Task Processing
@@ -716,24 +526,16 @@ hasPhase :: JobData -> Bool
 hasPhase jd = isJust $ getCurrentTaskAction jd
 
 
-getCurrentTaskAction :: JobData -> Maybe FunctionName
+getCurrentTaskAction :: JobData -> Maybe TaskAction
 getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   where
   getTaskAction' ji JSMap     = ji_MapAction ji
   getTaskAction' ji JSCombine = ji_CombineAction ji
   getTaskAction' ji JSReduce  = ji_ReduceAction ji 
   getTaskAction' _  _         = Nothing
-  
-
-getCurrentPartitionFunction :: JobData -> Maybe FunctionName
-getCurrentPartitionFunction jd = getPartitionFunction' (jd_Info jd) (jd_State jd)
-  where
-  getPartitionFunction' ji JSMap     = ji_MapPartition ji
-  getPartitionFunction' ji JSCombine = ji_CombinePartition ji
-  getPartitionFunction' ji JSReduce  = ji_ReducePartition ji 
-  getPartitionFunction' _  _         = Nothing  
 
 
+{-
 performPartition :: JobControllerData -> JobData -> [FunctionData] -> IO [FunctionData]
 performPartition jcd jd bin
   = do
@@ -743,7 +545,7 @@ performPartition jcd jd bin
     let p = maybe (\t -> return t) id maybeP
     bout <- p bin
     return bout
-
+-}
 
 createTasks :: JobControllerData -> JobData -> IO JobControllerData
 createTasks jcd jd
@@ -755,13 +557,14 @@ createTasks jcd jd
     if (hasPhase jd)
       then do
         -- TODO do partitioning here and better file naming
-        sortedInputs <- performPartition jcd jd inputList
+        -- sortedInputs <- performPartition jcd jd inputList
         
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        (jcd', taskDatas) <- mapAccumLM (\d i -> newTaskData d jid tt TSIdle i a) jcd sortedInputs -- inputList
+        -- TODO
+        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle i a) jcd inputList
         -- taskDatas <- mapM (\i -> newTaskData jid tt TSIdle i a) inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
@@ -778,7 +581,7 @@ createResults jcd jd
   = do
     let outputList = AMap.lookup JSCompleted (jd_OutputMap jd)
     let (JobResultContainer mVarResult) = jd_Result jd
-    let res = JobResult outputList
+    let res = JobResult $ concat $ map (snd) outputList
     putMVar mVarResult res
     return jcd  
 

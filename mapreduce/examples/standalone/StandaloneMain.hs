@@ -44,12 +44,11 @@ main
 initializeData :: IO SA.Standalone
 initializeData
   = do
-    let maps = DEMO.demoMapFunctions
-    let reduces = DEMO.demoReduceFunctions
-    let partitions = DEMO.demoPartitionFunctions
+    let maps = DEMO.demoMapActions
+    let reduces = DEMO.demoReduceActions
     -- fs <- FS.standaloneFileSystem "storage/" Nothing
     -- DEMO.createDemoFiles fs
-    SA.newStandalone maps reduces partitions
+    SA.newStandalone maps reduces
 
 
 deinitializeData :: SA.Standalone -> IO ()

@@ -25,8 +25,8 @@ module Holumbus.MapReduce.TaskProcessor
 -- * Creation / Destruction
 , newTaskProcessor
 , closeTaskProcessor
-, setMapFunctionMap
-, setReduceFunctionMap
+, setMapActionMap
+, setReduceActionMap
 , setTaskCompletedHook  
 , setTaskErrorHook
 
@@ -36,8 +36,8 @@ module Holumbus.MapReduce.TaskProcessor
 
 -- * Info an Debug
 , listTaskIds 
-, getMapFunctions
-, getReduceFunctions
+, getMapActions
+, getReduceActions
 
 
 -- * Task Creation / Destruction
@@ -48,18 +48,17 @@ module Holumbus.MapReduce.TaskProcessor
 where
 
 import qualified Control.Exception as E
-import Control.Concurrent
-import Data.Binary
+import           Control.Concurrent
+import           Data.Binary
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Data.Maybe
-import Data.Typeable
+import           Data.Maybe
+import           Data.Typeable
 
-import Holumbus.MapReduce.Types
-import Holumbus.MapReduce.JobController hiding (setTaskCompleted, setTaskError)
+import           Holumbus.MapReduce.Types
 
-import Holumbus.FileSystem.FileSystem as F
-import Holumbus.FileSystem.Storage as S
+import           Holumbus.FileSystem.FileSystem
+import           Holumbus.FileSystem.Storage
 
 
 
@@ -102,8 +101,8 @@ data TaskProcessorData = TaskProcessorData {
   -- configuration
   , tpd_MaxTasks          :: Int
   , tpd_Functions         :: TaskProcessorFunctions
-  , tpd_MapFunctionMap    :: MapFunctionMap
-  , tpd_ReduceFunctionMap :: ReduceFunctionMap
+  , tpd_MapActionMap      :: MapActionMap
+  , tpd_ReduceActionMap   :: ReduceActionMap
   -- task processing
   , tpd_TaskQueue         :: [TaskData]
   , tpd_CompletedTasks    :: Set.Set TaskData
@@ -135,8 +134,8 @@ defaultTaskProcessorData = tpd
       1000 -- one millisecond delay
       1
       funs
-      emptyMapFunctionMap
-      emptyReduceFunctionMap
+      Map.empty
+      Map.empty
       []
       Set.empty
       Set.empty
@@ -161,18 +160,18 @@ closeTaskProcessor tp
 
 
 
--- | adds a MapFunction to the TaskProcessor
-setMapFunctionMap :: MapFunctionMap -> TaskProcessor -> IO ()
-setMapFunctionMap m tp
+-- | adds a MapAction to the TaskProcessor
+setMapActionMap :: MapActionMap -> TaskProcessor -> IO ()
+setMapActionMap m tp
   = modifyMVar tp $
-    \tpd -> return $ (tpd { tpd_MapFunctionMap = m }, ())
+    \tpd -> return $ (tpd { tpd_MapActionMap = m }, ())
 
 
--- | adds a ReduceFunction to the TaskProcessor
-setReduceFunctionMap :: ReduceFunctionMap -> TaskProcessor -> IO ()
-setReduceFunctionMap m tp
+-- | adds a ReduceAction to the TaskProcessor
+setReduceActionMap :: ReduceActionMap -> TaskProcessor -> IO ()
+setReduceActionMap m tp
   = modifyMVar tp $
-      \tpd -> return $ (tpd { tpd_ReduceFunctionMap = m }, ())
+      \tpd -> return $ (tpd { tpd_ReduceActionMap = m }, ())
 
 
 setTaskCompletedHook :: TaskResultFunction -> TaskProcessor -> IO ()  
@@ -292,18 +291,18 @@ listTaskIds tp
       \tpd -> return $ getTasksIds tpd
 
 
--- | Lists all Map-Functions with Name, Descrition and Type
-getMapFunctions :: TaskProcessor -> IO [(FunctionName, FunctionDescription, TypeRep)]
-getMapFunctions tp
+-- | Lists all Map-Actions with Name, Descrition and Type
+getMapActions :: TaskProcessor -> IO [MapActionData]
+getMapActions tp
   = withMVar tp $
-      \tpd -> return $ listMapFunctions (tpd_MapFunctionMap tpd)
+      \tpd -> return $ Map.elems (tpd_MapActionMap tpd)
 
 
--- | Lists all Reduce-Functions with Name, Descrition and Type
-getReduceFunctions :: TaskProcessor -> IO [(FunctionName, FunctionDescription, TypeRep)]
-getReduceFunctions tp 
+-- | Lists all Reduce-Actions with Name, Descrition and Type
+getReduceActions :: TaskProcessor -> IO [ReduceActionData]
+getReduceActions tp 
   = withMVar tp $
-      \tpd -> return $ listReduceFunctions (tpd_ReduceFunctionMap tpd) 
+      \tpd -> return $ Map.elems (tpd_ReduceActionMap tpd) 
 
 
 -- ----------------------------------------------------------------------------
@@ -504,23 +503,26 @@ performMapTask td tp
   = do
     putStrLn "MapTask"
     putStrLn $ "input td: " ++ show td
-    (mapFct, bin) <- withMVar tp $
+    
+    -- get all functions
+    (ad, bin) <- withMVar tp $
       \tpd ->
       do
-      let mapFct = fromJust $ dispatchMapFunction (tpd_MapFunctionMap tpd) (td_Action td)
+      let action = Map.lookup (td_Action td) (tpd_MapActionMap tpd)
       let input = (td_Input td)
-      return (mapFct, input)
-    bout <- mapFct bin
-    let rs = decodeTupleList $ bout
-    p rs
-    let td' = td { td_Output = bout }
-    putStrLn $ "output td: " ++ show td'
-    return td'
-    where
-    p :: [(String, [Integer])] -> IO ()
-    p os
-      = do
-        putStrLn $ show $ "DECODEDLIST: " ++ show os
+      return (action, input)
+    
+    case ad of
+      (Nothing) ->
+        -- TODO throw execption here
+        return td
+      (Just a)  ->
+        do
+        let action = mad_Action a
+        bout <- action 1 bin
+        let td' = td { td_Output = bout }
+        putStrLn $ "output td: " ++ show td'
+        return td'
       
     -- content <- F.getFileContent fid fs
     -- let input = fileReader fid content
@@ -538,57 +540,56 @@ performCombineTask td tp
   = do
     putStrLn "CombineTask"
     putStrLn $ "input td: " ++ show td
-    (combineFct, bin) <- withMVar tp $
+    
+    -- get all functions
+    (ad, bin) <- withMVar tp $
       \tpd ->
       do
-      let combineFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
+      let action = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
       let input = (td_Input td)
-      return (combineFct, input)
-    mbout <- combineFct bin
-    let bout = maybe [] (\b -> [b]) mbout 
-    let td' = td { td_Output = bout }
-    putStrLn $ "output td: " ++ show td'
-    return td'
-  
+      return (action, input)
+    
+    case ad of
+      (Nothing) ->
+        -- TODO throw execption here
+        return td
+      (Just a)  ->
+        do
+        let action = rad_Action a
+        bout <- action 1 bin
+        let td' = td { td_Output = bout }
+        putStrLn $ "output td: " ++ show td'
+        return td'
+          
 
 performReduceTask :: TaskData -> TaskProcessor-> IO TaskData
 performReduceTask td tp
   = do
     putStrLn "ReduceTask"
     putStrLn $ "input td: " ++ show td
-    (reduceFct, bin) <- withMVar tp $
+    
+    -- get all functions
+    (ad, bin) <- withMVar tp $
       \tpd ->
       do
-      let reduceFct = fromJust $ dispatchReduceFunction (tpd_ReduceFunctionMap tpd) (td_Action td)
+      let action = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
       let input = (td_Input td)
-      return (reduceFct, input)
-    mbout <- reduceFct bin
-    let bout = maybe [] (\b -> [b]) mbout 
-    let td' = td { td_Output = bout }
-    putStrLn $ "output td: " ++ show td'
-    return td'
-
-
-
-
--- ----------------------------------------------------------------------------
--- Contruction and Initialisation
--- ----------------------------------------------------------------------------
-{-
-
-
-
--}
-
-
--- ----------------------------------------------------------------------------
--- Performing Tasks
--- ----------------------------------------------------------------------------
-
-{-
+      return (action, input)
     
+    case ad of
+      (Nothing) ->
+        -- TODO throw execption here
+        return td
+      (Just a)  ->
+        do
+        let action = rad_Action a
+        bout <- action 1 bin
+        let td' = td { td_Output = bout }
+        putStrLn $ "output td: " ++ show td'
+        return td'
 
--}
+
+
 
 -- ----------------------------------------------------------------------------
 -- GroupByKey

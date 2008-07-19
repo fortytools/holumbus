@@ -88,20 +88,21 @@ sendTaskError jc td
 -- ----------------------------------------------------------------------------
 
 
-newStandalone :: MapFunctionMap -> ReduceFunctionMap-> PartitionFunctionMap -> IO Standalone
-newStandalone mm rm pm
+newStandalone :: MapActionMap -> ReduceActionMap -> IO Standalone
+newStandalone mm rm
   = do
     -- get a new JobController an TaskProcessor
     jc <- newJobController
     tp <- newTaskProcessor
     
     -- configure the JobController
-    setPartitionFunctionMap pm jc
     setTaskSendHook (sendStartTask tp) jc
+    setMapActions mm jc
+    setReduceActions rm jc
     
     -- configure the TaskProcessor
-    setMapFunctionMap mm tp
-    setReduceFunctionMap rm tp
+    setMapActionMap mm tp
+    setReduceActionMap rm tp
     setTaskCompletedHook (sendTaskCompleted jc) tp
     setTaskErrorHook (sendTaskError jc) tp
      
@@ -142,8 +143,10 @@ addJob ji sa
     modifyMVar sa $
       \sad ->
       do
-      (_,res) <- startJob ji (sad_JobController sad)
-      printJobResult res
+      r <- startJob ji (sad_JobController sad)
+      case r of
+        (Left m) -> putStrLn m
+        (Right (_,res)) -> printJobResult res
       return (sad, ())
 
 
@@ -174,10 +177,10 @@ printDebug sa
       putStrLn $showTP
       putStrLn "--------------------------------------------------------"
       putStrLn "Map-Functions"
-      mapFuns <- getMapFunctions (sad_TaskProcessor sad)
+      mapFuns <- getMapActions (sad_TaskProcessor sad)
       putStrLn $ show $ mapFuns
       putStrLn "--------------------------------------------------------"
       putStrLn "Reduce-Functions"
-      reduceFuns <- getReduceFunctions (sad_TaskProcessor sad)
+      reduceFuns <- getReduceActions (sad_TaskProcessor sad)
       putStrLn $ show $ reduceFuns
       putStrLn "--------------------------------------------------------"

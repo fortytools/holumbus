@@ -35,7 +35,7 @@ import System.Log.Logger
 
 import qualified Holumbus.Network.Port as P
 import Holumbus.Network.Site
-import Holumbus.MapReduce.JobController
+import Holumbus.MapReduce.Types
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Master as MC

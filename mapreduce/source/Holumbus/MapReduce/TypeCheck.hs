@@ -15,26 +15,40 @@
 
 module Holumbus.MapReduce.TypeCheck
 (
-  checkMapCombine
-, checkMapReduce
-, checkCombineReduce
-, checkTypes
+  getFunctionParameters
+, getTupleParameters
+, getIOParameter
+, getListParameter
+, makeTuple
 )
 where
 
 import Data.Typeable
 
 
-
 -- ----------------------------------------------------------------------------
 -- private helpers
 -- ----------------------------------------------------------------------------
 
-
 isFunction :: TypeRep -> Bool
 isFunction f = (mkTyCon "->") == con
   where
-    (con, _) = splitTyConApp f
+  (con, _) = splitTyConApp f
+
+isIO :: TypeRep -> Bool
+isIO f = (mkTyCon "IO") == con
+  where
+  (con, _) = splitTyConApp f
+
+isList :: TypeRep -> Bool
+isList f = (mkTyCon "[]") == con
+  where
+  (con, _) = splitTyConApp f
+
+isTuple :: TypeRep -> Bool
+isTuple f = (mkTyCon ",") == con
+  where
+  (con, _) = splitTyConApp f
 
 
 getFirstParam :: TypeRep -> TypeRep
@@ -49,18 +63,18 @@ makeTypeList :: (Typeable a) => a -> [TypeRep]
 makeTypeList l = maybe (error "unable to get parameterList") (id) (cast l)
 
 
-getParamList :: (Typeable a) => a -> [TypeRep]
-getParamList f = reverse $ foldTypeRepArgs (typeOf f)
+foldTypeRepArgs :: (TypeRep -> Bool) -> TypeRep -> [TypeRep]
+foldTypeRepArgs f t = reverse $ foldTypeRepArgs' t []
   where
+  foldTypeRepArgs' t' ls
+    | f t'      = foldTypeRepArgs' (getOtherParams t') ((getFirstParam t'):ls)
+    | otherwise = t' : ls
+        
+foldTypeRepArg :: (TypeRep -> Bool) -> TypeRep -> TypeRep
+foldTypeRepArg f t
+  | f t       = getFirstParam t
+  | otherwise = t
 
-
-foldTypeRepArgs :: TypeRep -> [TypeRep]
-foldTypeRepArgs t = foldTypeRepArgs' t []
-  where
-  foldTypeRepArgs' f' ls
-    | isFunction f' = foldTypeRepArgs' (getOtherParams f') ((getFirstParam f'):ls)
-    | otherwise     = f' : ls
-    
 
 
 
@@ -68,21 +82,19 @@ foldTypeRepArgs t = foldTypeRepArgs' t []
 -- public functions
 -- ----------------------------------------------------------------------------
 
-    
-checkMapCombine :: TypeRep -> TypeRep -> Bool
-checkMapCombine = checkMapReduce
-    
+getFunctionParameters :: TypeRep -> [TypeRep]
+getFunctionParameters t = foldTypeRepArgs (isFunction) t
 
-checkMapReduce :: TypeRep -> TypeRep -> Bool
-checkMapReduce _ _ = True
---  where
---    mapArgs = foldTypeRepArgs mapFct
---    comArgs = foldTypeRepArgs comFct
+getTupleParameters :: TypeRep -> [TypeRep]
+getTupleParameters t = foldTypeRepArgs (isTuple) t
 
+getIOParameter :: TypeRep -> TypeRep
+getIOParameter t = foldTypeRepArg (isIO) t
 
-checkCombineReduce :: TypeRep -> TypeRep -> Bool
-checkCombineReduce _ _ = True
+getListParameter :: TypeRep -> TypeRep
+getListParameter t = foldTypeRepArg (isList) t
 
-
-checkTypes :: TypeRep -> Maybe TypeRep -> TypeRep -> Bool
-checkTypes _ _ _ = True
+makeTuple :: [TypeRep] -> TypeRep
+makeTuple ls = mkTyConApp con ls
+  where
+  con = mkTyCon ","

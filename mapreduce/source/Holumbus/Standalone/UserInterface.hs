@@ -20,11 +20,14 @@ module Holumbus.Standalone.UserInterface
 )
 where
 
-import Control.Exception
+import           Data.Maybe
 
+import           Control.Exception
+
+import           Holumbus.Common.Utils
 import qualified Holumbus.Console.Console as Console
 import qualified Holumbus.Standalone.Standalone as S
-import qualified Holumbus.MapReduce.Demo as DEMO
+import qualified Holumbus.MapReduce.Types as T
 
 -- ----------------------------------------------------------------------------
 -- Operations
@@ -48,6 +51,7 @@ createConsole :: String -> Console.ConsoleData (S.Standalone)
 createConsole version =
   Console.addConsoleCommand "step" step "perform a single step" $
   Console.addConsoleCommand "addJob" addJob "adds a new job" $
+  Console.addConsoleCommand "parseJob" parseJob "parses a job-xml-file and prints the result" $
   Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
   Console.initializeConsole
@@ -62,11 +66,24 @@ step s _
   
   
 addJob :: S.Standalone -> [String] -> IO ()
-addJob s _
+addJob s opts
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      S.addJob DEMO.demoJob s
+      (mbName,_) <- Console.nextOption opts
+      jobInfo <- (loadFromXml (fromJust mbName))::IO T.JobInfo
+      S.addJob jobInfo s
+      return ()
+
+
+parseJob :: S.Standalone -> [String] -> IO ()
+parseJob _ opts
+  = do
+    handle (\e -> putStrLn $ show e) $
+      do
+      (mbName,_) <- Console.nextOption opts
+      jobInfo <- (loadFromXml (fromJust mbName))::IO T.JobInfo
+      putStrLn $ show jobInfo
       return ()
 
       

@@ -15,22 +15,21 @@
 
 module Holumbus.MapReduce.Demo
 (
-  demoMapFunctions
-, demoReduceFunctions
-, demoPartitionFunctions
+  demoMapActions
+, demoReduceActions
 , demoJob
 , createDemoFiles
 )
 where
 
-import Data.Binary
+import           Data.Binary
 import qualified Data.ByteString.Lazy as B
+import qualified Data.Map as Map
 
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.Storage as S
 
-import Holumbus.MapReduce.Types
-import Holumbus.MapReduce.JobController
+import           Holumbus.MapReduce.Types
 import qualified Holumbus.MapReduce.AccuMap as AMap
 
 -- ----------------------------------------------------------------------------
@@ -54,20 +53,13 @@ mapWordCount k v
     return v'
 
 
-demoMapFunctions :: MapFunctionMap
-demoMapFunctions 
-  = addMapFunctionToMap mapWordCount "WORDCOUNT" "counts the words in a text" $ 
-    addMapFunctionToMap mapId "ID" "does nothing" $
-    emptyMapFunctionMap
-
-
 
 -- ----------------------------------------------------------------------------
 -- ReduceFunctions
 -- ----------------------------------------------------------------------------
 
-reduceId :: B.ByteString -> [B.ByteString] -> IO (Maybe [B.ByteString])
-reduceId _ vs = return (Just vs)
+reduceId :: B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
+reduceId k _ = return $ Just k
 
 reduceWordCount :: String -> [Integer] -> IO (Maybe Integer)
 reduceWordCount k vs 
@@ -78,30 +70,66 @@ reduceWordCount k vs
     putStrLn $ show $ "output: " ++ show s
     return (Just s)
     
-demoReduceFunctions :: ReduceFunctionMap
-demoReduceFunctions 
-  = addReduceFunctionToMap reduceWordCount "WORDCOUNT" "counts the words in a text" $
-    addReduceFunctionToMap reduceId "ID" "does nothing" $
-    emptyReduceFunctionMap
   
+
+-- ----------------------------------------------------------------------------
+-- MergeFunctions
+-- ----------------------------------------------------------------------------
+
+mergeX :: [(B.ByteString, B.ByteString)] -> IO [(B.ByteString, [B.ByteString])]
+mergeX ls = return $ mapGroupByKey ls
+
+mergeWordCount :: [(String,Integer)] -> IO [(String,[Integer])]
+mergeWordCount ls = return $ mapGroupByKey ls
+
+mapGroupByKey :: (Ord k2) => [(k2, v2)] -> [(k2,[v2])]
+mapGroupByKey ls = AMap.toList $ AMap.fromTupleList ls 
+
+
 
 -- ----------------------------------------------------------------------------
 -- PartitionFunctions
 -- ----------------------------------------------------------------------------  
 
-partitionWordCount :: [(String, [Integer])] -> IO [(String, [Integer])]
-partitionWordCount ls 
+partitionId :: Int -> [(B.ByteString, B.ByteString)] -> IO [(Int,[(B.ByteString, B.ByteString)])]
+partitionId n vs
+  = return [(n, vs)]
+
+partitionWordCount :: Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
+partitionWordCount _ ls 
   = do
-    let ls' = AMap.toList $ AMap.fromList ls
-    return ls' 
+    putStrLn "partitionCountWords"
+    putStrLn $ show ls
+    -- let ls' = (AMap.toList $ AMap.fromList ls)
+    return [(1,ls)] 
 
 
-demoPartitionFunctions :: PartitionFunctionMap
-demoPartitionFunctions
-  = addPartitionFunctionToMap partitionWordCount "WORDCOUNT" "counts the words in a text" $
-    emptyPartitionFunctionMap
+-- ----------------------------------------------------------------------------
+-- Actions
+-- ----------------------------------------------------------------------------
 
-  
+
+demoMapActions :: MapActionMap
+demoMapActions 
+  = Map.insert "WORDCOUNT" wordCount $
+    Map.insert "ID" idFct $
+    Map.empty
+    where
+    wordCount = mkMapAction "WORDCOUNT" "counts the words in a text" mapWordCount partitionWordCount
+    idFct = mkMapAction "ID" "foo" mapId partitionId
+
+
+demoReduceActions :: ReduceActionMap
+demoReduceActions
+  = Map.insert "WORDCOUNT" wordCount $
+    Map.insert "ID" idFct $ 
+    Map.empty
+    where
+    wordCount = mkReduceAction "WORDCOUNT" "counts the words in a text" mergeWordCount reduceWordCount partitionWordCount
+    idFct = mkReduceAction "ID" "foo" mergeX reduceId partitionId
+
+
+
 -- ----------------------------------------------------------------------------
 -- DemoJob
 -- ----------------------------------------------------------------------------
@@ -113,10 +141,7 @@ demoJob = JobInfo
   (Just "WORDCOUNT")
   (Just "WORDCOUNT")
   Nothing
-  Nothing
-  (Just "WORDCOUNT")
-  Nothing
-  (encodeTupleList [("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa")])
+  ([("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa dd dd")])
 
 
 

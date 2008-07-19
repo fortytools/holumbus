@@ -42,6 +42,7 @@ module Holumbus.Console.Console
   ConsoleData
     
 -- * Operations
+, nextOption
 , parseOption
 , initializeConsole
 , addConsoleCommand
@@ -127,6 +128,17 @@ helpCommand = (Nothing, "print this help")
 -- | The command-line prompt string.
 shellString :: String
 shellString = "command>"
+
+
+-- | gets the next option from the command line as string
+nextOption :: [String] -> IO (Maybe String, [String])
+nextOption o
+  = handle (\_ -> return (Nothing, o)) $
+      do
+      if ( null o ) then
+          return (Nothing, o)
+        else 
+          return (Just $ head o, tail o) 
 
 
 -- | Simple "parser" for the commandline...
