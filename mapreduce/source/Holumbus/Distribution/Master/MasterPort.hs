@@ -83,10 +83,43 @@ instance Master MasterPort where
             _ -> return Nothing
 
 
-  startJob ji c@(MasterPort p)
+  addJob ji c@(MasterPort p)
     = do
       withStream $
-        \s -> performPortAction p s (MReqStartJob ji) $
+        \s -> performPortAction p s (MReqAddJob ji) $
+          \rsp ->
+          do
+          case rsp of
+            (MRspSuccess) -> return (Just c)
+            _ -> return Nothing
+
+
+  doSingleStep c@(MasterPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (MReqSingleStep) $
+          \rsp ->
+          do
+          case rsp of
+            (MRspSuccess) -> return (Just c)
+            _ -> return Nothing
+
+
+  receiveTaskCompleted td c@(MasterPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (MReqTaskCompleted td) $
+          \rsp ->
+          do
+          case rsp of
+            (MRspSuccess) -> return (Just c)
+            _ -> return Nothing
+    
+
+  receiveTaskError td c@(MasterPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (MReqTaskError td) $
           \rsp ->
           do
           case rsp of

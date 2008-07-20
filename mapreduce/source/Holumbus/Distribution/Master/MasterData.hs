@@ -25,24 +25,24 @@ module Holumbus.Distribution.Master.MasterData
 where
 
 
-import Control.Concurrent
+import           Control.Concurrent
 import qualified Control.Exception as E
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import System.Log.Logger
+import           System.Log.Logger
 
-import Holumbus.Network.Site
+import           Holumbus.Network.Site
 import qualified Holumbus.Network.Port as P
-import Holumbus.MapReduce.JobController
-import Holumbus.MapReduce.Types
+import           Holumbus.MapReduce.JobController
+import           Holumbus.MapReduce.Types
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master as MC
 import qualified Holumbus.Distribution.Worker as WC
 import qualified Holumbus.Distribution.Worker.WorkerPort as WP
-import Holumbus.Distribution.Master
-import Holumbus.Common.Utils
+import           Holumbus.Distribution.Master
+import           Holumbus.Common.Utils
 
 
 localLogger :: String
@@ -75,6 +75,7 @@ data MasterData = MasterData {
   , md_OwnStream      :: ! M.MasterRequestStream
   , md_OwnPort        :: ! M.MasterRequestPort
   , md_Maps           ::   MVar MasterMaps
+  , md_JobController  ::   JobController
   }
 
 
@@ -84,18 +85,27 @@ data MasterData = MasterData {
 -- ----------------------------------------------------------------------------
 
 
-newMaster :: IO MasterData
-newMaster
+newMaster :: MapActionMap -> ReduceActionMap -> IO MasterData
+newMaster mm rm
   = do
     -- initialize values
     let maps = MasterMaps Map.empty Map.empty emptySiteMap 0 Map.empty 
     mapMVar <- newMVar maps
     st    <- (P.newStream::IO M.MasterRequestStream)
     po    <- ((P.newPort st)::IO M.MasterRequestPort)
+
     -- we can't start the server yet
     tid   <- newMVar Nothing
+
+    -- start the jobController
+    jc <- newJobController
+    -- configure the JobController
+    setTaskSendHook (sendStartTask) jc
+    setMapActions mm jc
+    setReduceActions rm jc
+
     -- get the internal data
-    md <- startRequestDispatcher (MasterData tid st po mapMVar)
+    md <- startRequestDispatcher (MasterData tid st po mapMVar jc)
     return md
 
 
@@ -187,9 +197,13 @@ dispatch md msg replyPort
         do
         handleRequest replyPort (MC.unregisterWorker n md) (\_ -> M.MRspUnregister)
         return ()
-      (M.MReqStartJob ji) ->
+      (M.MReqAddJob ji) ->
         do
-        handleRequest replyPort (MC.startJob ji md) (\_ -> M.MRspSuccess)
+        handleRequest replyPort (MC.addJob ji md) (\_ -> M.MRspSuccess)
+        return ()
+      (M.MReqSingleStep) ->
+        do
+        handleRequest replyPort (MC.doSingleStep md) (\_ -> M.MRspSuccess)
         return ()
       _ -> handleRequest replyPort (return ()) (\_ -> M.MRspUnknown)
 
@@ -282,92 +296,30 @@ deleteWorkerFromMaster wid mm
           | otherwise = Just set
 
 
-addJob :: JobData -> MasterMaps -> MasterMaps
-addJob jd mm = mm { mm_JobMap = jm' }
-  where
-    jid = jd_JobId jd
-    jm  = mm_JobMap mm 
-    jm' = Map.insert jid jd jm
-
-{-
-getJobIds :: [JobState] -> MasterMaps -> [JobId]
-getJobIds = undefined
-
-getTaskIds :: [JobId] -> [TaskType] -> [TaskState] -> MasterMaps -> Set.Set TaskId
-getTaskIds = undefined
-
--- anderen zuweisen und inprogress setzen
-assignTasks :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
-assignTasks = undefined
-
--- anderen entziehen und finished
-setFinished :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
-setFinished = undefined
-
-createCombiners :: Set.Set TaskId -> MasterMaps -> IO MasterMaps
-createCombiners = undefined
-
-allTypes :: [TaskType]
-allTypes = undefined
-
-splitByCombinerType :: [JobId] -> ([JobId], [JobId])
-splitByCombinerType = undefined
-
-splitByReducerType :: [JobId] -> ([JobId], [JobId])
-splitByReducerType = undefined
-
-startCombiners :: MasterMaps -> IO (MasterMaps)
-startCombiners mm
+sendStartTask :: TaskData -> IO (TaskSendResult)
+sendStartTask td
   = do
-    -- handle the jobs with single combiners
-    let allJobs = getJobIds [JSIdle] [CTSingle] mm
-    let mapCompleted = getTaskIds allJobs [TTMap] [TSCompleted] mm
-    sequence $ map (startSingleCombiner) mapCompleted
-    
-    -- handle the jobs with multiple combiners
-    let allJobs = getJobIds [JSIdle] [CTMultiple] mm
-    
-    for every Job... Partition Combiners
-    let mapNotFinished = getTaskIds myJob [TTMap] [TSIdle, TSInProgress, TSCompleted] mm
-    let mapFinished = getTaskIds myJob [TTMap] [TSFinished] mm
-    
-    if (null mapNotFinished) then
-      partition and set combiners to idle
-    
-    return mm
+    putStrLn "starting Task"
+    putStrLn "TaskData:"
+    putStrLn $ show td
+    return TSRSend
 
-startReducers :: MasterMaps -> IO (MasterMaps)
-startReducers mm
+
+printJobResult :: MVar JobResult -> IO ()
+printJobResult mVarRes
   = do
-    -- handle jobs with no combiners
+    forkIO $
+      withMVar mVarRes $ 
+        \(JobResult outs) -> 
+        do
+        putStrLn "RESULT:" 
+        putStrLn $ show (decodeResult outs)
+    return ()
+    where
+      decodeResult :: [FunctionData] -> [(String, Integer)]
+      decodeResult ls = decodeTupleList ls
 
 
-schedule :: MasterData -> IO ()
-schedule md
-  = do
-    md' <- modifyMVar (md_Maps md) $
-      \mm ->
-      do
-      -- for all jobs we keep the weasel running...
-      let allJobs      = getJobIds [JSIdle] mm 
-      let allIdle      = getTaskIds allJobs allTypes [TSIdle] mm
-      let allCompleted = getTaskIds allJobs allTypes [TSCompleted] mm
-      
-      -- assign idle Tasks
-      mm' <- assignTasks allIdle mm
-      -- set finished and stop other workers
-      mm'' <- setFinished allCompleted mm'
-      
-      -- start combiners
-      mm''' <- startCombiners mm''
-      
-      -- start reducers
-      mm'''' <- startReducers mm'''
-      
-      return (mm'''', md)
-    threadDelay 1000000 -- 1.0 sec
-    schedule md'
--}
 -- ----------------------------------------------------------------------------
 -- typeclass instanciation
 -- ----------------------------------------------------------------------------
@@ -390,7 +342,6 @@ instance Master MasterData where
         return (mm'', (wid, md))        
 
 
---unregisterNode :: M.NodeId -> ControllerData -> IO ControllerData
   unregisterWorker workerId md
     = do
       modifyMVar (md_Maps md) $
@@ -400,25 +351,40 @@ instance Master MasterData where
         return (mm', md) 
 
 
-  startJob _ md
+  addJob ji md
     = do
+      r <- startJob ji (md_JobController md)
+      case r of
+        (Left m) -> putStrLn m
+        (Right (_,res)) -> printJobResult res
       return md
-{-      modifyMVar (md_Maps md) $
-        \mm ->
-        do
-        jd <- newJobData ji
-        let mm' = addJob jd mm
-        return (mm', md)
+      
+
+  doSingleStep md
+    = do
+      putStrLn "doSingleStep"
+      singleStepJobControlling (md_JobController md)
+      return md
 
 
-        let wp = lookupWorkerPort 1 mm
-        case wp of 
-          (Nothing) -> return (mm, md)
-          (Just p) ->
-            do
-            td <- newTaskData 1 TTMap "foo" "foo_out" "WORDCOUNT"
-            WC.startTask td p            
--}
+  receiveTaskCompleted td md
+    = do
+      putStrLn "Task completed"
+      putStrLn "TaskData:"
+      putStrLn $ show td
+      setTaskCompleted (md_JobController md) td
+      -- TODO inform other workers
+      return md
+
+
+  receiveTaskError td md
+    = do
+      putStrLn "Task error"
+      putStrLn "TaskData:"
+      putStrLn $ show td
+      setTaskError (md_JobController md) td
+      -- TODO inform other workers
+      return md
 
 
   printDebug md

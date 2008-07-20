@@ -50,15 +50,13 @@ module Holumbus.Distribution.Messages
 where
 
 
-import Data.Binary
+import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 
 import qualified Holumbus.Network.Port as P
 import qualified Holumbus.Network.Site as Site
-import Holumbus.Network.Messages
-
-import Holumbus.MapReduce.Types
-import Holumbus.MapReduce.JobController
+import           Holumbus.Network.Messages
+import           Holumbus.MapReduce.Types
 
 -- ----------------------------------------------------------------------------
 --
@@ -118,23 +116,32 @@ decodeWorkerResponsePort = decodeMaybe
 data MasterRequestMessage 
   = MReqRegister Site.SiteId WorkerRequestPort
   | MReqUnregister WorkerId
-  | MReqStartJob JobInfo
+  | MReqAddJob JobInfo
+  | MReqSingleStep
+  | MReqTaskCompleted TaskData
+  | MReqTaskError TaskData
   | MReqUnknown
   deriving (Show)
 
 
 instance Binary MasterRequestMessage where
-  put (MReqRegister s p) = putWord8 1 >> put s >> put p
-  put (MReqUnregister n) = putWord8 2 >> put n
-  put (MReqStartJob ji)  = putWord8 3 >> put ji
-  put (MReqUnknown)      = putWord8 0
+  put (MReqRegister s p)     = putWord8 1 >> put s >> put p
+  put (MReqUnregister n)     = putWord8 2 >> put n
+  put (MReqAddJob ji)        = putWord8 3 >> put ji
+  put (MReqSingleStep)       = putWord8 4
+  put (MReqTaskCompleted td) = putWord8 5 >> put td
+  put (MReqTaskError td)     = putWord8 6 >> put td
+  put (MReqUnknown)          = putWord8 0
   get
     = do
       t <- getWord8
       case t of
-        1  -> get >>= \s -> get >>= \p -> return (MReqRegister s p) 
-        2  -> get >>= \n -> return (MReqUnregister n)
-        3  -> get >>= \ji-> return (MReqStartJob ji)
+        1 -> get >>= \s -> get >>= \p -> return (MReqRegister s p) 
+        2 -> get >>= \n -> return (MReqUnregister n)
+        3 -> get >>= \ji-> return (MReqAddJob ji)
+        4 -> return (MReqSingleStep)
+        5 -> get >>= \td -> return (MReqTaskCompleted td)
+        6 -> get >>= \td -> return (MReqTaskError td) 
         _ -> return (MReqUnknown)
 
 

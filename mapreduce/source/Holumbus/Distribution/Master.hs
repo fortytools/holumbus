@@ -39,6 +39,12 @@ class Master m where
   
   unregisterWorker :: M.WorkerId -> m -> IO m
 
-  startJob :: T.JobInfo -> m -> IO m
+  addJob :: T.JobInfo -> m -> IO m
+
+  doSingleStep :: m -> IO m
+
+  receiveTaskCompleted :: T.TaskData -> m -> IO m
+
+  receiveTaskError :: T.TaskData -> m -> IO m
 
   printDebug :: m -> IO ()
