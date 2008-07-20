@@ -300,7 +300,7 @@ fromJobStatetoTaskType _         = Nothing
 
 
 
-type OutputMap = AMap.AccuMap JobState (Int, [FunctionData])
+type OutputMap = Map.Map JobState (AMap.AccuMap Int FunctionData)
 
 
 -- | defines a job, this is all data the user has to give to run a job

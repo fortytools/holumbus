@@ -23,6 +23,7 @@ module Holumbus.MapReduce.AccuMap
 , lookup
 , member
 , deleteKey
+, union
 , toList
 , fromList
 , fromTupleList
@@ -81,6 +82,10 @@ member k m = [] == lookup k m
 
 deleteKey :: (Ord k) => k -> AccuMap k a -> AccuMap k a
 deleteKey k (AM m) = AM $ Map.delete k m
+
+
+union :: (Ord k) => AccuMap k a -> AccuMap k a -> AccuMap k a
+union (AM m1) (AM m2) = AM $ Map.unionWith (\l1 l2 -> l1 ++ l2) m1 m2 
 
 
 toList :: (Ord k) => AccuMap k a -> [(k,[a])]

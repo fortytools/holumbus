@@ -100,8 +100,11 @@ partitionWordCount _ ls
   = do
     putStrLn "partitionCountWords"
     putStrLn $ show ls
-    -- let ls' = (AMap.toList $ AMap.fromList ls)
-    return [(1,ls)] 
+    -- calculate partition-Values
+    let markedList = map (\t@(k,_) ->  (length k,t)) ls
+    -- merge them
+    let resultList = AMap.toList $ AMap.fromTupleList markedList
+    return resultList
 
 
 -- ----------------------------------------------------------------------------

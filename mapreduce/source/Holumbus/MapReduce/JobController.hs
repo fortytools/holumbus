@@ -76,11 +76,10 @@ newJobData jcd info
     let jrc = JobResultContainer mVar 
     let jid = jcd_NextJobId jcd
     let jcd' = jcd { jcd_NextJobId = (jid+1) }
-    let bout = encodeTupleList (ji_Input info)
-    --TODO
-    let outputMap = AMap.insertList JSIdle [(1,bout)] AMap.empty
+    let pairs = zip (iterate (+1) 1) (map (\i -> [i]) $ encodeTupleList (ji_Input info))
+    let accuMap = AMap.fromList pairs
+    let outputMap = Map.insert JSIdle accuMap Map.empty
     return (jcd', JobData jid JSIdle outputMap info t t jrc, mVar)
-
 
 newTaskData 
   :: JobControllerData 
@@ -343,6 +342,13 @@ updateJob jd jcd = addJob jd $ maybe (jcd) (\_ -> changeJobState jid js jcd) may
     js = jd_State jd
 
 
+addOutputToJob :: [(Int,[FunctionData])] -> JobData -> JobData
+addOutputToJob outList jd = jd { jd_OutputMap = outputmap' }  
+  where
+  outAccu    = AMap.fromList outList
+  state      = jd_State jd
+  outputmap  = jd_OutputMap jd
+  outputmap' = Map.insertWith (\m1 m2 -> AMap.union m1 m2) state outAccu outputmap 
 
 addTask :: JobControllerData -> TaskData -> JobControllerData
 addTask jcd td= jcd { jcd_TaskMap = tm', jcd_JobIdTaskIdMap = jtm', jcd_TypeTaskIdMap = ttm', jcd_StateTaskIdMap = stm' }
@@ -375,6 +381,7 @@ updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
     where
     td' = td { td_Output = o }  -- change TaskData
     tm' = Map.insert tid td' (jcd_TaskMap jcd) -- change TaskData
+
 
 -- ----------------------------------------------------------------------------
 -- Info an Debug
@@ -477,9 +484,9 @@ sendTask jcd td
 finishTask :: JobControllerData -> TaskData -> JobControllerData
 finishTask jcd td = toNextTaskState jcd' td
   where
-    jd = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
-    outputMap = AMap.insertList (jd_State jd) (td_Output td) (jd_OutputMap jd) 
-    jcd' = updateJob (jd {jd_OutputMap = outputMap}) jcd 
+    jd  = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
+    jd' = addOutputToJob (td_Output td) jd  
+    jcd' = updateJob jd' jcd 
 
 
 handleTasks :: JobController -> IO ()
@@ -553,25 +560,21 @@ createTasks jcd jd
     let state = jd_State jd
     let outputMap = (jd_OutputMap jd)
     -- our input is the output of the previous state
-    let inputList = AMap.lookup (getPrevJobState state) outputMap
+    let inputAccu = maybe (AMap.empty) (id) $ Map.lookup (getPrevJobState state) outputMap
     if (hasPhase jd)
       then do
-        -- TODO do partitioning here and better file naming
-        -- sortedInputs <- performPartition jcd jd inputList
-        
+        let inputList = AMap.toList inputAccu                
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        -- TODO
         (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle i a) jcd inputList
-        -- taskDatas <- mapM (\i -> newTaskData jid tt TSIdle i a) inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
         return jcd''
       else do
         -- there is no action in this state, so we copy the input to the output
-        let outputMap' = AMap.insertList state inputList outputMap 
+        let outputMap' = Map.insert state inputAccu outputMap 
         let jd' = jd { jd_OutputMap = outputMap' }
         return $ updateJob jd' jcd
 
@@ -579,7 +582,8 @@ createTasks jcd jd
 createResults :: JobControllerData -> JobData -> IO JobControllerData
 createResults jcd jd
   = do
-    let outputList = AMap.lookup JSCompleted (jd_OutputMap jd)
+    let outputAccu = maybe (AMap.empty) (id) $ Map.lookup JSCompleted (jd_OutputMap jd)
+    let outputList = AMap.toList outputAccu
     let (JobResultContainer mVarResult) = jd_Result jd
     let res = JobResult $ concat $ map (snd) outputList
     putMVar mVarResult res
