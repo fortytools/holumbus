@@ -39,8 +39,7 @@ library
   hs-source-dirs: 
                   source
   exposed-modules:  
-                  Holumbus.Distribution.UserInterface
-                , Holumbus.Distribution.Distribution
+                  Holumbus.Distribution.Distribution
                 , Holumbus.Distribution.Messages
                 , Holumbus.Distribution.Worker
                 , Holumbus.Distribution.Worker.WorkerData
@@ -49,14 +48,15 @@ library
                 , Holumbus.Distribution.Master.MasterData
                 , Holumbus.Distribution.Master.MasterPort
                 , Holumbus.Standalone.Standalone
-                , Holumbus.Standalone.UserInterface
                 , Holumbus.MapReduce.AccuMap                
                 , Holumbus.MapReduce.MultiMap
-                , Holumbus.MapReduce.TaskProcessor
+                , Holumbus.MapReduce.MapReduce
                 , Holumbus.MapReduce.JobController
+                , Holumbus.MapReduce.TaskProcessor
                 , Holumbus.MapReduce.Types
                 , Holumbus.MapReduce.TypeCheck
                 , Holumbus.MapReduce.Demo
+                , Holumbus.MapReduce.UserInterface
                 , Holumbus.FileSystem.UserInterface
                 , Holumbus.FileSystem.FileSystem
                 , Holumbus.FileSystem.Storage

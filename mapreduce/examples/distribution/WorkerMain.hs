@@ -23,7 +23,7 @@ import qualified Holumbus.Network.Port as Port
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Worker.WorkerData as W
 import qualified Holumbus.Distribution.Distribution as D
-import qualified Holumbus.Distribution.UserInterface as UI
+import qualified Holumbus.MapReduce.UserInterface as UI
 
 
 version :: String

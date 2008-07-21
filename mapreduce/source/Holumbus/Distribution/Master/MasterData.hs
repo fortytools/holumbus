@@ -402,6 +402,9 @@ instance Master MasterData where
         putStrLn $ prettyRecordLine gap "SiteMap:" (mm_SiteMap mm)
         putStrLn $ prettyRecordLine gap "Last NodeId:" (mm_WorkerId mm)
         putStrLn $ prettyRecordLine gap "JobMapMap:" (mm_JobMap mm)
+        putStrLn $ "JobController:"
+        jc <- printJobController (md_JobController md)
+        putStrLn jc
       where
         gap = 20
         

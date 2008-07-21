@@ -22,7 +22,7 @@ import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.MapReduce.Demo as DEMO
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.Standalone.Standalone as SA
-import qualified Holumbus.Standalone.UserInterface as UI
+import qualified Holumbus.MapReduce.UserInterface as UI
 
 
 version :: String

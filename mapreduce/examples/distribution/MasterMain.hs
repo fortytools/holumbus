@@ -17,13 +17,14 @@ module Main(main) where
 
 import Control.Exception
 
-import Holumbus.Common.Logging
-import Holumbus.Network.Site
+import           Holumbus.Common.Logging
+import           Holumbus.Network.Site
 import qualified Holumbus.Network.Port as Port
+import qualified Holumbus.MapReduce.Demo as DEMO
 import qualified Holumbus.Distribution.Master.MasterData as Master
 import qualified Holumbus.Distribution.Master as MC
 import qualified Holumbus.Distribution.Distribution as D
-import qualified Holumbus.Distribution.UserInterface as UI
+import qualified Holumbus.MapReduce.UserInterface as UI
 
 
 version :: String
@@ -48,7 +49,9 @@ initializeData
     sid <- getSiteId
     putStrLn $ "initialising master on site" ++ show sid 
     putStrLn "-> master-port"
-    master <- Master.newMaster
+    let maps = DEMO.demoMapActions
+    let reduces = DEMO.demoReduceActions
+    master <- Master.newMaster maps reduces
     let port = MC.getMasterRequestPort master
     Port.writePortToFile port "master.port"
     putStrLn "-> distribution"

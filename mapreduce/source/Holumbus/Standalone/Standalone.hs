@@ -21,23 +21,17 @@ module Holumbus.Standalone.Standalone
 -- * Creation and Initialisation
 , newStandalone
 , closeStandalone
-
-, addJob
-, doSingleStep
-  
-, printDebug
 )
 where
 
-import Control.Concurrent
+import           Control.Concurrent
 
 import qualified Holumbus.FileSystem.FileSystem as FS
-
-import Holumbus.MapReduce.Types
-import Holumbus.MapReduce.JobController
-import Holumbus.MapReduce.TaskProcessor
-
-
+import           Holumbus.MapReduce.Types
+import           Holumbus.MapReduce.JobController
+import           Holumbus.MapReduce.TaskProcessor
+import           Holumbus.MapReduce.MapReduce
+import           Holumbus.Network.Site
 
 
 -- ----------------------------------------------------------------------------
@@ -50,7 +44,8 @@ data StandaloneData = StandaloneData {
   , sad_TaskProcessor :: TaskProcessor
   }
 
-type Standalone = MVar StandaloneData
+
+data Standalone = Standalone (MVar StandaloneData)
 
 
 sendStartTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
@@ -61,6 +56,7 @@ sendStartTask tp td
     putStrLn $ show td
     startTask td tp
     return TSRSend
+
 
 sendTaskCompleted :: JobController -> TaskData -> IO Bool
 sendTaskCompleted jc td
@@ -110,11 +106,12 @@ newStandalone mm rm
     startTaskProcessor tp
     
     let sad = StandaloneData jc tp
-    newMVar sad 
+    sa <- (newMVar sad)
+    return (Standalone sa) 
 
 
 closeStandalone :: Standalone -> IO ()
-closeStandalone sa
+closeStandalone (Standalone sa)
   = do
     modifyMVar sa $
       \sad ->
@@ -137,50 +134,59 @@ printJobResult mVarRes
       decodeResult :: [FunctionData] -> [(String, Integer)]
       decodeResult ls = decodeTupleList ls
 
-addJob :: JobInfo -> Standalone -> IO ()
-addJob ji sa
-  = do
-    modifyMVar sa $
-      \sad ->
-      do
-      r <- startJob ji (sad_JobController sad)
-      case r of
-        (Left m) -> putStrLn m
-        (Right (_,res)) -> printJobResult res
-      return (sad, ())
 
 
-doSingleStep :: Standalone -> IO ()
-doSingleStep sa
-  = do
-    modifyMVar sa $
-      \sad ->
-      do
-      putStrLn "doSingleStep"
-      singleStepJobControlling (sad_JobController sad)
-      return (sad, ())
+-- ----------------------------------------------------------------------------
+-- Typeclass instanciation
+-- ----------------------------------------------------------------------------
+
+instance MapReduce Standalone where
+
+  getMySiteId _
+    = do
+      getSiteId
+
+  addJob ji (Standalone sa)
+    = do
+      withMVar sa $
+        \sad ->
+        do
+        r <- startJob ji (sad_JobController sad)
+        case r of
+          (Left m) -> putStrLn m
+          (Right (_,res)) -> printJobResult res
+        return ()
+
+
+  doSingleStep (Standalone sa)
+    = do
+      withMVar sa $
+        \sad ->
+        do
+        putStrLn "doSingleStep"
+        singleStepJobControlling (sad_JobController sad)
+        return ()
       
 
-printDebug :: Standalone -> IO ()
-printDebug sa
-  = do
-    withMVar sa $
-      \sad ->
-      do
-      putStrLn "--------------------------------------------------------"      
-      putStrLn "Job-Controller"
-      showJC <- printJobController (sad_JobController sad)
-      putStrLn showJC
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Task-Processor"
-      showTP <- printTaskProcessor (sad_TaskProcessor sad)
-      putStrLn $showTP
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Map-Functions"
-      mapFuns <- getMapActions (sad_TaskProcessor sad)
-      putStrLn $ show $ mapFuns
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Reduce-Functions"
-      reduceFuns <- getReduceActions (sad_TaskProcessor sad)
-      putStrLn $ show $ reduceFuns
-      putStrLn "--------------------------------------------------------"
+  printDebug (Standalone sa)
+    = do
+      withMVar sa $
+        \sad ->
+        do
+        putStrLn "--------------------------------------------------------"      
+        putStrLn "Job-Controller"
+        showJC <- printJobController (sad_JobController sad)
+        putStrLn showJC
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Task-Processor"
+        showTP <- printTaskProcessor (sad_TaskProcessor sad)
+        putStrLn $showTP
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Map-Functions"
+        mapFuns <- getMapActions (sad_TaskProcessor sad)
+        putStrLn $ show $ mapFuns
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Reduce-Functions"
+        reduceFuns <- getReduceActions (sad_TaskProcessor sad)
+        putStrLn $ show $ reduceFuns
+        putStrLn "--------------------------------------------------------"

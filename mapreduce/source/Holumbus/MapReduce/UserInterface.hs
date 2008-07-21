@@ -1,6 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
-  Module     : Holumbus.Standalone.UserInterface
+  Module     : Holumbus.MapReduce.UserInterface
   Copyright  : Copyright (C) 2008 Stefan Schmidt
   License    : MIT
 
@@ -13,7 +13,7 @@
 -}
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Standalone.UserInterface
+module Holumbus.MapReduce.UserInterface
 (
 -- * operations
   runUI
@@ -26,7 +26,7 @@ import           Control.Exception
 
 import           Holumbus.Common.Utils
 import qualified Holumbus.Console.Console as Console
-import qualified Holumbus.Standalone.Standalone as S
+import qualified Holumbus.MapReduce.MapReduce as MR
 import qualified Holumbus.MapReduce.Types as T
 
 -- ----------------------------------------------------------------------------
@@ -34,11 +34,11 @@ import qualified Holumbus.MapReduce.Types as T
 -- ----------------------------------------------------------------------------
 
 -- | runs the user interface... just add an fileSystem an a fancy version-number
-runUI :: S.Standalone -> String -> IO ()
-runUI fs version
+runUI :: (MR.MapReduce mr) => mr -> String -> IO ()
+runUI mr version
   = do
     -- starts the console with the specified commands
-    Console.handleUserInput (createConsole version) fs
+    Console.handleUserInput (createConsole version) mr
 
 
 
@@ -47,7 +47,7 @@ runUI fs version
 -- ----------------------------------------------------------------------------
 
 
-createConsole :: String -> Console.ConsoleData (S.Standalone)
+createConsole :: (MR.MapReduce mr) => String -> Console.ConsoleData mr
 createConsole version =
   Console.addConsoleCommand "step" step "perform a single step" $
   Console.addConsoleCommand "addJob" addJob "adds a new job" $
@@ -55,28 +55,29 @@ createConsole version =
   Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
   Console.initializeConsole
-  
-step :: S.Standalone -> [String] -> IO ()
-step s _
+
+ 
+step :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+step mr _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      S.doSingleStep s
+      MR.doSingleStep mr
       return ()
   
   
-addJob :: S.Standalone -> [String] -> IO ()
-addJob s opts
+addJob :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+addJob mr opts
   = do
     handle (\e -> putStrLn $ show e) $
       do
       (mbName,_) <- Console.nextOption opts
       jobInfo <- (loadFromXml (fromJust mbName))::IO T.JobInfo
-      S.addJob jobInfo s
+      MR.addJob jobInfo mr
       return ()
 
 
-parseJob :: S.Standalone -> [String] -> IO ()
+parseJob :: (MR.MapReduce mr) => mr -> [String] -> IO ()
 parseJob _ opts
   = do
     handle (\e -> putStrLn $ show e) $
@@ -87,15 +88,15 @@ parseJob _ opts
       return ()
 
       
-printDebug :: S.Standalone -> [String] -> IO ()
-printDebug s _
+printDebug :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+printDebug mr _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      S.printDebug s
+      MR.printDebug mr
+
   
-  
-printVersion :: String -> S.Standalone -> [String] -> IO ()
+printVersion :: (MR.MapReduce mr) => String -> mr -> [String] -> IO ()
 printVersion version _ _
   = do
     putStrLn version

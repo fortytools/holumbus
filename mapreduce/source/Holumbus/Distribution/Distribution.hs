@@ -26,19 +26,20 @@ module Holumbus.Distribution.Distribution
 
 -- * Operations
 , getMySiteId
--- , startJob
+, addJob
 , printDebug
 )
 where
 
-import Control.Concurrent
-import Data.Binary
+import           Control.Concurrent
+import           Data.Binary
 
-import Holumbus.MapReduce.JobController
+import           Holumbus.MapReduce.Types
+import           Holumbus.MapReduce.MapReduce
 import qualified Holumbus.Distribution.Master as M
 import qualified Holumbus.Distribution.Worker as W
 import qualified Holumbus.Distribution.Worker.WorkerPort as WP
-import Holumbus.Network.Site
+import           Holumbus.Network.Site
 
 
 
@@ -87,45 +88,69 @@ closeDistribution _ = return ()
 -- private helper-functions
 -- ---------------------------------------------------------------------------
 
+{-
+printJobResult :: MVar JobResult -> IO ()
+printJobResult mVarRes
+  = do
+    forkIO $
+      withMVar mVarRes $ 
+        \(JobResult outs) -> 
+        do
+        putStrLn "RESULT:" 
+        putStrLn $ show (decodeResult outs)
+    return ()
+    where
+      decodeResult :: [FunctionData] -> [(String, Integer)]
+      decodeResult ls = decodeTupleList ls
+-}
+
 
 -- ---------------------------------------------------------------------------
 -- public functions
 -- ---------------------------------------------------------------------------
 
+instance MapReduce Distribution where
 
-getMySiteId :: Distribution -> IO (SiteId)
-getMySiteId dist
-  = do 
-    withMVar dist $
-      \(DistributionData s _ _) -> return s
 
-{-
-startJob :: Distribution -> IO ()
-startJob dist
-  = do
-    withMVar dist $
-      \(DistributionData _ m _) -> 
+  getMySiteId dist
+    = do 
+      withMVar dist $
+        \(DistributionData s _ _) -> return s
+
+
+  addJob ji dist
+    = do
+      withMVar dist $
+        \(DistributionData _ m _) ->
         do
-        -- let ji = JobInfo "testjob" (Just "WORDCOUNT") Nothing Nothing ["foo","foo2","foo3"] "foo_out2"
-        -- M.startJob ji m
+        M.addJob ji m
         return ()
--}
+
+
+  doSingleStep dist
+    = do
+      withMVar dist $
+        \(DistributionData _ m _) ->
+        do
+        putStrLn "doSingleStep"
+        M.doSingleStep m
+        return ()
+
     
-printDebug :: Distribution -> IO ()
-printDebug dist
-  = do
-    withMVar dist $
-      \(DistributionData s m w) ->
-      do
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Distribtion - internal data\n"
-      putStrLn "--------------------------------------------------------"
-      putStrLn "SiteId:"
-      putStrLn $ show s
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Master:"
-      M.printDebug m
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Worker:"
-      maybe (putStrLn "NOTHING") (\w' -> W.printDebug w') w
-      putStrLn "--------------------------------------------------------"      
+  printDebug dist
+    = do
+      withMVar dist $
+        \(DistributionData s m w) ->
+        do
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Distribtion - internal data\n"
+        putStrLn "--------------------------------------------------------"
+        putStrLn "SiteId:"
+        putStrLn $ show s
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Master:"
+        M.printDebug m
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Worker:"
+        maybe (putStrLn "NOTHING") (\w' -> W.printDebug w') w
+        putStrLn "--------------------------------------------------------"      
