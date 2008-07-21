@@ -82,6 +82,7 @@ data ProcessState i = ProcessState
 getFuzzyConfig :: HolIndex i => ProcessState i -> FuzzyConfig
 getFuzzyConfig = fuzzyConfig . config
 
+-- | Monadic version of getFuzzyConfig.
 getFuzzyConfigM :: HolIndexM m i => ProcessState i -> m FuzzyConfig
 getFuzzyConfigM s = return $ fuzzyConfig $ config s
 
@@ -89,6 +90,7 @@ getFuzzyConfigM s = return $ fuzzyConfig $ config s
 setContexts :: HolIndex i => [Context] -> ProcessState i -> ProcessState i
 setContexts cs (ProcessState cfg _ i t) = ProcessState cfg cs i t
 
+-- | Monadic version of setContexts.
 setContextsM :: HolIndexM m i => [Context] -> ProcessState i -> m (ProcessState i)
 setContextsM cs (ProcessState cfg _ i t) = return $ ProcessState cfg cs i t
 

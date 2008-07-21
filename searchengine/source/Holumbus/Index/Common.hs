@@ -149,12 +149,12 @@ class (Monad m) => HolIndexM m i where
   lookupCaseM   :: i -> Context -> String -> m RawResult
   -- | Searches for and exact word in a given context (case-insensitive).
   lookupNoCaseM :: i -> Context -> String -> m RawResult
-  
-    -- | Insert occurrences.
+
+  -- | Insert occurrences.
   insertOccurrencesM :: Context -> Word -> Occurrences -> i -> m i
   -- | Delete occurrences.
   deleteOccurrencesM :: Context -> Word -> Occurrences -> i -> m i
-  
+
   -- | Insert a position for a single document.
   insertPositionM :: Context -> Word -> DocId -> Position -> i -> m i
   insertPositionM c w d p i = insertOccurrencesM c w (IM.singleton d (IS.singleton p)) i
@@ -173,7 +173,7 @@ class (Monad m) => HolIndexM m i where
   -- Convert an Index to a list. Can be used for easy conversion between different index  
   -- implementations
   toListM   :: i -> m [(Context, Word, Occurrences)]
-  
+
   -- Create an Index from a a list. Can be used vor easy conversion between different index  
   -- implementations. Needs an empty index as first argument
   fromListM :: i -> [(Context, Word, Occurrences)] -> m i
