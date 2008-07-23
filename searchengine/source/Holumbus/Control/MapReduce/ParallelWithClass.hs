@@ -115,40 +115,43 @@ groupByKey = foldl insert empty
   where
     insert dict (k2,v2) = insertWith (++) k2 [v2] dict
 
-reducePerKey, reducePerKeyParallel, reducePerKeySequential 
-  :: (MapReducible mr k2 v2, Show k2) => Int -> mr -> Map k2 [v2] -> IO (mr)
-reducePerKey = reducePerKeyParallel
---               reducePerKeySequential  
+-- ----------------------------------------------------------------------------
 
+-- | Reads debugging information from Chan and display it. Makes debug information readable even
+--   when multiple threads have something to say
 showLogs :: Chan (String) -> IO ()
 showLogs logChan = do
                    s <- readChan logChan
 --                   putStrLn s
                    showLogs logChan
-                   
-reducePerKeyParallel maxWorkers initialMR m = 
+
+
+-- | Parallel key-wise reduction
+reducePerKey :: (MapReducible mr k2 v2, Show k2) => Int -> mr -> Map k2 [v2] -> IO (mr)
+reducePerKey maxWorkers initialMR m = 
   let input   = partitionListByCount maxWorkers (M.toList m)           -- partition input data
       workers = length input                                           -- get real worker count
   in
   do
-  resChan <- newChan
-  logChan <- newChan
---  forkIO (showLogs logChan)
-  spawnThreads logChan resChan (zip [1..] input) 
-  foldM (\mr (c,a) -> do
-                      res <- readChan resChan
-                      clt <- getClockTime
-                      cat <- toCalendarTime clt
+  resChan <- newChan                                 -- channel where threads will put their results
+  logChan <- newChan                                 -- channel for log messages
+--  forkIO (showLogs logChan)                          -- start log output thread
+  spawnThreads logChan resChan (zip [1..] input)     -- spawn worker threads
+  foldM (\mr (c,a) -> do                             -- get all results from result channel
+                      res <- readChan resChan        
+--                      clt <- getClockTime            
+--                      cat <- toCalendarTime clt      -- get and trace time for debugging
 --                      writeChan logChan ("--  " ++ (calendarTimeToString cat) ++ " processing result " ++ show c ++ " / " ++ show a)
                       if isJust res then mergeMR mr (fromJust res) else return mr
         ) initialMR ( zip [1..workers] (repeat workers) )
   where
-    spawnThreads _ _ [] = return ()
-    spawnThreads logChan resChan l  = do
+    spawnThreads _ _ [] = return ()         -- no more threads to spawn
+    spawnThreads logChan resChan l  = do    -- spawn new thread and make recursive call
                                       runReduceTask logChan resChan initialMR (head l)
                                       spawnThreads logChan resChan (tail l)
 
 
+-- | Run one thread as part of the parallel map phase
 runReduceTask :: (MapReducible mr k2 v2, Show k2) => 
                  Chan (String) -> Chan (Maybe mr) ->  mr -> (Int, [(k2, [v2])]) -> IO ()
 runReduceTask logChan chan initialMR (threadId, input)
@@ -171,20 +174,4 @@ runReduceTask logChan chan initialMR (threadId, input)
       return ()
     ) >> return ()
 
--- | Reduce Phase. The Reduce Phase does not run parallelized.
--- reducePerKey :: (MapReducible mr k2 v2) => mr -> Map k2 [v2] -> IO (mr)
-reducePerKeySequential _ initialMR m
- = rpk 
-    (uncurry (reduceMR initialMR)) 
-    (M.toList m) 
-    initialMR 
-   where
-     rpk :: (MapReducible mr k2 v2) => ((k2, [v2]) -> IO(Maybe mr)) -> [(k2, [v2])] -> mr -> IO(mr)
-     rpk _  [] result = return result
-     rpk rf l  result
-       = do 
-         next <- return $ head l
-         done <- rf next
-         if isJust done
-           then do; merged <- mergeMR result (fromJust done); rpk rf (drop 1 l) merged
-           else rpk rf (drop 1 l) result    
+ 
