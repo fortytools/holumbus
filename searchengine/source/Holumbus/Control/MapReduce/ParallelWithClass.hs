@@ -35,7 +35,10 @@ import           Data.Maybe (isJust, fromJust)
 import           Control.Concurrent
 import           Control.Monad
 
+import           Holumbus.Utility
 import           Holumbus.Control.MapReduce.MapReducible
+
+import           System.Time
 
 type Dict   = Map
 
@@ -43,7 +46,7 @@ type Dict   = Map
 -- ----------------------------------------------------------------------------
 
 -- | MapReduce Computations
-mapReduce :: (Ord k2 , MapReducible mr k2 v2) =>
+mapReduce :: (Ord k2 , MapReducible mr k2 v2, Show k2) =>
                 Int                             -- ^ No. of Threads 
              -> mr                              -- ^ initial value for the result
              -> (k1 ->  v1  -> IO [(k2, v2)])   -- ^ Map function
@@ -61,8 +64,8 @@ mapReduce maxWorkers mr mapFunction input
     grouped  <- return  (groupByKey mapped)  
     
     -- reduce phase
-    runX (traceMsg 0 ("                    reduceByKey "))
-    reducePerKey mr grouped
+    runX (traceMsg 0 ("                    reducePerKey " ))
+    reducePerKey maxWorkers mr grouped
     
 -- ----------------------------------------------------------------------------
 
@@ -75,7 +78,8 @@ parallelMap maxWorkers mapFunction inputData
            parallelMap' chan 0 maxWorkers mapFunction inputData []
       else return []
 
-parallelMap' :: Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) -> [(k1, v1)] -> [(k2, v2)] -> IO [(k2, v2)]
+parallelMap' :: Chan [(k2, v2)] -> Int -> Int -> (k1 ->  v1  -> IO [(k2, v2)]) 
+             -> [(k1, v1)] -> [(k2, v2)] -> IO [(k2, v2)]
 parallelMap' chan activeWorkers maxWorkers mapFunction inputData result
   = do
     if (activeWorkers < maxWorkers) && ((length inputData) > 0)
@@ -97,36 +101,79 @@ parallelMap' chan activeWorkers maxWorkers mapFunction inputData result
 
 runMapTask :: Chan [(k2, v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> (k1, v1) -> IO ()
 runMapTask chan mapFunction (k1, v1)
-  = do 
-    forkIO ( do
+  = forkIO ( do
              res <- catch (mapFunction k1 v1) (\_ -> return $ [])
              writeChan chan res
              return ()
-           )
-    return ()
+           ) >> return ()
 
 -- ----------------------------------------------------------------------------
-{-
--- | Applies the map function to every data in the input list
-mapPerKey :: ((k1,v1)  -> IO [(k2, v2)]) -> [(k1, v1)] -> IO [(k2,v2)]
-mapPerKey _ []     = do return ([])
-mapPerKey mapFunction (x:xs)
-  = do
-    the_x  <- mapFunction x
-    the_xs <- mapPerKey mapFunction xs
-    return $! (the_x ++ the_xs)
-    -- maybe way nicer with mapM
--}    
-    
+
 -- | Groups the output data of the Map phase by the computed keys (k2) 
 groupByKey :: (Ord k2) => [(k2, v2)] -> Dict k2 [v2]
 groupByKey = foldl insert empty
   where
     insert dict (k2,v2) = insertWith (++) k2 [v2] dict
 
+reducePerKey, reducePerKeyParallel, reducePerKeySequential 
+  :: (MapReducible mr k2 v2, Show k2) => Int -> mr -> Map k2 [v2] -> IO (mr)
+reducePerKey = reducePerKeyParallel
+--               reducePerKeySequential  
+
+showLogs :: Chan (String) -> IO ()
+showLogs logChan = do
+                   s <- readChan logChan
+--                   putStrLn s
+                   showLogs logChan
+                   
+reducePerKeyParallel maxWorkers initialMR m = 
+  let input   = partitionListByCount maxWorkers (M.toList m)           -- partition input data
+      workers = length input                                           -- get real worker count
+  in
+  do
+  resChan <- newChan
+  logChan <- newChan
+--  forkIO (showLogs logChan)
+  spawnThreads logChan resChan (zip [1..] input) 
+  foldM (\mr (c,a) -> do
+                      res <- readChan resChan
+                      clt <- getClockTime
+                      cat <- toCalendarTime clt
+--                      writeChan logChan ("--  " ++ (calendarTimeToString cat) ++ " processing result " ++ show c ++ " / " ++ show a)
+                      if isJust res then mergeMR mr (fromJust res) else return mr
+        ) initialMR ( zip [1..workers] (repeat workers) )
+  where
+    spawnThreads _ _ [] = return ()
+    spawnThreads logChan resChan l  = do
+                                      runReduceTask logChan resChan initialMR (head l)
+                                      spawnThreads logChan resChan (tail l)
+
+
+runReduceTask :: (MapReducible mr k2 v2, Show k2) => 
+                 Chan (String) -> Chan (Maybe mr) ->  mr -> (Int, [(k2, [v2])]) -> IO ()
+runReduceTask logChan chan initialMR (threadId, input)
+  = forkIO                                                                -- spawn new thread
+    ( do                                                    
+      res <- catch                                                        -- catch exception so the
+             ( do                                                         -- MapReduce can continue
+               r <- foldM (  \mr (k2, v2s)                               -- if one worker fails
+                           -> do
+                              writeChan logChan ("--    rEDUCE: thread " ++ show threadId ++ " processing " ++ show k2)
+                              val   <- reduceMR initialMR k2 v2s           -- apply rEDUCE function
+                              if isJust val                                -- process result
+                                 then mergeMR mr (fromJust val)
+                                 else return mr
+                          ) initialMR input
+               return $! Just r
+             ) 
+             (\_ -> return Nothing)  
+      writeChan chan res                                                  -- write result to channel  
+      return ()
+    ) >> return ()
+
 -- | Reduce Phase. The Reduce Phase does not run parallelized.
-reducePerKey :: (MapReducible mr k2 v2) => mr -> Map k2 [v2] -> IO (mr)
-reducePerKey initialMR m
+-- reducePerKey :: (MapReducible mr k2 v2) => mr -> Map k2 [v2] -> IO (mr)
+reducePerKeySequential _ initialMR m
  = rpk 
     (uncurry (reduceMR initialMR)) 
     (M.toList m) 
@@ -139,5 +186,5 @@ reducePerKey initialMR m
          next <- return $ head l
          done <- rf next
          if isJust done
-           then rpk rf (drop 1 l) (mergeMR result (fromJust done))
+           then do; merged <- mergeMR result (fromJust done); rpk rf (drop 1 l) merged
            else rpk rf (drop 1 l) result    
