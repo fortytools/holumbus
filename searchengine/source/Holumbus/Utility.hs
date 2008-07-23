@@ -72,9 +72,18 @@ strictDecodeFile f  =
 
 -- | partition the list of input data into a list of input data lists of
 --   approximately the same length
-partitionList :: Int -> [a] -> [[a]]
-partitionList _ [] = []
-partitionList count l  = [take count l] ++ (partitionList count (drop count l)) 
+partitionListByLength :: Int -> [a] -> [[a]]
+partitionListByLength _ [] = []
+partitionListByLength count l  = [take count l] ++ (partitionListByLength count (drop count l)) 
+
+partitionListByCount :: Int -> [a] -> [[a]]
+partitionListByCount sublistCount list = partition sublistCount list
+  where
+  partition 0 _ = []
+  partition sublists l 
+    = let next = ((length l) `div` sublists)
+      in  if next == 0  then [l]
+                        else [take next l] ++ partition (sublists -1) (drop next l)
 
 -- | Escapes non-alphanumeric or space characters in a String
 escape :: String -> String 
