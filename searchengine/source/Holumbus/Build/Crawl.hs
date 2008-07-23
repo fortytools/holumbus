@@ -50,7 +50,9 @@ import           Data.Digest.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
 import           Holumbus.Build.Config
-import           Holumbus.Control.MapReduce.Parallel
+import           Holumbus.Control.MapReduce.ParallelWithClass -- Persistent
+import           Holumbus.Control.MapReduce.MapReducible
+
 import           Holumbus.Index.Common
 import           Holumbus.Utility
 
@@ -61,6 +63,14 @@ import           System.Time
 
 -- import Control.Parallel.Strategies
 
+type MD5Hash = String
+
+
+instance (Binary a, HolDocuments d a) => MapReducible (CrawlerState d a) () (String, Maybe (Document a), S.Set URI)
+  where 
+  reduceMR     = processCrawlResults
+  mergeMR _ cs = return cs
+         
 crawlFileSystem :: HolDocuments d Int =>  [FilePath] -> (FilePath -> Bool) -> d Int -> IO (d Int)
 crawlFileSystem startPages docFilter emptyDocuments 
   = do
@@ -87,41 +97,51 @@ crawlFileSystem' docFilter path
 
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.
-crawl :: (HolDocuments d a, Binary a, Binary (d a), XmlPickler (d a)) => Int -> Int -> Int -> CrawlerState d a -> IO (d a)
+crawl :: (Show a, HolDocuments d a, Binary a, Binary (d a), XmlPickler (d a)) => Int -> Int -> Int -> CrawlerState d a -> IO (d a)
 crawl traceLevel maxWorkers maxDocs cs = 
   if S.null ( cs_toBeProcessed cs ) -- if no more documents have to be processed, 
     then return (cs_docs cs)        -- the Documents are returned
     else do                         -- otherwise, the crawling is continued
                  -- get the Docs that have to be processed and add docIds
                  -- for the MapReduce Computation
-         d    <- return $ (S.fromList . (take maxDocs) . S.toList) (cs_toBeProcessed cs)
-         d'   <- return $ zip (cs_unusedDocIds cs) (S.toList d) -- (S.toList $ cs_toBeProcessed cs)
+         d    <- return $ if maxDocs == 0 
+                            then cs_toBeProcessed cs
+                            else (S.fromList . (take maxDocs) . S.toList) (cs_toBeProcessed cs)
+         d'   <- return $ zip [(cs_nextDocId cs)..] (S.toList d) -- (S.toList $ cs_toBeProcessed cs)
          
-         saveCrawlerState "/tmp/CrawlerState.bin" cs
-         writeToXmlFile   "/tmp/Docs.xml" (cs_docs cs)
+--         saveCrawlerState ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "CrawlerState.bin") cs
+--         writeToXmlFile   ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "Docs.xml") (cs_docs cs)
                                       
          runX (traceMsg 0 ("          Status: already processed: " ++ show (S.size $ cs_wereProcessed cs) ++ 
                            ", to be processed: "   ++ show (S.size $ cs_toBeProcessed cs)))
          
-         cs'  <- return $ cs { cs_unusedDocIds  = drop (S.size d) (cs_unusedDocIds cs)
+         cs'  <- return $ cs { cs_nextDocId = cs_nextDocId cs + length d'
                              , cs_wereProcessed = S.union d (cs_wereProcessed cs)
                              , cs_toBeProcessed = S.difference (cs_toBeProcessed cs) d
                              }
 
-         mr   <- mapReduce maxWorkers (crawlDoc traceLevel cs) (processCrawlResults cs') d' 
-                             
-         crawl traceLevel maxWorkers maxDocs (snd $ M.elemAt 0 mr)
-
-
+         let attrs     = cs_readAttributes cs 
+             tmpPath   = cs_tempPath cs
+             getRefs   = cs_fGetReferences cs
+             getCustom = cs_fGetCustom cs 
+         
+         csnew   <- mapReduce maxWorkers 
+--                              (cs_crawlerTimeOut cs) 
+--                              (fromMaybe "/tmp/" (cs_tempPath cs)  ++ "crawl") 
+                              cs' 
+                              (crawlDoc traceLevel attrs tmpPath getRefs getCustom)
+                              d' 
+                               
+         crawl traceLevel maxWorkers maxDocs csnew -- (snd $ M.elemAt 0 mr)
 
 
 -- | The REDUCE function for the crawling MapReduce computation. The 'Documents' and their contained
 --   links are used to modify the 'CrawlerState'. New documents are added to the list of 
 --   unprocessed docs and the data of the already crawled documents are added to the 'Documents'. 
 processCrawlResults :: (HolDocuments d a, Binary a) => 
-                       CrawlerState d a                 -- ^ state before last MapReduce computation
-                    -> Int                     -- ^
-                    -> [(String, Maybe (Document a), S.Set URI)]  -- ^ data produced in the crawl phase
+                       CrawlerState d a                           -- ^ state before last MapReduce job
+                    -> ()                                         -- ^
+                    -> [(MD5Hash, Maybe (Document a), S.Set URI)]  -- ^ data produced in the crawl phase
                     -> IO (Maybe (CrawlerState d a))
 processCrawlResults oldCs _ l = 
   do 
@@ -176,40 +196,40 @@ processCrawlResults oldCs _ l =
 -- | Wrapper function for the "real" crawlDoc functions. The current time is
 --   traced (to identify documents that take a lot of time to be processed while
 --   testing) and the crawlDoc'-arrow is run
-crawlDoc :: (HolDocuments d a, Binary a) => 
+crawlDoc :: (Binary a, Show a) => 
             Int 
-         -> CrawlerState d a
+         -> Attributes
+         -> Maybe String
+         -> IOSArrow XmlTree [URI]
+         -> Custom a
          -> DocId 
          -> String 
-         -> IO [(Int, (String, Maybe (Document a), S.Set URI))]
-crawlDoc traceLevel cs docId theUri 
-  = let attrs     = cs_readAttributes cs 
-        tmpPath   = cs_tempPath cs
-        getRefs   = cs_fGetReferences cs
-        getCustom = cs_fGetCustom cs 
-    in
-    do
+         -> IO [((), (MD5Hash, Maybe (Document a), S.Set URI))]
+crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri 
+  = do
     clt <- getClockTime               -- get Clock Time for debugging
     cat <- toCalendarTime clt         -- and convert it to "real" date and time
-    runX (     setTraceLevel traceLevel
-           >>> traceMsg 1 (calendarTimeToString cat)  
-           >>> (     constA 42        -- this is needed to fit the MapReduce abstraction
-                 &&& crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) 
-               )
-           >>^ (\(i, (h, d, u)) -> (i, (h, d, S.fromList u)))       
-          ) 
+    r <- runX (     setTraceLevel traceLevel
+               >>> traceMsg 1 (calendarTimeToString cat)  
+               >>> (     constA ()        -- this is needed to fit the MapReduce abstraction
+                     &&& crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) 
+                   )
+               >>^ (\(i, (h, d, u)) -> (i, (h, d, S.fromList u)))       
+              )
+--    putStrLn (show r)
+    return $ r 
 
 -- | Download & read document and compute document title and included refs to
 --   other documents 
-crawlDoc' :: (Binary b) =>
+crawlDoc' :: (Binary a) =>
      Int
   -> Attributes    -- ^ options for readDocument
   -> Maybe String  -- ^ path for serialized tempfiles
   -> IOSArrow XmlTree [URI]
 --  -> [String]
-  -> Custom b
+  -> Custom a
   -> (DocId, URI)   -- ^ DocId, URI
-  -> IOSArrow c (String, Maybe (Document b), [URI])
+  -> IOSArrow c (String, Maybe (Document a), [URI])
 crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
     >>> withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
