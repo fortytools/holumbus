@@ -42,7 +42,7 @@ import           Data.Maybe
 import           Control.Monad
 
 import           Holumbus.Build.Config
-import           Holumbus.Control.MapReduce.ParallelWithClassPersistent
+import           Holumbus.Control.MapReduce.ParallelWithClass -- Persistent
 import           Holumbus.Index.Common
 import           Holumbus.Utility
 
@@ -65,8 +65,8 @@ buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
        -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 
                     workerThreads
-                    (ic_indexerTimeOut idxConfig)
-                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
+--                    (ic_indexerTimeOut idxConfig)
+--                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
                     emptyIndex
                     (computeOccurrences traceLevel 
                               (isJust $ ic_tempPath idxConfig)
@@ -91,8 +91,8 @@ buildIndexM workerThreads traceLevel docs idxConfig emptyIndex cache
        -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 
                     workerThreads
-                    (ic_indexerTimeOut idxConfig)
-                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
+--                    (ic_indexerTimeOut idxConfig)
+--                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
                     emptyIndex
                     (computeOccurrences traceLevel 
                               (isJust $ ic_tempPath idxConfig)
