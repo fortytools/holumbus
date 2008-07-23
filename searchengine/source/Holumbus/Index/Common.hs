@@ -133,7 +133,7 @@ type Positions     = IntSet
 -- | The raw result returned when searching the index.
 type RawResult     = [(Word, Occurrences)]
 
-class (Monad m) => HolIndexM m i where
+class (Monad m, MapReducible i (Context, Word) Occurrences ) => HolIndexM m i where
   -- | Returns the number of unique words in the index.
   sizeWordsM    :: i -> m Int
   -- | Returns a list of all contexts avaliable in the index.
@@ -250,6 +250,9 @@ class Binary (d a) => HolDocuments d a where
   -- table that were replaced with new id's to avoid collisions.
   mergeDocs     :: d a -> d a -> ([(DocId, DocId)], d a)
 
+  -- | Return an empty document table. The input parameter is taken to identify the typeclass
+  makeEmpty     :: d a -> d a
+  
   -- | Insert a document into the table. Returns a tuple of the id for that document and the 
   -- new table. If a document with the same URI is already present, its id will be returned 
   -- and the table is returned unchanged.
