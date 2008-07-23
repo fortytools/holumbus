@@ -22,7 +22,7 @@ module Holumbus.Build.Index
   (
   -- * Building indexes
     buildIndex
-  , buildSplitIndex
+  , buildIndexM
   
   -- * Indexer Configuration
   , IndexerConfig (..)
@@ -38,81 +38,19 @@ import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 import           Data.Maybe
 
-import           Control.Exception
+-- import           Control.Exception
 import           Control.Monad
-import           Control.Parallel.Strategies
 
 import           Holumbus.Build.Config
 import           Holumbus.Control.MapReduce.ParallelWithClassPersistent
 import           Holumbus.Index.Common
-import           Holumbus.Index.Cache
 import           Holumbus.Utility
 
 import           System.Time
 
 import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
-import           Text.XML.HXT.Arrow.XPathSimple --(getXPathTrees)
--- -----------------------------------------------------------------------------
 
-buildSplitIndex :: ( NFData i, HolDocuments d a, HolIndex i, XmlPickler i )=>
-     Int
-  -> Int
-  -> d a
-  -> IndexerConfig
-  -> i
-  -> Bool
-  -> Int
-  -> IO [String]
-buildSplitIndex workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
-    in  buildSplitIndex' workerThreads traceLevel docs' idxConfig emptyIndex buildCaches maxDocs
-     
-    
-buildSplitIndex' :: (NFData i, HolIndex i, XmlPickler i) =>
-     Int
-  -> Int
-  -> [(DocId, URI)]
-  -> IndexerConfig
-  -> i
-  -> Bool
-  -> Int
-  -> IO [String]
-buildSplitIndex' workerThreads traceLevel docs idxConfig emptyIndex buildCaches maxDocs
-  = do
-    return $ assert ((sizeWords emptyIndex) == 0) Nothing  
-    indexCount <- return $ ((length docs) `div` maxDocs) + 1 -- wrong
-    docLists   <- return $ partitionList maxDocs docs
-    configs    <- return $ map (\i -> idxConfig {ic_idxPath = (fromMaybe "/tmp/" (ic_tmpPath idxConfig)) ++ (show i) }) [1..indexCount]
-    pathes     <- mapM build (zip configs docLists) -- caches)
-    mergeCaches' ((ic_idxPath idxConfig) ++ "-cache.db") (map (\(i,cfg) -> (fromMaybe "/tmp/" (ic_tmpPath cfg)) ++ show i ++"-cache.db") (zip ([1..indexCount]) configs)) 
-    return $ pathes
-    where
-      mergeCaches' :: String -> [String] -> IO ()
-      mergeCaches' newCache oldCaches 
-        = do
-          new <- createCache newCache
-          foldM mergeCaches'' new oldCaches 
-          return()                           
-      mergeCaches'' :: Cache -> String -> IO Cache
-      mergeCaches'' c1 s 
-        = do
-          c2 <- createCache s
-          mergeCaches c1 c2
-      build :: (IndexerConfig, [(DocId, URI)]) -> IO (String)
-      build (idxConfig', docs') 
-        = do
-          cache <- if buildCaches then mkCache (ic_idxPath idxConfig') else return $ Nothing
-          idx   <- buildIndex' workerThreads traceLevel docs' idxConfig' emptyIndex cache
---          writeToXmlFile ( (ic_idxPath idxConfig') ++ "-index.xml") idx
-          writeToBinFile ( (ic_idxPath idxConfig') ++ "-index.bin") idx
-          return (ic_idxPath idxConfig')
-      mkCache path
-        = do 
-          c <- createCache (path ++ "-cache.db")
-          return $ Just c   
-    
 -- -----------------------------------------------------------------------------
-
 
 buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) => 
               Int                -- ^ Number of parallel threads for MapReduce
@@ -123,35 +61,48 @@ buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) =>
            -> Maybe c
            -> IO i               -- ^ returns a HolIndex
 buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
-    in  buildIndex' workerThreads traceLevel docs' idxConfig emptyIndex cache
-
--- | Build an Index over a list of Files.
-buildIndex' :: (HolIndex i, HolCache c) => 
-              Int                -- ^ Number of parallel threads for MapReduce
-           -> Int                -- ^ TraceLevel for Arrows
-           -> [(DocId, String)]  -- ^ List of input Data
-           -> IndexerConfig      -- ^ Configuration for the Indexing process
-           -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
-           -> Maybe c
-           -> IO i               -- ^ returns a HolIndex
-buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
-  = do
-    mr <- -- assert ((sizeWords emptyIndex) == 0) 
+  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
+       -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 
                     workerThreads
-                    "/home/sms/mr.db"
+                    (ic_indexerTimeOut idxConfig)
+                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
                     emptyIndex
-                    (computePositions traceLevel 
-                              (isJust $ ic_tmpPath idxConfig)
+                    (computeOccurrences traceLevel 
+                              (isJust $ ic_tempPath idxConfig)
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
                               cache
                     )
-                    docs
+                    docs'
                  )
-    return mr
-    -- return $! snd (M.elemAt 0 mr)                       
+
+
+buildIndexM :: (HolDocuments d a, HolIndexM m i, HolCache c) => 
+              Int                -- ^ Number of parallel threads for MapReduce
+           -> Int                -- ^ TraceLevel for Arrows
+           -> d a                -- ^ List of input Data
+           -> IndexerConfig      -- ^ Configuration for the Indexing process
+           -> i                  -- ^ An empty HolIndexM. This is used to determine which kind of index to use.
+           -> Maybe c            -- ^ Just HolCache switches cache construction on
+           -> IO i               -- ^ returns a HolIndexM
+buildIndexM workerThreads traceLevel docs idxConfig emptyIndex cache
+  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
+       -- assert ((sizeWords emptyIndex) == 0) 
+                 (mapReduce 
+                    workerThreads
+                    (ic_indexerTimeOut idxConfig)
+                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
+                    emptyIndex
+                    (computeOccurrences traceLevel 
+                              (isJust $ ic_tempPath idxConfig)
+                              (ic_contextConfigs idxConfig) 
+                              (ic_readAttributes idxConfig)
+                              cache
+                    )
+                    docs'
+                 )
+
 
 
 -- | The MAP function in a MapReduce computation for building indexes.
@@ -164,10 +115,10 @@ buildIndex' workerThreads traceLevel docs idxConfig emptyIndex cache
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
 
-computePositions :: HolCache c =>
+computeOccurrences :: HolCache c =>
                Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
             -> DocId -> String -> IO [((Context, Word), Occurrences)]
-computePositions traceLevel fromTmp contextConfigs attrs cache docId theUri
+computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
     = do
       clt <- getClockTime
       cat <- toCalendarTime clt
@@ -178,28 +129,15 @@ computePositions traceLevel fromTmp contextConfigs attrs cache docId theUri
                     >>> processDocument traceLevel attrs' contextConfigs cache docId theUri
 --                    >>> arr (\ (c, w, d, p) -> (c, (w, d, p)))
                     >>> strictA
-	           )
-      return $ buildPositions res
+             )
+      return $ buildPositions res 
     where
     attrs' = if fromTmp then addEntries standardReadTmpDocumentAttributes attrs else attrs
     buildPositions :: [(Context, Word, DocId, Position)] -> [((Context, Word),  Occurrences)]
     buildPositions l = M.foldWithKey (\(c,w,d) ps acc -> ((c,w),IM.singleton d ps) : acc) [] $
-      foldl (\m (c,w,d,p) -> M.insertWith IS.union(c,w,d) (IS.singleton p) m) M.empty l 
+      foldl (\m (c,w,d,p) -> M.insertWith IS.union (c,w,d) (IS.singleton p) m) M.empty l 
+                             
 
-
-{-      
--- | The REDUCE function in a MapReduce computation for building indexes.
---   Even though there might be faster ways to build an index, this function
---   works with completely on the HolIndex class functions. So it is possible
---   to use the Indexer with different Index implementations.
-insertPositions :: (HolIndex i) => i -> String -> [(String, String, DocId, Position)] -> IO (Maybe i)
-insertPositions idx _ l =
-  return $! Just (foldl' theFunc idx l)
-    where
-    theFunc i (_, "", _ , _) = i -- TODO Filter but make sure that phrase searching is still possible 
-    theFunc i (context, word, docId, pos) = insertPosition context word docId pos i
--}    
-  
 -- -----------------------------------------------------------------------------
     
 -- | Downloads a document and calls the function to process the data for the
@@ -224,7 +162,66 @@ processContext ::
   -> DocId
   -> ContextConfig
   -> IOSLA (XIOState s) XmlTree (Context, Word, DocId, Position)
-{-
+
+processContext cache docId cc
+    = cc_preFilter cc                                         -- convert XmlTree
+      >>>
+      fromLA extractWords
+      >>>
+      ( if ( isJust cache
+       &&
+       cc_addToCache cc
+     )
+  then perform (arrIO storeInCache)
+  else this
+      )
+      >>>
+      arrL genWordList
+      >>>
+      strictA
+    where
+    extractWords  :: LA XmlTree [String]
+    extractWords
+      = listA
+        ( xshow ( (cc_fExtract cc)               -- extract interesting parts
+            >>>
+            getTexts
+          )
+          >>>
+          arrL ( filter (not . null) . cc_fTokenize cc )
+        )
+
+    genWordList   :: [String] -> [(Context, Word, DocId, Position)]
+    genWordList
+      = zip [1..]                                           -- number words
+        >>>                                                 -- arrow for pure functions
+        filter (not . (cc_fIsStopWord cc) . snd)            -- delete boring words
+        >>>
+        map ( \ (p, w) -> (cc_name cc, w, docId, p) )       -- attach context and docId
+
+    storeInCache s
+      = let t = unwords s in 
+            if t /= "" then putDocText (fromJust cache) (cc_name cc) docId t
+                       else return()
+
+getTexts  :: LA XmlTree XmlTree
+getTexts                                                      -- select all text nodes
+    =  choiceA
+       [ isElem :-> ( space                                   -- substitute tags by a single space
+          <+>                                     -- so tags act as word delimiter
+          (getChildren >>> getTexts)
+          <+>
+          space
+        )                                       -- tags are interpreted as word delimiter
+       , isText :-> this              -- take the text nodes
+       , this   :-> none              -- ignore anything else
+       ]
+    where
+    space = txt " "
+            
+            
+
+{- older and slower version. only for sentimentality
 processContext cache docId cc  = 
         (cc_preFilter cc)                                     -- convert XmlTree
     >>> listA (
@@ -243,62 +240,5 @@ processContext cache docId cc  =
     >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
     >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
--}
-
-processContext cache docId cc
-    = cc_preFilter cc                                         -- convert XmlTree
-      >>>
-      fromLA extractWords
-      >>>
-      ( if ( isJust cache
-	     &&
-	     cc_addToCache cc
-	   )
-	then perform (arrIO storeInCache)
-	else this
-      )
-      >>>
-      arrL genWordList
-      >>>
-      strictA
-    where
-    extractWords	:: LA XmlTree [String]
-    extractWords
-	= listA
-	  ( xshow ( getXPathTrees (cc_XPath cc)               -- extract interesting parts
-		    >>>
-		    getTexts
-		  )
-	    >>>
-	    arrL ( filter (not . null) . cc_fTokenize cc )
-	  )
-
-    genWordList		:: [String] -> [(Context, Word, DocId, Position)]
-    genWordList
-	= zip [1..]                                           -- number words
-	  >>>                                                 -- arrow for pure functions
-	  filter (not . (cc_fIsStopWord cc) . snd)            -- delete boring words
-	  >>>
-	  map ( \ (p, w) -> (cc_name cc, w, docId, p) )       -- attach context and docId
-
-    storeInCache s
-	= let t = unwords s in 
-        if t /= "" then putDocText (fromJust cache) (cc_name cc) docId t
-                   else return()
-
-getTexts	:: LA XmlTree XmlTree
-getTexts                                                      -- select all text nodes
-    =  choiceA
-       [ isElem :-> ( space                                   -- substitute tags by a single space
-		      <+>                                     -- so tags act as word delimiter
-		      (getChildren >>> getTexts)
-		      <+>
-		      space
-		    )	                                      -- tags are interpreted as word delimiter
-       , isText :-> this				      -- take the text nodes
-       , this   :-> none				      -- ignore anything else
-       ]
-    where
-    space = txt " "
-               
+-}               
      
