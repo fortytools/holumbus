@@ -67,7 +67,7 @@ type Part        = StrMap CompressedOccurrences
 
 
 instance MapReducible Inverted (Context, Word) Occurrences where
-  mergeMR             = mergeIndexes
+  mergeMR i1 i2       = return $ mergeIndexes i1 i2
   reduceMR _ (c,w) os = do
                         let idx = singleton c w (IM.unionsWith IS.union os)
                             _   = rnf idx

@@ -61,6 +61,11 @@ data InvertedM = InvertedM
   , nextId      :: Int
   } -- deriving (Show, Eq)
 
+instance MapReducible InvertedM (Context, Word) Occurrences
+  where
+    reduceMR i (c,w) os = undefined -- do let idx = singleton c
+    mergeMR  = undefined
+
 instance Show InvertedM where
   show i = "InvertedM{ path="++ show (path i)  ++ " ; indexParts=" ++ show (indexParts i) ++"}"
 
@@ -70,10 +75,6 @@ type Parts       = Map Context Part
 type Part        = StrMap Int
 
 type DatabaseIndex = Int
-
-instance MapReducible InvertedM Context (Word, DocId, Position) where
-  mergeMR         = undefined -- mergeIndexes
-  reduceMR _ _ _  = undefined -- return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
 
 instance HolIndexM IO InvertedM where
   sizeWordsM i = foldM (\c p -> return $ c + (SM.size p)) 0 (map snd . M.toList $ indexParts i)

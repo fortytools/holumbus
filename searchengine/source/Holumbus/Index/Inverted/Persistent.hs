@@ -67,7 +67,7 @@ type Parts       = Map Context Part
 type Part        = StrMap Int
 
 instance MapReducible Persistent (Context, Word) Occurrences where
-  mergeMR         = mergeIndexes
+  mergeMR i1 i2   = return $ mergeIndexes i1 i2
   reduceMR _ _ _  = undefined -- return $ Just $ foldl' (\i (w, d, p) -> insertPosition c w d p i) emptyInverted os 
 
 instance HolIndex Persistent where

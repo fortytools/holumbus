@@ -69,7 +69,7 @@ type Occurrence    = ( DocId, WordId, Position )
 type WordId        = Int
 type BlockId       = Int
 
-
+{-
 instance MapReducible Hybrid (Context, Word) Occurrences where
   mergeMR         = mergeIndexes
   reduceMR _ _ _  = undefined
@@ -102,7 +102,7 @@ instance HolIndex Hybrid where
 instance Binary Hybrid where
   put _ = undefined
   get = undefined
-
+-}
 -- | Create an empty index.
 emptyHybrid :: Hybrid
 emptyHybrid = Hybrid M.empty
