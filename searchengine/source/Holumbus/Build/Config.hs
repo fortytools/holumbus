@@ -56,7 +56,7 @@ import           Data.Maybe
 
 import qualified Data.Map    as M
 import qualified Data.Set    as S
-import qualified Data.IntMap as IM
+-- import qualified Data.IntMap as IM
 
 
 import           Holumbus.Index.Common
@@ -68,18 +68,19 @@ import           Text.Regex
 
 
 type Custom a = IOSArrow XmlTree (Maybe a)
+type MD5Hash = String
 
 
 -- | Configuration for the indexer. 
 data IndexerConfig 
   = IndexerConfig
     { ic_startPages     :: [URI]
-    , ic_tmpPath        :: Maybe String   
-    , ic_idxPath        :: String
+    , ic_tempPath       :: Maybe String   
+    , ic_indexPath      :: String
     , ic_contextConfigs :: [ContextConfig]
     , ic_fCrawlFilter   :: URI -> Bool     -- will be passed to crawler, not needed for indexing
     , ic_readAttributes :: Attributes
---    , ic_fGetCustom     :: (Arrow a, Binary b) => a XmlTree b
+    , ic_indexerTimeOut :: Int
     } 
    
 -- | Configuration for a Context. It has a name with which it will be identified
@@ -94,7 +95,7 @@ data ContextConfig
   = ContextConfig
     { cc_name           :: String
     , cc_preFilter      :: ArrowXml a => a XmlTree XmlTree
-    , cc_XPath          :: String             -- multiple XPaths for one Context needed ???
+    , cc_fExtract       :: ArrowXml a => a XmlTree XmlTree             
     , cc_fTokenize      :: String -> [String]
     , cc_fIsStopWord    :: String -> Bool
     , cc_addToCache     :: Bool
@@ -105,10 +106,11 @@ data CrawlerState d a
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
       , cs_wereProcessed    :: S.Set URI
-      , cs_docHashes        :: Maybe (M.Map String URI)
-      , cs_unusedDocIds     :: [DocId]        -- probably unneeded
+      , cs_docHashes        :: Maybe (M.Map MD5Hash URI)
+      , cs_nextDocId        :: DocId  
       , cs_readAttributes   :: Attributes     -- passed to readDocument
       , cs_tempPath         :: Maybe String     
+      , cs_crawlerTimeOut   :: Int
       , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- applied before link extraction
       , cs_fGetReferences   :: ArrowXml a' => a' XmlTree [URI]
       , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
@@ -117,62 +119,29 @@ data CrawlerState d a
       }    
     
 instance (HolDocuments d a, Binary a) => Binary (CrawlerState d a) where
-  put (CrawlerState tbp wp dh _ _ _ _ _ _ _ d) 
-    = put tbp >> put wp >> put dh >> put d
+  put (CrawlerState tbp wp dh ndi _ _ cto _ _ _ _ d) 
+    = put tbp >> put wp >> put dh >> put ndi >> put cto >> put d
       
   get = do
         tbp <- get
         wp  <- get
         dh  <- get
+        ndi <- get
+        cto <- get
         d   <- get
-        return $ CrawlerState tbp wp dh (ids d) [] Nothing this (constA []) (const False) (constA Nothing) d 
-        where
-          ids d =  [1..] \\ (IM.keys $ toMap d) 
-
-
--- | Extract References to other documents from a XmlTree based on configured XPath expressions
-getReferencesByXPaths :: ArrowXml a => [String] -> a XmlTree [URI]
-getReferencesByXPaths xpaths
-  = listA (getRefs' $< computeDocBase) -- >>^ concat
-    where
-    getRefs' base = catA $ map (\x -> getXPathTrees x >>> getText >>^ toAbsRef) xpaths
-      where
-      toAbsRef ref = removeFragment $ fromMaybe ref $ expandURIString ref base
-      removeFragment r
-              | "#" `isPrefixOf` path = reverse . tail $ path
-              | otherwise = r
-              where
-                path = dropWhile (/='#') . reverse $ r 
-
-
-
-parseWords  :: (Char -> Bool) -> String -> [String]
-parseWords isWordChar'
-          = filter (not . null) . words . map boringChar
-          where
-          boringChar c             -- these chars separate words
-            | isWordChar' c = c
-            | otherwise    = ' '
-
-isWordChar  :: Char -> Bool
-isWordChar c = isAlphaNum c || c `elem` ".-_'@" 
-
-
-instance XmlPickler IndexerConfig where
-  xpickle = xpWrap  ( \(sp, tp, ip, cc, cf, ra) -> IndexerConfig sp tp ip cc cf ra
-                    , \(IndexerConfig sp tp ip cc cf ra) -> (sp, tp, ip, cc, cf, ra)
-                    ) xpConfig
-    where
-    xpConfig = xp6Tuple xpStartPages xpTmpPath xpIdxPath xpContextConfigs xpFCrawlFilter xpReadAttrs
-      where
-      xpStartPages     = xpElem "StartPages" $ xpList   $ xpElem "Page"       xpPrim 
-      xpTmpPath        = xpOption $ xpElem "TmpPath"    xpPrim
-      xpIdxPath        =            xpElem "OutputPath" xpPrim
-      xpContextConfigs = xpElem "ContextConfigurations" $ xpList $ xpContextConfig
-      xpContextConfig  = xpZero
-      xpFCrawlFilter   = xpZero
-      xpReadAttrs      = xpZero
-
+        return $ CrawlerState { cs_toBeProcessed  = tbp 
+                              , cs_wereProcessed  = wp
+                              , cs_docHashes      = dh 
+                              , cs_nextDocId      = ndi
+                              , cs_readAttributes = [] 
+                              , cs_tempPath       = Nothing
+                              , cs_crawlerTimeOut = cto
+                              , cs_fPreFilter     = this
+                              , cs_fGetReferences = constA []
+                              , cs_fCrawlFilter   = const False
+                              , cs_fGetCustom     = constA Nothing
+                              , cs_docs           = d
+                              } 
          
 -- | create an initial CrawlerState from an IndexerConfig
 initialCrawlerState :: (HolDocuments d a, Binary a) => IndexerConfig -> d a -> Custom a -> CrawlerState d a
@@ -180,13 +149,14 @@ initialCrawlerState cic emptyDocuments getCustom
   = CrawlerState
     { cs_toBeProcessed  = S.fromList (ic_startPages cic)
     , cs_wereProcessed  = S.empty
-    , cs_unusedDocIds   = [1..]
+    , cs_nextDocId      = 1
     , cs_readAttributes = ic_readAttributes cic
+    , cs_crawlerTimeOut = ic_indexerTimeOut cic
     , cs_fGetReferences = getReferencesByXPaths ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
     , cs_fPreFilter     = (none `when` isText) -- this
     , cs_fCrawlFilter   = ic_fCrawlFilter cic
     , cs_docs           = emptyDocuments
-    , cs_tempPath       = ic_tmpPath cic
+    , cs_tempPath       = ic_tempPath cic
     , cs_fGetCustom     = getCustom
     , cs_docHashes      = Just $ M.empty
     }
@@ -218,14 +188,9 @@ mergeIndexerConfigs' :: IndexerConfig -> [IndexerConfig] -> IndexerConfig
 mergeIndexerConfigs' cfg1 [] = cfg1
 mergeIndexerConfigs' cfg1 (cfg2:cfgs) = mergeIndexerConfigs' resCfg cfgs
   where 
-  resCfg = IndexerConfig
-      ((ic_startPages cfg1) ++ (ic_startPages cfg2))
-      (ic_tmpPath cfg1)
-      (ic_idxPath cfg1)
-      (ic_contextConfigs cfg1)  -- cfg2, too?
-      (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
-      (ic_readAttributes cfg1)
-
+  resCfg = cfg1 { ic_startPages   = (ic_startPages cfg1) ++ (ic_startPages cfg2)
+                , ic_fCrawlFilter = (\a -> (ic_fCrawlFilter cfg1) a || (ic_fCrawlFilter cfg2) a)
+                }
 
 {- | Create Crawl filters based on regular expressions. The first Parameter defines the default 
      value if none of the supplied rules matches. The rule list is computed from the first element
@@ -260,9 +225,39 @@ simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden )
          isAllowed   = foldl (||) False (map (matches theUri) as)
          isForbidden = foldl (||) False (map (matches theUri) ds)
          matches u a = isJust $ matchRegex (mkRegex a) u      
-      
--- | some standard options for the readDocument function
 
+
+
+-- | Extract references to other documents from a XmlTree based on configured XPath expressions
+getReferencesByXPaths :: ArrowXml a => [String] -> a XmlTree [URI]
+getReferencesByXPaths xpaths
+  = listA (getRefs' $< computeDocBase) -- >>^ concat
+    where
+    getRefs' base = catA $ map (\x -> getXPathTrees x >>> getText >>^ toAbsRef) xpaths
+      where
+      toAbsRef ref = removeFragment $ fromMaybe ref $ expandURIString ref base
+      removeFragment r
+              | "#" `isPrefixOf` path = reverse . tail $ path
+              | otherwise = r
+              where
+                path = dropWhile (/='#') . reverse $ r 
+
+
+
+parseWords  :: (Char -> Bool) -> String -> [String]
+parseWords isWordChar'
+          = filter (not . null) . words . map boringChar
+          where
+          boringChar c             -- these chars separate words
+            | isWordChar' c = c
+            | otherwise    = ' '
+
+isWordChar  :: Char -> Bool
+isWordChar c = isAlphaNum c || c `elem` ".-_'@" 
+
+
+     
+-- | some standard options for the readDocument function
 standardReadDocumentAttributes :: [(String, String)]
 standardReadDocumentAttributes
     = [ (a_parse_html,			v_1)
@@ -271,7 +266,7 @@ standardReadDocumentAttributes
       , (a_remove_whitespace,		v_1)
       , (a_tagsoup,			v_1)
       , (a_ignore_none_xml_contents,	v_1)
---      , (a_use_curl,			v_1)	-- obsolete since hxt-8.1
+      , (a_use_curl,			v_1)	-- obsolete since hxt-8.1
       , ("curl--user-agent",  		"HolumBot/0.1@http://holumbus.fh-wedel.de --location")
       ]
 
