@@ -8,9 +8,13 @@
   Maintainer : Sebastian M. Schlatt (sms@holumbus.org)
   Stability  : experimental
   Portability: untested
-  Version    : 0.1
+  Version    : 0.2
 
   Indexer for the Haskell API Documentation Search Engine Hayoo!
+  
+  Current Scope: 
+    <http://hackage.haskell.org>
+    <http://www.haskell.org/gtk2hs/docs/current/>
 
   TODO: 
   - Include class, data, ... descriptions.
@@ -38,70 +42,70 @@ import           qualified Data.Map    as M
 import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
+
 import           Holumbus.Control.MapReduce.Parallel
 -- import           Holumbus.Index.Cache
 
 import           Holumbus.Index.Common
 import           Holumbus.Index.Inverted.Memory(emptyInverted)
+import           Holumbus.Index.Cache
 import           Holumbus.Index.Documents
 import           Holumbus.Utility
 
 import           Network.URI(unEscapeString)
 
+import           System.Directory
+
 import           Text.XML.HXT.Arrow     
 import           Text.XML.HXT.Arrow.XmlRegex
-
 main :: IO ()
 main 
   = do
     -- ---------------------------------------------------------------------------------------------
     --   Configuration
     -- ---------------------------------------------------------------------------------------------
-    let traceLevel    = 1
-        workerThreads = 5 
+    dir <- getHomeDirectory
+
+    let traceLevel    = 0
+        workerThreads = 1 
         docsPerCrawl  = 100
-        docsPerIndex  = 500
         splitPath     = "/tmp/"
-        indexPath     = "~/hayoo"
-        idxConfigs    =    []
-                        ++ [ic_Hayoo]            -- hackage.haskell.org
---                        ++ [ic_GHC_libs]         -- all GHC libs
---                        ++ [ic_HXT]              -- hxt arrow & filter docs
-                        ++ [ic_Holumbus]         -- holumbus framework
---                        ++ [ic_Single]            -- one document for debugging
-        idxConfig     = foldl1 mergeIndexerConfigs idxConfigs
+        indexPath     = dir ++ "/hayoo"
+        idxConfig     = ic_Hayoo {ic_indexPath = indexPath}            -- hackage.haskell.org
 
-        crawlerState  = (initialCrawlerState idxConfig emptyDocuments customCrawlFunc)-- {cs_fPreFilter = preCrawlFilter}
+        crawlerState  = initialCrawlerState idxConfig emptyDocuments customCrawlFunc
 
-    
-{-    crawlerState <- loadCrawlerState "/tmp/CS.bin" crawlerState
-    crawlerState <- return crawlerState 
-      {cs_toBeProcessed = S.filter hayooFilter 
-                                   -- (\s -> not ("Graphics-UI-WXCore-WxcClassesAL.html" `isSuffixOf` s)) 
-                                   (cs_toBeProcessed crawlerState)}
--}
-                          
     -- ---------------------------------------------------------------------------------------------
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    crawled       <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
-    writeToXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") crawled
-    
-    
+    runX (traceMsg 0 ("           (1) Hackage " ))
 
---    docs <- loadFromXmlFile ( (ic_idxPath idxConfig) ++ "-predocs.xml") :: IO (Documents FunctionInfo)
+--    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
+--    let hackageLatest = emptyDocuments
+    hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
     
-    docs <- return $ filterDocuments (\d -> isPrefixOf "http://hackage.haskell.org/packages/archive/" (uri d)) crawled
-    docs <- return $ filterDocuments (\d -> not (isSuffixOf "pkg-list.html" (uri d))) docs
-    docs <- return $ filterDocuments (\d -> not (isSuffixOf "recent.html" (uri d))) docs
-    docs <- return $ filterDocuments (hayooFilter . uri) docs
-    docs <- return $ filterDocuments (isLatestVersion (getVersions docs)) docs
+    let hackageDocs =  filterDocuments -- TODO clean this mess up
+                         ( isPrefixOf "http://hackage.haskell.org/packages/archive/" . uri) $
+                       filterDocuments 
+                         (\d -> (not $ isSuffixOf "pkg-list.html" $ uri d))  $ 
+                       filterDocuments 
+                         (\d -> (not $ isSuffixOf "recent.html"  $ uri d )) 
+                       hackageCrawled
+        hackageDocs'  = filterDocuments (hackageFilter . uri) hackageDocs
+        hackageLatest = filterDocuments (isLatestVersion (getVersions hackageDocs')) hackageDocs'
     
-    writeToXmlFile "/tmp/docs.xml" docs
-
+    runX (traceMsg 0 ("           (2) Additional libraries " ))
+    
+    let additionalState = initialCrawlerState ic_Hayoo_additional emptyDocuments customCrawlFunc
+    additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
+    -- additionalDocs <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-xpredocs.bin") :: IO (Documents FunctionInfo)
     
     
+    let hayooDocs = snd $ mergeDocs hackageLatest additionalDocs
+    
+    writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs
+    writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs
     
     -- ---------------------------------------------------------------------------------------------
        -- split the locally saved documents into several small xml files
@@ -111,30 +115,28 @@ main
                     workerThreads 
                     (getVirtualDocs splitPath)
                     mkVirtualDocList
-                    (IM.toList (IM.map uri (toMap docs)))
+                    (IM.toList (IM.map uri (toMap hayooDocs)))
     splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
+    
     writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs)
     writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs)
 
+ 
+--    splitDocs <- loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
     -- ---------------------------------------------------------------------------------------------
        -- build an index over the split xml files
     runX (traceMsg 0 (" indexing  ------------------------------ " ))
     localDocs <- return $ tmpDocs splitPath splitDocs
     
-    -- cache     <- createCache ((ic_idxPath idxConfig) ++ "-cache.db")
+    cache     <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
     
-    pathes    <- buildSplitIndex workerThreads traceLevel localDocs idxConfig
-                              emptyInverted True docsPerIndex 
-    idx       <- foldM mergeIndexes' emptyInverted pathes
+    idx       <- buildIndex workerThreads traceLevel localDocs idxConfig
+                            emptyInverted (Just cache)
     
     writeToXmlFile ( indexPath ++ "-index.xml") idx
     writeToBinFile ( indexPath ++ "-index.bin") idx
     
     return ()
-    where 
-      mergeIndexes' i1 f = do
-                           i2 <- loadFromBinFile (f  ++ "-index.bin")
-                           return $ mergeIndexes i1 i2
 
 
 
@@ -153,8 +155,8 @@ getVersions docs = foldl' (\m d -> M.insertWith cmp (pkg d) (ver d) m) M.empty
   ver d     = (split "/" (uri d)) !! 6
           
 
-hayooFilter :: URI -> Bool
-hayooFilter = simpleCrawlFilter [ "http://hackage.haskell.org/" ]                  -- allow
+hackageFilter :: URI -> Bool
+hackageFilter = simpleCrawlFilter [ "http://hackage.haskell.org/" ]                         -- allow
                                          [ "/src/", "/trac/", ".tar.gz$", ".cabal$", ".pdf$"-- deny
                                          , "/doc-index-", "doc-index.html", "/logs/failure/" 
                                          , "http://hackage.haskell.org/cgi-bin/hackage-scripts/list-users"
@@ -219,8 +221,12 @@ getVirtualDocs splitPath docId theUri =
   mkVirtual theTitle theModule theSignature theSourceURI =     
          let theLinkPrefix = if theSignature `elem` ["data", "type", "newtype"] then "#t:" else "#v:" 
          in
-         root [] [ this
-                 , selem "module" [constA theModule >>> mkText]
+         root [] [ 
+                   selem "table" [ this
+                                 , selem "tr" [ mkelem "td" [sattr "id" "module"] 
+                                                            [constA theModule >>> mkText]
+                                              ]
+                                 ]
                  ]
      >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape (theLinkPrefix ++ theTitle)))
      >>> (     constA theTitle 
@@ -270,7 +276,7 @@ removeSourceLinks =
                  )      
 
 
--- | As Haddock can generate Documetation pages with links to source files and without these links
+-- | As Haddock can generate Documentation pages with links to source files and without these links
 --   there are two different types of declaration table datas. To make the indexing easier, the
 --   table datas with source links are transformed to look like those without (they differ 
 --   in the css class of the table data and the ones with the source links contain another table).
@@ -287,7 +293,7 @@ topdeclToDecl
               ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
             ) 
 
--- | The REDUCE phase of the virtual document creation MapReduce computation.
+-- | The REDUCE phase of the virtual document creation MapReduce job.
 --   The virtual Documents from the MAP phase are collected and a new Documents data is created
 mkVirtualDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (Documents  FunctionInfo))
 mkVirtualDocList _ vDocs
@@ -297,16 +303,6 @@ mkVirtualDocList _ vDocs
             
 
 -- -----------------------------------------------------------------------------
-
--- -----------------------------------------------------------------------------
-
-{-
-removeElementsByXPath :: ArrowXml a => String -> a XmlTree XmlTree 
-removeElementsByXPath xpath =
-  case xpath of
-       "//td[@class='rdoc']"  ->  processTopDown (none `when` (isElem >>> hasName "td" >>> hasAttrValue "class" (== "rdoc")))
-       otherwise              ->  none
--}
 
 processDataTypeAndNewtypeDeclarations :: LA XmlTree XmlTree
 processDataTypeAndNewtypeDeclarations 
@@ -336,7 +332,7 @@ processDataTypeAndNewtypeDeclarations
             mkelem "td" [sattr "class" "decl"]
                         [ aelem "a" [sattr "name" r] 
                         , constA (n ++ " :: " ++ t) >>> mkText
-                        , mkelem "a" [sattr "href" s] [constA "Source" >>> mkText]
+                        , mkelem "a" [sattr "href" s] [constA " " >>> mkText] -- [constA "Source" >>> mkText]
                         ]
 
 removeDataDocumentation :: LA XmlTree XmlTree
@@ -348,7 +344,6 @@ removeDataDocumentation
         (    hasName "tr"
           /> hasName "td" >>> hasAttrValue "class" (== "body")
           /> hasName "table"
---          /> hasName "tbody"
           /> hasName "tr"
           /> hasName "td" >>> hasAttrValue "class" (== "section4")
           /> hasText (\a -> a == "Constructors" || "Instances" `isSuffixOf` a)
@@ -359,10 +354,6 @@ removeDataDocumentation
 -- -----------------------------------------------------------------------------
    -- Uwe Schmidts Regex-Arrow stuff
 -- -----------------------------------------------------------------------------
--- tt h (topdeclToDecl >>> removeElementsByXPath "//td[@class='rdoc']" >>> processTopDown (none `when` (hasName "td" >>> hasAttrValue "class" ( (==) "body") /> hasName "table" /> hasName "tr" /> hasName "td" >>> hasAttrValue "class" ( (==) "ndoc") ) ) ) 
-
--- processOldCrazy :: LA XmlTree XmlTree
--- processOldCrazy = processChildren (processDocumentRootElement groupDeclDoc declAndDocChildren)
 
 processDocumentRootElement  :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
 processDocumentRootElement theGrouper interestingChildren
@@ -464,18 +455,15 @@ groupDeclSig ts =
                  ]
 
 groupDeclDoc    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
-groupDeclDoc ts   = scanRegexA declDoc ts >>>
---        mkelem "function"
---        [ attr  "name" (unlistA >>> getDeclName >>> mkText)
+groupDeclDoc ts   
+      = scanRegexA declDoc ts >>>
         mkelem "tr"
         [ sattr "class" "decl"
         , attr  "id" (unlistA >>> getDeclName >>> mkText)
         ] [unlistA >>> getChildren]
 
-isArg     :: LA XmlTree XmlTree
-isArg
-    = hasName "tr" />
-      hasName "td" >>> hasAttrValue "class" (== "arg")
+isArg :: LA XmlTree XmlTree
+isArg = hasName "tr" />  hasName "td" >>> hasAttrValue "class" (== "arg")
 
 
 removeSpacers :: LA XmlTree XmlTree
@@ -489,40 +477,25 @@ removeSpacers =
 
 
 
-
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
+                
               
               
 -- -----------------------------------------------------------------------------    
    -- Crawler & Indexer Configuration
 -- -----------------------------------------------------------------------------    
-{- ic_Single :: IndexerConfig
+ic_Single :: IndexerConfig
 ic_Single
- = mkIndexerConfig
---    [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Control-Arrow-ArrowList.html"
---    , "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc_arrow/Text-XML-HXT-Arrow-XmlArrow.html"
---    , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
---    [ "http://www.holumbus.org/docs/develop/Holumbus-Build-Index.html"
---    , "http://www.holumbus.org/docs/develop/Holumbus-Index-Common.html"
---    ,
-    [ "http://www.haskell.org/ghc/docs/latest/html/libraries/Win32/System-Win32-SimpleMAPI.html"
-    ]
-    (Just "/home/sms/tmp/")
-    "/home/sms/indexes/exception"
-    ccs_Hayoo
-    stdOpts4Reading
-    []
-    [".*"]
--}
+  = IndexerConfig
+    { ic_startPages     = -- [ "http://hackage.haskell.org/packages/archive/markov-chain/0.0.2/doc/html/Data-MarkovChain.html"
+                          [ "http://hackage.haskell.org/packages/archive/bytestring/0.9.1.0/doc/html/Data-ByteString.html"]
+--                          ["http://holumbus.fh-wedel.de/docs/develop/Holumbus-Searchengine/Holumbus-Index-Common.html"]
+    , ic_tempPath        = Just "/tmp/hayoo-files/"
+    , ic_indexPath        = "/home/sms/indexes/exception"
+    , ic_indexerTimeOut  = 10 * 60 * 1000000
+    , ic_contextConfigs = ccs_Hayoo
+    , ic_readAttributes = standardReadDocumentAttributes
+    , ic_fCrawlFilter   = const False
+    }
 
 preCrawlFilter :: ArrowXml a => a XmlTree XmlTree -- LA XmlTree XmlTree
 preCrawlFilter 
@@ -538,142 +511,120 @@ preCrawlFilter
 ic_Hayoo :: IndexerConfig
 ic_Hayoo
   = IndexerConfig
-    { ic_startPages      = [ "http://hackage.haskell.org/packages/archive/pkg-list.html" ]
-    , ic_tmpPath         = Just "/tmp/"
-    , ic_idxPath         = "/home/sms/hayoo"
+    { ic_startPages      = [ "http://hackage.haskell.org/packages/archive/pkg-list.html" 
+--                           , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Prelude.html"
+                           ]
+    , ic_tempPath         = Just "/tmp/"
+    , ic_indexPath         = "~/hayoo"
+    , ic_indexerTimeOut  = 10 * 60 * 1000000
     , ic_contextConfigs  = ccs_Hayoo
     , ic_readAttributes  = standardReadDocumentAttributes
-    , ic_fCrawlFilter    = hayooFilter
+    , ic_fCrawlFilter    = hackageFilter
     }
+    
+ic_Hayoo_additional :: IndexerConfig
+ic_Hayoo_additional
+  = ic_Hayoo
+    { ic_startPages      = [ "http://www.haskell.org/gtk2hs/docs/current/"
+                           ]
+    , ic_fCrawlFilter    = simpleCrawlFilter ["http://www.haskell.org/gtk2hs/docs/current/"] []
+    }                            
 
-ic_Holumbus :: IndexerConfig
-ic_Holumbus 
-  =  IndexerConfig
-     { ic_startPages     = [ "http://holumbus.fh-wedel.de/docs/develop/index.html" ]
-     , ic_tmpPath        = Just "/home/sms/tmp/holumbus_docs/"
-     , ic_idxPath        = "/home/sms/indexes/holumbus"
-     , ic_contextConfigs = ccs_Hayoo                                   
-     , ic_readAttributes = standardReadDocumentAttributes
-     , ic_fCrawlFilter   = simpleCrawlFilter [ "http://holumbus.fh-wedel.de/docs/develop/" ] [ "/src/"]
-     }      
-
-ic_GHC_libs :: IndexerConfig         
-ic_GHC_libs
- = IndexerConfig 
-   { ic_startPages      = [ "http://www.haskell.org/ghc/docs/latest/html/libraries/"
-                          , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
-                          ]
-   , ic_tmpPath         = Just "/home/sms/tmp/ghc_libs/"
-   , ic_idxPath         = "/home/sms/indexes/ghclibs"
-   , ic_contextConfigs  = ccs_Hayoo
-   , ic_readAttributes  = standardReadDocumentAttributes
-   , ic_fCrawlFilter    = simpleCrawlFilter [ "^http://www.haskell.org/ghc/docs/latest/html/" ]
-                                        [ "/src/" 
-                                        , "^http://www.haskell.org/ghc/docs/latest/html/libraries/doc-index.html" 
-                                        , "/logs/failure/"
-                                        , "tar.gz$"
-                                        ]   
-   }
-
-ic_HXT :: IndexerConfig
-ic_HXT 
-  = IndexerConfig
-    { ic_startPages     = [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"]
-    , ic_tmpPath        = Just "/tmp/"
-    , ic_idxPath        = "/home/sms/indexes/hxt"
-    , ic_contextConfigs = ccs_Hayoo
-    , ic_readAttributes = standardReadDocumentAttributes
-    , ic_fCrawlFilter   = simpleCrawlFilter [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc"]
-                                        [ "/src/"]
-    }
+theHayooXPath :: String
+theHayooXPath =  "//td[@class='decl']"     
   
 ccs_Hayoo :: [ContextConfig]
-ccs_Hayoo = [ ccModule
-            , ccHierarchy
-            , ccHayooName     
-            , ccHayooPartialName 
-            , ccHayooSignature 
-            , ccHayooNormalizedSignature
-            , ccHayooDescription
+ccs_Hayoo = [  -- ccModule
+--            , ccHierarchy
+--            , ccHayooName     
+--            , ccHayooPartialName 
+            -- ,
+             ccHayooSignature 
+--            , ccHayooNormalizedSignature
+--            , ccHayooDescription
             ]
             
-theHayooXPath :: String
--- theHayooXPath =  "/function//text()" 
-theHayooXPath =  "/tr/td[@class='decl']/text()" 
-            
 ccHayooName :: ContextConfig
-ccHayooName = ContextConfig "name" (fromLA preFilterSignatures) theHayooXPath  
-              (\a -> [stripWith (\b -> b `elem` "():") (strip (takeWhile ( (/=) ' ') (dropWhile ( (==) ' ') a)))])
-              (\s -> (s == "type" || s == "class" || s == "data"))  False
+ccHayooName 
+  = ContextConfig { cc_name        = "name"
+                  , cc_preFilter   = fromLA preFilterSignatures
+                  , cc_fExtract    = getXPathTrees theHayooXPath  
+                  , cc_fTokenize   = (\a -> [stripWith (\b -> b `elem` "():") (strip (takeWhile ( (/=) ' ') (dropWhile ( (==) ' ') a)))])
+                  , cc_fIsStopWord = \s -> s `elem` ["type", "class", "data"]  
+                  , cc_addToCache  = False
+                  }
 
 ccHayooPartialName :: ContextConfig
-ccHayooPartialName = ContextConfig "partial" (fromLA preFilterSignatures) theHayooXPath 
-                     partTokenize (\s -> (s == "type" || s == "class" || s == "data")) False 
+ccHayooPartialName 
+  = ccHayooName   { cc_name        = "partial"
+                  , cc_fTokenize   = (\s -> split " " (deCamel False (takeWhile ( (/=) ' ') s))) 
+                  } 
   where 
-    partTokenize s = split " " (deCamel False (takeWhile ( (/=) ' ') s))
     deCamel :: Bool -> String -> String  -- Bool flag: last character was a capital letter
     deCamel _ []     = []
-    deCamel wasCap (x:xs) = if x == '_' 
-                             then ' ' : deCamel True xs
-                             else 
-                               if x `elem` ['A'..'Z']
-                                 then 
-                                   if wasCap
-                                     then x: deCamel True xs
-                                     else ' ' : (x : deCamel True xs) 
-                                 else x : deCamel (x `elem` ['A'..'Z']) xs
-
-ccHayooSignature :: ContextConfig
-ccHayooSignature = ContextConfig "signature" (fromLA preFilterSignatures) theHayooXPath (\a -> [getSignature a]) (\s -> length s == 0) False
-
-getSignature :: String -> String
-getSignature s = if "=>" `isInfixOf` s
-                      then stripSignature (drop 3 (dropWhile ((/=) '=') s)) -- TODO split!
-                      else stripSignature (drop 3 (dropWhile ((/=) ':') s))
-
-
-ccHayooNormalizedSignature :: ContextConfig
-ccHayooNormalizedSignature = ContextConfig "normalized" (fromLA preFilterSignatures) theHayooXPath 
-  (\s -> [normalizeSignature (getSignature s)]) (\s -> length s ==  0) False
+    deCamel wasCap (x:xs) 
+      = if x == '_' then ' ' : deCamel True xs
+                    else if x `elem` ['A'..'Z'] then if wasCap then x: deCamel True xs
+                                                               else ' ' : (x : deCamel True xs) 
+                                                else x : deCamel (x `elem` ['A'..'Z']) xs
 
 -- | Configruation for description context.
 ccHayooDescription :: ContextConfig 
 ccHayooDescription 
   = ContextConfig { cc_name        = "description" 
                   , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_XPath       = "//td[@class='doc']//text()"
-                  , cc_fTokenize   = map (stripWith (=='.')) . (parseWords isWordChar)
-                  , cc_fIsStopWord = (\s -> length s < 2)
+                  , cc_fExtract    = getXPathTrees "//td[@class='doc']"
+                  , cc_fTokenize   = map (stripWith (=='.')) . 
+                                         (parseWords (\c -> isAlphaNum c || c `elem` ".-_'@():"))
+--                  , cc_fTokenize   = map (stripWith (=='.')) . (parseWords isWordChar)
+                  , cc_fIsStopWord = \s -> length s < 2
                   , cc_addToCache  = True
                   }
 
-ccHaddockSignatures :: ContextConfig
-ccHaddockSignatures  
-  = ContextConfig { cc_name        = "signatures"
+ccHayooSignature :: ContextConfig
+ccHayooSignature  
+  = ContextConfig { cc_name        = "signature"
                   , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_XPath       = theHayooXPath
-                  , cc_fTokenize   = (\a -> [a])
+                  , cc_fExtract    = getXPathTrees theHayooXPath
+                  , cc_fTokenize   = \a -> [getSignature a]
                   , cc_fIsStopWord = const False
                   , cc_addToCache  = False     
                   }
+
+ccHayooNormalizedSignature :: ContextConfig
+ccHayooNormalizedSignature 
+  = ccHayooSignature { cc_name        = "normalized"
+                     , cc_fTokenize   = (\s -> [normalizeSignature (getSignature s)])
+                     , cc_fIsStopWord = (\s -> length s ==  0) 
+                     }
                   
 ccModule :: ContextConfig
 ccModule 
   = ContextConfig { cc_name        = "module"
                   , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_XPath       = "/module/text()" 
-                  , cc_fTokenize   = \a -> [a]
+                  , cc_fExtract    = getXPathTrees "/table/tr/td[@id='module']" 
+                  , cc_fTokenize   = \a -> [stripWith (==' ') a]
                   , cc_fIsStopWord = const False     
                   , cc_addToCache  = False
                   }
 
 ccHierarchy :: ContextConfig
-ccHierarchy = ContextConfig "hierarchy" (fromLA preFilterSignatures) "/module/text()" (split ".") (const False) False     
+ccHierarchy 
+  = ccModule      { cc_name        = "hierarchy" 
+                  , cc_fTokenize   = split "." . stripWith (==' ') 
+                  }     
             
+getSignature :: String -> String
+getSignature s = if "=>" `isInfixOf` s  then stripSignature . stripSignature $ drop 3 $ dropWhile ((/=) '=') s
+                                        else stripSignature . stripSignature $ drop 3 $ dropWhile ((/=) ':') s
+
+
+-- | TODO some of this is redundant, some important. find out what and why and simplify
 preFilterSignatures :: LA XmlTree XmlTree
-preFilterSignatures
-    =     flattenElementsByType "b"
-      >>> flattenElementsByType "a"
+preFilterSignatures  
+-- =  this
+    =      flattenElementsByType "b"
+--      >>> flattenElementsByType "a"
       >>> flattenElementsByType "span"
 --      >>> flattenElementsByType "tt"
       >>> flattenElementsByType "em"
@@ -682,29 +633,11 @@ preFilterSignatures
       >>> removeDeclbut  -- redundant !?
 
 flattenElementsByType :: String -> LA XmlTree XmlTree
-flattenElementsByType s
-    = processTopDown ( getChildren
-                       `when`
-                       hasName s
-                     )
+flattenElementsByType s = processTopDown ( getChildren `when` hasName s )
 
 removeDeclbut :: ArrowXml a => a XmlTree XmlTree
-removeDeclbut =
-       processTopDown 
-          (  none
-            `when`
-             isDeclbut
-          )
-          
-isDeclbut :: ArrowXml a => a XmlTree String
-isDeclbut
-            = isElem 
-          >>> hasName "td" 
-          >>> hasAttr "class" 
-          >>> getAttrValue "class" 
-          >>> isA declbutAttr
-          where
-          declbutAttr = isPrefixOf "declbut" 
+removeDeclbut = processTopDown (  none `when` isDeclbut )
+  where isDeclbut = isElem  >>> hasName "td" >>> hasAttrValue "class" (isPrefixOf "declbut") 
 
 -- -------------------------------------------------------------------------------------------------
 -- stuff from Hayoo.Common
@@ -748,41 +681,57 @@ stripSignature = sep "->" . sep "(" . sep ")" . sep "." . sep "=>"
   where
   sep s = join s . map strip . split s  
  
-              
-              
-              
+
 {-
-mergeAll' :: (Documents FunctionInfo, Inverted) -> IndexerConfig -> IO (Documents FunctionInfo, Inverted)
-mergeAll' (docs, idx) idxConfig = 
-    do
-    docs2  <- loadFromBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") :: IO (Documents FunctionInfo)
-    idx2   <- loadFromBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") :: IO Inverted
-    return $! mergeAll docs idx docs2 idx2
--}
-{-
--- | build a cache - this will be changed when caches become mergable
-buildCache :: String -> [(DocId, URI)] -> IO()
-buildCache path l =
-  do 
-  cache <- createCache (path ++ "-cache.db")
-  mapM (cacheDoc cache) l
-  return ()
-  where 
-  cacheDoc :: HolCache c => c -> (DocId, URI) -> IO()
-  cacheDoc cache (docId, u) =
-    do
-    theText <- runX (      readDocument standardReadDocumentAttributes u 
-                       >>> getXPathTrees "/tr/td[@class='doc']"
-                       >>> deep isText
-                       >>> getText
-                       >>> unlistA
-                       >>> strictA
-                     )
-    if (length theText > 0) && 
-       (length (dropWhile ((==) ' ') (theText)) > 0)
-          then putDocText cache "description" docId (theText)
-          else return ()
--}              
-              
-              
-              
+            
+ic_Holumbus :: IndexerConfig
+ic_Holumbus 
+  =  IndexerConfig
+     { ic_startPages     = [ "http://holumbus.fh-wedel.de/docs/develop/index.html" ]
+     , ic_tempPath        = Just "/home/sms/tmp/holumbus_docs/"
+     , ic_indexPath        = "/home/sms/indexes/holumbus"
+     , ic_indexerTimeOut  = 10 * 60 * 1000000
+     , ic_contextConfigs = ccs_Hayoo                                   
+     , ic_readAttributes = standardReadDocumentAttributes
+     , ic_fCrawlFilter   = simpleCrawlFilter [ "http://holumbus.fh-wedel.de/docs/develop/" ] [ "/src/"]
+     }      
+
+ic_GHC_libs :: IndexerConfig         
+ic_GHC_libs
+ = IndexerConfig 
+   { ic_startPages      = [ "http://www.haskell.org/ghc/docs/latest/html/libraries/"
+                          , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Control-Exception.html"
+                          ]
+   , ic_tempPath         = Just "/home/sms/tmp/ghc_libs/"
+   , ic_indexPath         = "/home/sms/indexes/ghclibs"
+   , ic_indexerTimeOut  = 10 * 60 * 1000000
+   , ic_contextConfigs  = ccs_Hayoo
+   , ic_readAttributes  = standardReadDocumentAttributes
+   , ic_fCrawlFilter    = simpleCrawlFilter [ "^http://www.haskell.org/ghc/docs/latest/html/" ]
+                                        [ "/src/" 
+                                        , "^http://www.haskell.org/ghc/docs/latest/html/libraries/doc-index.html" 
+                                        , "/logs/failure/"
+                                        , "tar.gz$"
+                                        ]   
+   }
+
+ic_HXT :: IndexerConfig
+ic_HXT 
+  = IndexerConfig
+    { ic_startPages     = [ "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"]
+    , ic_tempPath        = Just "/tmp/"
+    , ic_indexPath        = "/home/sms/indexes/hxt"
+    , ic_indexerTimeOut  = 10 * 60 * 1000000
+    , ic_contextConfigs = ccs_Hayoo
+    , ic_readAttributes = standardReadDocumentAttributes
+    , ic_fCrawlFilter   = simpleCrawlFilter [ "^http://www.fh-wedel.de/~si/HXmlToolbox/hdoc"]
+                                            [ "/src/"]
+    }              
+
+       
+    docs <- return $ filterDocuments (\d -> isPrefixOf "http://hackage.haskell.org/packages/archive/" (uri d)) crawled
+    docs <- return $ filterDocuments (\d -> not (isSuffixOf "pkg-list.html" (uri d))) docs
+    docs <- return $ filterDocuments (\d -> not (isSuffixOf "recent.html" (uri d))) docs
+    docs <- return $ filterDocuments (hayooFilter . uri) docs
+    docs <- return $ filterDocuments (isLatestVersion (getVersions docs)) docs
+-}                          
