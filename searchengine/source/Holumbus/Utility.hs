@@ -56,11 +56,18 @@ join = L.intercalate
 strip :: String -> String
 strip = stripWith isSpace
 
+-- | Removes leading whitespace from a string.
+stripl :: String -> String
+stripl = dropWhile isSpace
+
+-- | Removes trailing whitespace from a string.
+stripr :: String -> String
+stripr = reverse . dropWhile isSpace . reverse
+
 -- | Strip leading and trailing elements matching a predicate.
 stripWith :: (a -> Bool) -> [a] -> [a]
 stripWith f = reverse . dropWhile f . reverse . dropWhile f
 
- 
 -- | found on the haskell cafe mailing list
 --   <http://www.haskell.org/pipermail/haskell-cafe/2008-April/041970.html>
 strictDecodeFile :: Binary a => FilePath -> IO a

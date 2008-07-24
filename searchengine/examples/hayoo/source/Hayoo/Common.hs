@@ -65,6 +65,8 @@ normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" 
 -- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
 -- to @String->Map k a->Int@.
 stripSignature :: String -> String
-stripSignature = sep "->" . sep "(" . sep ")" . sep "." . sep "=>"
+stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
   where
   sep s = join s . map strip . split s
+  lsep s = join s . map stripl . split s
+  rsep s = join s . map stripr . split s

@@ -82,7 +82,7 @@ data ProcessState i = ProcessState
 getFuzzyConfig :: HolIndex i => ProcessState i -> FuzzyConfig
 getFuzzyConfig = fuzzyConfig . config
 
--- | Monadic version of getFuzzyConfig.
+-- | Monadic version of 'getFuzzyConfig'.
 getFuzzyConfigM :: HolIndexM m i => ProcessState i -> m FuzzyConfig
 getFuzzyConfigM s = return $ fuzzyConfig $ config s
 
@@ -90,7 +90,7 @@ getFuzzyConfigM s = return $ fuzzyConfig $ config s
 setContexts :: HolIndex i => [Context] -> ProcessState i -> ProcessState i
 setContexts cs (ProcessState cfg _ i t) = ProcessState cfg cs i t
 
--- | Monadic version of setContexts.
+-- | Monadic version of 'setContexts'.
 setContextsM :: HolIndexM m i => [Context] -> ProcessState i -> m (ProcessState i)
 setContextsM cs (ProcessState cfg _ i t) = return $ ProcessState cfg cs i t
 
@@ -98,6 +98,7 @@ setContextsM cs (ProcessState cfg _ i t) = return $ ProcessState cfg cs i t
 initState :: HolIndex i => ProcessConfig -> i -> Int -> ProcessState i
 initState cfg i t = ProcessState cfg (IDX.contexts i) i t
 
+-- | Monadic version of 'initState'.
 initStateM :: HolIndexM m i => ProcessConfig -> i -> Int -> m (ProcessState i)
 initStateM cfg i t = IDX.contextsM i >>= \cs -> return $ ProcessState cfg cs i t
 
@@ -105,6 +106,7 @@ initStateM cfg i t = IDX.contextsM i >>= \cs -> return $ ProcessState cfg cs i t
 forAllContexts :: (Context -> Intermediate) -> [Context] -> Intermediate
 forAllContexts f cs = L.foldl' I.union I.emptyIntermediate $ parMap rnf f cs
 
+-- | Monadic version of 'forAllContexts'.
 forAllContextsM :: Monad m => (Context -> m Intermediate) -> [Context] -> m Intermediate
 forAllContextsM f cs = mapM f cs >>= \is -> return $ L.foldl' I.union I.emptyIntermediate is
 
@@ -122,7 +124,7 @@ processPartial cfg i t q = process (initState cfg i t) oq
   where
   oq = if optimizeQuery cfg then optimize q else q
 
--- | Monadic version of processPartial.
+-- | Monadic version of 'processPartial'.
 processPartialM :: (HolIndexM m i) => ProcessConfig -> i -> Int -> Query -> m Intermediate
 processPartialM cfg i t q = initStateM cfg i t >>= (flip processM) oq
   where
@@ -132,7 +134,7 @@ processPartialM cfg i t q = initStateM cfg i t >>= (flip processM) oq
 processQuery :: (HolIndex i, HolDocuments d c) => ProcessConfig -> i -> d c -> Query -> Result c
 processQuery cfg i d q = I.toResult d (processPartial cfg i (sizeDocs d) q)
 
--- | Monadic version of processQuery.
+-- | Monadic version of 'processQuery'.
 processQueryM :: (HolIndexM m i, HolDocuments d c) => ProcessConfig -> i -> d c -> Query -> m (Result c)
 processQueryM cfg i d q = processPartialM cfg i (sizeDocs d) q >>= \ir -> return $ I.toResult d ir
 
@@ -147,7 +149,7 @@ process s (Negation q)       = processNegation s (process s q)
 process s (Specifier c q)    = process (setContexts c s) q
 process s (BinQuery o q1 q2) = processBin o (process s q1) (process s q2)
 
--- | Monadic version of process.
+-- | Monadic version of 'process'.
 processM :: HolIndexM m i => ProcessState i -> Query -> m Intermediate
 processM s (Word w)           = processWordM s w
 processM _ (Phrase _)         = return I.emptyIntermediate -- processPhraseM s w
@@ -167,6 +169,7 @@ processWord s q = forAllContexts wordNoCase (contexts s)
   where
   wordNoCase c = I.fromList q c $ limitWords s $ IDX.prefixNoCase (index s) c q
 
+-- | Monadic version of 'processWord'.
 processWordM :: HolIndexM m i => ProcessState i -> String -> m Intermediate
 processWordM s q = forAllContextsM wordNoCase (contexts s)
   where
@@ -178,6 +181,7 @@ processCaseWord s q = forAllContexts wordCase (contexts s)
   where
   wordCase c = I.fromList q c $ limitWords s $ IDX.prefixCase (index s) c q
 
+-- | Monadic version of 'processCaseWord'.
 processCaseWordM :: HolIndexM m i => ProcessState i -> String -> m Intermediate
 processCaseWordM s q = forAllContextsM wordCase (contexts s)
   where
@@ -227,7 +231,7 @@ processFuzzyWord s oq = processFuzzyWord' (F.toList $ F.fuzz (getFuzzyConfig s) 
   processFuzzyWord' []     r = r
   processFuzzyWord' (q:qs) r = if I.null r then processFuzzyWord' qs (processWord s (fst q)) else r
 
--- | Monadic version of processFuzzyWord
+-- | Monadic version of 'processFuzzyWord'.
 processFuzzyWordM :: HolIndexM m i => ProcessState i -> String -> m Intermediate
 processFuzzyWordM s oq = do
   sr <- processWordM s oq 
@@ -241,6 +245,7 @@ processFuzzyWordM s oq = do
 processNegation :: HolIndex i => ProcessState i -> Intermediate -> Intermediate
 processNegation s r = I.difference (allDocuments s) r
 
+-- | Monadic version of 'processNegation'.
 processNegationM :: HolIndexM m i => ProcessState i -> Intermediate -> m Intermediate
 processNegationM s r1 = allDocumentsM s >>= \r2 -> return $ I.difference r2 r1
 
@@ -261,6 +266,7 @@ limitWords s r = if cut then map snd $ take limit $ L.sortBy (compare `on` fst) 
   calcScore :: (Word, Occurrences) -> (Double, (Word, Occurrences))
   calcScore w@(_, o) = (log (fromIntegral (total s) / fromIntegral (IM.size o)), w)
 
+-- | Monadic version of 'limitWords'.
 limitWordsM :: HolIndexM m i => ProcessState i -> RawResult -> m RawResult
 limitWordsM s r = return $ if cut then map snd $ take limit $ L.sortBy (compare `on` fst) $ map calcScore r else r
   where
