@@ -78,11 +78,13 @@ strictDecodeFile f  =
                                                        return $! decode c  
 
 -- | partition the list of input data into a list of input data lists of
---   approximately the same length
+--   approximately the same specified length
 partitionListByLength :: Int -> [a] -> [[a]]
 partitionListByLength _ [] = []
 partitionListByLength count l  = [take count l] ++ (partitionListByLength count (drop count l)) 
 
+-- | partition the list of input data into a list of a specified number of input data lists with 
+--   approximately the same length
 partitionListByCount :: Int -> [a] -> [[a]]
 partitionListByCount sublistCount list = partition sublistCount list
   where
