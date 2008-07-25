@@ -25,31 +25,28 @@ module Holumbus.Distribution.Worker.WorkerData
 where
 
 
-import Control.Concurrent
+import           Control.Concurrent
 import qualified Control.Exception as E
 
-import Data.Maybe
+import           Data.Maybe
 import qualified Data.Set as Set
 
-import System.Log.Logger
+import           System.Log.Logger
 
 import qualified Holumbus.Network.Port as P
-import Holumbus.Network.Site
-import Holumbus.MapReduce.Types
+import           Holumbus.Network.Site
+import           Holumbus.MapReduce.Types
+import qualified Holumbus.MapReduce.TaskProcessor as TP
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Master as MC
-import Holumbus.Distribution.Worker
-import Holumbus.Common.Utils
+import           Holumbus.Distribution.Worker
+import           Holumbus.Common.Utils
 
 localLogger :: String
-localLogger = "Holumbus.Distribution.Master.MasterData"
+localLogger = "Holumbus.Distribution.Worker.WorkerData"
 
 
-
-data WorkerMaps = WorkerMaps {
-    wm_TaskIds :: Set.Set TaskId
-  }
 
 data WorkerData = WorkerData {
     wd_WorkerId       :: MVar (Maybe M.WorkerId)
@@ -58,14 +55,14 @@ data WorkerData = WorkerData {
   , wd_OwnStream      :: ! M.WorkerRequestStream
   , wd_OwnPort        :: ! M.WorkerRequestPort
   , wd_MasterPort     :: MVar MP.MasterPort
-  , wd_Maps           :: MVar WorkerMaps   
+  , wd_TaskProcessor  :: TP.TaskProcessor   
   }
   
   
 
 
-newWorker :: MP.MasterPort -> IO WorkerData
-newWorker mp
+newWorker :: MapActionMap -> ReduceActionMap -> MP.MasterPort -> IO WorkerData
+newWorker mm rm mp
   = do
     -- initialize values
     nidMVar <- newMVar Nothing
@@ -74,8 +71,16 @@ newWorker mp
     st      <- (P.newStream::IO M.WorkerRequestStream)
     po      <- ((P.newPort st)::IO M.WorkerRequestPort)
     mpMVar  <- newMVar mp
-    wmMVar  <- newMVar (WorkerMaps Set.empty)
-    let wd'' = (WorkerData nidMVar sid tid st po mpMVar wmMVar)
+    tp      <- TP.newTaskProcessor
+    
+    -- configure the TaskProcessor
+    TP.setMapActionMap mm tp
+    TP.setReduceActionMap rm tp
+    TP.setTaskCompletedHook (sendTaskCompleted mpMVar) tp
+    TP.setTaskErrorHook (sendTaskError mpMVar) tp
+    TP.startTaskProcessor tp
+    
+    let wd'' = (WorkerData nidMVar sid tid st po mpMVar tp)
     -- first, we start the server, because we can't handle requests without it
     wd' <- startRequestDispatcher wd''
     -- then we try to register a the server
@@ -164,6 +169,14 @@ dispatch wd msg replyPort
         do
         handleRequest replyPort (startTask td wd) (\_ -> M.WRspSuccess)
         return ()
+      (M.WReqStopTask tid) ->
+        do
+        handleRequest replyPort (stopTask tid wd) (\_ -> M.WRspSuccess)
+        return ()
+      (M.WReqStopAllTasks) ->
+        do
+        handleRequest replyPort (stopAllTasks wd) (\_ -> M.WRspSuccess)
+        return ()
       _ -> 
         handleRequest replyPort (return ()) (\_ -> M.WRspUnknown)
 
@@ -228,6 +241,29 @@ unregisterWorker wd
 --
 -- ----------------------------------------------------------------------------
 
+
+sendTaskCompleted :: MVar MP.MasterPort -> TaskData -> IO Bool
+sendTaskCompleted mvmp td
+  = E.handle (\_ -> return False) $
+      modifyMVar mvmp $
+        \mp ->
+        do
+        debugM localLogger $ "completed Task" ++ show (td_TaskId td)
+        MC.receiveTaskCompleted td mp
+        return (mp, True)
+
+
+sendTaskError :: MVar MP.MasterPort -> TaskData -> IO Bool
+sendTaskError mvmp td
+  = E.handle (\_ -> return False) $
+      modifyMVar mvmp $
+        \mp ->
+        do
+        debugM localLogger $ "error Task" ++ show (td_TaskId td)
+        MC.receiveTaskError td mp
+        return (mp, True)
+
+
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -239,15 +275,30 @@ instance Worker WorkerData where
 
   getWorkerRequestPort wd = wd_OwnPort wd
   
+  
   startTask td wd
     = do
-      modifyMVar (wd_Maps wd) $
-        \wm ->
-        do
-        -- create a new Action-Id 
-        debugM localLogger "executing Task..."
-        debugM localLogger $ show td
-        return (wm, wd)
+      let tp = (wd_TaskProcessor wd)
+      debugM localLogger $ "executing Task" ++ show (td_TaskId td)
+      TP.startTask td tp
+      return wd
+  
+  
+  stopTask tid wd
+    = do
+      let tp = (wd_TaskProcessor wd)
+      debugM localLogger $ "stopping Task" ++ show tid      
+      TP.stopTask tid tp
+      return wd
+    
+
+  stopAllTasks wd
+    = do
+      let tp = (wd_TaskProcessor wd)
+      debugM localLogger "stopping all Tasks"
+      TP.stopAllTasks tp
+      return wd
+
   
   printDebug wd
     = do
@@ -261,6 +312,8 @@ instance Worker WorkerData where
       putStrLn $ prettyRecordLine gap "OwnPort:" (wd_OwnPort wd)
       withMVar (wd_MasterPort wd) $
         \mp -> do putStrLn $ prettyRecordLine gap "MasterPort:" mp
-      
+      tp <- TP.printTaskProcessor (wd_TaskProcessor wd)
+      putStrLn "TaskProcessor:"
+      putStrLn tp
       where
         gap = 20

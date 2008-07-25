@@ -19,7 +19,11 @@
 module Holumbus.FileSystem.FileSystem
 (
 -- * Datatypes
-  FileSystem
+  S.FileId
+, S.FileContent(..)
+, S.getContentLength
+, S.FileData(..)
+, FileSystem
 
 -- * Creation and Destruction
 , standaloneFileSystem
@@ -80,7 +84,10 @@ data FileSystemData =
 --  , fsd_nodep      :: forall n. (N.Node n) => MVar (Maybe n)
 --}
 
-type FileSystem = MVar FileSystemData
+data FileSystem = FileSystem (MVar FileSystemData)
+
+instance Show FileSystem where
+  show _ = "FileSystem"
 
 
 -- ---------------------------------------------------------------------------
@@ -99,8 +106,8 @@ standaloneFileSystem fp fn
     let cp = CP.newControllerPort $ C.getControllerRequestPort controller
     n <- ND.newNode cp storage
     fs <- newFileSystem controller
-    fs' <- setFileSystemNode n fs
-    return fs'
+    setFileSystemNode n fs
+    return fs
 
 --TODO
 -- | Creates a new FileSystem with a controller and (maybe) a node.
@@ -115,17 +122,18 @@ newFileSystem :: (C.Controller c) => c -> IO (FileSystem)
 newFileSystem c
   = do
     sid <- getSiteId
-    newMVar (FileSystemData sid c emptyNode)
+    fs <- newMVar (FileSystemData sid c emptyNode)
+    return (FileSystem fs)
     where
       emptyNode :: Maybe NP.NodePort
       emptyNode = Nothing
 
 
-setFileSystemNode :: (N.Node n) => n -> FileSystem -> IO (FileSystem)
-setFileSystemNode n fs
+setFileSystemNode :: (N.Node n) => n -> FileSystem -> IO ()
+setFileSystemNode n (FileSystem fs)
   = do
     modifyMVar fs $
-      \(FileSystemData s c _) -> return (FileSystemData s c (Just n), fs)  
+      \(FileSystemData s c _) -> return (FileSystemData s c (Just n), ())
 
 
 --TODO
@@ -152,14 +160,14 @@ createNodePort (Just p) = Just $ NP.newNodePort p
 -- ---------------------------------------------------------------------------
 
 getMySiteId :: FileSystem -> IO (SiteId)
-getMySiteId fs
+getMySiteId (FileSystem fs)
   = do 
     withMVar fs $
       \(FileSystemData s _ _) -> return s
 
 -- | Get a set of all sites the file exists.
 getFileSites :: S.FileId -> FileSystem -> IO (Set.Set SiteId)
-getFileSites f fs
+getFileSites f (FileSystem fs)
   = do
     withMVar fs $
       \(FileSystemData _ c _) -> 
@@ -168,7 +176,7 @@ getFileSites f fs
 
 -- | gets the nearest NodePort with our fileId
 getNearestNodePortWithFile :: S.FileId -> FileSystem -> IO (Maybe NP.NodePort)
-getNearestNodePortWithFile f fs
+getNearestNodePortWithFile f (FileSystem fs)
   = do
     withMVar fs $
       \(FileSystemData sid c _) -> 
@@ -178,7 +186,7 @@ getNearestNodePortWithFile f fs
 -- | gets the nearest NodePort on which we can create our fileId. we need the
 --   content-size to get a node with enough space.
 getNearestNodePortForFile :: S.FileId -> Integer -> FileSystem -> IO (Maybe NP.NodePort)
-getNearestNodePortForFile f l fs
+getNearestNodePortForFile f l (FileSystem fs)
   = do
     withMVar fs $
       \(FileSystemData sid c _) -> 
@@ -187,7 +195,7 @@ getNearestNodePortForFile f l fs
 
 -- | Checks if a file is in the filesystem
 containsFile :: S.FileId -> FileSystem -> IO Bool
-containsFile f fs
+containsFile f (FileSystem fs)
   = do
     withMVar fs $
       \(FileSystemData _ c _) ->
@@ -260,7 +268,7 @@ getFileData f fs
 
 -- | Tests, if the local storage (if one exists) holds the file
 isFileLocal :: S.FileId -> FileSystem -> IO Bool
-isFileLocal f fs
+isFileLocal f (FileSystem fs)
   = do
     withMVar fs $
       \(FileSystemData _ _ n) ->
@@ -268,7 +276,7 @@ isFileLocal f fs
 
 
 printDebug :: FileSystem -> IO ()
-printDebug fs
+printDebug (FileSystem fs)
   = do
     withMVar fs $
       \(FileSystemData s c n) ->

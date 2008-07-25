@@ -57,8 +57,8 @@ initializeData
     n <- N.newNode cp storage    
     putStrLn "-> fileSystem"
     fs <- FS.newFileSystem cp
-    fs' <- FS.setFileSystemNode n fs
-    return fs'
+    FS.setFileSystemNode n fs
+    return fs
 
 
 deinitializeData :: FS.FileSystem -> IO ()

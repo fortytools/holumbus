@@ -14,12 +14,12 @@
 -- ----------------------------------------------------------------------------
 
 {-# OPTIONS -fglasgow-exts #-}
-{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}      
+{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.MapReduce.Types
 (
   FunctionName
 , FunctionInfo
-, FunctionData
+, FunctionData(..)
 
 , encodeTuple
 , decodeTuple
@@ -31,7 +31,8 @@ module Holumbus.MapReduce.Types
 , TaskType(..)
 , TaskState(..)
 , getNextTaskState
-, TaskAction
+, TaskOutputType(..)
+, TaskAction(..)
 , TaskData(..)
 
 -- * JobData
@@ -58,7 +59,7 @@ module Holumbus.MapReduce.Types
 , MapActionMap
 , mkMapAction
 
--- * Combine-/Reduce-Action
+-- * Combine-Reduce-Action
 , ReduceAction
 , BinaryReduceAction 
 , ReduceFunction
@@ -66,48 +67,6 @@ module Holumbus.MapReduce.Types
 , ReduceActionData(..)
 , ReduceActionMap
 , mkReduceAction
-
-{-
--- * Map-Function
-, MapFunction
-, BinaryMapFunction
-
-, MapFunctionMap 
-, emptyMapFunctionMap
-, addMapFunctionToMap
-, dispatchMapFunction
-, listMapFunctions
-
--- * Reduce/Combine-Function
-, ReduceFunction
-, BinaryReduceFunction
-
-, ReduceFunctionMap
-, emptyReduceFunctionMap
-, addReduceFunctionToMap
-, dispatchReduceFunction
-, listReduceFunctions
-
--- * Merge-Function
-, MergeFunction
-, BinaryMergeFunction
-
-, MergeFunctionMap
-, emptyMergeFunctionMap
-, addMergeFunctionToMap
-, dispatchMergeFunction
-, listMergeFunctions
-
--- * Partition-Function
-, PartitionFunction
-, BinaryPartitionFunction
-
-, PartitionFunctionMap
-, emptyPartitionFunctionMap
-, addPartitionFunctionToMap
-, dispatchPartitionFunction
-, listPartitionFunctions
--}
 )
 where
 
@@ -123,7 +82,7 @@ import           Text.XML.HXT.Arrow
 
 import           Holumbus.Common.Utils
 import           Holumbus.MapReduce.TypeCheck
-import qualified Holumbus.MapReduce.AccuMap as AMap
+import qualified Holumbus.Data.AccuMap as AMap
 
 
 
@@ -137,9 +96,39 @@ type FunctionName = String
 
 type FunctionInfo = String
 
-type FunctionData = B.ByteString
+data FunctionData
+  = RawFunctionData B.ByteString
+  | FileFunctionData String
+  deriving (Show, Eq, Ord)
+
+instance Binary FunctionData where
+  put (RawFunctionData b)  = putWord8 0 >> put b
+  put (FileFunctionData f) = putWord8 1 >> put f
+  get
+    = do
+      t <- getWord8
+      case t of
+        1 -> get >>= \f -> return (FileFunctionData f)
+        _ -> get >>= \b -> return (RawFunctionData b)
+        
+        
+instance XmlPickler FunctionData where
+  xpickle = xpFunctionData
+        
+xpFunctionData :: PU FunctionData
+xpFunctionData
+  = xpElem "data" $
+      xpAlt tag ps
+      where
+      tag (RawFunctionData _)  = 0
+      tag (FileFunctionData _) = 1
+      ps = [xpWrap (\p -> RawFunctionData (encodeTuple p), \(RawFunctionData p) -> decodeTuple p) xpRawFunctionData
+           ,xpWrap (\f -> FileFunctionData f, \(FileFunctionData f) -> f) xpFileFunctionData ]
+      xpRawFunctionData = xpPair (xpElem "key" xpText0) (xpElem "value" xpText0)
+      xpFileFunctionData = xpElem "filename" xpText
 
 
+        
 -- ----------------------------------------------------------------------------
 -- general encoding / decoding
 -- ----------------------------------------------------------------------------
@@ -216,18 +205,64 @@ getNextTaskState TSFinished = TSFinished
 getNextTaskState s          = succ s
 
 
-type TaskAction = String
+data TaskOutputType = TOTRaw | TOTLocalFile | TOTGlobalFile
+  deriving (Show, Eq, Ord, Enum)
   
+instance Binary TaskOutputType where
+  put (TOTRaw)         = putWord8 0
+  put (TOTLocalFile)   = putWord8 1
+  put (TOTGlobalFile)  = putWord8 2
+  get
+    = do
+     t <- getWord8
+     case t of
+       1 -> return (TOTRaw)
+       2 -> return (TOTLocalFile)
+       _ -> return (TOTGlobalFile)
+
+
+data TaskAction = TaskAction {
+    ta_Action     :: FunctionName
+  , ta_OutputType :: TaskOutputType
+  } deriving (Show, Eq, Ord)
+
+instance XmlPickler TaskAction where
+  xpickle = xpTaskAction
+  
+xpTaskAction :: PU TaskAction
+xpTaskAction
+  = xpElem "action" $
+      xpWrap (\(a, tot) -> TaskAction a tot, \(TaskAction a tot) -> (a, tot)) xpTAction
+    where
+    xpTAction    = xpPair xpActionName xpOutputType
+    xpActionName = xpAttr "name" xpText
+    xpOutputType = xpAttr "output" $ xpAlt tag ps
+      where
+      tag (TOTRaw)        = 0
+      tag (TOTLocalFile)  = 1
+      tag (TOTGlobalFile) = 2
+      ps = [xpWrap (\"raw"    -> TOTRaw,        \(TOTRaw)        -> "raw")    xpText
+           ,xpWrap (\"local"  -> TOTLocalFile,  \(TOTLocalFile)  -> "local")  xpText
+           ,xpWrap (\"global" -> TOTGlobalFile, \(TOTGlobalFile) -> "global") xpText]
+  
+instance Binary TaskAction where
+  put (TaskAction a tot) = put a >> put tot
+  get
+    = do
+      a   <- get
+      tot <- get
+      return (TaskAction a tot)
+
 
 -- | the TaskData, contains all information to do the task
 data TaskData = TaskData {
-    td_JobId     :: ! JobId
-  , td_TaskId    :: ! TaskId
-  , td_Type      :: TaskType
-  , td_State     :: TaskState
-  , td_Input     :: [FunctionData]
-  , td_Output    :: [(Int,[FunctionData])]
-  , td_Action    :: TaskAction
+    td_JobId      :: ! JobId
+  , td_TaskId     :: ! TaskId
+  , td_Type       :: TaskType
+  , td_State      :: TaskState
+  , td_Input      :: [FunctionData]
+  , td_Output     :: [(Int,[FunctionData])]
+  , td_Action     :: TaskAction
   } deriving (Show, Eq, Ord)
 
 instance Binary TaskData where
@@ -237,11 +272,11 @@ instance Binary TaskData where
     = do
       jid <- get
       tid <- get
-      tt <- get
-      ts <- get
-      i <- get
-      o <- get
-      a <- get
+      tt  <- get
+      ts  <- get
+      i   <- get
+      o   <- get
+      a   <- get
       return (TaskData jid tid tt ts i o a)
 
 
@@ -309,8 +344,8 @@ data JobInfo = JobInfo {
   , ji_MapAction        :: ! (Maybe TaskAction)
   , ji_CombineAction    :: ! (Maybe TaskAction)
   , ji_ReduceAction     :: ! (Maybe TaskAction)
-  , ji_Input            :: ! [(String, String)]
-  } deriving (Show)
+  , ji_Input            :: ! [FunctionData]
+  } deriving (Show, Eq)
 
 instance Binary JobInfo where
   put (JobInfo d m c r i)
@@ -344,16 +379,10 @@ xpJobInfo =
       xpMapAction     = xpOption $ xpElem "map" $ xpTaskAction
       xpCombineAction = xpOption $ xpElem "combine" $ xpTaskAction
       xpReduceAction  = xpOption $ xpElem "reduce" $ xpTaskAction
-      xpTaskAction    = xpAttr "action" xpText
       xpFunctionDataList
         = xpWrap (filterEmptyList,setEmptyList) $ xpOption $
           xpElem "inputList" $ xpList xpFunctionData
-      xpFunctionData
-        = xpElem "input" $
-          xpPair xpKey xpValue
-          where
-            xpKey = xpElem "key" xpText0
-            xpValue = xpElem "value" xpText0
+      
 
 
 -- | the job data, include the user-input and some additional control-data
@@ -407,20 +436,23 @@ testJobInfo ji mm rm = foldl (testAnd) (True, "") testList
                (testIOMC, "output of map and input of combine don't match"),
                (testIOCR, "output of combine and input of reduce don't match"),
                (testIOMR, "output of map and input of reduce don't match")]
-  mapName   = ji_MapAction ji
-  comName   = ji_CombineAction ji
-  redName   = ji_ReduceAction ji
-  mapOut    = mad_OutputType $ fromJust $ Map.lookup (fromJust mapName) mm
-  comOut    = rad_OutputType $ fromJust $ Map.lookup (fromJust comName) rm
-  comIn     = rad_InputType $ fromJust $ Map.lookup (fromJust comName) rm
-  redIn     = rad_InputType $ fromJust $ Map.lookup (fromJust redName) rm
-  testNames = (mapName /= Nothing) || (comName /= Nothing) || (redName /= Nothing)
-  testMap   = (mapName == Nothing) || (isJust $ Map.lookup (fromJust mapName) mm)
-  testCom   = (comName == Nothing) || (isJust $ Map.lookup (fromJust comName) rm)
-  testRed   = (redName == Nothing) || (isJust $ Map.lookup (fromJust redName) rm)
-  testIOMC  = (mapName == Nothing) || (comName == Nothing) || (mapOut == comIn)
-  testIOCR  = (comName == Nothing) || (redName == Nothing) || (comOut == redIn)
-  testIOMR  = (mapName == Nothing) || (redName == Nothing) || (comName /= Nothing) || (mapOut == redIn) 
+  mapAction = ji_MapAction ji
+  comAction = ji_CombineAction ji
+  redAction = ji_ReduceAction ji
+  mapName   = ta_Action $ fromJust mapAction
+  comName   = ta_Action $ fromJust comAction
+  redName   = ta_Action $ fromJust redAction
+  mapOut    = mad_OutputType $ fromJust $ Map.lookup mapName mm
+  comOut    = rad_OutputType $ fromJust $ Map.lookup comName rm
+  comIn     = rad_InputType $ fromJust $ Map.lookup comName rm
+  redIn     = rad_InputType $ fromJust $ Map.lookup redName rm
+  testNames = (mapAction /= Nothing) || (comAction /= Nothing) || (redAction /= Nothing)
+  testMap   = (mapAction == Nothing) || (isJust $ Map.lookup mapName mm)
+  testCom   = (comAction == Nothing) || (isJust $ Map.lookup comName rm)
+  testRed   = (redAction == Nothing) || (isJust $ Map.lookup redName rm)
+  testIOMC  = (mapAction == Nothing) || (comAction == Nothing) || (mapOut == comIn)
+  testIOCR  = (comAction == Nothing) || (redAction == Nothing) || (comOut == redIn)
+  testIOMR  = (mapAction == Nothing) || (redAction == Nothing) || (comAction /= Nothing) || (mapOut == redIn) 
 
 
 -- ----------------------------------------------------------------------------

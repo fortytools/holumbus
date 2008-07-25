@@ -24,9 +24,10 @@ module Holumbus.MapReduce.JobController
 
 , printJobController
 
--- * Creation / Destruction
+-- * Creation and Destruction
 , newJobController
 , closeJobController
+, setFileSystemToJobController
 , setTaskSendHook
 , setMapActions
 , setReduceActions
@@ -56,12 +57,19 @@ import           Data.Time
 import           Data.Typeable
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import           System.Log.Logger
 
 import           Holumbus.MapReduce.Types
-import           Holumbus.FileSystem.Storage as S
-import qualified Holumbus.MapReduce.AccuMap as AMap
-import qualified Holumbus.MapReduce.MultiMap as MMap
+import qualified Holumbus.FileSystem.FileSystem as FS
+import qualified Holumbus.Data.AccuMap as AMap
+import qualified Holumbus.Data.MultiMap as MMap
 
+
+localLogger :: String
+localLogger = "Holumbus.MapReduce.JobController"
+
+cycleLogger :: String
+cycleLogger = "Holumbus.MapReduce.JobController.cycle"
 
 -- ----------------------------------------------------------------------------
 --
@@ -76,7 +84,7 @@ newJobData jcd info
     let jrc = JobResultContainer mVar 
     let jid = jcd_NextJobId jcd
     let jcd' = jcd { jcd_NextJobId = (jid+1) }
-    let pairs = zip (iterate (+1) 1) (map (\i -> [i]) $ encodeTupleList (ji_Input info))
+    let pairs = zip (iterate (+1) 1) (map (\i -> [i]) (ji_Input info))
     let accuMap = AMap.fromList pairs
     let outputMap = Map.insert JSIdle accuMap Map.empty
     return (jcd', JobData jid JSIdle outputMap info t t jrc, mVar)
@@ -148,6 +156,7 @@ data JobControllerData = JobControllerData {
   -- internal
     jcd_ServerThreadId :: Maybe ThreadId
   , jcd_ServerDelay    :: Int
+  , jcd_FileSystem     :: Maybe FS.FileSystem
   -- control
   -- , jcd_MaxRunningJobs :: Int
   , jcd_NextJobId      :: JobId
@@ -190,12 +199,12 @@ defaultJobControllerData = jcd
   jcd = JobControllerData
     Nothing
     1000000
+    Nothing
     1
     1
     jcf
     Map.empty
     Map.empty
-    -- emptyPartitionFunctionMap
     Map.empty
     Map.empty
     MMap.empty
@@ -216,6 +225,12 @@ closeJobController :: JobController -> IO ()
 closeJobController jc
   = do
     stopJobController jc
+
+
+setFileSystemToJobController :: FS.FileSystem -> JobController -> IO ()
+setFileSystemToJobController fs jc
+  = modifyMVar jc $
+    \jcd -> return $ (jcd { jcd_FileSystem = Just fs }, ())
 
 
 setTaskSendHook :: TaskSendFunction -> JobController -> IO ()
@@ -364,13 +379,31 @@ changeTaskState :: TaskId -> TaskState -> JobControllerData -> JobControllerData
 changeTaskState tid ts jcd = changeTaskState' (Map.lookup tid (jcd_TaskMap jcd))
   where
   changeTaskState' (Nothing) = jcd
-  changeTaskState' (Just td) = jcd { jcd_TaskMap = tm', jcd_StateTaskIdMap = stm' }
+  changeTaskState' (Just td) = 
+    if isChangeTaskStateAllowed ts (td_State td)
+      then jcd { jcd_TaskMap = tm', jcd_StateTaskIdMap = stm' }
+      else jcd
     where
     td' = td { td_State = ts }  -- change TaskData
     ts' = td_State td           -- get old state
     tm' = Map.insert tid td' (jcd_TaskMap jcd) -- change TaskData
     stm' = MMap.insert ts tid $ MMap.deleteElem ts' tid (jcd_StateTaskIdMap jcd) -- change StateTaskIdMap
 
+
+-- | newState oldState
+isChangeTaskStateAllowed :: TaskState -> TaskState -> Bool
+-- only Error-Tasks can be reset to idle
+isChangeTaskStateAllowed TSIdle       t = Set.member t $ Set.fromList [TSError]
+-- inProgress only from an idle Tasks
+isChangeTaskStateAllowed TSInProgress t = Set.member t $ Set.fromList [TSIdle]
+-- completed only idle and inprogress
+isChangeTaskStateAllowed TSCompleted  t = Set.member t $ Set.fromList [TSIdle, TSInProgress]
+-- finished all but not error
+isChangeTaskStateAllowed TSFinished   t = Set.member t $ Set.fromList [TSIdle, TSInProgress, TSCompleted]
+-- we can always set a task to error
+isChangeTaskStateAllowed TSError      _ = True
+-- otherwise false (there are no other cases)
+-- isChangeTaskStateAllowed _ _ = False
 
 updateTaskOutput :: TaskId -> [(Int, [FunctionData])] -> JobControllerData -> JobControllerData
 updateTaskOutput _ [] jcd = jcd
@@ -439,7 +472,7 @@ doProcessing jc loop
       handler
     where
       handler :: JobControllerException -> IO ()
-      handler err = putStrLn (show err)
+      handler err = errorM cycleLogger $ "doProcessing: " ++ (show err)
       doProcessing' jc' loop'
         = do
           handleTasks jc'
@@ -461,24 +494,33 @@ doProcessing jc loop
 toNextTaskState :: JobControllerData -> TaskData -> JobControllerData
 toNextTaskState jcd td = changeTaskState (td_TaskId td) (getNextTaskState (td_State td)) jcd 
 
-
-sendTask :: JobControllerData -> TaskData -> IO JobControllerData
-sendTask jcd td
+-- | the send task doesn't block, because a timeout causes the whole job
+--   controller to pause, we don't want this
+sendTask :: JobController -> TaskData -> IO ()
+sendTask jc td
   = do
-    let sendFunction = jcf_TaskSend $ jcd_Functions jcd
-    sendResult <- sendFunction td
-    case sendResult of
-      (TSRSend) ->
-        do
-        let jcd' = toNextTaskState jcd td
-        return jcd'
-      (TSRNotSend) ->
-        do
-        return jcd
-      (TSRError) ->
-        do
-        let jcd' = toErrorTaskState jcd td
-        return jcd'
+    -- own thread for this... so it is non-blocking
+    forkIO $ 
+      do
+      yield
+      -- get the sendFunction (just read it)
+      sendFunction <- withMVar jc $
+        \jcd -> return $ jcf_TaskSend $ jcd_Functions jcd
+      -- execute the send function (this might timeout or block)
+      sendResult <- sendFunction td
+      -- set the task in the correct state
+      case sendResult of
+        (TSRSend) ->
+          do
+          setTaskInProgress jc td
+        (TSRNotSend) ->
+          do
+          -- Task already in idle
+          return ()
+        (TSRError) ->
+          do
+          setTaskError jc td
+    return ()
 
 
 finishTask :: JobControllerData -> TaskData -> JobControllerData
@@ -494,22 +536,22 @@ handleTasks jc
   = modifyMVar jc $
       \jcd ->
       do
-      putStrLn "processing Tasks:"
+      infoM cycleLogger "processing Tasks:"
       -- get all runnning jobs (not idle...)
       let runningJobs = getJobIds [JSMap, JSCombine, JSReduce] jcd
-      putStrLn $ "running Jobs:\n" ++ show runningJobs
+      infoM cycleLogger $ "running Jobs:" ++ show runningJobs
       -- get all idle tasks
       let idleTasks = getTaskIds runningJobs [] [TSIdle] jcd
-      putStrLn $ "idle Tasks:\n" ++ show idleTasks
+      infoM cycleLogger $ "idle Tasks:" ++ show idleTasks
       let idleTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd)) idleTasks
-      -- send all idle Tasks
-      jcd' <- foldM sendTask jcd idleTaskDatas    
+      -- send all idle Tasks (non-blocking)
+      mapM (sendTask jc) idleTaskDatas
       -- get all completed Tasks
-      let completedTasks = getTaskIds runningJobs [] [TSCompleted] jcd'
-      let completedTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd')) completedTasks
+      let completedTasks = getTaskIds runningJobs [] [TSCompleted] jcd
+      let completedTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd)) completedTasks
       -- inProgressTasks = getTaskIds runningJobs [] [TSInProgress] jcd
-      let jcd'' = foldl finishTask jcd' completedTaskDatas
-      return (jcd'',())
+      let jcd' = foldl finishTask jcd completedTaskDatas
+      return (jcd',())
 
 
 -- ----------------------------------------------------------------------------
@@ -519,15 +561,21 @@ handleTasks jc
 toNextJobState :: JobControllerData -> JobData -> JobControllerData
 toNextJobState jcd jd = changeJobState (jd_JobId jd) (getNextJobState (jd_State jd)) jcd
 
-toErrorTaskState :: JobControllerData -> TaskData -> JobControllerData
-toErrorTaskState jcd td = changeTaskState (td_TaskId td) TSError jcd
+-- toIdleTaskState :: JobControllerData -> TaskData -> JobControllerData
+-- toIdleTaskState jcd td = changeTaskState (td_TaskId td) TSIdle jcd
+
+toInProgressTaskState :: JobControllerData -> TaskData -> JobControllerData
+toInProgressTaskState jcd td = changeTaskState (td_TaskId td) TSInProgress jcd
 
 toCompletedTaskState :: JobControllerData -> TaskData -> JobControllerData
 toCompletedTaskState jcd td = updateTaskOutput tid o $ changeTaskState tid TSCompleted jcd
   where
   tid = td_TaskId td
   o = td_Output td
-  
+
+toErrorTaskState :: JobControllerData -> TaskData -> JobControllerData
+toErrorTaskState jcd td = changeTaskState (td_TaskId td) TSError jcd
+
 
 hasPhase :: JobData -> Bool
 hasPhase jd = isJust $ getCurrentTaskAction jd
@@ -596,26 +644,26 @@ handleJobs jc
       \jcd ->
       do
       -- get all working jobs (idle or running)
-      putStrLn "processing Jobs"
+      infoM cycleLogger "processing Jobs"
       let workingJobs = getJobIds [JSIdle, JSMap, JSCombine, JSReduce] jcd
-      putStrLn $ "working jobs:\n" ++ show workingJobs
+      infoM cycleLogger $ "working jobs:" ++ show workingJobs
       -- process only jobs, whose current phase is done
       let jobsWithoutTasks = filter (allTasksFinished jcd) workingJobs
-      putStrLn $ "jobsWithoutTasks:\n" ++ show jobsWithoutTasks
+      infoM cycleLogger $ "jobsWithoutTasks:" ++ show jobsWithoutTasks
       -- get the old jobdatas
       let oldJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd)) jobsWithoutTasks
-      -- putStrLn $ "oldJobDatas:\n" ++ show oldJobDatas
+      debugM cycleLogger $ "oldJobDatas:\n" ++ show oldJobDatas
       -- change the job states to the next phase
       let jcd1 = foldl toNextJobState jcd oldJobDatas
       -- get the new jobdatas
       let newJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd1)) jobsWithoutTasks
-      -- putStrLn $ "newJobDatas:\n" ++ show newJobDatas
+      debugM cycleLogger $ "newJobDatas:\n" ++ show newJobDatas
       -- create new tasks for each Job
       jcd2 <- foldM createTasks jcd1 newJobDatas
       
       -- get all completed Jobs
       let completedJobs = getJobIds [JSCompleted] jcd2
-      putStrLn $ "completed Jobs:\n" ++ show completedJobs
+      infoM cycleLogger $ "completed Jobs:" ++ show completedJobs
       -- get the completed JobDatas
       let completedJobDatas = mapMaybe (\jid -> Map.lookup jid (jcd_JobMap jcd2)) completedJobs
       -- change the job states to the next phase
@@ -634,14 +682,39 @@ handleJobs jc
 -- handling Task-Responses
 -- ----------------------------------------------------------------------------
 
-setTaskCompleted :: JobController -> TaskData -> IO ()
-setTaskCompleted jc td
+{-
+setTaskIdle :: JobController -> TaskData -> IO ()
+setTaskIdle jc td
   = do
-    putStrLn "JobController: setTaskCompleted waiting..."
+    debugM localLogger $ "setTaskIdle: waiting... TaskId: " ++ show (td_TaskId td)
     modifyMVar jc $
       \jcd ->
       do
-      putStrLn "JobController: setTaskCompleted setting..."
+      debugM localLogger $ "setTaskIdle: setting... TaskId: " ++ show (td_TaskId td)
+      let jcd' = toIdleTaskState jcd td
+      return (jcd', ())
+-}
+
+setTaskInProgress :: JobController -> TaskData -> IO ()
+setTaskInProgress jc td
+  = do
+    debugM localLogger $ "setTaskInProgress: waiting... TaskId: " ++ show (td_TaskId td)
+    modifyMVar jc $
+      \jcd ->
+      do
+      debugM localLogger $ "setTaskInProgress: setting... TaskId: " ++ show (td_TaskId td)
+      let jcd' = toInProgressTaskState jcd td
+      return (jcd', ())
+
+
+setTaskCompleted :: JobController -> TaskData -> IO ()
+setTaskCompleted jc td
+  = do
+    debugM localLogger $ "setTaskCompleted: waiting... TaskId: " ++ show (td_TaskId td)
+    modifyMVar jc $
+      \jcd ->
+      do
+      debugM localLogger $ "setTaskCompleted: setting... TaskId: " ++ show (td_TaskId td)
       let jcd' = toCompletedTaskState jcd td
       return (jcd', ())
 
@@ -649,9 +722,11 @@ setTaskCompleted jc td
 setTaskError :: JobController -> TaskData -> IO ()
 setTaskError jc td
   = do
+    debugM localLogger $ "setTaskError: waiting... TaskId: " ++ show (td_TaskId td)
     modifyMVar jc $
       \jcd ->
       do
+      debugM localLogger $ "setTaskError: setting... TaskId: " ++ show (td_TaskId td)
       let jcd' = toErrorTaskState jcd td
       return (jcd', ())
     

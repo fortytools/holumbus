@@ -67,7 +67,9 @@ talkWithNode p respStream m hdlFct
     P.sendWithGeneric p m (encode respPort)
     --wait for the response
     debugM localLogger $ "waiting for response for: " ++ show m 
-    response <- P.tryWaitReadStream respStream P.time30
+    -- response <- P.tryWaitReadStream respStream P.time30
+    r' <- P.readStream respStream
+    let response = Just r'
     debugM localLogger "response Message..."
     putStrLn $ show response
     res <- case response of

@@ -1,6 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
-  Module     : Holumbus.MapReduce.MultiMap
+  Module     : Holumbus.Data.MultiMap
   Copyright  : Copyright (C) 2008 Stefan Schmidt
   License    : MIT
 
@@ -13,7 +13,7 @@
 -}
 -- ----------------------------------------------------------------------------
 
-module Holumbus.MapReduce.MultiMap
+module Holumbus.Data.MultiMap
 (
   MultiMap
 , empty
@@ -21,11 +21,17 @@ module Holumbus.MapReduce.MultiMap
 , insert
 , insertSet
 , lookup
+, keys
+, elems
 , filterElements
 , member
 , delete
 , deleteKey
 , deleteElem
+, fromList
+, fromTupleList
+, toList
+, toAscList
 )
 where
 
@@ -84,16 +90,24 @@ lookup k (MM m) = maybe (Set.empty) (id) (Map.lookup k m)
 lookupKeys :: (Ord k, Ord a) => [k] -> MultiMap k a -> Set.Set a
 lookupKeys ks m = Set.unions $ map (\k -> lookup k m) ks
 
+
+keys :: (Ord k, Ord a) => MultiMap k a -> Set.Set k
+keys (MM m) = Set.fromList $ Map.keys m
+
+
 elems :: (Ord k, Ord a) => MultiMap k a -> Set.Set a
 elems (MM m) = Set.unions $ Map.elems m
+
 
 filterElements :: (Ord k, Ord a) => [k] -> MultiMap k a -> Set.Set a
 filterElements [] m = elems m  -- get all
 filterElements ks m = lookupKeys ks m
 
+
 -- | test, if a key is in the Map
 member :: (Ord k, Ord a) => k -> MultiMap k a -> Bool
 member k m = Set.empty == lookup k m
+
 
 -- | deletes an Element from the Map, if the data in Nothing, the whole key is
 --   deleted
@@ -116,3 +130,19 @@ deleteElem k a (MM m) = MM $ Map.alter delSet k m
     filterEmpty set
       | set == Set.empty = Nothing
       | otherwise = Just set
+
+
+fromList :: (Ord k, Ord a) => [(k,Set.Set a)] -> MultiMap k a
+fromList ks = foldl (\m (k,as) -> insertSet k as m) empty ks
+
+
+fromTupleList :: (Ord k, Ord a) => [(k,a)] -> MultiMap k a
+fromTupleList ks = foldl (\m (k,a) -> insert k a m) empty ks
+
+
+toList :: (Ord k, Ord a) => MultiMap k a -> [(k,Set.Set a)]
+toList (MM m) = Map.toList m
+
+
+toAscList :: (Ord k, Ord a) => MultiMap k a -> [(k,Set.Set a)]
+toAscList (MM m) = Map.toAscList m

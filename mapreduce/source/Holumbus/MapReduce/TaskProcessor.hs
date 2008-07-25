@@ -22,9 +22,10 @@ module Holumbus.MapReduce.TaskProcessor
 
 , printTaskProcessor
 
--- * Creation / Destruction
+-- * Creation and Destruction
 , newTaskProcessor
 , closeTaskProcessor
+, setFileSystemToTaskProcessor
 , setMapActionMap
 , setReduceActionMap
 , setTaskCompletedHook  
@@ -40,7 +41,7 @@ module Holumbus.MapReduce.TaskProcessor
 , getReduceActions
 
 
--- * Task Creation / Destruction
+-- * Task Creation and Destruction
 , startTask
 , stopTask
 , stopAllTasks 
@@ -50,19 +51,24 @@ where
 import qualified Control.Exception as E
 import           Control.Concurrent
 import           Data.Binary
+import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Data.Maybe
 import           Data.Typeable
+import           System.Log.Logger
 
 import           Holumbus.MapReduce.Types
-
-import           Holumbus.FileSystem.FileSystem
-import           Holumbus.FileSystem.Storage
+import qualified Holumbus.FileSystem.FileSystem as FS
 
 
 
+localLogger :: String
+localLogger = "Holumbus.MapReduce.TaskProcessor"
 
+
+taskLogger :: String
+taskLogger = "Holumbus.MapReduce.TaskProcessor.task"
 
 -- ----------------------------------------------------------------------------
 -- Datatypes
@@ -98,6 +104,7 @@ data TaskProcessorData = TaskProcessorData {
   -- internal
     tpd_ServerThreadId    :: Maybe ThreadId
   , tpd_ServerDelay       :: Int
+  , tpd_FileSystem        :: Maybe FS.FileSystem
   -- configuration
   , tpd_MaxTasks          :: Int
   , tpd_Functions         :: TaskProcessorFunctions
@@ -109,6 +116,7 @@ data TaskProcessorData = TaskProcessorData {
   , tpd_ErrorTasks        :: Set.Set TaskData
   , tpd_TaskIdThreadMap   :: Map.Map TaskId ThreadId
   } deriving (Show)
+
 
 type TaskProcessor = MVar TaskProcessorData
 
@@ -132,6 +140,7 @@ defaultTaskProcessorData = tpd
     tpd = TaskProcessorData
       Nothing
       1000 -- one millisecond delay
+      Nothing
       1
       funs
       Map.empty
@@ -159,6 +168,12 @@ closeTaskProcessor tp
     stopTaskProcessor tp
 
 
+-- | add a filesystem-instance to the TaskProcessor
+setFileSystemToTaskProcessor :: FS.FileSystem -> TaskProcessor -> IO ()
+setFileSystemToTaskProcessor fs tp
+  = modifyMVar tp $
+    \tpd -> return $ (tpd { tpd_FileSystem = Just fs }, ())
+  
 
 -- | adds a MapAction to the TaskProcessor
 setMapActionMap :: MapActionMap -> TaskProcessor -> IO ()
@@ -313,24 +328,32 @@ getReduceActions tp
 -- | adds a Task to the TaskProcessor, the execution might be later
 startTask :: TaskData -> TaskProcessor -> IO ()
 startTask td tp
-  = modifyMVar tp $
-    \tpd-> do return (addTask td tpd, ())
+  = do
+    debugM localLogger $ "waiting to add Task " ++ show (td_TaskId td)
+    modifyMVar tp $
+      \tpd->
+      do
+      debugM localLogger $ "adding Task " ++ show (td_TaskId td)
+      return (addTask td tpd, ())
       
   
 stopTask :: TaskId -> TaskProcessor -> IO ()
 stopTask tid tp
   = do
+    debugM localLogger $ "waiting to stop Task " ++ show tid
     mthd <- modifyMVar tp $
       \tpd-> 
       do
       let thd = getTaskThreadId tid tpd 
       return (deleteTask tid tpd, thd)
+    debugM localLogger $ "stopping Task " ++ show tid
     maybe (return ()) (\thd -> E.throwDynTo thd KillTaskException) mthd
 
 
 stopAllTasks :: TaskProcessor -> IO () 
 stopAllTasks tp
   = do
+    debugM localLogger $ "waiting to stop all Tasks"
     tids <- withMVar tp $ \tpd -> return $ getTasksIds tpd
     mapM (\tid -> stopTask tid tp) tids
     return ()
@@ -460,6 +483,7 @@ runTask td tp
       E.handle (\_ -> reportErrorTask td tp) $ 
         do
         yield
+        -- threadDelay 5000000
         td' <- case (td_Type td) of
           TTMap     -> performMapTask td tp
           TTCombine -> performCombineTask td tp 
@@ -501,16 +525,18 @@ sendTasksResults set fun
 performMapTask :: TaskData -> TaskProcessor-> IO TaskData
 performMapTask td tp
   = do
-    putStrLn "MapTask"
-    putStrLn $ "input td: " ++ show td
+    infoM taskLogger $ "MapTask " ++ show (td_TaskId td)
+    debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, bin) <- withMVar tp $
+    (ad, bin, mbfs, tot) <- withMVar tp $
       \tpd ->
       do
-      let action = Map.lookup (td_Action td) (tpd_MapActionMap tpd)
-      let input = (td_Input td)
-      return (action, input)
+      let action     = Map.lookup (ta_Action $ td_Action td) (tpd_MapActionMap tpd)
+      let input      = (td_Input td)
+      let filesystem = (tpd_FileSystem tpd)
+      let tot = ta_OutputType $ td_Action td
+      return (action, input, filesystem, tot)
     
     case ad of
       (Nothing) ->
@@ -519,35 +545,29 @@ performMapTask td tp
       (Just a)  ->
         do
         let action = mad_Action a
-        bout <- action 1 bin
-        let td' = td { td_Output = bout }
-        putStrLn $ "output td: " ++ show td'
+        bin' <- loadInputList td mbfs bin
+        bout <- action 1 bin'
+        bout' <- saveOutputList td tot mbfs bout
+        let td' = td { td_Output = bout' }
+        debugM taskLogger $ "output td: " ++ show td'
         return td'
       
-    -- content <- F.getFileContent fid fs
-    -- let input = fileReader fid content
-    -- let fct = 
-    -- let outputs = map (\(k,v) -> fct k v) input
-    -- results <- sequence outputs
-    -- putStrLn $ show results
-    -- return fid
-
-
-
 
 performCombineTask :: TaskData -> TaskProcessor-> IO TaskData
 performCombineTask td tp
   = do
-    putStrLn "CombineTask"
-    putStrLn $ "input td: " ++ show td
+    infoM taskLogger $ "CombineTask " ++ show (td_TaskId td)
+    debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, bin) <- withMVar tp $
+    (ad, bin, mbfs, tot) <- withMVar tp $
       \tpd ->
       do
-      let action = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
-      let input = (td_Input td)
-      return (action, input)
+      let action     = Map.lookup (ta_Action $ td_Action td) (tpd_ReduceActionMap tpd)
+      let input      = (td_Input td)
+      let filesystem = (tpd_FileSystem tpd)
+      let tot = ta_OutputType $ td_Action td
+      return (action, input, filesystem, tot)
     
     case ad of
       (Nothing) ->
@@ -556,25 +576,30 @@ performCombineTask td tp
       (Just a)  ->
         do
         let action = rad_Action a
-        bout <- action 1 bin
-        let td' = td { td_Output = bout }
-        putStrLn $ "output td: " ++ show td'
+        bin' <- loadInputList td mbfs bin
+        bout <- action 1 bin'
+        bout' <- saveOutputList td tot mbfs bout
+        let td' = td { td_Output = bout' }
+        debugM taskLogger $ "output td: " ++ show td'
         return td'
           
 
 performReduceTask :: TaskData -> TaskProcessor-> IO TaskData
 performReduceTask td tp
   = do
-    putStrLn "ReduceTask"
-    putStrLn $ "input td: " ++ show td
+    infoM taskLogger $ "ReduceTask " ++ show (td_TaskId td)
+    debugM taskLogger $ "input td: " ++ show td
+    
     
     -- get all functions
-    (ad, bin) <- withMVar tp $
+    (ad, bin, mbfs, tot) <- withMVar tp $
       \tpd ->
       do
-      let action = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
-      let input = (td_Input td)
-      return (action, input)
+      let action     = Map.lookup (ta_Action $ td_Action td) (tpd_ReduceActionMap tpd)
+      let input      = (td_Input td)
+      let filesystem = (tpd_FileSystem tpd)
+      let tot = ta_OutputType $ td_Action td
+      return (action, input, filesystem, tot)
     
     case ad of
       (Nothing) ->
@@ -583,22 +608,35 @@ performReduceTask td tp
       (Just a)  ->
         do
         let action = rad_Action a
-        bout <- action 1 bin
-        let td' = td { td_Output = bout }
-        putStrLn $ "output td: " ++ show td'
+        bin' <- loadInputList td mbfs bin
+        bout <- action 1 bin'
+        bout' <- saveOutputList td tot mbfs bout
+        let td' = td { td_Output = bout' }
+        debugM taskLogger $ "output td: " ++ show td'
         return td'
 
 
 
 
--- ----------------------------------------------------------------------------
--- GroupByKey
--- ----------------------------------------------------------------------------
+loadInputList :: TaskData -> Maybe FS.FileSystem -> [FunctionData] -> IO [B.ByteString]
+loadInputList _ mbfs is
+  = do
+    os <- mapM (loadInput mbfs) is
+    let os' = catMaybes os
+    return os'
+    where
+    loadInput _         (RawFunctionData b)  = return $ Just b
+    -- TODO throw exception here
+    loadInput Nothing   (FileFunctionData _) = return Nothing
+    loadInput (Just fs) (FileFunctionData f) = return Nothing
 
--- groupByKey :: (Ord k2) => [(k2, v2)] -> [(k2,[v2])]
--- groupByKey ls = Map.toList $ foldl insert Map.empty ls
---  where
---    insert dict (k2,v2) = Map.insertWith (++) k2 [v2] dict
+saveOutputList :: TaskData -> TaskOutputType -> Maybe FS.FileSystem -> [(Int, [B.ByteString])] -> IO [(Int,[FunctionData])]
+saveOutputList _ _ mbfs os
+  = do
+    mapM (saveOutput mbfs) os
+    where
+    saveOutput Nothing   (i,bs) = return (i, map (\b -> RawFunctionData b) bs)
+    saveOutput (Just fs) (i,bs) = return (i, map (\b -> RawFunctionData b) bs)
 
 
 -- ----------------------------------------------------------------------------

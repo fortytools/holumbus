@@ -48,8 +48,8 @@ library
                 , Holumbus.Distribution.Master.MasterData
                 , Holumbus.Distribution.Master.MasterPort
                 , Holumbus.Standalone.Standalone
-                , Holumbus.MapReduce.AccuMap                
-                , Holumbus.MapReduce.MultiMap
+                , Holumbus.Data.AccuMap
+                , Holumbus.Data.MultiMap
                 , Holumbus.MapReduce.MapReduce
                 , Holumbus.MapReduce.JobController
                 , Holumbus.MapReduce.TaskProcessor

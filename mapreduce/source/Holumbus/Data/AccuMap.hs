@@ -1,6 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
-  Module     : Holumbus.MapReduce.AccuMap
+  Module     : Holumbus.Data.AccuMap
   Copyright  : Copyright (C) 2008 Stefan Schmidt
   License    : MIT
 
@@ -13,7 +13,7 @@
 -}
 -- ----------------------------------------------------------------------------
 
-module Holumbus.MapReduce.AccuMap
+module Holumbus.Data.AccuMap
 (
   AccuMap
 , empty

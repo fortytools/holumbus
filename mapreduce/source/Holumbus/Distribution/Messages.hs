@@ -198,18 +198,24 @@ instance Binary MasterResponseMessage where
 -- Messages to and from the Worker
 data WorkerRequestMessage
   = WReqStartTask TaskData
+  | WReqStopTask TaskId
+  | WReqStopAllTasks
   | WReqUnknown
   deriving (Show)
 
 
 instance Binary WorkerRequestMessage where
   put (WReqStartTask td) = putWord8 1 >> put td
+  put (WReqStopTask tid) = putWord8 2 >> put tid
+  put (WReqStopAllTasks) = putWord8 3
   put (WReqUnknown) = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> get >>= \td -> return (WReqStartTask td)
+        2 -> get >>= \tid -> return (WReqStopTask tid)
+        3 -> return (WReqStopAllTasks)
         _ -> return (WReqUnknown)
 
 

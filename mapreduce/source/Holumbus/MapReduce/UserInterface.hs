@@ -72,7 +72,7 @@ addJob mr opts
     handle (\e -> putStrLn $ show e) $
       do
       (mbName,_) <- Console.nextOption opts
-      jobInfo <- (loadFromXml (fromJust mbName))::IO T.JobInfo
+      jobInfo <- (loadFromXmlFile (fromJust mbName))::IO T.JobInfo
       MR.addJob jobInfo mr
       return ()
 
@@ -83,7 +83,7 @@ parseJob _ opts
     handle (\e -> putStrLn $ show e) $
       do
       (mbName,_) <- Console.nextOption opts
-      jobInfo <- (loadFromXml (fromJust mbName))::IO T.JobInfo
+      jobInfo <- (loadFromXmlFile (fromJust mbName))::IO T.JobInfo
       putStrLn $ show jobInfo
       return ()
 

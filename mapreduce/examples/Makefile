@@ -1,6 +1,6 @@
 # Making all examples
 
-EXAMPLES	= filesystem distribution standalone
+EXAMPLES	= filesystem distribution standalone ports pickle
 
 all :	clean
 	$(foreach i,$(EXAMPLES),$(MAKE) -C $i all ;)

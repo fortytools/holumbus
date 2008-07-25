@@ -132,7 +132,6 @@ instance MapReduce Distribution where
       withMVar dist $
         \(DistributionData _ m _) ->
         do
-        putStrLn "doSingleStep"
         M.doSingleStep m
         return ()
 

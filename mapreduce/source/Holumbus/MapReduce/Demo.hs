@@ -29,8 +29,8 @@ import qualified Data.Map as Map
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.Storage as S
 
+import qualified Holumbus.Data.AccuMap as AMap
 import           Holumbus.MapReduce.Types
-import qualified Holumbus.MapReduce.AccuMap as AMap
 
 -- ----------------------------------------------------------------------------
 -- MapFunctions
@@ -141,10 +141,14 @@ demoReduceActions
 demoJob :: JobInfo
 demoJob = JobInfo 
   "demo-WordcountJob"
-  (Just "WORDCOUNT")
-  (Just "WORDCOUNT")
+  (Just $ TaskAction "WORDCOUNT" TOTRaw )
+  (Just $ TaskAction "WORDCOUNT" TOTRaw )
   Nothing
-  ([("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa dd dd")])
+  ([RawFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
+   ,RawFunctionData (encodeTuple ("text2", "aaa bb"))
+   ,RawFunctionData (encodeTuple ("text2", "aaa dd dd"))
+   ,FileFunctionData "file1.txt"
+   ])
 
 
 

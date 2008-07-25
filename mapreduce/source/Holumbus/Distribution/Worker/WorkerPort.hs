@@ -53,6 +53,7 @@ instance Worker WorkerPort where
   
   getWorkerRequestPort (WorkerPort p) = p
 
+
   startTask td w@(WorkerPort p)
     = do
       withStream $
@@ -62,6 +63,29 @@ instance Worker WorkerPort where
           case rsp of
             (WRspSuccess) -> return (Just w)
             _ -> return Nothing
+
+
+  stopTask tid w@(WorkerPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (WReqStopTask tid) $
+          \rsp ->
+          do
+          case rsp of
+            (WRspSuccess) -> return (Just w)
+            _ -> return Nothing
+
+
+  stopAllTasks w@(WorkerPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s (WReqStopAllTasks) $
+          \rsp ->
+          do
+          case rsp of
+            (WRspSuccess) -> return (Just w)
+            _ -> return Nothing
+
 
   printDebug (WorkerPort p)
       = do

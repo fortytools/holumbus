@@ -18,7 +18,8 @@
 
 module Holumbus.Common.Utils
 ( 
-  loadFromXml
+  loadFromXmlFile
+, saveToXmlFile
 
 , lookupList
 , lookupMaybe
@@ -43,13 +44,22 @@ import           System.Exit
 import           Text.XML.HXT.Arrow
 
 
-loadFromXml :: (XmlPickler a) => String -> IO a
-loadFromXml f
+loadFromXmlFile :: (XmlPickler a) => FilePath -> IO a
+loadFromXmlFile f
   = do
     r <- runX (xunpickleDocument xpickle options f)
     return $! head r
     where
     options = [ (a_validate,v_0), (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]
+
+
+saveToXmlFile :: (XmlPickler a) => FilePath -> a -> IO ()
+saveToXmlFile f i 
+  = do
+    runX (constA i >>> xpickleDocument xpickle options f)
+    return ()
+    where
+    options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]  
 
 
 lookupMaybe :: (Ord k) => Map.Map k v -> Maybe k -> Maybe v

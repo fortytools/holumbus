@@ -51,7 +51,7 @@ import Text.Printf
 
 -- ^ logger
 localLogger :: String
-localLogger = "Holumbus.Server"
+localLogger = "Holumbus.Network.Server"
 
 
 type ServerDispatcher = Handle -> HostName -> PortNumber -> IO ()
@@ -174,7 +174,7 @@ processRequest f client =
       -- Dispatch the request and measure the processing time.
       t1 <- getCPUTime
       debugM localLogger "starting to dispatch request"
-      handle (\_ -> errorM localLogger "UnknownError") $ do
+      handle (\e -> errorM localLogger $ "UnknownError: " ++ show e) $ do
         f hdl hst prt
       t2 <- getCPUTime
       d <- return ((fromIntegral (t2 - t1) / 1000000000000) :: Float)

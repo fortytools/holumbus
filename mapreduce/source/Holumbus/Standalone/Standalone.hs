@@ -131,8 +131,12 @@ printJobResult mVarRes
         putStrLn $ show (decodeResult outs)
     return ()
     where
-      decodeResult :: [FunctionData] -> [(String, Integer)]
-      decodeResult ls = decodeTupleList ls
+    decodeResult :: [FunctionData] -> [(String, Integer)]
+    decodeResult ls = map decodeResult' ls
+      where
+      decodeResult' (FileFunctionData f) = (f, -1)
+      decodeResult' (RawFunctionData b) = decodeTuple b
+
 
 
 

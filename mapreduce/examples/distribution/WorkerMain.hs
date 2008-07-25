@@ -15,15 +15,17 @@
 
 module Main(main) where
 
-import Control.Exception
+import           Control.Exception
 
-import Holumbus.Common.Logging
-import Holumbus.Network.Site
+import           Holumbus.Common.Logging
+import           Holumbus.Network.Site
 import qualified Holumbus.Network.Port as Port
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Worker.WorkerData as W
 import qualified Holumbus.Distribution.Distribution as D
 import qualified Holumbus.MapReduce.UserInterface as UI
+import qualified Holumbus.MapReduce.Demo as DEMO
+
 
 
 version :: String
@@ -50,8 +52,10 @@ initializeData
     putStrLn "-> master-port"
     p <- Port.readPortFromFile "master.port"
     let mp = (MP.newMasterPort p)
-    putStrLn "-> worker" 
-    w <- W.newWorker mp    
+    putStrLn "-> worker"
+    let maps = DEMO.demoMapActions
+    let reduces = DEMO.demoReduceActions 
+    w <- W.newWorker maps reduces mp
     putStrLn "-> distribution"
     d <- D.newDistribution mp 
     d' <- D.setDistributionWorker w d

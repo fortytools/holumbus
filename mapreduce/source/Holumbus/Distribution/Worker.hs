@@ -33,5 +33,9 @@ class Worker w where
 
   startTask :: T.TaskData -> w -> IO w
 
+  stopTask :: T.TaskId -> w -> IO w
+
+  stopAllTasks :: w -> IO w
+
   printDebug :: w -> IO ()
   

@@ -21,10 +21,13 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
+{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.Network.Port
 (
 -- * Constants
   time1
+, time10
 , time30
 , time60
 , time120
@@ -40,9 +43,14 @@ module Holumbus.Network.Port
 , getMessageData
 , getGenericData
 
+-- * initialization and deinitialization
+, initializeStreamController
+, initializeStreamControllerOnPort
+, deinitializeStreamController
+
 -- * Stream-Operations
 , newStream
-, newStreamOnPort
+, newNamedStream
 , closeStream
 
 , readStream
@@ -67,24 +75,35 @@ module Holumbus.Network.Port
 
 , writePortToFile
 , readPortFromFile
+
+-- * Debug
+, printStreamController
 )
 where
 
-import Control.Concurrent
-import Control.Exception
-import Control.Monad
-import Data.Binary
+import           Control.Concurrent
+import           Control.Exception
+import           Control.Monad
+import           Data.Binary
 import qualified Data.ByteString.Lazy as B
-import Data.Maybe
-import Data.Time
-import Network
-import System.IO
-import System.Timeout
+import qualified Data.Map as Map
+import           Data.Maybe
+import           Data.Time
+import           Network
+import           System.IO
+import           System.IO.Unsafe
+import           System.Log.Logger
+import           System.Timeout
 
-import Holumbus.Network.Site
+import           Text.XML.HXT.Arrow
+
+import           Holumbus.Network.Site
 import qualified Holumbus.Network.Server as Server
 import qualified Holumbus.Network.Client as Client
 
+
+localLogger :: String
+localLogger = "Holumbus.Network.Port"
 
 
 -- -----------------------------------------------------------------------------
@@ -96,6 +115,9 @@ import qualified Holumbus.Network.Client as Client
 time1 :: Int
 time1 = 1000000
 
+-- | 10 seconds
+time10 :: Int
+time10 = 10000000
 
 -- | 30 seconds
 time30 :: Int
@@ -120,7 +142,7 @@ time120 = 120000000
 -- | All data, that is needed to address a socket.
 --   Contains the hostname and the portNumber
 data SocketId = SocketId HostName PortNumber 
-  deriving (Show)
+  deriving (Show, Eq)
 
 
 instance Binary (SocketId) where
@@ -132,6 +154,19 @@ instance Binary (SocketId) where
       poInt <- get
       return (SocketId hn (fromInteger poInt))
 
+      
+instance XmlPickler SocketId where
+  xpickle = xpSocketId
+  
+xpSocketId :: PU SocketId
+xpSocketId = 
+    xpElem "socketId" $
+      xpWrap (\(hn, po) -> SocketId hn (fromInteger po), \(SocketId hn po) -> (hn, toInteger po)) xpSockId
+      where
+      xpSockId =
+        xpPair
+          (xpElem "hostname" xpText)
+          (xpElem "socket" xpickle)
 
 -- -----------------------------------------------------------------------------
 -- Message-Datatype
@@ -147,13 +182,14 @@ data MessageType = Internal | External
 -- | Message Datatype.
 --   We are sending additional information, to do debugging
 data (Show a, Binary a) => Message a = Message {
-    msg_type         :: ! MessageType          -- ^ the message-type
-  , msg_data         :: ! a                    -- ^ the data  
-  , msg_generic      :: ! (Maybe B.ByteString)     -- ^ some generic data -- could be another port
-  , msg_receiver     :: ! (Maybe SocketId)     -- ^ socket to which the message is send (DEBUG)
-  , msg_sender       :: ! (Maybe SocketId)     -- ^ socket from which the message was send (DEBUG)
-  , msg_send_time    :: ! UTCTime              -- ^ timestamp from the sender (DEBUG)
-  , msg_receive_time :: ! UTCTime              -- ^ timestamp from the receiver (DEBUG)
+    msg_Type         :: ! MessageType          -- ^ the message-type
+  , msg_ReceiverName :: ! StreamName
+  , msg_Data         :: ! a                    -- ^ the data  
+  , msg_Generic      :: ! (Maybe B.ByteString) -- ^ some generic data -- could be another port
+  , msg_Receiver     :: ! (Maybe SocketId)     -- ^ socket to which the message is send (DEBUG)
+  , msg_Sender       :: ! (Maybe SocketId)     -- ^ socket from which the message was send (DEBUG)
+  , msg_Send_time    :: ! UTCTime              -- ^ timestamp from the sender (DEBUG)
+  , msg_Receive_time :: ! UTCTime              -- ^ timestamp from the receiver (DEBUG)
   } deriving (Show)
 
 
@@ -169,9 +205,10 @@ instance Binary MessageType where
 
 
 instance (Show a, Binary a) => Binary (Message a) where
-  put (Message t d g r s t1 t2)
+  put (Message t n d g r s t1 t2)
     = do
       put t
+      put n
       put d
       put g
       put r
@@ -181,13 +218,15 @@ instance (Show a, Binary a) => Binary (Message a) where
   get
     = do
       typ <- get
+      nam <- get
       dat <- get
       gen <- get
-      rec <- get
+      re <- get
       sen <- get
       t1Str <- get
       t2Str <- get
-      return (Message typ dat gen rec sen (read t1Str) (read t2Str))
+      return $ (Message typ nam dat gen re sen (read t1Str) (read t2Str))
+      
 
 
 
@@ -200,25 +239,49 @@ instance (Show a, Binary a) => Binary (Message a) where
 -- | The threadId of the server which accepts incomming messages for a stream 
 type ServerId = ThreadId
 
+type StreamId = Int
 
--- | The stream datatype
-data Stream a = Stream {
-    s_sockedId :: SocketId           -- ^ socket-descriptor of the stream server  
-  , s_serverId :: ServerId           -- ^ threadid of the stream server
-  , s_siteId   :: SiteId             -- ^ SiteId (hostname and pid)
-  , s_chan     :: (Chan (Message a)) -- ^ internal message queue
+type StreamName = String
+
+type StreamMap = Map.Map StreamName BinaryChannel
+
+type BinaryChannel = (Chan (Message B.ByteString))
+
+data StreamControllerData = StreamControllerData {
+    scd_SocketId  :: SocketId
+  , scd_SiteId    :: SiteId
+  , scd_ServerId  :: ServerId
+  , scd_StreamMap :: StreamMap
+  , scd_StreamId  :: StreamId
   }
 
+instance Show StreamControllerData where
+  show (StreamControllerData so si serv m i)
+    =  "StreamControllerData:\n"
+    ++ "  SocketId:\t" ++ show so
+    ++ "  SiteId:\t" ++ show si
+    ++ "  ServerId:\t" ++ show serv
+    ++ "  Streams:\t" ++ show (Map.keys m)
+    ++ "  lastStreamId:\t" ++ show i
+
+type StreamController = MVar (Maybe StreamControllerData)
+
+-- | The stream datatype
+data Stream a
+   = Stream {
+      s_StreamId :: StreamId
+    , s_Name     :: StreamName
+    , s_Chan     :: BinaryChannel
+    } 
+
+
 instance Show (Stream a) where
-  show (Stream i server site _)
+  show (Stream i n _)
     = "(Stream - ID: " ++
       show i ++
-      " - ServerThreadID: " ++
-      show server ++
-      " - SiteID: " ++
-      show site ++
+      " - StreamName: " ++
+      show n ++
       " )"
-
 
 
 -- -----------------------------------------------------------------------------
@@ -227,26 +290,24 @@ instance Show (Stream a) where
 
 
 data Port a
-  = InternalPort (Stream a)       -- ^ internal Port
-  | ExternalPort SocketId SiteId  -- ^ external Port
-  | BroadcastPort [Port a]        -- ^ broadcast Port
+  = SinglePort StreamId StreamName SocketId SiteId    -- ^ single Port
+  | BroadcastPort [Port a]                            -- ^ broadcast Port
 
 
 instance Show (Port a) where
-  show (InternalPort s)
-    = "(InternalPort - Stream: " ++ show s ++ " )"
-  show (ExternalPort i s)
-    = "(ExternalPort - ID: " ++ show i ++ " - SiteID: " ++ show s ++ " )"
+  show (SinglePort i n so si)
+    = "(SinglePort - StreamId: " ++ show i ++ " - StreamName: " ++ show n ++
+      " - SocketId: " ++ show so ++ " SiteId: " ++ show si ++ " )"
   show (BroadcastPort l)
     = "(BroadcastPort - " ++ (concat . map show) l ++ " )" 
 
 
 instance Binary (Port a) where
-  put s@(InternalPort _) 
-    = put $ makePortExternal s    
-  put (ExternalPort soId siteId)
+  put (SinglePort i n soId siteId)
     = do
       putWord8 1
+      put i
+      put n
       put soId
       put siteId
   put (BroadcastPort lst)
@@ -259,15 +320,49 @@ instance Binary (Port a) where
       case t of
         1 -> 
           do
+          i <- get
+          n <- get
           soid <- get
           siteId <- get
-          return (ExternalPort soid siteId)
+          return (SinglePort i n soid siteId)
         _ ->
           do
           lst <- get
           return (BroadcastPort lst)
 
 
+instance XmlPickler (Port a) where
+  xpickle = xpPort
+  
+xpPort :: PU (Port a)
+xpPort = 
+    xpElem "port" $
+    xpAlt tag ps
+      where
+      tag (SinglePort _ _ _ _ ) = 0
+      tag (BroadcastPort _    ) = 1
+      ps = [xpWrap (\(i, n, so, si) -> SinglePort i n so si, \(SinglePort i n so si) -> (i, n, so, si)) xpSinglePort
+           ,xpWrap (\ls -> BroadcastPort ls, \(BroadcastPort ls) -> ls ) xpBroadcastPort ]
+      xpSinglePort = 
+        xp4Tuple
+          (xpElem "id" xpickle)
+          (xpElem "name" xpText)
+          (xpickle)
+          (xpickle)
+      xpBroadcastPort = 
+        xpElem "portList" $ xpList xpPort
+
+
+-- -----------------------------------------------------------------------------
+-- Port-Map
+-- -----------------------------------------------------------------------------
+     
+
+{-# NOINLINE streamController #-}
+streamController :: StreamController
+streamController
+  = do
+    unsafePerformIO $ newMVar Nothing
 
 
 -- -----------------------------------------------------------------------------
@@ -275,42 +370,90 @@ instance Binary (Port a) where
 -- -----------------------------------------------------------------------------
 
         
-newMessage :: (Show a, Binary a) => MessageType -> a -> Maybe B.ByteString -> IO (Message a)
-newMessage t d g
+newMessage :: (Show a, Binary a) => MessageType -> StreamName -> a -> Maybe B.ByteString -> IO (Message a)
+newMessage t n d g
   = do
     time <- getCurrentTime
-    return (Message t d g Nothing Nothing time time)
+    return (Message t n d g Nothing Nothing time time)
 
 
 getMessageType :: (Show a, Binary a) => Message a -> MessageType
-getMessageType = msg_type
+getMessageType = msg_Type
 
 
 getMessageData :: (Show a, Binary a) => Message a -> a
-getMessageData = msg_data
+getMessageData = msg_Data
 
 
 getGenericData :: (Show a, Binary a) => Message a -> (Maybe B.ByteString)
-getGenericData = msg_generic
+getGenericData = msg_Generic
 
-      
+
+getMessageReceiverName :: (Show a, Binary a) => Message a -> (StreamName)
+getMessageReceiverName = msg_ReceiverName
+
+
 updateReceiveTime :: (Show a, Binary a) => Message a -> IO (Message a)
 updateReceiveTime msg 
   = do
     time <- getCurrentTime
-    return (msg {msg_receive_time = time})
+    return (msg {msg_Receive_time = time})
 
     
 updateReceiver :: (Show a, Binary a) => Message a -> SocketId -> Message a
-updateReceiver msg soId = msg { msg_receiver = Just soId }
+updateReceiver msg soId = msg { msg_Receiver = Just soId }
 
 
 updateSender :: (Show a, Binary a) => Message a -> SocketId -> Message a
-updateSender msg soId = msg { msg_sender = Just soId } 
+updateSender msg soId = msg { msg_Sender = Just soId } 
 
--- TODO getter/setter
       
-      
+-- -----------------------------------------------------------------------------
+-- Initialise and Deinitialise Stream Environment
+-- -----------------------------------------------------------------------------
+
+mkStreamControllerData :: PortNumber -> PortNumber -> IO StreamControllerData
+mkStreamControllerData dp mp
+  = do
+    s <- (startStreamServer dp mp)
+    let (i, server) = fromJust s
+    siteId <- getSiteId
+    let scd = StreamControllerData i siteId server Map.empty 0
+    return scd
+
+
+initializeStreamController :: IO ()
+initializeStreamController
+  = modifyMVar streamController $ 
+      \sc -> do
+      case sc of 
+        (Nothing) -> do
+          scd <- mkStreamControllerData defaultPort maxPort
+          return (Just scd, ())
+        _ -> return (sc, ())
+ 
+
+initializeStreamControllerOnPort :: PortNumber -> IO ()
+initializeStreamControllerOnPort po
+  = modifyMVar streamController $ 
+      \sc -> do
+      case sc of 
+        (Nothing) -> do
+          scd <- mkStreamControllerData po po
+          return (Just scd, ())
+        _ -> return (sc, ())
+
+
+deinitializeStreamController :: IO ()
+deinitializeStreamController
+ = modifyMVar streamController $ 
+      \sc -> do
+      case sc of 
+        (Just scd) -> do
+          stopStreamServer (scd_ServerId scd)
+          return (Nothing, ())
+        _ -> return (sc, ())   
+
 
 
 -- -----------------------------------------------------------------------------
@@ -326,47 +469,81 @@ maxPort :: PortNumber
 maxPort = 40000
 
 
+newNamedStream :: (Show a, Binary a) => StreamName -> IO (Stream a)
+newNamedStream n
+  = do
+    -- initialize the stream... doesn't matter if it is already done
+    initializeStreamController
+    createNewStream(Just n)
+
 -- | Create a new stream.
 --   The stream is bound to a random port.
 newStream :: (Show a, Binary a) => IO (Stream a)
-newStream 
+newStream
   = do
-    ch <- newChan
-    s <- (startStreamServer defaultPort maxPort ch)
-    let (i, server) = fromJust s
-    siteId <- getSiteId
-    putStrLn $ "newServer with threadId: " ++ show server 
-    return (Stream i server siteId ch)
+    -- initialize the stream... doesn't matter if it is already done
+    initializeStreamController
+    createNewStream Nothing
+  
 
+createNewStream :: (Show a, Binary a) => Maybe StreamName -> IO (Stream a)
+createNewStream mbn
+  = modifyMVar streamController $
+      \mbscd ->
+      do
+      let scd = fromJust mbscd
+      ch <- newChan
+      let i    = (scd_StreamId scd) + 1
+      let n    = maybe ("$" ++ show i ++ "$") id mbn
+      let s    = Stream i n ch 
+      let sm   = Map.insert n ch (scd_StreamMap scd)
+      let scd' = scd {scd_StreamId = i, scd_StreamMap = sm }
+      return (Just scd', s)
+    
 
--- | Create a new stream.
---   The stream is bound to the port with the specified portnumber
-newStreamOnPort :: (Show a, Binary a) => PortNumber -> IO (Stream a)
-newStreamOnPort p
-  = do
-    ch <- newChan
-    s <- startStreamServerOnPort p ch
-    let (i, server) = fromJust s
-    siteId <- getSiteId
-    putStrLn $ "newServer with threadId: " ++ show server
-    return (Stream i server siteId ch)
+lookupStreamChannel :: StreamName -> IO (Maybe BinaryChannel)
+lookupStreamChannel n 
+  = modifyMVar streamController $
+      \sc -> do
+      case sc of
+        (Just scd) -> 
+          do
+          let ch = Map.lookup n (scd_StreamMap scd)
+          return (sc, ch)
+        _ -> return (Nothing, Nothing)
 
 
 -- | Close a stream
 --   Only the the socket is closed, if you keep the stream, you can internally
 --   send data to it
--- TODO: think about this
 closeStream :: (Binary a) => Stream a -> IO ()
-closeStream (Stream _ server _ _)
-  = do
-    stopStreamServer server
+closeStream s 
+  = modifyMVar streamController $
+      \sc -> do
+      case sc of
+        (Just scd) -> deleteStream scd
+        _ -> return (Nothing, ())
+    where
+    deleteStream scd
+      = do  
+        let sm   = Map.delete (s_Name s) (scd_StreamMap scd)
+        let scd' = scd { scd_StreamMap = sm }
+        return (Just scd', ())
+      
+      
+encodeMessage :: (Show a, Binary a) => Message a -> Message B.ByteString
+encodeMessage (Message t n d g r s t1 t2) = (Message t n (encode d) g r s t1 t2)
+
+
+decodeMessage :: (Show a, Binary a) => Message B.ByteString -> Message a
+decodeMessage (Message t n d g r s t1 t2) = (Message t n (decode d) g r s t1 t2)
 
 
 -- | Writes a message to the channel of the stream.
 --   This function is not public, so you have to write to a stream throug its
 --   port
-writeChannel :: (Show a, Binary a) => Chan (Message a) -> Message a -> IO ()
-writeChannel ch msg 
+writeChannel :: Chan (Message B.ByteString) -> Message B.ByteString -> IO ()
+writeChannel ch msg
   = do
     newMsg <- updateReceiveTime msg
     writeChan ch newMsg
@@ -376,50 +553,39 @@ readStream :: (Show a, Binary a) => Stream a -> IO a
 readStream s
   = do
     msg <- readStreamMsg s
-    --putStrLn $ show msg
-    return (msg_data msg)
+    return (msg_Data msg)
 
 
 readStreamMsg :: (Show a, Binary a) => Stream a -> IO (Message a)
-readStreamMsg (Stream _ _ _ ch)
+readStreamMsg (Stream _ _ ch)
   = do
-    putStrLn "PORT: readStreamMsg 1"
+    debugM localLogger "PORT: readStreamMsg 1"
     res <- readChan ch
-    putStrLn "PORT: readStreamMsg 2"
-    return res
+    debugM localLogger "PORT: readStreamMsg 2"
+    return $ decodeMessage res
 
 
 isEmptyStream :: Stream a -> IO Bool
-isEmptyStream (Stream _ _ _ ch)
+isEmptyStream (Stream _ _ ch)
   = do
     isEmptyChan ch
-    
+
 
 --TODO think about this
 tryStreamAction :: Stream a -> (Stream a -> IO (b)) -> IO (Maybe b)
 tryStreamAction s f
   = do
     timeout 10 (f s)
-{-  = do
-    block $
-      do
-      e <- isEmptyStream s
-      if e
-        then do
-          return Nothing
-        else do
-          d <- f s
-          return (Just d)
--}
 
 
 tryWaitStreamAction :: Stream a -> (Stream a -> IO (b)) -> Int -> IO (Maybe b)
 tryWaitStreamAction s f t
   = do
-    putStrLn "waiting..."
+    debugM localLogger "tryWaitStreamAction: waiting..."
     r <- timeout t (f s)
-    putStrLn "...finished"
-    putStrLn $ maybe "nothing received" (\_ -> "value found") r
+    debugM localLogger "tryWaitStreamAction: ...finished"
+    let debugResult = maybe "nothing received" (\_ -> "value found") r
+    debugM localLogger $ "tryWaitStreamAction: " ++ debugResult
     return r
     
     
@@ -440,19 +606,6 @@ tryWaitReadStream s t
   = do
     tryWaitStreamAction s readStream t
 
-{-
-    putStrLn "new tryWaitReadStream"
-    threadDelay t
-    b <- isEmptyStream s
-    case b of
-      True ->
-        do
-        return Nothing
-      _ -> 
-        do
-        d <- readStream s
-        return (Just d)
--}
     
 tryWaitReadStreamMsg :: (Show a, Binary a) => Stream a -> Int -> IO (Maybe (Message a))
 tryWaitReadStreamMsg s t
@@ -477,47 +630,48 @@ withStream f
 -- -----------------------------------------------------------------------------
 
 
-startStreamServerOnPort :: (Show a, Binary a) => PortNumber -> Chan (Message a) -> IO (Maybe (SocketId, ServerId))
-startStreamServerOnPort po ch = startStreamServer po po ch
-
-
-startStreamServer :: (Show a, Binary a) => PortNumber -> PortNumber -> Chan (Message a) -> IO (Maybe (SocketId, ServerId))
-startStreamServer actPo maxPo ch 
+startStreamServer :: PortNumber -> PortNumber -> IO (Maybe (SocketId, ServerId))
+startStreamServer actPo maxPo
   = do
-    res <- Server.startSocket (streamDispatcher ch) actPo maxPo
+    res <- Server.startSocket (streamDispatcher) actPo maxPo
     case res of
       Nothing ->
         return Nothing
       (Just (tid, hn, po)) ->
         return (Just (SocketId hn po, tid))
-    --servId <- forkIO $ Server.listenForRequests (streamDispatcher ch) (PortNumber po)
     
 
 stopStreamServer :: ServerId -> IO ()
 stopStreamServer sId 
   = do
     me <- myThreadId
-    putStrLn $ "stopping server... with threadId: " ++ show sId ++ " - form threadId: " ++ show me
+    debugM localLogger $ "stopping server... with threadId: " ++ show sId ++ " - form threadId: " ++ show me
     throwDynTo sId me
     yield
 
 
-streamDispatcher :: (Show a, Binary a) => Chan (Message a) -> Handle -> HostName -> PortNumber -> IO ()
-streamDispatcher ch hdl hn po
+streamDispatcher :: Handle -> HostName -> PortNumber -> IO ()
+streamDispatcher hdl hn po
   = do
-    putStrLn "PORT: getting message from handle" 
+    debugM localLogger "streamDispatcher: getting message from handle"
     msg <- getMessage hdl
-    putStrLn "PORT: writing message to channel"
-    writeChannel ch $ updateSender msg (SocketId hn po)
-    putStrLn "PORT: message written to channel"
+    debugM localLogger $ "streamDispatcher: Message: " ++ show msg
+    debugM localLogger "streamDispatcher: writing message to channel"
+    let name = getMessageReceiverName msg
+    ch <- lookupStreamChannel name
+    case ch of
+      (Just c) -> 
+         writeChannel c $ updateSender msg (SocketId hn po)
+      _ -> return ()
+    debugM localLogger "streamDispatcher: message written to channel"
 
 
-putMessage :: (Show a, Binary a) => a -> Handle -> IO ()
+putMessage :: Message B.ByteString -> Handle -> IO ()
 putMessage msg hdl
   = do
     --putStrLn $ show msg
     --TODO better exception handling
-    handle (\e -> putStrLn $ show e) $ do
+    handle (\e -> errorM localLogger $ show e) $ do
       enc <- return (encode msg)
       --putStrLn $ show $ B.length enc
       --putStrLn $ show enc
@@ -525,7 +679,7 @@ putMessage msg hdl
       B.hPut hdl enc
 
 
-getMessage :: (Binary a) => Handle -> IO (a)
+getMessage :: Handle -> IO (Message B.ByteString)
 getMessage hdl
   = do
     --TODO better exception handling
@@ -552,17 +706,41 @@ getMessage hdl
 newPort :: Stream a -> IO (Port a)
 newPort s
   = do
-    return (InternalPort s) 
+    withMVar streamController $
+      \sc ->
+      do
+      let scd = fromJust sc
+      let i = s_StreamId s
+      let n = s_Name s
+      let so = scd_SocketId scd
+      let si = scd_SiteId scd
+      return (SinglePort i n so si)
 
+
+isLocal :: SocketId -> SiteId -> IO Bool
+isLocal so si
+  = withMVar streamController $
+      \sc ->
+      do
+      case sc of
+        (Nothing) -> 
+          return False
+        (Just scd) ->
+          do
+          let so' = scd_SocketId scd
+          let si' = scd_SiteId scd
+          return (so == so' && si == si')
+  
 
 -- | Creates an external port from an internal one.
 --   Used when seriablizing port via the binary package, so we can use the
 --   port on external machines
+{-
 makePortExternal :: Port a -> Port a
-makePortExternal (InternalPort (Stream i _ s _)) = ExternalPort i s
+makePortExternal (SinglePort (Stream i _ s _)) = ExternalPort i s
 makePortExternal s@(ExternalPort _ _) = s
 makePortExternal (BroadcastPort l) = BroadcastPort (map makePortExternal l)
-
+-}
 
 -- | Send data to the stream of the port.
 --   The data is send via network, if the stream is located on an external
@@ -579,14 +757,24 @@ sendWithGeneric p d rp = sendWithMaybeGeneric p d (Just rp)
 
 -- | Like "sendWithGeneric", but the generic data is optional
 sendWithMaybeGeneric :: (Show a, Binary a) => Port a -> a -> Maybe B.ByteString -> IO ()
-sendWithMaybeGeneric (InternalPort (Stream _ _ _ ch)) d rp
+-- sendWithMaybeGeneric (InternalPort (Stream _ _ _ ch)) d rp
+--   = do
+sendWithMaybeGeneric (SinglePort _ name so@(SocketId hn po) site) d rp
   = do
-    msg <-newMessage Internal d rp
-    writeChannel ch msg
-sendWithMaybeGeneric (ExternalPort rec@(SocketId hn po) _) d rp
-  = do
-    msg <- newMessage External d rp
-    Client.sendRequest (putMessage $ updateReceiver msg rec) hn (PortNumber po)
+    local <- isLocal so site
+    if local
+      then do
+        msg <- newMessage Internal name d rp
+        ch <- lookupStreamChannel name
+        case ch of
+          (Just c) ->
+             writeChannel c $ encodeMessage $ updateSender msg (SocketId hn po)
+          _ -> return ()
+        return ()
+      else do
+        msg <- newMessage External name d rp
+        Client.sendRequest (putMessage $ encodeMessage $ updateReceiver msg so) hn (PortNumber po)
+        return ()
 sendWithMaybeGeneric (BroadcastPort l) d rp
   = do
     sequence $ map (\p -> sendWithMaybeGeneric p d rp) l
@@ -634,3 +822,16 @@ readPortFromFile fp
           p <- return (decode raw)
           return p
         )
+
+        
+printStreamController :: IO ()
+printStreamController
+  = withMVar streamController $
+    \sc ->
+    do
+    putStrLn "StreamController:"
+    case sc of
+      (Nothing) ->
+          putStrLn "not initialized"
+      (Just scd) ->
+         putStrLn $ show scd 

@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-
+{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.Network.Site
 (
 -- * Datatypes
@@ -42,10 +42,12 @@ module Holumbus.Network.Site
 )
 where
 
-import Data.Binary
+import           Data.Binary
 import qualified Data.List as List
-import Network.Socket
-import System.Posix
+import           Network.Socket
+import           System.Posix
+
+import           Text.XML.HXT.Arrow
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -60,7 +62,6 @@ import qualified Data.Set as Set
 --   or the the same computer or are on distinct computers
 data SiteId = SiteId HostName ProcessID deriving (Show, Eq, Ord)
 
-
 instance Binary SiteId where
   put (SiteId hn pid) = put hn >> put (toInteger pid)
   get
@@ -69,8 +70,21 @@ instance Binary SiteId where
       pid <- get
       return (SiteId hn (fromInteger pid)) 
 
+instance XmlPickler SiteId where
+  xpickle = xpSiteId
+  
+xpSiteId :: PU SiteId
+xpSiteId = 
+  xpElem "siteId" $
+      xpWrap (\(hn, pid) -> SiteId hn (fromInteger pid), \(SiteId hn pid) -> (hn, toInteger pid)) xpSite
+      where
+      xpSite =
+        xpPair
+          (xpElem "hostname" xpText)
+          (xpElem "pid" xpickle)
+
 -- | Just a little Map to hold the SiteIds an to get the neighbout Ids
-type SiteMap = Map.Map HostName (Set.Set SiteId) 
+type SiteMap = Map.Map HostName (Set.Set SiteId)
 
 -- ----------------------------------------------------------------------------
 -- Operations on the SiteId
