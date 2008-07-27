@@ -35,6 +35,9 @@ wc :
 	$(MAKE) -C $(TEST_BASE) wc
 	$(MAKE) -C $(EXAMPLES_BASE) wc
 
+package : configure
+	@runhaskell Setup.hs sdist
+
 clean :
 	@runhaskell Setup.hs clean
 	$(MAKE) -C $(TEST_BASE) clean
