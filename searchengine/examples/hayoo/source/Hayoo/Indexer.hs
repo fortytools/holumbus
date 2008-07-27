@@ -8,14 +8,14 @@
   Maintainer : Sebastian M. Schlatt (sms@holumbus.org)
   Stability  : experimental
   Portability: untested
-  Version    : 0.2
+  Version    : 0.2.1
 
   Indexer for the Haskell API Documentation Search Engine Hayoo!
-  
-  Current Scope: 
-    <http://hackage.haskell.org>
-    <http://www.haskell.org/gtk2hs/docs/current/>
 
+  Current scope:
+    - <http://hackage.haskell.org/>
+    - <http://www.haskell.org/gtk2hs/docs/current/>
+  
   TODO: 
   - Include class, data, ... descriptions.
 
@@ -29,7 +29,8 @@ module Main where
 
 -- import           HayooConfig
 
-import           Control.Monad hiding (join,when)
+import           Control.Monad hiding (join, when)
+import qualified Control.Monad as CM (when)
 
 import           Data.Binary
 import           Data.Char
@@ -38,6 +39,7 @@ import           Data.Maybe
 
 import           qualified Data.IntMap as IM
 import           qualified Data.Map    as M
+import           qualified Data.IntSet as IS
 
 import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
@@ -69,22 +71,34 @@ main
     let traceLevel    = 0
         workerThreads = 1 
         docsPerCrawl  = 100
-        splitPath     = "/tmp/"
-        indexPath     = dir ++ "/hayoo"
-        idxConfig     = ic_Hayoo {ic_indexPath = indexPath}            -- hackage.haskell.org
-
+        indexPath     = dir ++ "/indexes/hayoo"
+        idxConfig     = ic_Hayoo { ic_indexPath = indexPath }
+        additionalConfig = ic_Hayoo_additional 
+                           { ic_indexPath    = indexPath
+--                           , ic_startPages   = ["http://www.haskell.org/gtk2hs/docs/current/Graphics-UI-Gtk-General-Drag.html"]
+--                           , ic_fCrawlFilter = const False
+                           } 
+        
         crawlerState  = initialCrawlerState idxConfig emptyDocuments customCrawlFunc
-
+    
+      -- we don't want to shipwreck because of missing dirs
+    createDirectoryIfMissing True  ((fromJust (ic_tempPath idxConfig)) ++ "split/")
+    createDirectoryIfMissing True  (fromJust (ic_tempPath idxConfig))
+    createDirectoryIfMissing False indexPath
+    e <- doesFileExist (indexPath ++ "-cache.db")      -- remove cache if already existing
+    CM.when e (removeFile (indexPath ++ "-cache.db"))
+    
+    
     -- ---------------------------------------------------------------------------------------------
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     runX (traceMsg 0 ("           (1) Hackage " ))
 
---    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
---    let hackageLatest = emptyDocuments
     hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
-    
+--    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
+--    let hackageCrawled = emptyDocuments
+      
     let hackageDocs =  filterDocuments -- TODO clean this mess up
                          ( isPrefixOf "http://hackage.haskell.org/packages/archive/" . uri) $
                        filterDocuments 
@@ -97,15 +111,15 @@ main
     
     runX (traceMsg 0 ("           (2) Additional libraries " ))
     
-    let additionalState = initialCrawlerState ic_Hayoo_additional emptyDocuments customCrawlFunc
+    let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
     additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
-    -- additionalDocs <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-xpredocs.bin") :: IO (Documents FunctionInfo)
-    
     
     let hayooDocs = snd $ mergeDocs hackageLatest additionalDocs
     
     writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs
     writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs
+    
+    hayooDocsSize <- return $! sizeDocs hayooDocs
     
     -- ---------------------------------------------------------------------------------------------
        -- split the locally saved documents into several small xml files
@@ -113,7 +127,7 @@ main
     runX (traceMsg 0 (" splitting ----------------------------- " ))
     splitDocs' <- mapReduce 
                     workerThreads 
-                    (getVirtualDocs splitPath)
+                    (getVirtualDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/"))
                     mkVirtualDocList
                     (IM.toList (IM.map uri (toMap hayooDocs)))
     splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
@@ -121,12 +135,14 @@ main
     writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs)
     writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs)
 
- 
 --    splitDocs <- loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
+
+    splitDocsSize <- return $! sizeDocs splitDocs
+
     -- ---------------------------------------------------------------------------------------------
        -- build an index over the split xml files
     runX (traceMsg 0 (" indexing  ------------------------------ " ))
-    localDocs <- return $ tmpDocs splitPath splitDocs
+    localDocs <- return $ tmpDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/") splitDocs
     
     cache     <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
     
@@ -136,6 +152,13 @@ main
     writeToXmlFile ( indexPath ++ "-index.xml") idx
     writeToBinFile ( indexPath ++ "-index.bin") idx
     
+    -- ---------------------------------------------------------------------------------------------
+       -- display some statistics
+    putStrLn "---------------------------------------------------------------"
+    putStrLn $ "Documents: " ++ show hayooDocsSize
+    putStrLn $ "Split documents: " ++ show splitDocsSize
+    putStrLn $ "Unique Words: " ++ show (sizeWords idx)    
+    putStrLn "---------------------------------------------------------------"
     return ()
 
 
@@ -156,7 +179,7 @@ getVersions docs = foldl' (\m d -> M.insertWith cmp (pkg d) (ver d) m) M.empty
           
 
 hackageFilter :: URI -> Bool
-hackageFilter = simpleCrawlFilter [ "http://hackage.haskell.org/" ]                         -- allow
+hackageFilter = simpleCrawlFilter [ "http://hackage.haskell.org/" ]                  -- allow
                                          [ "/src/", "/trac/", ".tar.gz$", ".cabal$", ".pdf$"-- deny
                                          , "/doc-index-", "doc-index.html", "/logs/failure/" 
                                          , "http://hackage.haskell.org/cgi-bin/hackage-scripts/list-users"
@@ -234,9 +257,9 @@ getVirtualDocs splitPath docId theUri =
            &&& constA (FunctionInfo theModule theSignature (theSourceURI))
          )
      >>^ (\(a,(b,c)) -> (a,b,c)) 
-  getTheSignature =     removeSourceLinks >>> preFilterSignatures >>> getXPathTreesInDoc theHayooXPath 
-                 >>> getText
-                 >>^ dropWhile ( /= ':' ) >>^ drop 3 
+  getTheSignature =     removeSourceLinks 
+                    >>> fromLA ( listA ( xshow ( (cc_fExtract ccHayooSignature) >>> getTexts)))
+                    >>^ concat >>^ dropWhile ( /= ':' ) >>^ drop 3                              
   getSourceLink :: ArrowXml a => a XmlTree (Maybe String)
   getSourceLink = 
       (      processTopDown ( getChildren `when` (isElem >>> hasName "a" >>> hasAttr "name")  )
@@ -276,7 +299,7 @@ removeSourceLinks =
                  )      
 
 
--- | As Haddock can generate Documentation pages with links to source files and without these links
+-- | As Haddock can generate Documetation pages with links to source files and without these links
 --   there are two different types of declaration table datas. To make the indexing easier, the
 --   table datas with source links are transformed to look like those without (they differ 
 --   in the css class of the table data and the ones with the source links contain another table).
@@ -293,7 +316,7 @@ topdeclToDecl
               ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
             ) 
 
--- | The REDUCE phase of the virtual document creation MapReduce job.
+-- | The REDUCE phase of the virtual document creation MapReduce computation.
 --   The virtual Documents from the MAP phase are collected and a new Documents data is created
 mkVirtualDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (Documents  FunctionInfo))
 mkVirtualDocList _ vDocs
@@ -514,8 +537,8 @@ ic_Hayoo
     { ic_startPages      = [ "http://hackage.haskell.org/packages/archive/pkg-list.html" 
 --                           , "http://www.haskell.org/ghc/docs/latest/html/libraries/base/Prelude.html"
                            ]
-    , ic_tempPath         = Just "/tmp/"
-    , ic_indexPath         = "~/hayoo"
+    , ic_tempPath        = Just "/tmp/holumbus/hayoo/"
+    , ic_indexPath       = "/tmp/hayoo"  -- will be overwritten in main-function
     , ic_indexerTimeOut  = 10 * 60 * 1000000
     , ic_contextConfigs  = ccs_Hayoo
     , ic_readAttributes  = standardReadDocumentAttributes
@@ -534,14 +557,13 @@ theHayooXPath :: String
 theHayooXPath =  "//td[@class='decl']"     
   
 ccs_Hayoo :: [ContextConfig]
-ccs_Hayoo = [  -- ccModule
---            , ccHierarchy
---            , ccHayooName     
---            , ccHayooPartialName 
-            -- ,
-             ccHayooSignature 
---            , ccHayooNormalizedSignature
---            , ccHayooDescription
+ccs_Hayoo = [  ccModule
+            , ccHierarchy
+            , ccHayooName     
+            , ccHayooPartialName 
+            , ccHayooSignature 
+            , ccHayooNormalizedSignature
+            , ccHayooDescription
             ]
             
 ccHayooName :: ContextConfig
@@ -550,7 +572,7 @@ ccHayooName
                   , cc_preFilter   = fromLA preFilterSignatures
                   , cc_fExtract    = getXPathTrees theHayooXPath  
                   , cc_fTokenize   = (\a -> [stripWith (\b -> b `elem` "():") (strip (takeWhile ( (/=) ' ') (dropWhile ( (==) ' ') a)))])
-                  , cc_fIsStopWord = \s -> s `elem` ["type", "class", "data"]  
+                  , cc_fIsStopWord = (flip elem) ["type", "class", "data"]  
                   , cc_addToCache  = False
                   }
 
@@ -586,7 +608,7 @@ ccHayooSignature
   = ContextConfig { cc_name        = "signature"
                   , cc_preFilter   = fromLA preFilterSignatures
                   , cc_fExtract    = getXPathTrees theHayooXPath
-                  , cc_fTokenize   = \a -> [getSignature a]
+                  , cc_fTokenize   = \s -> [getSignature s]
                   , cc_fIsStopWord = const False
                   , cc_addToCache  = False     
                   }
@@ -615,15 +637,15 @@ ccHierarchy
                   }     
             
 getSignature :: String -> String
-getSignature s = if "=>" `isInfixOf` s  then stripSignature . stripSignature $ drop 3 $ dropWhile ((/=) '=') s
-                                        else stripSignature . stripSignature $ drop 3 $ dropWhile ((/=) ':') s
+getSignature s = if "=>" `isInfixOf` s  then stripSignature $ drop 3 $ dropWhile ((/=) '=') s
+                                        else stripSignature $ drop 3 $ dropWhile ((/=) ':') s
 
 
 -- | TODO some of this is redundant, some important. find out what and why and simplify
 preFilterSignatures :: LA XmlTree XmlTree
-preFilterSignatures  
+preFilterSignatures -- = removeDeclbut
 -- =  this
-    =      flattenElementsByType "b"
+    =     flattenElementsByType "b"
 --      >>> flattenElementsByType "a"
       >>> flattenElementsByType "span"
 --      >>> flattenElementsByType "tt"
@@ -640,7 +662,7 @@ removeDeclbut = processTopDown (  none `when` isDeclbut )
   where isDeclbut = isElem  >>> hasName "td" >>> hasAttrValue "class" (isPrefixOf "declbut") 
 
 -- -------------------------------------------------------------------------------------------------
--- stuff from Hayoo.Common
+-- stuff from Hayoo.Common, will be removed soon
 
 -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 
@@ -681,7 +703,8 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
   where
   sep s = join s . map strip . split s
   lsep s = join s . map stripl . split s
-  rsep s = join s . map stripr . split s
+  rsep s = join s . map stripr . split s 
+ 
 
 {-
             
