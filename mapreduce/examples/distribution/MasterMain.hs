@@ -21,6 +21,7 @@ import           Holumbus.Common.Logging
 import           Holumbus.Network.Site
 import qualified Holumbus.Network.Port as Port
 import qualified Holumbus.MapReduce.Demo as DEMO
+import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.Distribution.Master.MasterData as Master
 import qualified Holumbus.Distribution.Master as MC
 import qualified Holumbus.Distribution.Distribution as D
@@ -51,7 +52,8 @@ initializeData
     putStrLn "-> master-port"
     let maps = DEMO.demoMapActions
     let reduces = DEMO.demoReduceActions
-    master <- Master.newMaster maps reduces
+    fs <- FS.mkSingleController "controller.port"
+    master <- Master.newMaster fs maps reduces
     let port = MC.getMasterRequestPort master
     Port.writePortToFile port "master.port"
     putStrLn "-> distribution"

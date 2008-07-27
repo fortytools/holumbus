@@ -40,6 +40,7 @@ import qualified Holumbus.Network.Port as P
 import           Holumbus.MapReduce.JobController
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.Data.MultiMap as MMap
+import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master as MC
 import qualified Holumbus.Distribution.Worker as WC
@@ -86,6 +87,7 @@ data MasterData = MasterData {
   , md_OwnPort          :: ! M.MasterRequestPort
   , md_WorkerController ::   WorkerController
   , md_JobController    ::   JobController
+  , md_FileSystem       ::   FS.FileSystem
   }
 
 
@@ -108,8 +110,8 @@ newWorkerController
     wc <- newMVar wcd
     return wc
 
-newMaster :: MapActionMap -> ReduceActionMap -> IO MasterData
-newMaster mm rm
+newMaster :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> IO MasterData
+newMaster fs mm rm
   = do
     -- initialize values 
     st    <- (P.newStream::IO M.MasterRequestStream)
@@ -129,7 +131,7 @@ newMaster mm rm
     setReduceActions rm jc
 
     -- get the internal data
-    md <- startRequestDispatcher (MasterData tid st po wc jc)
+    md <- startRequestDispatcher (MasterData tid st po wc jc fs)
     return md
 
 

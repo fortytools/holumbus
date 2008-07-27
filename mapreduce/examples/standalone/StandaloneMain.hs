@@ -46,9 +46,9 @@ initializeData
   = do
     let maps = DEMO.demoMapActions
     let reduces = DEMO.demoReduceActions
-    -- fs <- FS.standaloneFileSystem "storage/" Nothing
-    -- DEMO.createDemoFiles fs
-    SA.newStandalone maps reduces
+    fs <- FS.mkStandaloneFileSystem "storage/" Nothing
+    DEMO.createDemoFiles fs
+    SA.newStandalone fs maps reduces
 
 
 deinitializeData :: SA.Standalone -> IO ()

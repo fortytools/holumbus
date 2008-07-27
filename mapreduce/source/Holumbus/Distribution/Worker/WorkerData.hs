@@ -33,6 +33,7 @@ import qualified Data.Set as Set
 
 import           System.Log.Logger
 
+import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.Network.Port as P
 import           Holumbus.Network.Site
 import           Holumbus.MapReduce.Types
@@ -61,8 +62,8 @@ data WorkerData = WorkerData {
   
 
 
-newWorker :: MapActionMap -> ReduceActionMap -> MP.MasterPort -> IO WorkerData
-newWorker mm rm mp
+newWorker :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> MP.MasterPort -> IO WorkerData
+newWorker fs mm rm mp
   = do
     -- initialize values
     nidMVar <- newMVar Nothing
@@ -74,6 +75,7 @@ newWorker mm rm mp
     tp      <- TP.newTaskProcessor
     
     -- configure the TaskProcessor
+    TP.setFileSystemToTaskProcessor fs tp
     TP.setMapActionMap mm tp
     TP.setReduceActionMap rm tp
     TP.setTaskCompletedHook (sendTaskCompleted mpMVar) tp

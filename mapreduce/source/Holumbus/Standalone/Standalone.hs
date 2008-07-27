@@ -84,8 +84,8 @@ sendTaskError jc td
 -- ----------------------------------------------------------------------------
 
 
-newStandalone :: MapActionMap -> ReduceActionMap -> IO Standalone
-newStandalone mm rm
+newStandalone :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> IO Standalone
+newStandalone fs mm rm
   = do
     -- get a new JobController an TaskProcessor
     jc <- newJobController
@@ -97,6 +97,7 @@ newStandalone mm rm
     setReduceActions rm jc
     
     -- configure the TaskProcessor
+    setFileSystemToTaskProcessor fs tp
     setMapActionMap mm tp
     setReduceActionMap rm tp
     setTaskCompletedHook (sendTaskCompleted jc) tp

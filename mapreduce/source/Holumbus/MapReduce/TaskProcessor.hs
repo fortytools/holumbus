@@ -628,7 +628,18 @@ loadInputList _ mbfs is
     loadInput _         (RawFunctionData b)  = return $ Just b
     -- TODO throw exception here
     loadInput Nothing   (FileFunctionData _) = return Nothing
-    loadInput (Just fs) (FileFunctionData f) = return Nothing
+    loadInput (Just fs) (FileFunctionData f)
+      = do
+        mbc <- FS.getFileContent f fs
+        if isNothing mbc 
+          then do
+            return Nothing
+          else do
+            let c = fromJust mbc
+            d <- case c of
+              (FS.TextFile s)  -> return $ encode s
+              (FS.BinaryFile b) -> return b
+            return $ Just d
 
 saveOutputList :: TaskData -> TaskOutputType -> Maybe FS.FileSystem -> [(Int, [B.ByteString])] -> IO [(Int,[FunctionData])]
 saveOutputList _ _ mbfs os

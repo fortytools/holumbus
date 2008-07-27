@@ -20,6 +20,7 @@ import           Control.Exception
 import           Holumbus.Common.Logging
 import           Holumbus.Network.Site
 import qualified Holumbus.Network.Port as Port
+import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Worker.WorkerData as W
 import qualified Holumbus.Distribution.Distribution as D
@@ -54,8 +55,9 @@ initializeData
     let mp = (MP.newMasterPort p)
     putStrLn "-> worker"
     let maps = DEMO.demoMapActions
-    let reduces = DEMO.demoReduceActions 
-    w <- W.newWorker maps reduces mp
+    let reduces = DEMO.demoReduceActions
+    fs <- FS.mkSingleNode "storage/" Nothing "controller.port" 
+    w <- W.newWorker fs maps reduces mp
     putStrLn "-> distribution"
     d <- D.newDistribution mp 
     d' <- D.setDistributionWorker w d
