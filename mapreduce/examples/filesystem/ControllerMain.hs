@@ -16,13 +16,9 @@
 
 module Main(main) where
 
-import Control.Exception
+import           Control.Exception
 
-import Holumbus.Common.Logging
-import Holumbus.Network.Site
-import qualified Holumbus.Network.Port as Port
-import qualified Holumbus.FileSystem.Controller.ControllerData as Controller
-import qualified Holumbus.FileSystem.Controller as C
+import           Holumbus.Common.Logging
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.UserInterface as UI
 
@@ -46,14 +42,7 @@ main
 initializeData :: IO (FS.FileSystem)
 initializeData 
   = do
-    sid <- getSiteId
-    putStrLn $ "initialising controller on site" ++ show sid 
-    putStrLn "-> controller"
-    controller <- Controller.newController
-    let port = C.getControllerRequestPort controller
-    Port.writePortToFile port "controller.port"
-    putStrLn "-> fileSystem"
-    fs <- FS.newFileSystem controller
+    fs <- FS.mkSingleController "controller.port"
     return fs
 
 

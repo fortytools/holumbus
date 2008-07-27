@@ -26,9 +26,10 @@ module Holumbus.FileSystem.FileSystem
 , FileSystem
 
 -- * Creation and Destruction
-, standaloneFileSystem
-, newFileSystem
-, setFileSystemNode
+, mkStandaloneFileSystem
+, mkSingleController
+, mkSingleNode
+, mkFileSystemClient
 , closeFileSystem
 
 -- * Operations
@@ -51,15 +52,14 @@ module Holumbus.FileSystem.FileSystem
 )
 where
 
-import Prelude hiding (appendFile)
-
-import Control.Concurrent
-import Control.Monad
-
+import           Prelude hiding (appendFile)
+import           Control.Concurrent
+import           Control.Monad
 import qualified Data.Set as Set
+import           System.Log.Logger
 
-import Holumbus.Network.Site
-
+import           Holumbus.Network.Site
+import qualified Holumbus.Network.Port as P
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Controller.ControllerData as CD
@@ -71,6 +71,8 @@ import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FST
 
 
+localLogger :: String
+localLogger = "Holumbus.FileSystem.FileSystem"
  
 -- ---------------------------------------------------------------------------
 -- Datatypes
@@ -95,29 +97,97 @@ instance Show FileSystem where
 -- ---------------------------------------------------------------------------
 
 
-standaloneFileSystem
+mkStandaloneFileSystem
   :: FilePath           -- ^ the path of the filestorage on disk 
   -> (Maybe FilePath)   -- ^ the name of the directory file, if "Nothing" the default name will be used
   -> IO (FileSystem)
-standaloneFileSystem fp fn
+mkStandaloneFileSystem fp fn
   = do
     controller <- CD.newController
     let storage = FST.newFileStorage fp fn
     let cp = CP.newControllerPort $ C.getControllerRequestPort controller
     n <- ND.newNode cp storage
-    fs <- newFileSystem controller
-    setFileSystemNode n fs
+    fs <- newFileSystem controller (Just n)
+    -- setFileSystemNode n fs
     return fs
 
+
+mkSingleController
+  :: FilePath           -- ^ the path of the controller port, which is created
+  -> IO (FileSystem)
+mkSingleController fn
+  = do
+    sid <- getSiteId
+    infoM localLogger $ "initialising single controller on site " ++ show sid  
+    infoM localLogger "creating controller"
+    controller <- CD.newController
+    infoM localLogger "writing controller-port to file"
+    let port = C.getControllerRequestPort controller
+    P.writePortToFile port fn
+    infoM localLogger "creating filesystem"
+    fs <- newFileSystem controller (Nothing::Maybe NP.NodePort)
+    return fs
+  
+
+mkSingleNode
+  :: FilePath           -- ^ the path of the filestorage on disk 
+  -> (Maybe FilePath)   -- ^ the name of the directory file, if "Nothing" the default name will be used
+  -> FilePath           -- ^ the path of the controller port
+  -> IO (FileSystem)
+mkSingleNode fp fn pfp
+  = do
+    sid <- getSiteId
+    infoM localLogger $ "initialising single node on site " ++ show sid 
+    infoM localLogger $ "loading controller-port from " ++ show pfp
+    p <- P.readPortFromFile pfp
+    infoM localLogger "creating controller-port"
+    let cp = (CP.newControllerPort p)
+    infoM localLogger "creating storage"
+    let storage = FST.newFileStorage fp fn
+    infoM localLogger "creating node" 
+    n <- ND.newNode cp storage
+    infoM localLogger "creating filesystem"
+    fs <- newFileSystem cp (Just n)
+    -- setFileSystemNode n fs
+    return fs
+
+mkFileSystemClient
+  :: FilePath           -- ^ the path of the controller port
+  -> IO (FileSystem)
+mkFileSystemClient pfp
+  = do
+    sid <- getSiteId
+    infoM localLogger $ "initialising client on site " ++ show sid 
+    infoM localLogger $ "loading controller-port from " ++ show pfp
+    p <- P.readPortFromFile pfp
+    infoM localLogger "creating controller-port"
+    let cp = (CP.newControllerPort p)    
+    infoM localLogger "creating filesystem"
+    fs <- newFileSystem cp (Nothing::Maybe NP.NodePort)
+    return fs
+
+
 --TODO
+-- | Closes the filesystem.
+closeFileSystem :: FileSystem -> IO ()
+closeFileSystem _ = return ()
+
+
+
+-- ---------------------------------------------------------------------------
+-- private helper-functions
+-- ---------------------------------------------------------------------------
+
+
 -- | Creates a new FileSystem with a controller and (maybe) a node.
-{-newFileSystem :: (C.Controller c, N.Node n) => c -> Maybe n -> IO (FileSystem)
+newFileSystem :: (C.Controller c, N.Node n) => c -> Maybe n -> IO (FileSystem)
 newFileSystem c n
   = do
     sid <- getSiteId
-    newMVar (FileSystemData sid c n)
--}
+    fs <- newMVar (FileSystemData sid c n)
+    return (FileSystem fs)
 
+{-
 newFileSystem :: (C.Controller c) => c -> IO (FileSystem)
 newFileSystem c
   = do
@@ -134,18 +204,7 @@ setFileSystemNode n (FileSystem fs)
   = do
     modifyMVar fs $
       \(FileSystemData s c _) -> return (FileSystemData s c (Just n), ())
-
-
---TODO
--- | Closes the filesystem.
-closeFileSystem :: FileSystem -> IO ()
-closeFileSystem _ = return ()
-
-
-
--- ---------------------------------------------------------------------------
--- private helper-functions
--- ---------------------------------------------------------------------------
+-}
 
 
 -- | get a NodePort from a NodeRequestPort

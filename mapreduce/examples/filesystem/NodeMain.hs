@@ -15,15 +15,10 @@
 
 module Main(main) where
 
-import Control.Exception
+import           Control.Exception
 
-import Holumbus.Common.Logging
-import Holumbus.Network.Site
-import qualified Holumbus.Network.Port as Port
-import qualified Holumbus.FileSystem.Node.NodeData as N
-import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
+import           Holumbus.Common.Logging
 import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.FileSystem.Storage.FileStorage as FST
 import qualified Holumbus.FileSystem.UserInterface as UI
 
 
@@ -46,18 +41,7 @@ main
 initializeData :: IO (FS.FileSystem)
 initializeData 
   = do
-    sid <- getSiteId
-    putStrLn $ "initialising node on site" ++ show sid 
-    putStrLn "-> controller-port"
-    p <- Port.readPortFromFile "controller.port"
-    let cp = (CP.newControllerPort p)
-    putStrLn "-> storage"
-    let storage = FST.newFileStorage "storage/" Nothing
-    putStrLn "-> node" 
-    n <- N.newNode cp storage    
-    putStrLn "-> fileSystem"
-    fs <- FS.newFileSystem cp
-    FS.setFileSystemNode n fs
+    fs <- FS.mkSingleNode "storage/" Nothing "controller.port"
     return fs
 
 
