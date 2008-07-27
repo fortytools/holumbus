@@ -28,6 +28,8 @@ module Holumbus.Build.Index
   , IndexerConfig (..)
   , ContextConfig (..)
   , mergeIndexerConfigs
+  
+  , getTexts
   )
 
 where
@@ -42,7 +44,7 @@ import           Data.Maybe
 import           Control.Monad
 
 import           Holumbus.Build.Config
-import           Holumbus.Control.MapReduce.ParallelWithClass -- Persistent
+import           Holumbus.Control.MapReduce.ParallelWithClass 
 import           Holumbus.Index.Common
 import           Holumbus.Utility
 
@@ -154,7 +156,9 @@ processDocument traceLevel attrs ccs cache docId theUri =
         withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
     >>> (catA $ map (processContext cache docId) ccs )   -- process all context configurations  
     
--- | Process a Context. Applies the given context to extract information from
+
+
+-- | Process a Context. Applies the given context configuration to extract information from
 --   the XmlTree that is passed in the arrow.
 processContext :: 
   ( HolCache c) => 
@@ -183,7 +187,7 @@ processContext cache docId cc
     extractWords  :: LA XmlTree [String]
     extractWords
       = listA
-        ( xshow ( (cc_fExtract cc)               -- extract interesting parts
+        ( xshow ( (cc_fExtract cc)                           -- extract interesting parts
             >>>
             getTexts
           )
@@ -220,12 +224,12 @@ getTexts                                                      -- select all text
     space = txt " "
             
             
-
-{- older and slower version. only for sentimentality
+{-
+ -- older and slower version. only for sentimentality
 processContext cache docId cc  = 
         (cc_preFilter cc)                                     -- convert XmlTree
     >>> listA (
-                    getXPathTrees (cc_XPath cc)               -- extract interesting parts
+                    (cc_fExtract cc)               -- extract interesting parts
                 >>> deep isText                               -- Search deep for text nodes
                 >>> getText 
               )
@@ -240,5 +244,5 @@ processContext cache docId cc  =
     >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
     >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
     >>> strictA                                               -- force strict evaluation
--}               
-     
+               
+ -}    
