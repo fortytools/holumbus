@@ -20,7 +20,9 @@ module Holumbus.FileSystem.Storage
 (
 -- * file datatypes
   FileId
+, FileType(..)
 , FileContent(..)
+, getFileContentType
 
 -- * file operation
 , getContentLength
@@ -35,9 +37,9 @@ module Holumbus.FileSystem.Storage
 )
 where
 
-import Prelude hiding (appendFile)
-import Data.Binary
-import Data.Time
+import           Prelude hiding (appendFile)
+import           Data.Binary
+import           Data.Time
 import qualified Data.ByteString.Lazy as B
 
 
@@ -49,16 +51,41 @@ import qualified Data.ByteString.Lazy as B
 --   be an instance of the classes show, eq, ord and binary
 type FileId = String
 
+data FileType = FTText | FTList | FTBin
+  deriving (Show, Eq, Ord, Enum)
+  
+instance Binary FileType where
+  put (FTText) = putWord8 1
+  put (FTList) = putWord8 2
+  put (FTBin) = putWord8 0
+  get
+    = do
+      t <- getWord8
+      case t of
+        1 -> return FTText
+        2 -> return FTList
+        _ -> return FTBin
+
 -- | The content of a file, this will be generic in further versions
 data FileContent 
   = TextFile String
-  | BinaryFile B.ByteString 
+  | ListFile [B.ByteString]
+  | BinFile B.ByteString
   deriving (Show)
+
+
+-- | gets the type of the file content
+getFileContentType :: FileContent -> FileType
+getFileContentType (TextFile _) = FTText
+getFileContentType (ListFile _) = FTList
+getFileContentType (BinFile _)  = FTBin
+
 
 -- | The length of the file-content
 getContentLength :: FileContent -> Integer
 getContentLength (TextFile s) = fromIntegral $ length s
-getContentLength (BinaryFile s) = fromIntegral $ B.length s
+getContentLength (ListFile s) = fromIntegral $ length s
+getContentLength (BinFile s)  = fromIntegral $ B.length s
 
 
 -- | A hash function for the content, to compare two files
@@ -68,13 +95,15 @@ getContentHash _ = 0
 
 instance Binary FileContent where
   put (TextFile s) = putWord8 1 >> put s
-  put (BinaryFile s) = putWord8 0 >> put s
+  put (ListFile s) = putWord8 2 >> put s
+  put (BinFile s)  = putWord8 0 >> put s
   get 
     = do
       t <- getWord8
       case t of
         1 -> get >>= \s -> return (TextFile s)
-        _ -> get >>= \s -> return (BinaryFile s)       
+        2 -> get >>= \s -> return (ListFile s)
+        _ -> get >>= \s -> return (BinFile s)       
 
 
 
@@ -83,12 +112,13 @@ instance Binary FileContent where
 -- -----------------------------------------------------------------------------
 
 -- | metadata of a file, known by the storage.
-data FileData = MkFileData { 
-    fd_fileId           :: FileId    -- ^ filename
-  , fd_size             :: Integer   -- ^ filesize
-  , fd_creationDate     :: UTCTime   -- ^ creation date
-  , fd_lastmodifiedDate :: UTCTime   -- ^ last modified date
-  , fd_hashvalue        :: Integer   -- ^ hash value
+data FileData = MkFileData {
+    fd_Type             :: FileType  -- ^ filetype
+  , fd_FileId           :: FileId    -- ^ filename
+  , fd_Size             :: Integer   -- ^ filesize
+  , fd_CreationDate     :: UTCTime   -- ^ creation date
+  , fd_LastModifiedDate :: UTCTime   -- ^ last modified date
+  , fd_Hashvalue        :: Integer   -- ^ hash value
   } deriving (Show)
 
 -- | Create a new file data item.
@@ -96,7 +126,8 @@ createFileData :: FileId -> FileContent -> IO (FileData)
 createFileData i c
   = do 
     time <- getCurrentTime
-    return (MkFileData 
+    return (MkFileData
+      (getFileContentType c)
       i
       (getContentLength c)
       time
@@ -109,27 +140,29 @@ createFileData i c
 updateFileData :: FileData -> FileData -> FileData
 updateFileData new old
   = old {
-      fd_size             = fd_size new
-    , fd_lastmodifiedDate = fd_lastmodifiedDate new
-    , fd_hashvalue        = fd_hashvalue new
+      fd_Size             = fd_Size new
+    , fd_LastModifiedDate = fd_LastModifiedDate new
+    , fd_Hashvalue        = fd_Hashvalue new
     }
 
 
 instance Binary FileData where
   put d 
-    = put (fd_fileId d) >> 
-      put (fd_size d) >> 
-      put (show $ fd_creationDate d) >> 
-      put (show $ fd_lastmodifiedDate d) >>
-      put (fd_hashvalue d)
+    = put (fd_Type d) >>
+      put (fd_FileId d) >> 
+      put (fd_Size d) >> 
+      put (show $ fd_CreationDate d) >> 
+      put (show $ fd_LastModifiedDate d) >>
+      put (fd_Hashvalue d)
   get 
     = do
+      t    <- get
       name <- get
       size <- get
       dat1 <- get
       dat2 <- get
       hash <- get
-      return (MkFileData name size (read dat1) (read dat2) hash) 
+      return (MkFileData t name size (read dat1) (read dat2) hash) 
 
 
 

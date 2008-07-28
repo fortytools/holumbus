@@ -640,8 +640,10 @@ loadInputList _ mbfs is
           else do
             let c = fromJust mbc
             d <- case c of
-              (FS.TextFile s)  -> return $ encode s
-              (FS.BinaryFile b) -> return b
+              (FS.TextFile s)  -> do
+                 debugM localLogger $ "loadInputList: text-filecontent is: " ++ show s
+                 return $ encode (f, s)
+              (FS.BinFile b) -> return b
             return $ Just d
 
 saveOutputList :: TaskData -> TaskOutputType -> Maybe FS.FileSystem -> [(Int, [B.ByteString])] -> IO [(Int,[FunctionData])]

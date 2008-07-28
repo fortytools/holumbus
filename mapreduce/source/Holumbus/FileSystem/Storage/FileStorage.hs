@@ -33,11 +33,13 @@ import           Control.Monad
 import           Control.Exception
 import qualified Data.ByteString.Lazy as B
 import           Data.Binary
+import           Data.Maybe
 import           System.IO
 import           System.Directory
 import           System.Log.Logger
 import qualified Data.Map as Map
 
+import           Holumbus.Common.FileHandling
 import qualified Holumbus.FileSystem.Storage as S
 
 localLogger :: String
@@ -49,23 +51,22 @@ type StorageFileDirectory = Map.Map S.FileId S.FileData
 -- | The filestorage datatype.
 --   Every file is physically saved in one file on the harddisk
 data FileStorage = MkFileStorage {
-    fs_path        :: FilePath             -- ^ path to the storage directory
-  , fs_dirfilepath :: FilePath             -- ^ path to the directory file
-  , fs_directory   :: StorageFileDirectory -- ^ the directory with the metadata
+    fs_Path        :: FilePath             -- ^ path to the storage directory
+  , fs_DirfilePath :: FilePath             -- ^ path to the directory file
+  , fs_Directory   :: StorageFileDirectory -- ^ the directory with the metadata
   } deriving (Show)
 
 -- -----------------------------------------------------------------------------
 -- internal operations - adding and deleting files to the directory
 -- -----------------------------------------------------------------------------
 
--- | Add a new file to the directory. 
+-- | Add or update a new file to the directory. 
 addFileData :: StorageFileDirectory -> S.FileData -> StorageFileDirectory
 addFileData dir new 
   = Map.insert fn dat dir
     where
-      fn = (S.fd_fileId new)
+      fn = (S.fd_FileId new)
       dat = maybe new (S.updateFileData new) (Map.lookup fn dir)
-
 
 -- | Delete a new file to the directory.
 deleteFileData :: StorageFileDirectory -> S.FileId -> StorageFileDirectory
@@ -112,8 +113,8 @@ readDirectory stor
     handle (\_ -> writeDirectory stor) $
       bracket
         (do
-         debugM localLogger ("opening filestorage directory: " ++ (fs_dirfilepath stor))
-         openFile (fs_dirfilepath stor) ReadMode
+         debugM localLogger ("opening filestorage directory: " ++ (fs_DirfilePath stor))
+         openFile (fs_DirfilePath stor) ReadMode
         )
         (hClose)
         (\hdl -> 
@@ -121,7 +122,7 @@ readDirectory stor
           pkg <- liftM words $ hGetLine hdl
           raw <- B.hGet hdl (read $ head pkg)
           dir <- return (decode raw)
-          return (stor {fs_directory = dir})
+          return (stor {fs_Directory = dir})
         )
 
 
@@ -130,11 +131,11 @@ writeDirectory :: FileStorage -> IO (FileStorage)
 writeDirectory stor
   = do
     bracket 
-      (openFile (fs_dirfilepath stor) WriteMode)
+      (openFile (fs_DirfilePath stor) WriteMode)
       (hClose) 
       (\hdl ->
         do 
-        enc <- return (encode $ fs_directory stor)
+        enc <- return (encode $ fs_Directory stor)
         hPutStrLn hdl ((show $ B.length enc) ++ " ")
         B.hPut hdl enc    
         return stor
@@ -152,151 +153,96 @@ instance S.Storage FileStorage where
 
   createFile stor fn c 
     = do
-      writeToBinFile path c
-      -- update the directory   
+      case c of
+        (S.TextFile t) -> writeToTextFile path t
+        (S.ListFile l) -> writeToListFile path l
+        (S.BinFile  b) -> writeToBinFile path b
       dat <- S.createFileData fn c
-      writeDirectory $ stor {fs_directory = newdir dat} 
-      {-bracket 
-        (openFile path WriteMode)
-        (hClose)
-        (\hdl ->
-          do
-          -- write new file
-          enc <- return (encode $ c)
-          hPutStrLn hdl ((show $ B.length enc) ++ " ")
-          B.hPut hdl enc
-          
-          -- update the directory   
-          dat <- S.createFileData fn c
-          writeDirectory $ stor {fs_directory = newdir dat} 
-        )-}
+      writeDirectory $ stor {fs_Directory = newdir dat} 
       where
-        path = (fs_path stor) ++ fn
-        newdir d = addFileData (fs_directory stor) d 
+        path = (fs_Path stor) ++ fn
+        newdir d = addFileData (fs_Directory stor) d 
 
 
   deleteFile stor i
     = do
       stor' <- 
-        if isMember (fs_directory stor) i
+        if isMember (fs_Directory stor) i
           then do 
             removeFile path
-            return (stor {fs_directory = newdir})
+            return (stor {fs_Directory = newdir})
           else
             return stor
       writeDirectory $ stor'
       where
-        path = (fs_path stor) ++ i
-        newdir = deleteFileData (fs_directory stor) i
+        path = (fs_Path stor) ++ i
+        newdir = deleteFileData (fs_Directory stor) i
 
 
   appendFile stor i c
     = do
-      if isMember (fs_directory stor) i
+      if isMember (fs_Directory stor) i
         then do
-          appendToBinFile path c
-          -- update directory 
-          dat <- S.createFileData i c
-          writeDirectory $ stor { fs_directory = newdir dat }
-          {-
-          bracket
-            (openFile path AppendMode)
-            (hClose)
-            (\hdl ->
-              do
-              -- TODO append new content
-              -- write new file
-              enc <- return (encode $ c)
-              hPutStrLn hdl ((show $ B.length enc) ++ " ")
-              B.hPut hdl enc   
-              
-              -- update directory 
+          metaData <- S.getFileData stor i
+          if ((S.fd_Type $ fromJust metaData) == (S.getFileContentType c)) 
+            then do
+              case c of
+                (S.TextFile t) -> appendToTextFile path t
+                (S.ListFile l) -> appendToListFile path l
+                (S.BinFile  b) -> appendToBinFile path b
               dat <- S.createFileData i c
-              writeDirectory $ stor { fs_directory = newdir dat }
-            )-}
+              writeDirectory $ stor { fs_Directory = newdir dat }
+            else do
+              -- TODO throw exception...
+              return stor
         else do
           S.createFile stor i c      
       where
-        path = (fs_path stor) ++ i
-        newdir d = addFileData (fs_directory stor) d
+        path = (fs_Path stor) ++ i
+        newdir d = addFileData (fs_Directory stor) d
 
 
   containsFile stor i
     = do
-      return (isMember (fs_directory stor) i)
+      return (isMember (fs_Directory stor) i)
 
-  --getFileContent :: s -> FileId -> IO (Maybe FileContent)
+  
   getFileContent stor i
     = do
       debugM localLogger $ "getFileContent: reading " ++ show i
-      if (isMember (fs_directory stor) i) 
+      if (isMember (fs_Directory stor) i) 
         then do
           handle (\e -> do
               errorM localLogger $ "getFileContent: " ++ show e
               return Nothing
             ) $ 
             do
-            c <- strictReadFileFile path
+            metaData <- S.getFileData stor i
+            c <- case (S.fd_Type $ fromJust metaData) of
+              (S.FTText) -> 
+                 do
+                 t <- readFromTextFile path
+                 return $ S.TextFile t
+              (S.FTList) ->
+                do
+                l <- readFromListFile path
+                return $ S.ListFile l
+              (S.FTBin)  -> 
+                do
+                b <- readFromBinFile path
+                return $ S.BinFile b
             debugM localLogger $ "getFileContent: content: " ++ show c
             return (Just c)
-            {-bracket
-              (do 
-               debugM localLogger ("opening file - path: " ++ path)
-               openFile path ReadMode
-              )
-              (hClose)
-              (\hdl ->
-                do
-                -- read file
-                pkg <- liftM words $ hGetLine hdl
-                raw <- B.hGet hdl (read $ head pkg)
-                let p = (decode raw)
-                debugM localLogger ("file content: " ++ show p)
-                return (Just p)
-              )-}
         else do return Nothing
       where
-        path = (fs_path stor) ++ i
+        path = (fs_Path stor) ++ i
 
 
   getFileData stor i
     = do
-      return (lookupFileData (fs_directory stor) i)
+      return (lookupFileData (fs_Directory stor) i)
+
 
   getFileIds stor
     = do
-      return (getIds (fs_directory stor))
-
-
--- ----------------------------------------------------------------------------
--- Binary file Handling
--- ----------------------------------------------------------------------------
-
--- loadFromBinFile :: Binary a => FilePath -> IO a
--- loadFromBinFile f = decodeFile f
-
-writeToBinFile :: Binary a => FilePath -> a -> IO ()
-writeToBinFile = encodeFile
-
-appendToBinFile :: Binary a => FilePath -> a -> IO ()
-appendToBinFile f = B.appendFile f . encode
-
-
--- found on the haskell cafe mailing list
--- http:\/\/www.haskell.org\/pipermail\/haskell-cafe\/2008-April\/041970.html
-strictReadFileFile :: Binary a => FilePath -> IO a
-strictReadFileFile f  
-   = bracket (openBinaryFile f ReadMode) hClose $ 
-       \h -> do
-       c <- B.hGetContents h
-       return $! decode c
-  
-
-{-
-  getFilePath stor fp
-    = maybe Nothing calcPath (getFileData stor fp) 
-    where
-      calcPath dat = Just ((fs_path stor) ++ (fd_filename dat))
--}
-  
-  
+      return (getIds (fs_Directory stor))
