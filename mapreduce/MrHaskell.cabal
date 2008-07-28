@@ -74,6 +74,7 @@ library
                 , Holumbus.Network.Port
                 , Holumbus.Network.Site
                 , Holumbus.Console.Console
+                , Holumbus.Common.FileHandling
                 , Holumbus.Common.Logging
                 , Holumbus.Common.Utils
   ghc-options: -Wall -threaded -O
