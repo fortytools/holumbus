@@ -528,14 +528,13 @@ performMapTask td tp
     debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, bin, mbfs, tot) <- withMVar tp $
+    (ad, bin, mbfs) <- withMVar tp $
       \tpd ->
       do
-      let action     = Map.lookup (ta_Action $ td_Action td) (tpd_MapActionMap tpd)
+      let action     = Map.lookup (td_Action td) (tpd_MapActionMap tpd)
       let input      = (td_Input td)
       let filesystem = (tpd_FileSystem tpd)
-      let tot = ta_OutputType $ td_Action td
-      return (action, input, filesystem, tot)
+      return (action, input, filesystem)
     
     case ad of
       (Nothing) ->
@@ -544,10 +543,9 @@ performMapTask td tp
       (Just a)  ->
         do
         let action = mad_Action a
-        bin' <- loadInputList td mbfs bin
-        bout <- action 1 bin'
-        bout' <- saveOutputList td tot mbfs bout
-        let td' = td { td_Output = bout' }
+        let env = mkActionEnvironment td mbfs
+        bout <- action env 1 bin
+        let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
       
@@ -559,14 +557,13 @@ performCombineTask td tp
     debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, bin, mbfs, tot) <- withMVar tp $
+    (ad, bin, mbfs) <- withMVar tp $
       \tpd ->
       do
-      let action     = Map.lookup (ta_Action $ td_Action td) (tpd_ReduceActionMap tpd)
+      let action     = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
       let input      = (td_Input td)
       let filesystem = (tpd_FileSystem tpd)
-      let tot = ta_OutputType $ td_Action td
-      return (action, input, filesystem, tot)
+      return (action, input, filesystem)
     
     case ad of
       (Nothing) ->
@@ -575,10 +572,9 @@ performCombineTask td tp
       (Just a)  ->
         do
         let action = rad_Action a
-        bin' <- loadInputList td mbfs bin
-        bout <- action 1 bin'
-        bout' <- saveOutputList td tot mbfs bout
-        let td' = td { td_Output = bout' }
+        let env = mkActionEnvironment td mbfs
+        bout <- action env 1 bin
+        let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
           
@@ -591,14 +587,14 @@ performReduceTask td tp
     
     
     -- get all functions
-    (ad, bin, mbfs, tot) <- withMVar tp $
+    (ad, bin, mbfs) <- withMVar tp $
       \tpd ->
       do
-      let action     = Map.lookup (ta_Action $ td_Action td) (tpd_ReduceActionMap tpd)
+      let action     = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
       let input      = (td_Input td)
       let filesystem = (tpd_FileSystem tpd)
-      let tot = ta_OutputType $ td_Action td
-      return (action, input, filesystem, tot)
+      
+      return (action, input, filesystem)
     
     case ad of
       (Nothing) ->
@@ -607,60 +603,8 @@ performReduceTask td tp
       (Just a)  ->
         do
         let action = rad_Action a
-        bin' <- loadInputList td mbfs bin
-        bout <- action 1 bin'
-        bout' <- saveOutputList td tot mbfs bout
-        let td' = td { td_Output = bout' }
+        let env = mkActionEnvironment td mbfs
+        bout <- action env 1 bin
+        let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
-
-
-
-
-loadInputList :: TaskData -> Maybe FS.FileSystem -> [FunctionData] -> IO [B.ByteString]
-loadInputList _ mbfs is
-  = do
-    debugM localLogger $ "loadInputList: " ++ show is
-    os <- mapM (loadInput mbfs) is
-    let os' = catMaybes os
-    return os'
-    where
-    loadInput _         (RawFunctionData b)  = return $ Just b
-    -- TODO throw exception here
-    loadInput Nothing   (FileFunctionData _) = return Nothing
-    loadInput (Just fs) (FileFunctionData f)
-      = do
-        debugM localLogger $ "loadInputList: getting content for: " ++ f
-        mbc <- FS.getFileContent f fs
-        debugM localLogger $ "loadInputList: content is: " ++ show mbc
-        if isNothing mbc 
-          then do
-            debugM localLogger $ "loadInputList: no content found"
-            return Nothing
-          else do
-            let c = fromJust mbc
-            d <- case c of
-              (FS.TextFile s)  -> do
-                 debugM localLogger $ "loadInputList: text-filecontent is: " ++ show s
-                 return $ encode (f, s)
-              (FS.BinFile b) -> return b
-            return $ Just d
-
-saveOutputList :: TaskData -> TaskOutputType -> Maybe FS.FileSystem -> [(Int, [B.ByteString])] -> IO [(Int,[FunctionData])]
-saveOutputList _ _ mbfs os
-  = do
-    mapM (saveOutput mbfs) os
-    where
-    saveOutput Nothing   (i,bs) = return (i, map (\b -> RawFunctionData b) bs)
-    saveOutput (Just fs) (i,bs) = return (i, map (\b -> RawFunctionData b) bs)
-
-
--- ----------------------------------------------------------------------------
--- FileReader
--- ----------------------------------------------------------------------------
-
--- fileReader :: S.FileId -> Maybe S.FileContent -> [(B.ByteString, B.ByteString)]
--- fileReader _ Nothing = []
--- fileReader f (Just (TextFile c)) = [(encode f, encode c)]
--- fileReader f (Just (BinaryFile c)) = [(encode f, c)]     
-

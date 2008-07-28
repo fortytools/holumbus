@@ -91,13 +91,13 @@ newJobData jcd info
 
 newTaskData 
   :: JobControllerData 
-  -> JobId -> TaskType -> TaskState -> [FunctionData] -> TaskAction 
+  -> JobId -> TaskType -> TaskState -> [FunctionData] -> FunctionName -> TaskOutputType 
   -> IO (JobControllerData, TaskData)
-newTaskData jcd jid tt ts i a
+newTaskData jcd jid tt ts i a ot
   = do
     let tid = jcd_NextTaskId jcd
     let jcd' = jcd { jcd_NextTaskId = (tid+1) }
-    return (jcd', TaskData jid tid tt ts i [] a) 
+    return (jcd', TaskData jid tid tt ts i [] ot a) 
     
 data TaskSendResult = TSRSend | TSRNotSend | TSRError
   deriving (Show, Eq, Ord, Enum)    
@@ -581,7 +581,7 @@ hasPhase :: JobData -> Bool
 hasPhase jd = isJust $ getCurrentTaskAction jd
 
 
-getCurrentTaskAction :: JobData -> Maybe TaskAction
+getCurrentTaskAction :: JobData -> Maybe FunctionName
 getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   where
   getTaskAction' ji JSMap     = ji_MapAction ji
@@ -589,6 +589,14 @@ getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   getTaskAction' ji JSReduce  = ji_ReduceAction ji 
   getTaskAction' _  _         = Nothing
 
+
+getCurrentTaskOutputType :: JobData -> TaskOutputType
+getCurrentTaskOutputType jd = getTaskOutputType' (jd_Info jd) (jd_State jd)
+  where
+  getTaskOutputType' ji JSMap     = maybe TOTList id (ji_MapOutputType ji)
+  getTaskOutputType' ji JSCombine = maybe TOTList id (ji_CombineOutputType ji)
+  getTaskOutputType' ji JSReduce  = maybe TOTText id (ji_ReduceOutputType ji)
+  getTaskOutputType' _  _         = TOTList
 
 {-
 performPartition :: JobControllerData -> JobData -> [FunctionData] -> IO [FunctionData]
@@ -614,9 +622,10 @@ createTasks jcd jd
         let inputList = AMap.toList inputAccu                
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
+        let ot = getCurrentTaskOutputType jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle i a) jcd inputList
+        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle i a ot) jcd inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
         return jcd''

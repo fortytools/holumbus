@@ -124,8 +124,8 @@ demoMapActions
     Map.insert "ID" idFct $
     Map.empty
     where
-    wordCount = mkMapAction "WORDCOUNT" "counts the words in a text" mapWordCount partitionWordCount
-    idFct = mkMapAction "ID" "foo" mapId partitionId
+    wordCount = mkMapAction "WORDCOUNT" "counts the words in a text" mapWordCount partitionWordCount defaultActionConnector
+    idFct = mkMapAction "ID" "foo" mapId partitionId defaultActionConnector 
 
 
 demoReduceActions :: ReduceActionMap
@@ -134,8 +134,8 @@ demoReduceActions
     Map.insert "ID" idFct $ 
     Map.empty
     where
-    wordCount = mkReduceAction "WORDCOUNT" "counts the words in a text" mergeWordCount reduceWordCount partitionWordCount
-    idFct = mkReduceAction "ID" "foo" mergeX reduceId partitionId
+    wordCount = mkReduceAction "WORDCOUNT" "counts the words in a text" mergeWordCount reduceWordCount partitionWordCount defaultActionConnector
+    idFct = mkReduceAction "ID" "foo" mergeX reduceId partitionId defaultActionConnector
 
 
 
@@ -147,8 +147,11 @@ demoReduceActions
 demoJob :: JobInfo
 demoJob = JobInfo 
   "demo-WordcountJob"
-  (Just $ TaskAction "WORDCOUNT" TOTRaw )
-  (Just $ TaskAction "WORDCOUNT" TOTRaw )
+  (Just $ "WORDCOUNT")
+  (Just $ "WORDCOUNT")
+  Nothing
+  (Just TOTRaw)
+  (Just TOTRaw)
   Nothing
   ([RawFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
    ,RawFunctionData (encodeTuple ("text2", "aaa bb"))
