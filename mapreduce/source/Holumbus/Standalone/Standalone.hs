@@ -25,6 +25,7 @@ module Holumbus.Standalone.Standalone
 where
 
 import           Control.Concurrent
+import           System.Log.Logger
 
 import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.MapReduce.Types
@@ -33,6 +34,9 @@ import           Holumbus.MapReduce.TaskProcessor
 import           Holumbus.MapReduce.MapReduce
 import           Holumbus.Network.Site
 
+
+localLogger :: String
+localLogger = "Holumbus.Standalone.Standalone"
 
 -- ----------------------------------------------------------------------------
 -- Datatypes
@@ -51,9 +55,9 @@ data Standalone = Standalone (MVar StandaloneData)
 sendStartTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
 sendStartTask tp td
   = do
-    putStrLn "starting Task"
-    putStrLn "TaskData:"
-    putStrLn $ show td
+    debugM localLogger "sendStartTask"
+    debugM localLogger "TaskData:"
+    debugM localLogger $ show td
     startTask td tp
     return TSRSend
 
@@ -61,9 +65,9 @@ sendStartTask tp td
 sendTaskCompleted :: JobController -> TaskData -> IO Bool
 sendTaskCompleted jc td
   = do
-    putStrLn "Task completed"
-    putStrLn "TaskData:"
-    putStrLn $ show td
+    debugM localLogger "Task completed"
+    debugM localLogger "TaskData:"
+    debugM localLogger $ show td
     setTaskCompleted jc td
     return True
 
@@ -71,9 +75,9 @@ sendTaskCompleted jc td
 sendTaskError :: JobController -> TaskData -> IO Bool
 sendTaskError jc td
   = do
-    putStrLn "Task error"
-    putStrLn "TaskData:"
-    putStrLn $ show td
+    debugM localLogger "Task error"
+    debugM localLogger "TaskData:"
+    debugM localLogger $ show td
     setTaskError jc td
     return True
 

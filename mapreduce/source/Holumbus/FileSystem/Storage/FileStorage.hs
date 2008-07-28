@@ -29,13 +29,13 @@ module Holumbus.FileSystem.Storage.FileStorage
 )
 where
 
-import Control.Monad
-import Control.Exception
+import           Control.Monad
+import           Control.Exception
 import qualified Data.ByteString.Lazy as B
-import Data.Binary
-import System.IO
-import System.Directory
-import System.Log.Logger
+import           Data.Binary
+import           System.IO
+import           System.Directory
+import           System.Log.Logger
 import qualified Data.Map as Map
 
 import qualified Holumbus.FileSystem.Storage as S
@@ -228,11 +228,16 @@ instance S.Storage FileStorage where
   --getFileContent :: s -> FileId -> IO (Maybe FileContent)
   getFileContent stor i
     = do
+      debugM localLogger $ "getFileContent: reading " ++ show i
       if (isMember (fs_directory stor) i) 
         then do
-          handle (\_ -> return Nothing) $ 
+          handle (\e -> do
+              errorM localLogger $ "getFileContent: " ++ show e
+              return Nothing
+            ) $ 
             do
             c <- strictReadFileFile path
+            debugM localLogger $ "getFileContent: content: " ++ show c
             return (Just c)
             {-bracket
               (do 

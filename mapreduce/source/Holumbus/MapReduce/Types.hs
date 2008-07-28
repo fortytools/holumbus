@@ -78,6 +78,8 @@ import           Data.Maybe
 import           Data.Typeable
 import           Data.Time
 
+import           System.Log.Logger
+
 import           Text.XML.HXT.Arrow
 
 import           Holumbus.Common.Utils
@@ -85,7 +87,8 @@ import           Holumbus.MapReduce.TypeCheck
 import qualified Holumbus.Data.AccuMap as AMap
 
 
-
+localLogger :: String
+localLogger = "Holumbus.MapReduce.Types"
 
 -- ----------------------------------------------------------------------------
 -- general datatypes
@@ -513,8 +516,8 @@ performMapAction
   -> IO [(Int, [(k2,v2)])]
 performMapAction fct part n ls
   = do
-    putStrLn "performMapAction"
-    putStrLn $ "ls: " ++ show ls
+    infoM localLogger "performMapAction"
+    debugM localLogger $ "ls: " ++ show ls
     tupleList <- mapM (\(k1, v1) -> fct k1 v1) ls
     partedList <- part n $ concat tupleList
     return partedList
@@ -596,8 +599,8 @@ performReduceAction
   -> IO [(Int, [(k2,v3)])]
 performReduceAction merge fct part n ls
   = do
-    putStrLn "performReduceAction"
-    putStrLn $ show ls
+    infoM localLogger "performReduceAction"
+    infoM localLogger $ show ls
     mergedList <- merge ls
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction k2 v2s) mergedList 
     partedList <- part n $ catMaybes maybesList

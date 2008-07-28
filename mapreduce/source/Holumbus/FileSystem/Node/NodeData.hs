@@ -51,7 +51,7 @@ import Holumbus.Network.Site
 
 
 localLogger :: String
-localLogger = "Holumbus.FileSystem.Storage.FileStorage"
+localLogger = "Holumbus.FileSystem.Node.NodeData"
 
 
 -- ----------------------------------------------------------------------------
@@ -217,10 +217,15 @@ handleRequest
 handleRequest po fhdl fres
   = do
     -- in case, we can't send the error...
-    E.handle (\e -> errorM localLogger $ show e) $ do
+    E.handle (\e -> do
+        errorM localLogger $ "handleRequest: exeption raised and could not be send to controller" 
+        errorM localLogger $ show e) $ do
       do
       -- in case our operation fails, we send a failure-response
-      E.handle (\e -> P.send po (M.NRspError $ show e)) $
+      E.handle (\e -> do
+          errorM localLogger $ "handleRequest: exeption raised and reporting to controller" 
+          errorM localLogger $ show e
+          P.send po (M.NRspError $ show e)) $
         do
         -- our action, might raise an exception
         r <- fhdl
@@ -377,7 +382,9 @@ instance Node NodeData where
   --getFileContent :: S.FileId -> NodeData -> IO (Maybe S.FileContent)
   getFileContent i nd
     = do
-      readStorage (\stor -> S.getFileContent stor i) nd
+      c <- readStorage (\stor -> S.getFileContent stor i) nd
+      debugM localLogger $ "getFileContent: " ++ show c
+      return c
     
 
   --getFileData :: S.FileId -> NodeData -> IO (Maybe S.FileData)

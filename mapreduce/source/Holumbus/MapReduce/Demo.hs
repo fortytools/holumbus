@@ -26,11 +26,17 @@ import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 
+import           System.Log.Logger
+
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.Storage as S
 
 import qualified Holumbus.Data.AccuMap as AMap
 import           Holumbus.MapReduce.Types
+
+
+localLogger :: String
+localLogger = "Holumbus.MapReduce.Demo"
 
 -- ----------------------------------------------------------------------------
 -- MapFunctions
@@ -46,10 +52,10 @@ mapId k v
 mapWordCount :: String -> String -> IO [(String, Integer)]
 mapWordCount k v
   = do 
-    putStrLn "mapCountWords"
-    putStrLn $ show ("input: " ++ k ++ " - " ++ show v)
+    infoM localLogger "mapCountWords"
+    debugM localLogger $ show ("input: " ++ k ++ " - " ++ show v)
     let v' = map (\s -> (s,1)) $ words v
-    putStrLn $ show $ "output: " ++ show v'
+    debugM localLogger $ show $ "output: " ++ show v'
     return v'
 
 
@@ -64,10 +70,10 @@ reduceId k _ = return $ Just k
 reduceWordCount :: String -> [Integer] -> IO (Maybe Integer)
 reduceWordCount k vs 
   = do
-    putStrLn "reduce/combine CountWords"
-    putStrLn $ show ("input: " ++ k ++ " - " ++ show vs)
+    infoM localLogger "reduce/combine CountWords"
+    debugM localLogger $ show ("input: " ++ k ++ " - " ++ show vs)
     let s = sum vs
-    putStrLn $ show $ "output: " ++ show s
+    debugM localLogger $ show $ "output: " ++ show s
     return (Just s)
     
   
@@ -98,8 +104,8 @@ partitionId n vs
 partitionWordCount :: Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
 partitionWordCount _ ls 
   = do
-    putStrLn "partitionCountWords"
-    putStrLn $ show ls
+    infoM localLogger "partitionCountWords"
+    debugM localLogger $ show ls
     -- calculate partition-Values
     let markedList = map (\t@(k,_) ->  (length k,t)) ls
     -- merge them
@@ -161,5 +167,6 @@ demoJob = JobInfo
 createDemoFiles :: FS.FileSystem -> IO ()
 createDemoFiles fs
   = do
-    let c = S.BinaryFile (encode "a aa aaa b bb bbb")
-    FS.createFile "foo" c fs
+    -- let c = S.BinaryFile (encode ("foo","a aa aaa b bb bbb"))
+    let c = S.TextFile "a aa aaa b bb bbb"
+    FS.createFile "file1.txt" c fs

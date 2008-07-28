@@ -390,8 +390,6 @@ reportErrorTask td tp
       \tpd -> 
       do 
       let tpd' = setTaskError td tpd
-      -- let f = tpf_TaskError $ tpd_Functions tpd'
-      -- f td
       return (tpd', ())
 
 
@@ -402,8 +400,6 @@ reportCompletedTask td tp
       \tpd -> 
       do 
       let tpd' = setTaskCompleted td tpd
-      -- let f = tpf_TaskCompleted $ tpd_Functions tpd'
-      -- f td
       return (tpd', ())
 
 
@@ -480,7 +476,10 @@ runTask td tp
   = do
     -- spawn a new thread for each tasks
     forkIO $ 
-      E.handle (\_ -> reportErrorTask td tp) $ 
+      E.handle (\e -> do
+          errorM taskLogger $ "Exception: " ++ show e
+          reportErrorTask td tp
+        ) $ 
         do
         yield
         -- threadDelay 5000000
@@ -621,6 +620,7 @@ performReduceTask td tp
 loadInputList :: TaskData -> Maybe FS.FileSystem -> [FunctionData] -> IO [B.ByteString]
 loadInputList _ mbfs is
   = do
+    debugM localLogger $ "loadInputList: " ++ show is
     os <- mapM (loadInput mbfs) is
     let os' = catMaybes os
     return os'
@@ -630,9 +630,12 @@ loadInputList _ mbfs is
     loadInput Nothing   (FileFunctionData _) = return Nothing
     loadInput (Just fs) (FileFunctionData f)
       = do
+        debugM localLogger $ "loadInputList: getting content for: " ++ f
         mbc <- FS.getFileContent f fs
+        debugM localLogger $ "loadInputList: content is: " ++ show mbc
         if isNothing mbc 
           then do
+            debugM localLogger $ "loadInputList: no content found"
             return Nothing
           else do
             let c = fromJust mbc

@@ -71,7 +71,7 @@ talkWithNode p respStream m hdlFct
     r' <- P.readStream respStream
     let response = Just r'
     debugM localLogger "response Message..."
-    putStrLn $ show response
+    debugM localLogger $ show response
     res <- case response of
       -- if no response
       Nothing ->
