@@ -499,7 +499,7 @@ defaultActionConnector =
   ActionConnector
     (\b   -> decodeTuple b)
     (\ls  -> encodeTuple ls)
-    (\k v -> decode $ encode (k,v))
+    (\k v -> decode $ encode [(k,v)])
     (\ls  -> show ls)
     (\bs  -> decodeTupleList bs)
     (\ls  -> encodeTupleList ls)
