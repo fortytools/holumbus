@@ -150,8 +150,8 @@ demoJob = JobInfo
   (Just $ "WORDCOUNT")
   (Just $ "WORDCOUNT")
   Nothing
-  (Just TOTRawTuple)
-  (Just TOTRawTuple)
+  (Just TOTList)
+  (Just TOTText)
   Nothing
   ([TupleFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
    ,TupleFunctionData (encodeTuple ("text2", "aaa bb"))
@@ -171,5 +171,5 @@ createDemoFiles :: FS.FileSystem -> IO ()
 createDemoFiles fs
   = do
     -- let c = S.BinaryFile (encode ("foo","a aa aaa b bb bbb"))
-    let c = S.TextFile "a aa aaa b bb bbb"
+    let c = S.TextFile "harddisk file"
     FS.createFile "file1.txt" c fs

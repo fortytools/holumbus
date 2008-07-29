@@ -546,6 +546,7 @@ writeConnector ac ae ls
     return $ catMaybes os
     where
     mbfs = ae_FileSystem ae
+    td   = ae_TaskData ae
     tot  = td_OutputType $ ae_TaskData ae
     -- writeOutput :: Maybe FS.FileSystem -> TaskOutputType -> (Int,[(k2,v2)]) -> IO (Maybe (Int,[FunctionData]))
     writeOutput _        TOTRawTuple (i,ts) 
@@ -565,7 +566,7 @@ writeConnector ac ae ls
         FS.appendFile fn c fs
         return $ Just (i,[FileFunctionData fn])
         where
-        fn = "foo" ++ show i
+        fn = "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
      
 
 -- ----------------------------------------------------------------------------
