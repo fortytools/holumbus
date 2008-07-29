@@ -215,7 +215,7 @@ getNextTaskState s          = succ s
 
 
 data TaskOutputType = TOTRawTuple | TOTText | TOTList | TOTBin
-  deriving (Show, Eq, Ord, Enum)
+  deriving (Show, Read, Eq, Ord, Enum)
   
 instance Binary TaskOutputType where
   put (TOTRawTuple) = putWord8 0
@@ -232,16 +232,7 @@ instance Binary TaskOutputType where
        _ -> return (TOTText)
 
 instance XmlPickler TaskOutputType where
-  xpickle = xpAttr "output" $ xpAlt tag ps
-    where
-    tag (TOTRawTuple) = 0
-    tag (TOTText)     = 1
-    tag (TOTList)     = 2
-    tag (TOTBin)      = 3
-    ps = [xpWrap (\"rawtuple" -> TOTRawTuple, \(TOTRawTuple) -> "rawtuple") xpText
-         ,xpWrap (\"text"     -> TOTText,     \(TOTText)     -> "text")     xpText
-         ,xpWrap (\"list"     -> TOTList,     \(TOTList)     -> "list")     xpText
-         ,xpWrap (\"bin"      -> TOTBin,      \(TOTBin)      -> "bin")      xpText]
+  xpickle = xpAttr "output" $ xpPrim
 
 
 -- | the TaskData, contains all information to do the task
