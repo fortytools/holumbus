@@ -150,12 +150,12 @@ demoJob = JobInfo
   (Just $ "WORDCOUNT")
   (Just $ "WORDCOUNT")
   Nothing
-  (Just TOTRaw)
-  (Just TOTRaw)
+  (Just TOTRawTuple)
+  (Just TOTRawTuple)
   Nothing
-  ([RawFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
-   ,RawFunctionData (encodeTuple ("text2", "aaa bb"))
-   ,RawFunctionData (encodeTuple ("text2", "aaa dd dd"))
+  ([TupleFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
+   ,TupleFunctionData (encodeTuple ("text2", "aaa bb"))
+   ,TupleFunctionData (encodeTuple ("text2", "aaa dd dd"))
    ,FileFunctionData "file1.txt"
    ])
 

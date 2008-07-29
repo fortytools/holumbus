@@ -140,7 +140,7 @@ printJobResult mVarRes
     decodeResult ls = map decodeResult' ls
       where
       decodeResult' (FileFunctionData f) = (f, -1)
-      decodeResult' (RawFunctionData b) = decodeTuple b
+      decodeResult' (TupleFunctionData b) = decodeTuple b
 
 
 

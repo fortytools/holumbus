@@ -106,19 +106,19 @@ type FunctionName = String
 type FunctionInfo = String
 
 data FunctionData
-  = RawFunctionData B.ByteString
+  = TupleFunctionData B.ByteString
   | FileFunctionData String
   deriving (Show, Eq, Ord)
 
 instance Binary FunctionData where
-  put (RawFunctionData b)  = putWord8 0 >> put b
+  put (TupleFunctionData t)  = putWord8 0 >> put t
   put (FileFunctionData f) = putWord8 1 >> put f
   get
     = do
       t <- getWord8
       case t of
         1 -> get >>= \f -> return (FileFunctionData f)
-        _ -> get >>= \b -> return (RawFunctionData b)
+        _ -> get >>= \b -> return (TupleFunctionData b)
         
         
 instance XmlPickler FunctionData where
@@ -129,9 +129,9 @@ xpFunctionData
   = xpElem "data" $
       xpAlt tag ps
       where
-      tag (RawFunctionData _)  = 0
-      tag (FileFunctionData _) = 1
-      ps = [xpWrap (\p -> RawFunctionData (encodeTuple p), \(RawFunctionData p) -> decodeTuple p) xpRawFunctionData
+      tag (TupleFunctionData _) = 0
+      tag (FileFunctionData _)  = 1
+      ps = [xpWrap (\p -> TupleFunctionData (encodeTuple p), \(TupleFunctionData p) -> decodeTuple p) xpRawFunctionData
            ,xpWrap (\f -> FileFunctionData f, \(FileFunctionData f) -> f) xpFileFunctionData ]
       xpRawFunctionData = xpPair (xpElem "key" xpText0) (xpElem "value" xpText0)
       xpFileFunctionData = xpElem "filename" xpText
@@ -147,7 +147,7 @@ encodeTuple t = encode t
 
 
 decodeTuple :: (Binary k, Binary v) => B.ByteString -> (k, v)
-decodeTuple b = decode b
+decodeTuple t = decode t
 
 
 encodeTupleList :: (Binary k, Binary v) => [(k, v)] -> [B.ByteString]
@@ -214,19 +214,19 @@ getNextTaskState TSFinished = TSFinished
 getNextTaskState s          = succ s
 
 
-data TaskOutputType = TOTRaw | TOTText | TOTList | TOTBin
+data TaskOutputType = TOTRawTuple | TOTText | TOTList | TOTBin
   deriving (Show, Eq, Ord, Enum)
   
 instance Binary TaskOutputType where
-  put (TOTRaw)  = putWord8 0
-  put (TOTText) = putWord8 1
-  put (TOTList) = putWord8 2
-  put (TOTBin)  = putWord8 3
+  put (TOTRawTuple) = putWord8 0
+  put (TOTText)     = putWord8 1
+  put (TOTList)     = putWord8 2
+  put (TOTBin)      = putWord8 3
   get
     = do
      t <- getWord8
      case t of
-       0 -> return (TOTRaw)
+       0 -> return (TOTRawTuple)
        2 -> return (TOTList)
        3 -> return (TOTBin)
        _ -> return (TOTText)
@@ -234,14 +234,14 @@ instance Binary TaskOutputType where
 instance XmlPickler TaskOutputType where
   xpickle = xpAttr "output" $ xpAlt tag ps
     where
-    tag (TOTRaw)  = 0
-    tag (TOTText) = 1
-    tag (TOTList) = 2
-    tag (TOTBin)  = 3
-    ps = [xpWrap (\"raw"  -> TOTRaw,  \(TOTRaw)  -> "raw")  xpText
-         ,xpWrap (\"text" -> TOTText, \(TOTText) -> "text") xpText
-         ,xpWrap (\"list" -> TOTList, \(TOTList) -> "list") xpText
-         ,xpWrap (\"bin"  -> TOTBin,  \(TOTBin)  -> "bin")  xpText]
+    tag (TOTRawTuple) = 0
+    tag (TOTText)     = 1
+    tag (TOTList)     = 2
+    tag (TOTBin)      = 3
+    ps = [xpWrap (\"rawtuple" -> TOTRawTuple, \(TOTRawTuple) -> "rawtuple") xpText
+         ,xpWrap (\"text"     -> TOTText,     \(TOTText)     -> "text")     xpText
+         ,xpWrap (\"list"     -> TOTList,     \(TOTList)     -> "list")     xpText
+         ,xpWrap (\"bin"      -> TOTBin,      \(TOTBin)      -> "bin")      xpText]
 
 
 -- | the TaskData, contains all information to do the task
@@ -460,8 +460,8 @@ testJobInfo ji mm rm = foldl (testAnd) (True, "") testList
 -- Reader and Writer
 -- ----------------------------------------------------------------------------
 
-type RawReader      k v = B.ByteString -> [(k,v)]
-type RawWriter      k v = [(k,v)] -> B.ByteString
+type RawTupleReader k v = B.ByteString -> (k,v)
+type RawTupleWriter k v = (k,v) -> B.ByteString
 
 type TextFileReader k v = String -> String -> [(k,v)]
 type TextFileWriter k v = [(k,v)] -> String
@@ -481,14 +481,14 @@ mkActionEnvironment :: TaskData -> Maybe FS.FileSystem -> ActionEnvironment
 mkActionEnvironment td fs = ActionEnvironment td fs
 
 data ActionConnector k1 v1 k2 v2 = ActionConnector {
-    ac_RawR  :: RawReader k1 v1
-  , ac_RawW  :: RawWriter k2 v2
-  , ac_TextR :: TextFileReader k1 v1
-  , ac_TextW :: TextFileWriter k2 v2
-  , ac_ListR :: ListFileReader k1 v1
-  , ac_ListW :: ListFileWriter k2 v2
-  , ac_BinR  :: BinFileReader k1 v1
-  , ac_BinW  :: BinFileWriter k2 v2
+    ac_RawTupleR :: RawTupleReader k1 v1
+  , ac_RawTupleW :: RawTupleWriter k2 v2
+  , ac_TextR     :: TextFileReader k1 v1
+  , ac_TextW     :: TextFileWriter k2 v2
+  , ac_ListR     :: ListFileReader k1 v1
+  , ac_ListW     :: ListFileWriter k2 v2
+  , ac_BinR      :: BinFileReader k1 v1
+  , ac_BinW      :: BinFileWriter k2 v2
   }
 
 defaultActionConnector 
@@ -497,8 +497,8 @@ defaultActionConnector
   => ActionConnector k1 v1 k2 v2
 defaultActionConnector =
   ActionConnector
-    (\b   -> decode b)
-    (\ls  -> encode ls)
+    (\b   -> decodeTuple b)
+    (\ls  -> encodeTuple ls)
     (\k v -> decode $ encode (k,v))
     (\ls  -> show ls)
     (\bs  -> decodeTupleList bs)
@@ -521,8 +521,8 @@ readConnector ac ae ls
     where
     mbfs = ae_FileSystem ae
     -- readInput :: Maybe FS.FileSystem -> FunctionData -> IO (Maybe [(k1,v1)])
-    readInput _         (RawFunctionData b)  = return $ Just $ (ac_RawR ac) b 
-    readInput (Nothing) (FileFunctionData _) = return Nothing
+    readInput _         (TupleFunctionData t) = return $ Just $ [(ac_RawTupleR ac) t] 
+    readInput (Nothing) (FileFunctionData _)  = return Nothing
     readInput (Just fs) (FileFunctionData f)
       = do        
         debugM localLogger $ "loadInputList: getting content for: " ++ f
@@ -557,7 +557,10 @@ writeConnector ac ae ls
     mbfs = ae_FileSystem ae
     tot  = td_OutputType $ ae_TaskData ae
     -- writeOutput :: Maybe FS.FileSystem -> TaskOutputType -> (Int,[(k2,v2)]) -> IO (Maybe (Int,[FunctionData]))
-    writeOutput _        TOTRaw (i,ts) = return $ Just $ (i,[RawFunctionData $ (ac_RawW ac) ts])
+    writeOutput _        TOTRawTuple (i,ts) 
+      = return $ Just $ (i,bs)
+      where
+      bs = map (\t -> TupleFunctionData $ (ac_RawTupleW ac) t) ts
     -- TODO exception werfen 
     writeOutput (Nothing) _     _      = return Nothing
     writeOutput (Just fs) t     (i,ts)
