@@ -106,7 +106,7 @@ filterElements ks m = lookupKeys ks m
 
 -- | test, if a key is in the Map
 member :: (Ord k, Ord a) => k -> MultiMap k a -> Bool
-member k m = Set.empty == lookup k m
+member k m = Set.empty /= lookup k m
 
 
 -- | deletes an Element from the Map, if the data in Nothing, the whole key is
