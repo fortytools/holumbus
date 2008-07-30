@@ -19,6 +19,7 @@ import           Control.Concurrent
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 
+import           Holumbus.Common.Logging
 import           Holumbus.Common.Utils
 import           Holumbus.Network.Port
 import qualified Holumbus.Console.Console as Console
@@ -27,8 +28,9 @@ import qualified Holumbus.Console.Console as Console
 type StringStream = Stream String
 type StringPort   = Port String
 
+
 newStringStream :: IO StringStream
-newStringStream = newStream
+newStringStream = newLocalStream Nothing
 
 
 decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
@@ -39,6 +41,7 @@ decodeMaybe (Just b) = (Just $ decode b)
 decodeStringPort :: Maybe B.ByteString -> Maybe StringPort
 decodeStringPort = decodeMaybe
 
+
 version :: String
 version = "Ports-Demo Receiver 0.1"
 
@@ -46,21 +49,29 @@ version = "Ports-Demo Receiver 0.1"
 main :: IO ()
 main
   = do
+    initializeLogging  
     putStrLn version    
     putStrLn "Begin"
     printStreamController
     s <- newStringStream
-    p <- newPort s
+    p <- newPortFromStream s
+    privS   <- newStream  STPrivate (Just "private") (Just 10000)
+    namedS  <- newStream  STLocal   (Just "named")   (Just 10001)
+    globalS <- newStream  STGlobal  (Just "global")  (Just 10002)
     writePortToFile p "p.port"
     saveToXmlFile "port.xml" p
-    forkIO $ printMessages s
+    forkIO $ printMessages "default" s
+    forkIO $ printMessages "private (THIS SHOULD NEVER BE DISPLAYED" privS
+    forkIO $ printMessages "named" namedS
+    forkIO $ printMessages "global" globalS
     Console.handleUserInput createConsole ()
 
 
-printMessages :: StringStream -> IO ()
-printMessages s
+printMessages :: String -> StringStream -> IO ()
+printMessages info s
   = do
     msg <- readStreamMsg s
+    putStrLn $ "port: " ++ info
     putStrLn "Incoming Message:"
     putStrLn $ show msg
     let replyPort = decodeStringPort $ getGenericData msg
@@ -72,7 +83,7 @@ printMessages s
         (Just p) ->
           do
           send p ("ECHO:" ++ text)
-    printMessages s
+    printMessages info s
     
     
 createConsole :: Console.ConsoleData ()

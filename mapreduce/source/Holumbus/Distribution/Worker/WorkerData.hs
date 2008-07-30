@@ -69,8 +69,8 @@ newWorker fs mm rm mp
     nidMVar <- newMVar Nothing
     sid     <- getSiteId
     tid     <- newMVar Nothing
-    st      <- (P.newStream::IO M.WorkerRequestStream)
-    po      <- ((P.newPort st)::IO M.WorkerRequestPort)
+    st      <- (P.newLocalStream Nothing::IO M.WorkerRequestStream)
+    po      <- ((P.newPortFromStream st)::IO M.WorkerRequestPort)
     mpMVar  <- newMVar mp
     tp      <- TP.newTaskProcessor
     

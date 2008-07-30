@@ -114,8 +114,8 @@ newMaster :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> IO MasterData
 newMaster fs mm rm
   = do
     -- initialize values 
-    st    <- (P.newStream::IO M.MasterRequestStream)
-    po    <- ((P.newPort st)::IO M.MasterRequestPort)
+    st    <- (P.newGlobalStream "master"::IO M.MasterRequestStream)
+    po    <- ((P.newPortFromStream st)::IO M.MasterRequestPort)
 
     -- we can't start the server yet
     tid   <- newMVar Nothing

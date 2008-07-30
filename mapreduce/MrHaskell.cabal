@@ -68,9 +68,8 @@ library
                 , Holumbus.FileSystem.Controller
                 , Holumbus.FileSystem.Controller.ControllerData
                 , Holumbus.FileSystem.Controller.ControllerPort
+                , Holumbus.Network.Core
                 , Holumbus.Network.Messages
-                , Holumbus.Network.Server
-                , Holumbus.Network.Client
                 , Holumbus.Network.Port
                 , Holumbus.Network.Site
                 , Holumbus.Console.Console

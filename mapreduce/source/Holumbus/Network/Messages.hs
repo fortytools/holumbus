@@ -23,16 +23,18 @@ module Holumbus.Network.Messages
 where
 
 import qualified Control.Exception as E
-import Data.Binary
-import Data.Typeable
+import           Data.Binary
+import           Data.Typeable
 
-import System.Log.Logger
+import           System.Log.Logger
 
 import qualified Holumbus.Network.Port as P
 
 
 localLogger :: String
 localLogger = "Holumbus.Network.Messages"
+
+
 
 -- ----------------------------------------------------------------------------
 -- request an response handling
@@ -42,6 +44,7 @@ class RspMsg m where
   isError :: m -> Bool  
   getErrorMsg :: m -> String  
   isUnknown :: m -> Bool
+
     
 data MessageException
   = TimeoutException
@@ -49,6 +52,7 @@ data MessageException
   | FalseResponse String
   | ErrorResponse String
   deriving (Show, Typeable)
+
     
 talkWithNode 
   :: (Show a, Binary a, Show b, Binary b, RspMsg b) => P.Port a    -- ^ port to which the message will be send
@@ -60,7 +64,7 @@ talkWithNode p respStream m hdlFct
   = do
     -- create the response stream and the response port
     --respStream <- (P.newStream::IO NodeResponseStream)
-    respPort <- P.newPort respStream
+    respPort <- P.newPortFromStream respStream
     -- send the request to the node
     -- putStrLn $ show respPort
     debugM localLogger $ "sending: " ++ show m
@@ -83,7 +87,6 @@ talkWithNode p respStream m hdlFct
     --P.closeStream respStream
     return res
        
-
 
 basicResponseHandler
   :: (Show b, Binary b, RspMsg b) 
@@ -108,7 +111,6 @@ basicResponseHandler hdlFct rsp
         | otherwise       = E.throwDyn $ FalseResponse $ show rsp
         
                     
-
 performPortAction
   :: (Show a, Binary a, Show b, Binary b, RspMsg b) 
   => P.Port a             -- ^ request port

@@ -17,6 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
 {-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.Network.Site
 (
@@ -52,6 +53,9 @@ import           Text.XML.HXT.Arrow
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+
+
+
 -- ----------------------------------------------------------------------------
 -- Datatypes
 -- ----------------------------------------------------------------------------
@@ -85,6 +89,9 @@ xpSiteId =
 
 -- | Just a little Map to hold the SiteIds an to get the neighbout Ids
 type SiteMap = Map.Map HostName (Set.Set SiteId)
+
+
+
 
 -- ----------------------------------------------------------------------------
 -- Operations on the SiteId
@@ -144,14 +151,18 @@ nearestId s l = nearestId' $ filterSiteIds s l
   nearestId' ([],  [],  x:_) = Just x
   nearestId' ([],  x:_, _)   = Just x
   nearestId' (x:_, _,   _)   = Just x
+  
+  
+  
+  
 -- ----------------------------------------------------------------------------
 -- Operations on the SiteMap
 -- ----------------------------------------------------------------------------
 
-
 -- | empty SiteId-Map
 emptySiteMap :: SiteMap
 emptySiteMap = Map.empty
+
 
 -- | adds an id to the map
 addIdToMap :: SiteId -> SiteMap -> SiteMap

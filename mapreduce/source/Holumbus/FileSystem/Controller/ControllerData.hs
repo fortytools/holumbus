@@ -91,8 +91,8 @@ newController
     -- initialize values
     let maps = ControllerMaps Map.empty Map.empty Map.empty emptySiteMap 0 
     mapMVar <- newMVar maps
-    st    <- (P.newStream::IO M.ControllerRequestStream)
-    po    <- ((P.newPort st)::IO M.ControllerRequestPort)
+    st    <- (P.newGlobalStream "filesystem"::IO M.ControllerRequestStream)
+    po    <- ((P.newPortFromStream st)::IO M.ControllerRequestPort)
     -- we can't start the server yet
     tid   <- newMVar Nothing
     -- get the internal data

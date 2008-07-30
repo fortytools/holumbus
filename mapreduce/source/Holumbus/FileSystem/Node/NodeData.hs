@@ -88,8 +88,8 @@ newNode cp s
     nidMVar <- newMVar Nothing
     sid     <- getSiteId
     tid     <- newMVar Nothing
-    st      <- (P.newStream::IO M.NodeRequestStream)
-    po      <- ((P.newPort st)::IO M.NodeRequestPort)
+    st      <- (P.newLocalStream Nothing::IO M.NodeRequestStream)
+    po      <- ((P.newPortFromStream st)::IO M.NodeRequestPort)
     sMVar   <- newMVar s'
     cMVar   <- newMVar cp            
     let nd'' = (NodeData nidMVar sid tid st po cMVar sMVar)
