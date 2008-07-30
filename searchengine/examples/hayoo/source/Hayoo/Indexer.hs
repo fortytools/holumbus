@@ -8,7 +8,7 @@
   Maintainer : Sebastian M. Schlatt (sms@holumbus.org)
   Stability  : experimental
   Portability: untested
-  Version    : 0.2.1
+  Version    : 0.2.2
 
   Indexer for the Haskell API Documentation Search Engine Hayoo!
 
@@ -39,7 +39,6 @@ import           Data.Maybe
 
 import           qualified Data.IntMap as IM
 import           qualified Data.Map    as M
-import           qualified Data.IntSet as IS
 
 import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
@@ -99,7 +98,7 @@ main
 --    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
 --    let hackageCrawled = emptyDocuments
       
-    let hackageDocs =  filterDocuments -- TODO clean this mess up
+    let hackageDocs =  filterDocuments -- TODO clean this up
                          ( isPrefixOf "http://hackage.haskell.org/packages/archive/" . uri) $
                        filterDocuments 
                          (\d -> (not $ isSuffixOf "pkg-list.html" $ uri d))  $ 
@@ -160,6 +159,14 @@ main
     putStrLn $ "Unique Words: " ++ show (sizeWords idx)    
     putStrLn "---------------------------------------------------------------"
     return ()
+
+
+packageFromURI :: String -> String
+packageFromURI u = if "http://www.haskell.org/gtk2hs/docs/current/" `isPrefixOf` u
+                     then "gtk2hs"
+                     else if "http://hackage.haskell.org/packages/archive/" `isPrefixOf` u
+                            then (split "/" u) !! 5
+                            else "unknown package"
 
 
 
@@ -226,28 +233,32 @@ getVirtualDocs splitPath docId theUri =
                >>> processCrazySignatures                       -- 6. transform multi-line 
               )                                                 --    declarations
                                                                 -- 7. split the document
-  >>> makeVirtualDocs $< (getXPathTrees "/html/head/title/text()" >>> getText)
+  >>> makeVirtualDocs $<< (     (getXPathTrees "/html/head/title/text()" >>> getText)
+                            &&& (getAttrValue "transfer-URI" >>^ packageFromURI)
+                          )
   >>> (constA 42 &&& this) -- TODO maybe it is not the answer to THIS particular question
   )    
   where
-  makeVirtualDocs theModule =
+  makeVirtualDocs theModule thePackage =
            getXPathTrees "//tr[@class='decl' and @id]"
     >>> (  mkVirtual $<<<< (     (     getXPathTreesInDoc "/tr[@class='decl']/@id/text()"
-                                   >>> getText
-                                   >>^ unEscapeString
-                                 )
-                             &&& constA theModule
-                             &&& fromLA getTheSignature
-                             &&& getSourceLink
-                           )      
+                                    >>> getText
+                                    >>^ unEscapeString
+                                  )
+                              &&& constA (theModule, thePackage)
+                              &&& fromLA getTheSignature
+                              &&& getSourceLink
+                            )      
          )
-  mkVirtual theTitle theModule theSignature theSourceURI =     
+  mkVirtual theTitle (theModule, thePackage) theSignature theSourceURI =     
          let theLinkPrefix = if theSignature `elem` ["data", "type", "newtype"] then "#t:" else "#v:" 
          in
          root [] [ 
                    selem "table" [ this
                                  , selem "tr" [ mkelem "td" [sattr "id" "module"] 
                                                             [constA theModule >>> mkText]
+                                              , mkelem "td" [sattr "id" "package"]
+                                                            [constA thePackage >>> mkText]
                                               ]
                                  ]
                  ]
@@ -266,7 +277,6 @@ getVirtualDocs splitPath docId theUri =
         >>> getXPathTreesInDoc "//td[@class='decl']/a/@href/text()"  >>> getText
         >>^ (\a -> if "src/" `isPrefixOf` a then expandURIString a theUri else Nothing)
       ) `withDefault` Nothing
-
 
 -- | Transform classes so that the methods are wrapped into the same html as normal functions
 processClasses :: LA XmlTree XmlTree
@@ -299,7 +309,7 @@ removeSourceLinks =
                  )      
 
 
--- | As Haddock can generate Documetation pages with links to source files and without these links
+-- | As Haddock can generate Documentation pages with links to source files and without these links
 --   there are two different types of declaration table datas. To make the indexing easier, the
 --   table datas with source links are transformed to look like those without (they differ 
 --   in the css class of the table data and the ones with the source links contain another table).
@@ -564,6 +574,7 @@ ccs_Hayoo = [  ccModule
             , ccHayooSignature 
             , ccHayooNormalizedSignature
             , ccHayooDescription
+            , ccPackage
             ]
             
 ccHayooName :: ContextConfig
@@ -636,6 +647,16 @@ ccHierarchy
                   , cc_fTokenize   = split "." . stripWith (==' ') 
                   }     
             
+ccPackage :: ContextConfig
+ccPackage
+  = ContextConfig { cc_name        = "package"
+                  , cc_preFilter   = this
+                  , cc_fExtract    = getXPathTrees "/table/tr/td[@id='package']"
+                  , cc_fTokenize   = \a -> [a]
+                  , cc_fIsStopWord = (flip elem) ["unknownpackage"]
+                  , cc_addToCache  = False
+                  }
+                              
 getSignature :: String -> String
 getSignature s = if "=>" `isInfixOf` s  then stripSignature $ drop 3 $ dropWhile ((/=) '=') s
                                         else stripSignature $ drop 3 $ dropWhile ((/=) ':') s
