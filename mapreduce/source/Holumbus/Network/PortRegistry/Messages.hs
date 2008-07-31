@@ -55,12 +55,24 @@ data PortRegistryRequestMessage
   | PRReqUnregister StreamName
   | PRReqLookup StreamName
   | PRReqGetPorts
-  | PRRegUnknown
+  | PRReqUnknown
   deriving (Show)
 
 instance Binary PortRegistryRequestMessage where
-  put = undefined
-  get = undefined
+  put (PRReqRegister sn soid) = putWord8 1 >> put sn >> put soid
+  put (PRReqUnregister sn)    = putWord8 2 >> put sn
+  put (PRReqLookup sn)        = putWord8 3 >> put sn
+  put (PRReqGetPorts)         = putWord8 4
+  put (PRReqUnknown)          = putWord8 0
+  get
+    = do
+      t <- getWord8
+      case t of
+        1 -> get >>= \sn -> get >>= \soid -> return (PRReqRegister sn soid)
+        2 -> get >>= \sn -> return (PRReqUnregister sn)
+        3 -> get >>= \sn -> return (PRReqLookup sn)
+        4 -> return (PRReqGetPorts)
+        _ -> return (PRReqUnknown)
 
 
 
@@ -73,8 +85,20 @@ data PortRegistryResponseMessage
   deriving (Show)
 
 instance Binary PortRegistryResponseMessage where
-  put = undefined
-  get = undefined
+  put (PRRspSuccess)     = putWord8 1
+  put (PRRspLookup soid) = putWord8 2 >> put soid
+  put (PRRspGetPorts ls) = putWord8 3 >> put ls
+  put (PRRspError e)     = putWord8 4 >> put e
+  put (PRRspUnknown)     = putWord8 0
+  get
+    = do
+      t <- getWord8
+      case t of
+        1 -> return (PRRspSuccess)
+        2 -> get >>= \soid -> return (PRRspLookup soid)
+        3 -> get >>= \ls -> return (PRRspGetPorts ls)
+        4 -> get >>= \e -> return (PRRspError e)
+        _ -> return (PRRspUnknown)
 
 instance RspMsg PortRegistryResponseMessage where
   isError (PRRspError _) = True

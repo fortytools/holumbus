@@ -107,6 +107,8 @@ dispatch prd msg replyPort
         handleRequest replyPort (getPorts prd) (\ls -> PRRspGetPorts ls)
         return ()
       _ -> 
+        do
+        infoM localLogger $ "dispatch: unknown request " ++ show msg
         handleRequest replyPort (return ()) (\_ -> PRRspUnknown)
 
 

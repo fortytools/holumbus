@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy as B
 import           Holumbus.Common.Logging
 import           Holumbus.Common.Utils
 import           Holumbus.Network.Port
+import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.Console.Console as Console
 
 
@@ -43,15 +44,20 @@ version = "Ports-Demo Receiver 0.1"
 main :: IO ()
 main
   = do
-    initializeLogging  
+    initializeLogging
     putStrLn version    
     putStrLn "Begin"
+    regPort <- loadFromXmlFile "registry.xml"
+    let reg = newPortRegistryPort regPort
+    setPortRegistry reg
     printStreamController
+    putStrLn "initialising streams..."
     s <- newStringStream
     p <- newPortFromStream s
     privS   <- newStream  STPrivate (Just "private") (Just 10000)
     namedS  <- newStream  STLocal   (Just "named")   (Just 10001)
     globalS <- newStream  STGlobal  (Just "global")  (Just 10002)
+    putStrLn "streams initialised"
     writePortToFile p "p.port"
     saveToXmlFile "port.xml" p
     forkIO $ printMessages "default" s

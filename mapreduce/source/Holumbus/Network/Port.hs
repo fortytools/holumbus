@@ -269,9 +269,9 @@ instance (Show a, Binary a) => Show (Stream a) where
 
 type BinaryChannel = (Chan (Message B.ByteString))
 
-data StreamControllerData = forall r. (PortRegistry r) => StreamControllerData
+data StreamControllerData = StreamControllerData
     (Maybe SocketId)
-    (Maybe r)
+    (Maybe GenericRegistry)
     Int
     (Map.Map StreamName (BinaryChannel, PortNumber, StreamType))
     (Map.Map PortNumber (ThreadId, HostName))
@@ -305,7 +305,7 @@ streamController
       emptyStreamControllerData
         = StreamControllerData
             Nothing
-            (Nothing::Maybe UndefinedPortRegistry)
+            Nothing
             0
             Map.empty
             Map.empty 
@@ -316,7 +316,7 @@ setPortRegistry :: (PortRegistry r) => r -> IO ()
 setPortRegistry r
   = modifyMVar streamController $
       \(StreamControllerData s _ i sm pm pmm) ->
-      return ((StreamControllerData s (Just r) i sm pm pmm),())
+      return ((StreamControllerData s (Just $ mkGenericRegistry r) i sm pm pmm),())
 
 
 getNextStreamName :: IO (StreamName)
@@ -445,46 +445,45 @@ unregisterStream st
     (SocketId _ pn) = s_SocketId st
     sn = s_StreamName st
 
+
 registerGlobalPort :: Stream a -> IO ()
 registerGlobalPort (Stream sn soid STGlobal _)
   = do
-    withMVar streamController $
-      \(StreamControllerData _ r _ _ _ _) ->
-      do
-      case r of
-        (Just r') -> registerPort sn soid r'
-        (Nothing) -> errorM localLogger $ "registerGlobalPort: no portregistry while handling port " ++ sn
+    r <- withMVar streamController $
+      \(StreamControllerData _ r' _ _ _ _) -> return r'
+    case r of
+      (Just r') -> registerPort sn soid r'
+      (Nothing) -> errorM localLogger $ "registerGlobalPort: no portregistry while handling port " ++ sn
 registerGlobalPort _ = return ()
 
 
 unregisterGlobalPort :: Stream a -> IO ()
 unregisterGlobalPort (Stream sn _ STGlobal _)
   = do
-    withMVar streamController $
-      \(StreamControllerData _ r _ _ _ _) ->
-      do
-      case r of
-        (Just r') -> unregisterPort sn r'
-        (Nothing) -> errorM localLogger $ "unregisterGlobalPort: no portregistry while handling port " ++ sn
+    r <- withMVar streamController $
+      \(StreamControllerData _ r' _ _ _ _) -> return r'
+    case r of
+      (Just r') -> unregisterPort sn r'
+      (Nothing) -> errorM localLogger $ "unregisterGlobalPort: no portregistry while handling port " ++ sn
 unregisterGlobalPort _ = return ()
 
 
 getGlobalPort :: StreamName -> IO (Maybe SocketId)
 getGlobalPort sn
-  = withMVar streamController $
-      \(StreamControllerData _ r _ _ _ _) ->
-      do
-      case r of
-        (Just rp) -> 
-          do
-          handle (\e -> do
-            errorM localLogger $ "getGlobalPort: error while getting port: " ++ sn ++ " exception: " ++ show e
-            return Nothing
-           ) $ do
-           lookupPort sn rp             
-        (Nothing) -> do 
-          errorM localLogger $ "getGlobalPort: no portregistry found while getting port: " ++ sn
+  = do
+    r <- withMVar streamController $
+      \(StreamControllerData _ r' _ _ _ _) -> return r'
+    case r of
+      (Just rp) -> 
+        do
+        handle (\e -> do
+          errorM localLogger $ "getGlobalPort: error while getting port: " ++ sn ++ " exception: " ++ show e
           return Nothing
+         ) $ do
+         lookupPort sn rp             
+      (Nothing) -> do 
+        errorM localLogger $ "getGlobalPort: no portregistry found while getting port: " ++ sn
+        return Nothing
 
 getStreamNamesForPort :: PortNumber -> IO (Set.Set StreamName)
 getStreamNamesForPort pn
@@ -579,9 +578,12 @@ newStream st n pn
   = do
     ch <- newChan
     sn <- validateStreamName n
+    infoM localLogger $ "opening socket for " ++ sn
     soid <- openSocket pn
     let s = Stream sn soid st ch
+    infoM localLogger $ "registering " ++ show sn ++ " at controller"
     registerStream s
+    infoM localLogger $ "registering " ++ show sn ++ " at registry"
     registerGlobalPort s
     return s
 
@@ -589,9 +591,14 @@ newStream st n pn
 closeStream :: (Show a, Binary a) => Stream a -> IO ()
 closeStream s
   = do
+    infoM localLogger $ "unregistering " ++ show sn ++ " at registry"
     unregisterGlobalPort s
+    infoM localLogger $ "unregistering " ++ show sn ++ " at controller"
     unregisterStream s
+    infoM localLogger $ "closing socket for " ++ sn
     closeSocket (s_SocketId s)
+    where
+    sn = s_StreamName s
 
 
 -- | Writes a message to the channel of the stream.
@@ -677,7 +684,9 @@ tryWaitReadStreamMsg s t
 withStream :: (Show a, Binary a) => (Stream a -> IO b) -> IO b
 withStream f
   = do
+    debugM localLogger "withStream: creating new stream"
     s <- newStream STLocal Nothing Nothing
+    debugM localLogger "withStream: new stream created"
     res <- f s
     closeStream s
     return res

@@ -79,18 +79,15 @@ talkWithNode
   -> IO c
 talkWithNode p respStream m hdlFct
   = do
-    -- create the response stream and the response port
-    --respStream <- (P.newStream::IO NodeResponseStream)
     respPort <- P.newPortFromStream respStream
     -- send the request to the node
-    -- putStrLn $ show respPort
     debugM localLogger $ "sending: " ++ show m
     P.sendWithGeneric p m (encode respPort)
     --wait for the response
     debugM localLogger $ "waiting for response for: " ++ show m 
-    -- response <- P.tryWaitReadStream respStream P.time30
-    r' <- P.readStream respStream
-    let response = Just r'
+    response <- P.tryWaitReadStream respStream P.time30
+    -- r' <- P.readStream respStream
+    -- let response = Just r'
     debugM localLogger "response Message..."
     debugM localLogger $ show response
     res <- case response of
@@ -100,8 +97,6 @@ talkWithNode p respStream m hdlFct
       -- handle the response
       (Just r) ->
         hdlFct r
-    -- close the stream
-    --P.closeStream respStream
     return res
        
 

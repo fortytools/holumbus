@@ -26,9 +26,6 @@ module Holumbus.Network.Core
 -- * Server-Operations
 , startSocket
 
--- server with no thread control
--- , listenForRequests
-
 -- * Client-Operations
 , sendRequest
 
@@ -155,20 +152,6 @@ getSocket po =
   installHandler sigPIPE Ignore Nothing
   socket <- listenOn po
   return socket
-
-{-
--- | This function represents the server side. It opens a socket on the provided port and 
--- starts listening for requests. A post-processing hook is provided to allow some actions on
--- the processing results, e.g. some logging functionality.
-listenForRequests :: ServerDispatcher -> PortID -> IO ()
-listenForRequests f sid =
-  withSocketsDo $ do
-  -- Don't let the server be terminated by sockets closed unexpectedly by the client.
-  installHandler sigPIPE Ignore Nothing
-  socket <- listenOn sid
-  -- TODO
-  waitForRequests f socket undefined
--}
 
 
 waitForRequests :: ServerDispatcher -> Socket -> SocketId -> IO ()

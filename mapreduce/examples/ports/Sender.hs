@@ -19,7 +19,9 @@ import           Data.List
 import           Data.Binary
 
 import           Holumbus.Common.Logging
+import           Holumbus.Common.Utils
 import           Holumbus.Network.Port
+import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.Console.Console as Console
 
 
@@ -42,6 +44,9 @@ main
     putStrLn version
     putStrLn "Begin"
     printStreamController
+    regPort <- loadFromXmlFile "registry.xml"
+    let reg = newPortRegistryPort regPort
+    setPortRegistry reg
     p <- readPortFromFile "p.port"
     Console.handleUserInput createConsole p
 

@@ -13,11 +13,15 @@
 -}
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Network.PortRegistry
 (
---  Type-Classes
+-- * Type-Classes
   PortRegistry(..)
-, UndefinedPortRegistry(..)
+
+-- * GenericRegistry
+, GenericRegistry
+, mkGenericRegistry
 )
 where
 
@@ -37,13 +41,22 @@ class PortRegistry pr where
 
   getPorts :: pr -> IO [(String, SocketId)]
   
-  
-  
-data UndefinedPortRegistry = UndefinedPortRegistry
 
-instance PortRegistry UndefinedPortRegistry where
 
-  registerPort _ _ _ = undefined
-  unregisterPort _ _ = undefined
-  lookupPort _ _     = undefined
-  getPorts _         = undefined
+
+-- ----------------------------------------------------------------------------
+-- GenericRegistry
+-- ----------------------------------------------------------------------------
+  
+data GenericRegistry = forall r. (PortRegistry r) => GenericRegistry r
+
+
+mkGenericRegistry :: (PortRegistry r) => r -> GenericRegistry
+mkGenericRegistry = GenericRegistry
+
+
+instance PortRegistry GenericRegistry where
+  registerPort sn soid (GenericRegistry r) = registerPort sn soid r
+  unregisterPort sn (GenericRegistry r) = unregisterPort sn r
+  lookupPort sn (GenericRegistry r) = lookupPort sn r
+  getPorts (GenericRegistry r) = getPorts r

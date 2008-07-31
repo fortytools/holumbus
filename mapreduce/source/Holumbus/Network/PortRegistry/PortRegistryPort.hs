@@ -23,10 +23,16 @@ module Holumbus.Network.PortRegistry.PortRegistryPort
 )
 where
 
+import System.Log.Logger
+
 import Holumbus.Network.Port
 import Holumbus.Network.Messages
 import Holumbus.Network.PortRegistry
 import Holumbus.Network.PortRegistry.Messages
+
+
+localLogger :: String
+localLogger = "Holumbus.Network.PortRegistry.PortRegistryPort"
 
 
 -- ----------------------------------------------------------------------------
@@ -57,44 +63,55 @@ instance PortRegistry PortRegistryPort where
     
   registerPort sn soid (PortRegistryPort p)
     = do
-      withStream $
+      debugM localLogger "registerPort start"
+      r <- withStream $
         \s -> performPortAction p s (PRReqRegister sn soid) $
           \rsp ->
           do
           case rsp of
             (PRRspSuccess) -> return (Just $ ())
             _ -> return Nothing
+      debugM localLogger "registerPort end"
+      return r
 
 
   unregisterPort sn (PortRegistryPort p)
     = do
-      withStream $
+      debugM localLogger "unregisterPort start"
+      r <- withStream $
         \s -> performPortAction p s (PRReqUnregister sn) $
           \rsp ->
           do
           case rsp of
             (PRRspSuccess) -> return (Just $ ())
             _ -> return Nothing
-  
+      debugM localLogger "unregisterPort end"
+      return r
   
   lookupPort sn (PortRegistryPort p)
-      = do
-      withStream $
+    = do
+      debugM localLogger "lookupPort start"
+      r <- withStream $
         \s -> performPortAction p s (PRReqLookup sn) $
           \rsp ->
           do
           case rsp of
             (PRRspLookup soid) -> return (Just $ soid)
             _ -> return Nothing
+      debugM localLogger "lookupPort end"
+      return r
   
 
   getPorts (PortRegistryPort p)
     = do
-      withStream $
+      debugM localLogger "getPorts start"
+      r <- withStream $
         \s -> performPortAction p s (PRReqGetPorts) $
           \rsp ->
           do
           case rsp of
             (PRRspGetPorts ls) -> return (Just $ ls)
             _ -> return Nothing
+      debugM localLogger "getPorts end"
+      return r
   
