@@ -27,5 +27,5 @@ all : $(PROG)
 	$(GHC) --make -o $@ $<
 
 clean :
-	$(RM) $(PROG) $(OUTPUT) *.xml
+	$(RM) $(PROG) $(OUTPUT) registry.xml registry.port
 	
