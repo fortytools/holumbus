@@ -1,3 +1,17 @@
+-- ----------------------------------------------------------------------------
+{- |
+  Module     : Holumbus.Network.PortRegistry.PortRegistryPort
+  Copyright  : Copyright (C) 2008 Stefan Schmidt
+  License    : MIT
+
+  Maintainer : Stefan Schmidt (stefanschmidt@web.de)
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+
+-}
+-- ----------------------------------------------------------------------------
 
 module Holumbus.Network.PortRegistry.PortRegistryPort
 (
