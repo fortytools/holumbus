@@ -20,9 +20,8 @@ module Holumbus.MapReduce.UserInterface
 )
 where
 
-import           Data.Maybe
-
 import           Control.Exception
+import           Data.Maybe
 
 import           Holumbus.Common.Utils
 import qualified Holumbus.Console.Console as Console

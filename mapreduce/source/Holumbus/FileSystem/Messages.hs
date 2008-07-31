@@ -51,16 +51,16 @@ module Holumbus.FileSystem.Messages
 )
 where
 
-import Prelude hiding (appendFile)
+import           Prelude hiding (appendFile)
 
-import Data.Binary
+import           Data.Binary
 import qualified Data.ByteString.Lazy as B
-import Data.Set
+import           Data.Set
 
 import qualified Holumbus.Network.Port as P
 import qualified Holumbus.Network.Site as Site
 import qualified Holumbus.FileSystem.Storage as S
-import Holumbus.Network.Messages
+import           Holumbus.Network.Messages
 
 
 

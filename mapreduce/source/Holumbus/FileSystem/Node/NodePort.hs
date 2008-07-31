@@ -26,7 +26,6 @@ module Holumbus.FileSystem.Node.NodePort
 where
 
 import Holumbus.Network.Port
-
 import Holumbus.FileSystem.Messages
 import Holumbus.FileSystem.Node
 

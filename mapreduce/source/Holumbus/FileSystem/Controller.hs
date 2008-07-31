@@ -22,11 +22,11 @@ module Holumbus.FileSystem.Controller
 )
 where
 
-import Prelude hiding (appendFile)
+import           Prelude hiding (appendFile)
 
-import Data.Set
+import qualified Data.Set as Set
 
-import Holumbus.Network.Site
+import           Holumbus.Network.Site
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 
@@ -48,7 +48,7 @@ class Controller c where
   
   unregisterNode :: M.NodeId -> c -> IO c
   
-  getFileSites :: S.FileId -> c -> IO (Set SiteId)
+  getFileSites :: S.FileId -> c -> IO (Set.Set SiteId)
   
   containsFile :: S.FileId -> c -> IO Bool
   

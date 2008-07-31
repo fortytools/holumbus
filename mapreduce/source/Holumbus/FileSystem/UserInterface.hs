@@ -23,9 +23,8 @@ module Holumbus.FileSystem.UserInterface
 )
 where
 
-import Control.Exception
-
-import Data.List
+import           Control.Exception
+import           Data.List
 
 import qualified Holumbus.Console.Console as Console
 import qualified Holumbus.FileSystem.FileSystem as FS

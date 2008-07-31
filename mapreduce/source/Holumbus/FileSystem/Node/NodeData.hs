@@ -26,27 +26,24 @@ module Holumbus.FileSystem.Node.NodeData
 )
 where
 
-import Prelude hiding (appendFile)
+import           Prelude hiding (appendFile)
 
-import Control.Concurrent
+import           Control.Concurrent
 import qualified Control.Exception as E
-import Control.Monad
-
+import           Control.Monad
 import Data.Maybe
+import           System.IO hiding (appendFile)
+import           System.Log.Logger
 
-import System.IO hiding (appendFile)
-import System.Log.Logger
-import Holumbus.Common.Utils
-
-import Holumbus.FileSystem.Node
+import           Holumbus.Common.Utils
+import           Holumbus.FileSystem.Node
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FS
-
 import qualified Holumbus.Network.Port as P
-import Holumbus.Network.Site
+import           Holumbus.Network.Site
 
 
 

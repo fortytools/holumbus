@@ -30,7 +30,7 @@ module Holumbus.Data.AccuMap
 )
 where
 
-import Prelude hiding (null, lookup)
+import           Prelude hiding (null, lookup)
 
 import qualified Data.Map as Map
 

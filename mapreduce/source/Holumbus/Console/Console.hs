@@ -50,15 +50,15 @@ module Holumbus.Console.Console
 )
 where
 
-import Control.Concurrent
-import Control.Exception
-import Control.Monad
+import           Control.Concurrent
+import           Control.Exception
+import           Control.Monad
 
-import Data.Char
+import           Data.Char
 import qualified Data.Map as Map
 
-import System.IO
-import System.Console.Readline
+import           System.IO
+import           System.Console.Readline
 
 
 

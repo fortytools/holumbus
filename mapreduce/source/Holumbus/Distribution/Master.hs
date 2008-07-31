@@ -22,7 +22,7 @@ where
 
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.MapReduce.Types as T
-import Holumbus.Network.Site
+import           Holumbus.Network.Site
 
 
 
