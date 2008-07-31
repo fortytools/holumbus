@@ -7,6 +7,8 @@ module Holumbus.Network.PortRegistry.PortRegistryData
 -- * Creation and Destruction
 , newPortRegistryData
 , closePortRegistryData
+
+, getPortRegistryRequestPort
 )
 where
 
@@ -60,6 +62,10 @@ closePortRegistryData prd
     stopRequestDispatcher (prd_ServerThreadId prd)
     closeStream (prd_OwnStream prd)
     return ()
+
+
+getPortRegistryRequestPort :: PortRegistryData -> IO PortRegistryRequestPort
+getPortRegistryRequestPort prd = newPortFromStream (prd_OwnStream prd)
 
 
 dispatch 

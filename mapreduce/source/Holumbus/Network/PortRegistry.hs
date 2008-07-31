@@ -3,6 +3,7 @@ module Holumbus.Network.PortRegistry
 (
 --  Type-Classes
   PortRegistry(..)
+, UndefinedPortRegistry(..)
 )
 where
 
@@ -21,3 +22,14 @@ class PortRegistry pr where
   lookupPort :: String -> pr -> IO (Maybe SocketId)
 
   getPorts :: pr -> IO [(String, SocketId)]
+  
+  
+  
+data UndefinedPortRegistry = UndefinedPortRegistry
+
+instance PortRegistry UndefinedPortRegistry where
+
+  registerPort _ _ _ = undefined
+  unregisterPort _ _ = undefined
+  lookupPort _ _     = undefined
+  getPorts _         = undefined

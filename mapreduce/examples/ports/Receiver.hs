@@ -16,7 +16,6 @@
 module Main(main) where
 
 import           Control.Concurrent
-import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 
 import           Holumbus.Common.Logging
@@ -31,11 +30,6 @@ type StringPort   = Port String
 
 newStringStream :: IO StringStream
 newStringStream = newLocalStream Nothing
-
-
-decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
-decodeMaybe Nothing = Nothing
-decodeMaybe (Just b) = (Just $ decode b)
 
 
 decodeStringPort :: Maybe B.ByteString -> Maybe StringPort

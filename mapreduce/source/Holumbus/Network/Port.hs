@@ -42,6 +42,9 @@ module Holumbus.Network.Port
 , getMessageData
 , getGenericData
 
+-- * Global-Operations
+, setPortRegistry
+
 -- * Stream-Operations
 , newGlobalStream
 , newLocalStream
@@ -96,6 +99,7 @@ import           Text.XML.HXT.Arrow
 
 import           Holumbus.Network.Site
 import           Holumbus.Network.Core
+import           Holumbus.Network.PortRegistry
 import qualified Holumbus.Data.MultiMap as MMap
 
 
@@ -240,21 +244,17 @@ type StreamName = String
 data StreamType = STGlobal | STLocal | STPrivate
   deriving (Show, Eq, Ord)
 
-data StreamState = SSOpen |SSClosed
-  deriving (Show, Eq, Ord)
-
 -- | The stream datatype
 data Stream a
    = Stream {
       s_StreamName :: StreamName
     , s_SocketId   :: SocketId
-    , s_State      :: MVar StreamState
     , s_Type       :: StreamType
     , s_Channel    :: BinaryChannel
     }
 
 instance (Show a, Binary a) => Show (Stream a) where
-  show (Stream sn soid _ st _)
+  show (Stream sn soid st _)
     = "(Stream" ++
       " - Name: " ++ show sn ++
       " - SocketId: " ++ show soid ++
@@ -269,16 +269,17 @@ instance (Show a, Binary a) => Show (Stream a) where
 
 type BinaryChannel = (Chan (Message B.ByteString))
 
-data StreamControllerData = StreamControllerData {
-    scd_DefaultSocket :: Maybe SocketId
-  , scd_StreamId      :: Int
-  , scd_StreamMap     :: Map.Map StreamName (MVar StreamState, BinaryChannel, PortNumber, Bool)
-  , scd_ServerMap     :: Map.Map PortNumber (ThreadId, HostName)
-  , scd_PortMap       :: MMap.MultiMap PortNumber StreamName 
-  }
+data StreamControllerData = forall r. (PortRegistry r) => StreamControllerData
+    (Maybe SocketId)
+    (Maybe r)
+    Int
+    (Map.Map StreamName (BinaryChannel, PortNumber, StreamType))
+    (Map.Map PortNumber (ThreadId, HostName))
+    (MMap.MultiMap PortNumber StreamName) 
+  
 
 instance Show StreamControllerData where
-  show (StreamControllerData ds si stm sem pom)
+  show (StreamControllerData ds _ si stm sem pom)
     =  "StreamControllerData:\n"
     ++ "  DefaultSocket:\t" ++ show ds
     ++ "  lastStreamId:\t" ++ show si
@@ -304,22 +305,30 @@ streamController
       emptyStreamControllerData
         = StreamControllerData
             Nothing
+            (Nothing::Maybe UndefinedPortRegistry)
             0
             Map.empty
             Map.empty 
             MMap.empty 
 
--- TODO doppelte Stream-Namen abfangen
+
+setPortRegistry :: (PortRegistry r) => r -> IO ()
+setPortRegistry r
+  = modifyMVar streamController $
+      \(StreamControllerData s _ i sm pm pmm) ->
+      return ((StreamControllerData s (Just r) i sm pm pmm),())
+
+
 getNextStreamName :: IO (StreamName)
 getNextStreamName 
   = modifyMVar streamController $
-      \scd ->
+      \(StreamControllerData s r i sm pm pmm) ->
       do
-      let i    = (scd_StreamId scd) + 1
-      let n    = "$" ++ show i
-      let scd' = (scd {scd_StreamId = i})
+      let i'   = i + 1
+      let n    = "$" ++ show i'
+      let scd' = StreamControllerData s r i' sm pm pmm
       return (scd',n)
-
+      
 
 isValidStreamName :: StreamName -> Bool
 isValidStreamName [] = False
@@ -334,7 +343,8 @@ validateStreamName (Just sn)
   | isValidStreamName sn 
       = do
         taken <- withMVar streamController $
-          \scd -> return $ Map.member sn (scd_StreamMap scd) 
+          \(StreamControllerData _ _ _ sm _ _) -> 
+          return $ Map.member sn sm 
         if (taken) 
           then do error "stream name already exists"
           else do return sn 
@@ -346,9 +356,9 @@ openSocket :: Maybe PortNumber -> IO (SocketId)
 -- get/start the default socket
 openSocket (Nothing)
   = modifyMVar streamController $
-      \scd ->
+      \scd@(StreamControllerData s r i sm pm pmm) ->
       do
-      case (scd_DefaultSocket scd) of
+      case s of
         (Nothing) ->
           do
           res <- startStreamServer defaultPort maxPort
@@ -357,17 +367,18 @@ openSocket (Nothing)
               error "Port: getDefaultPort: unable to open defaultsocket"
             (Just (soid@(SocketId hn pn), tid)) ->
               do
-              let serverMap = Map.insert pn (tid,hn) (scd_ServerMap scd)
-              let scd' = scd {scd_DefaultSocket = (Just soid), scd_ServerMap = serverMap}
+              let pm'  = Map.insert pn (tid,hn) pm
+              let s'   = Just soid
+              let scd' = StreamControllerData s' r i sm pm' pmm
               return (scd',soid)
         (Just soid) -> 
           return (scd,soid)
 -- get/start the new socket
 openSocket (Just pn)
   = modifyMVar streamController $
-      \scd ->
+      \scd@(StreamControllerData s r i sm pm pmm) ->
       do
-      let mp = Map.lookup pn (scd_ServerMap scd)
+      let mp = Map.lookup pn pm
       case mp of
         (Nothing) ->
           do
@@ -377,8 +388,8 @@ openSocket (Just pn)
               error "Port: getDefaultPort: unable to open socket"
             (Just (soid@(SocketId hn _), tid)) ->
               do
-              let serverMap = Map.insert pn (tid,hn) (scd_ServerMap scd)
-              let scd' = scd {scd_ServerMap = serverMap}
+              let pm'  = Map.insert pn (tid,hn) pm
+              let scd' = StreamControllerData s r i sm pm' pmm
               return (scd',soid)
         (Just (_,hn)) ->
           return (scd,SocketId hn pn)
@@ -387,77 +398,106 @@ openSocket (Just pn)
 closeSocket :: SocketId -> IO ()
 closeSocket soid@(SocketId _ pn)
   = modifyMVar streamController $
-      \scd ->
+      \scd@(StreamControllerData s r i sm pm pmm) ->
       do
-      let ds =  (scd_DefaultSocket scd)
-      if (isNothing ds || soid == fromJust ds)
+      if (isNothing s || soid == fromJust s)
         -- don't delete the defaultSocket
         then do
           return (scd,())
         else do
-          if (MMap.member pn (scd_PortMap scd))
+          if (MMap.member pn pmm)
             -- if the port is still used by other streams, keep it
             then do
               return (scd,())
             -- close the socket and delete it from the controller
             else do
-              let (tid, _) = fromJust $ Map.lookup pn (scd_ServerMap scd)
+              let (tid, _) = fromJust $ Map.lookup pn pm
               stopStreamServer tid
-              let serverMap = Map.delete pn (scd_ServerMap scd)
-              return (scd {scd_ServerMap = serverMap},())
+              let pm'  = Map.delete pn pm
+              let scd' = StreamControllerData s r i sm pm' pmm
+              return (scd',())
       
 
 registerStream :: Stream a ->  IO ()
-registerStream s
+registerStream st
   = modifyMVar streamController $
-      \scd ->
+      \(StreamControllerData s r i sm pm pmm) ->
       do
-      let priv      = STPrivate == (s_Type s)
-      let streamMap = Map.insert sn (ss,ch,pn,priv) (scd_StreamMap scd)
-      let portMap   = MMap.insert pn sn (scd_PortMap scd) 
-      return (scd { scd_StreamMap = streamMap, scd_PortMap = portMap }, ())
+      let sm'  = Map.insert sn (ch,pn,ty) sm
+      let pmm'  = MMap.insert pn sn pmm 
+      return ((StreamControllerData s r i sm' pm pmm'), ())
     where      
-    (SocketId _ pn) = s_SocketId s
-    ch = s_Channel s
-    sn = s_StreamName s
-    ss = s_State s
+    (SocketId _ pn) = s_SocketId st
+    ch = s_Channel st
+    sn = s_StreamName st
+    ty = s_Type st
 
 
 unregisterStream :: Stream a -> IO ()
-unregisterStream s
+unregisterStream st
   = modifyMVar streamController $
-      \scd ->
+      \(StreamControllerData s r i sm pm pmm) ->
       do
-      let streamMap = Map.delete sn (scd_StreamMap scd)
-      let portMap   = MMap.deleteElem pn sn (scd_PortMap scd) 
-      return (scd { scd_StreamMap = streamMap, scd_PortMap = portMap }, ())
+      let sm'  = Map.delete sn sm
+      let pmm' = MMap.deleteElem pn sn pmm
+      return ((StreamControllerData s r i sm' pm pmm'), ()) 
     where      
-    (SocketId _ pn) = s_SocketId s
-    sn = s_StreamName s
+    (SocketId _ pn) = s_SocketId st
+    sn = s_StreamName st
 
+registerGlobalPort :: Stream a -> IO ()
+registerGlobalPort (Stream sn soid STGlobal _)
+  = do
+    withMVar streamController $
+      \(StreamControllerData _ r _ _ _ _) ->
+      do
+      case r of
+        (Just r') -> registerPort sn soid r'
+        (Nothing) -> errorM localLogger $ "registerGlobalPort: no portregistry while handling port " ++ sn
+registerGlobalPort _ = return ()
+
+
+unregisterGlobalPort :: Stream a -> IO ()
+unregisterGlobalPort (Stream sn _ STGlobal _)
+  = do
+    withMVar streamController $
+      \(StreamControllerData _ r _ _ _ _) ->
+      do
+      case r of
+        (Just r') -> unregisterPort sn r'
+        (Nothing) -> errorM localLogger $ "unregisterGlobalPort: no portregistry while handling port " ++ sn
+unregisterGlobalPort _ = return ()
+
+
+getGlobalPort :: StreamName -> IO (Maybe SocketId)
+getGlobalPort sn
+  = withMVar streamController $
+      \(StreamControllerData _ r _ _ _ _) ->
+      do
+      case r of
+        (Just rp) -> 
+          do
+          handle (\e -> do
+            errorM localLogger $ "getGlobalPort: error while getting port: " ++ sn ++ " exception: " ++ show e
+            return Nothing
+           ) $ do
+           lookupPort sn rp             
+        (Nothing) -> do 
+          errorM localLogger $ "getGlobalPort: no portregistry found while getting port: " ++ sn
+          return Nothing
 
 getStreamNamesForPort :: PortNumber -> IO (Set.Set StreamName)
 getStreamNamesForPort pn
   = withMVar streamController $
-      \scd -> return $ MMap.lookup pn (scd_PortMap scd)
+      \(StreamControllerData _ _ _ _ _ pmm) ->
+      return $ MMap.lookup pn pmm
 
 
-getStreamData :: StreamName -> IO (Maybe (MVar StreamState, BinaryChannel, PortNumber, Bool))
+getStreamData :: StreamName -> IO (Maybe (BinaryChannel, PortNumber, StreamType))
 getStreamData sn
   = withMVar streamController $
-      \scd -> return $ Map.lookup sn (scd_StreamMap scd)
-
-{-
-getStateForStream :: StreamName -> IO (Maybe StreamState)
-getStateForStream sn 
-  = withMVar streamController $
-      \scd -> 
-      do 
-      let sd = Map.lookup sn (scd_StreamMap scd)
-      case sd of
-        (Nothing) -> return Nothing
-        (Just (mVarSS,_)) -> withMVar mVarSS $ \ss -> return $ Just ss
--}
+      \(StreamControllerData _ _ _ sm _ _) ->
+      return $ Map.lookup sn sm
 
 
 
@@ -538,19 +578,18 @@ newStream STGlobal Nothing _ = error "newStream: global ports always need a name
 newStream st n pn
   = do
     ch <- newChan
-    ss <- newMVar SSOpen
     sn <- validateStreamName n
     soid <- openSocket pn
-    let s = Stream sn soid ss st ch
+    let s = Stream sn soid st ch
     registerStream s
+    registerGlobalPort s
     return s
 
 
 closeStream :: (Show a, Binary a) => Stream a -> IO ()
 closeStream s
   = do
-    -- set the stream closed
-    modifyMVar (s_State s) $ \_ -> return (SSClosed,())
+    unregisterGlobalPort s
     unregisterStream s
     closeSocket (s_SocketId s)
 
@@ -684,9 +723,9 @@ streamDispatcher (SocketId _ ownPo) hdl hn po
       -- if the socket knows the stream 
       then do
         case sd of
-          (Just (_,_,_,True)) ->
+          (Just (_,_,STPrivate)) ->
             warningM localLogger $ "streamDispatcher: received msg for private stream " ++ sn
-          (Just (_,ch,_,_)) ->
+          (Just (ch,_,_)) ->
             do
             debugM localLogger "streamDispatcher: writing message to channel"
             writeChannel ch $ updateSenderSocket msg (SocketId hn po)
@@ -749,7 +788,7 @@ isPortLocal (Port sn mbSoid)
   = do
     sd <- getStreamData sn
     case sd of
-      (Just (_,_,po,_)) ->
+      (Just (_,po,_)) ->
         do
         case mbSoid of
           (Just s1) ->
@@ -784,25 +823,40 @@ sendWithMaybeGeneric p@(Port sn mbsoid) d rp
   = do
     local <- isPortLocal p
     if local
+      -- we have a local stream
       then do
         msg <- newMessage MTInternal sn d rp
         sd <- getStreamData sn
         case sd of
-          (Just (_,ch,_,_)) ->
+          (Just (ch,_,_)) ->
             do
             writeChannel ch $ encodeMessage msg
           _ ->
             do
             errorM localLogger $ "sendWithMaybeGeneric: no channel found for stream " ++ sn
       else do
+        -- we have an external stream
         case mbsoid of
+          -- we know it's port
           (Just so@(SocketId hn po)) ->
             do
             msg <- newMessage MTExternal sn d rp
             let raw = encode $ encodeMessage $ updateReceiverSocket msg so
             sendRequest (putMessage raw) hn (PortNumber po)
             return ()
-          (Nothing) -> undefined
+          -- we don't know it's port
+          (Nothing) ->
+            do
+            extsoid <- getGlobalPort sn
+            case extsoid of
+              (Just so@(SocketId hn po)) ->
+                do
+                msg <- newMessage MTExternal sn d rp
+                let raw = encode $ encodeMessage $ updateReceiverSocket msg so
+                sendRequest (putMessage raw) hn (PortNumber po)
+                return ()
+              (Nothing) ->
+                errorM localLogger $ "sendWithMaybeGeneric: global port not found for stream " ++ sn
 
 
 -- | Writes a port-description to a file.
