@@ -174,6 +174,8 @@ instance RspMsg ControllerResponseMessage where
   
   isUnknown (CRspUnknown) = True
   isUnknown _ = False
+  
+  mkErrorMsg e = CRspError e
 
 
 instance Binary ControllerResponseMessage where
@@ -264,6 +266,8 @@ instance RspMsg NodeResponseMessage where
   
   isUnknown (NRspUnknown) = True
   isUnknown _ = False
+  
+  mkErrorMsg e = NRspError e
 
         
 instance Binary NodeResponseMessage where

@@ -29,8 +29,10 @@ module Holumbus.Network.Port
 , time120
 
 -- * Datatypes
+, SocketId(..) -- reexport from core
 , MessageType
 , Message
+, StreamName
 , StreamType(..)
 , Stream
 , Port
@@ -850,3 +852,4 @@ printStreamController
       do
       putStrLn "StreamController:"
       putStrLn $ show scd
+

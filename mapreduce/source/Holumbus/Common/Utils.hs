@@ -18,7 +18,10 @@
 
 module Holumbus.Common.Utils
 ( 
-  loadFromXmlFile
+
+  decodeMaybe
+
+, loadFromXmlFile
 , saveToXmlFile
 
 , lookupList
@@ -35,6 +38,8 @@ module Holumbus.Common.Utils
 )
 where
 
+import           Data.Binary
+import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Data.Char
@@ -42,6 +47,13 @@ import           Data.Char
 import           System.Exit
 
 import           Text.XML.HXT.Arrow
+
+
+-- | parses something from a maybe bytestring, if Nothing, then Nothing
+decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
+decodeMaybe Nothing = Nothing
+decodeMaybe (Just b) = (Just $ decode b)
+
 
 
 loadFromXmlFile :: (XmlPickler a) => FilePath -> IO a

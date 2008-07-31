@@ -168,7 +168,9 @@ instance RspMsg MasterResponseMessage where
   getErrorMsg _ = ""
   
   isUnknown (MRspUnknown) = True
-  isUnknown _ = False  
+  isUnknown _ = False
+  
+  mkErrorMsg e = MRspError e
 
 
 instance Binary MasterResponseMessage where
@@ -242,6 +244,8 @@ instance RspMsg WorkerResponseMessage where
   
   isUnknown (WRspUnknown) = True
   isUnknown _ = False
+
+  mkErrorMsg e = WRspError e
 
 
 instance Binary WorkerResponseMessage where

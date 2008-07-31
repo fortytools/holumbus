@@ -72,6 +72,10 @@ library
                 , Holumbus.Network.Messages
                 , Holumbus.Network.Port
                 , Holumbus.Network.Site
+                , Holumbus.Network.PortRegistry
+                , Holumbus.Network.PortRegistry.Messages
+                , Holumbus.Network.PortRegistry.PortRegistryData
+                , Holumbus.Network.PortRegistry.PortRegistryPort
                 , Holumbus.Console.Console
                 , Holumbus.Common.FileHandling
                 , Holumbus.Common.Logging
