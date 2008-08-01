@@ -51,7 +51,7 @@ where
 import qualified Control.Exception as E
 import           Control.Concurrent
 import           Control.Monad
-import           Data.Binary
+import qualified Data.ByteString.Lazy as B
 import           Data.Maybe
 import           Data.Time
 import           Data.Typeable
@@ -76,7 +76,9 @@ cycleLogger = "Holumbus.MapReduce.JobController.cycle"
 -- ----------------------------------------------------------------------------
 
 
-newJobData :: JobControllerData -> JobInfo -> IO (JobControllerData, JobData, MVar JobResult)
+newJobData  
+  :: JobControllerData -> JobInfo
+  -> IO (JobControllerData, JobData, MVar JobResult)
 newJobData jcd info
   = do
     t <- getCurrentTime
@@ -85,19 +87,19 @@ newJobData jcd info
     let jid = jcd_NextJobId jcd
     let jcd' = jcd { jcd_NextJobId = (jid+1) }
     let pairs = zip (iterate (+1) 1) (map (\i -> [i]) (ji_Input info))
-    let accuMap = AMap.fromList pairs
+    let accuMap = AMap.fromList pairs 
     let outputMap = Map.insert JSIdle accuMap Map.empty
     return (jcd', JobData jid JSIdle outputMap info t t jrc, mVar)
 
 newTaskData 
   :: JobControllerData 
-  -> JobId -> TaskType -> TaskState -> [FunctionData] -> FunctionName -> TaskOutputType 
+  -> JobId -> TaskType -> TaskState -> B.ByteString -> [FunctionData] -> FunctionName -> TaskOutputType 
   -> IO (JobControllerData, TaskData)
-newTaskData jcd jid tt ts i a ot
+newTaskData jcd jid tt ts opt i a ot
   = do
     let tid = jcd_NextTaskId jcd
     let jcd' = jcd { jcd_NextTaskId = (tid+1) }
-    return (jcd', TaskData jid tid tt ts i [] ot a) 
+    return (jcd', TaskData jid tid tt ts opt i [] ot a) 
     
 data TaskSendResult = TSRSend | TSRNotSend | TSRError
   deriving (Show, Eq, Ord, Enum)    
@@ -426,7 +428,9 @@ updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
 -- ----------------------------------------------------------------------------
 
 
-startJob :: JobInfo -> JobController -> IO (Either String (JobId, MVar JobResult))
+startJob 
+  :: JobInfo -> JobController
+  -> IO (Either String (JobId, MVar JobResult))
 startJob ji jc
   = do
     modifyMVar jc $
@@ -447,7 +451,9 @@ stopJob _ _
   = do
     undefined
 
-performJob :: JobInfo -> JobController -> IO (Either String JobResult)
+performJob
+  :: JobInfo -> JobController
+  -> IO (Either String JobResult)
 performJob ji jc
   = do
     -- start the Job
@@ -623,9 +629,10 @@ createTasks jcd jd
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
         let ot = getCurrentTaskOutputType jd
+        let opts = ji_Option $ jd_Info jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle i a ot) jcd inputList
+        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle opts i a ot) jcd inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
         return jcd''

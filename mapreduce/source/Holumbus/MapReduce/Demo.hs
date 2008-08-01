@@ -43,14 +43,14 @@ localLogger = "Holumbus.MapReduce.Demo"
 -- ----------------------------------------------------------------------------
 
 
-mapId :: B.ByteString -> B.ByteString -> IO [(B.ByteString, B.ByteString)]
-mapId k v
+mapId :: () -> B.ByteString -> B.ByteString -> IO [(B.ByteString, B.ByteString)]
+mapId _ k v
   = do
     return [(k, v)]
 
 
-mapWordCount :: String -> String -> IO [(String, Integer)]
-mapWordCount k v
+mapWordCount :: () -> String -> String -> IO [(String, Integer)]
+mapWordCount _ k v
   = do 
     infoM localLogger "mapCountWords"
     debugM localLogger $ show ("input: " ++ k ++ " - " ++ show v)
@@ -64,11 +64,11 @@ mapWordCount k v
 -- ReduceFunctions
 -- ----------------------------------------------------------------------------
 
-reduceId :: B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
-reduceId k _ = return $ Just k
+reduceId :: () -> B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
+reduceId _ k _ = return $ Just k
 
-reduceWordCount :: String -> [Integer] -> IO (Maybe Integer)
-reduceWordCount k vs 
+reduceWordCount :: () -> String -> [Integer] -> IO (Maybe Integer)
+reduceWordCount _ k vs 
   = do
     infoM localLogger "reduce/combine CountWords"
     debugM localLogger $ show ("input: " ++ k ++ " - " ++ show vs)
@@ -82,14 +82,14 @@ reduceWordCount k vs
 -- MergeFunctions
 -- ----------------------------------------------------------------------------
 
-mergeX :: [(B.ByteString, B.ByteString)] -> IO [(B.ByteString, [B.ByteString])]
-mergeX ls = return $ mapGroupByKey ls
+mergeX :: () ->  [(B.ByteString, B.ByteString)] -> IO [(B.ByteString, [B.ByteString])]
+mergeX o ls = return $ mapGroupByKey o ls
 
-mergeWordCount :: [(String,Integer)] -> IO [(String,[Integer])]
-mergeWordCount ls = return $ mapGroupByKey ls
+mergeWordCount :: () -> [(String,Integer)] -> IO [(String,[Integer])]
+mergeWordCount o ls = return $ mapGroupByKey o ls
 
-mapGroupByKey :: (Ord k2) => [(k2, v2)] -> [(k2,[v2])]
-mapGroupByKey ls = AMap.toList $ AMap.fromTupleList ls 
+mapGroupByKey :: (Ord k2) => a -> [(k2, v2)] -> [(k2,[v2])]
+mapGroupByKey _ ls = AMap.toList $ AMap.fromTupleList ls 
 
 
 
@@ -97,12 +97,12 @@ mapGroupByKey ls = AMap.toList $ AMap.fromTupleList ls
 -- PartitionFunctions
 -- ----------------------------------------------------------------------------  
 
-partitionId :: Int -> [(B.ByteString, B.ByteString)] -> IO [(Int,[(B.ByteString, B.ByteString)])]
-partitionId n vs
+partitionId :: () -> Int -> [(B.ByteString, B.ByteString)] -> IO [(Int,[(B.ByteString, B.ByteString)])]
+partitionId _ n vs
   = return [(n, vs)]
 
-partitionWordCount :: Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
-partitionWordCount _ ls 
+partitionWordCount :: () -> Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
+partitionWordCount _ _ ls 
   = do
     infoM localLogger "partitionCountWords"
     debugM localLogger $ show ls
@@ -147,6 +147,7 @@ demoReduceActions
 demoJob :: JobInfo
 demoJob = JobInfo 
   "demo-WordcountJob"
+  (encode ())
   (Just $ "WORDCOUNT")
   (Just $ "WORDCOUNT")
   Nothing

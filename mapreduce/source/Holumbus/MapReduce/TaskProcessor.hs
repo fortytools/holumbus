@@ -50,8 +50,8 @@ where
 
 import qualified Control.Exception as E
 import           Control.Concurrent
-import           Data.Binary
-import qualified Data.ByteString.Lazy as B
+-- import           Data.Binary
+-- import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Data.Maybe
@@ -528,13 +528,14 @@ performMapTask td tp
     debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, bin, mbfs) <- withMVar tp $
+    (ad, bin, mbfs, opt) <- withMVar tp $
       \tpd ->
       do
       let action     = Map.lookup (td_Action td) (tpd_MapActionMap tpd)
       let input      = (td_Input td)
+      let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)
-      return (action, input, filesystem)
+      return (action, input, filesystem, option)
     
     case ad of
       (Nothing) ->
@@ -544,7 +545,7 @@ performMapTask td tp
         do
         let action = mad_Action a
         let env = mkActionEnvironment td mbfs
-        bout <- action env 1 bin
+        bout <- action env opt 1 bin
         let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
@@ -557,13 +558,14 @@ performCombineTask td tp
     debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, bin, mbfs) <- withMVar tp $
+    (ad, bin, mbfs, opt) <- withMVar tp $
       \tpd ->
       do
       let action     = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
       let input      = (td_Input td)
+      let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)
-      return (action, input, filesystem)
+      return (action, input, filesystem, option)
     
     case ad of
       (Nothing) ->
@@ -573,7 +575,7 @@ performCombineTask td tp
         do
         let action = rad_Action a
         let env = mkActionEnvironment td mbfs
-        bout <- action env 1 bin
+        bout <- action env opt 1 bin
         let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
@@ -587,14 +589,14 @@ performReduceTask td tp
     
     
     -- get all functions
-    (ad, bin, mbfs) <- withMVar tp $
+    (ad, bin, mbfs, opt) <- withMVar tp $
       \tpd ->
       do
       let action     = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
       let input      = (td_Input td)
+      let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)
-      
-      return (action, input, filesystem)
+      return (action, input, filesystem, option)
     
     case ad of
       (Nothing) ->
@@ -604,7 +606,7 @@ performReduceTask td tp
         do
         let action = rad_Action a
         let env = mkActionEnvironment td mbfs
-        bout <- action env 1 bin
+        bout <- action env opt 1 bin
         let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
