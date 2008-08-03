@@ -10,8 +10,8 @@
   Portability: portable
   Version    : 0.1
   
-  Data types for the configuration of crawlers and indexers as well as helper functions
-  to create configuriations. 
+  Includes data types for the configuration of crawlers and indexers as well as 
+  helper functions to create configuriations. 
 
 -}
 
@@ -162,9 +162,13 @@ initialCrawlerState cic emptyDocuments getCustom
     }
    
     
+-- | write CrawlerState to file
 saveCrawlerState :: (HolDocuments d a, Binary a) => FilePath -> CrawlerState d a -> IO ()
 saveCrawlerState fp cs = writeToBinFile fp cs
 
+-- | load CrawlerState from file. Since the functions can not be written 
+--   they have to be taken from another CrawlerState that has to be supplied
+--   as second parameter.
 loadCrawlerState :: (HolDocuments d a , Binary a) => FilePath -> CrawlerState d a -> IO (CrawlerState d a)
 loadCrawlerState fp ori = do
                           cs <- decodeFile fp
@@ -175,12 +179,12 @@ loadCrawlerState fp ori = do
                                     , cs_fGetCustom     = cs_fGetCustom     ori
                                     }    
                                     
-                                    -- -----------------------------------------------------------------------------
+
+
 -- | Merge Indexer Configs. Basically the first IndexerConfig is taken and
 --   the startPages of all other Configs are added. The crawl filters are OR-ed
 --   so that more pages might be indexed. So you better know what you are doing
 --   when you are using this.
-
 mergeIndexerConfigs :: IndexerConfig -> IndexerConfig -> IndexerConfig
 mergeIndexerConfigs cfg1 cfg2 = mergeIndexerConfigs' cfg1 [cfg2]
 
@@ -243,7 +247,7 @@ getReferencesByXPaths xpaths
                 path = dropWhile (/='#') . reverse $ r 
 
 
-
+-- | Split a string into a list of words.
 parseWords  :: (Char -> Bool) -> String -> [String]
 parseWords isWordChar'
           = filter (not . null) . words . map boringChar
@@ -252,6 +256,7 @@ parseWords isWordChar'
             | isWordChar' c = c
             | otherwise    = ' '
 
+-- | standard function to identify non-separating characters for words
 isWordChar  :: Char -> Bool
 isWordChar c = isAlphaNum c || c `elem` ".-_'@" 
 
@@ -272,7 +277,6 @@ standardReadDocumentAttributes
       ]
 
 -- | options for writing the tmp files
-
 standardWriteTmpDocumentAttributes :: [(String, String)]
 standardWriteTmpDocumentAttributes
     = [ (a_indent,			v_1)	-- for testing only, should be v_0 for efficiency
@@ -281,7 +285,6 @@ standardWriteTmpDocumentAttributes
       ]
 
 -- | options for reading the tmp files
-
 standardReadTmpDocumentAttributes :: [(String, String)]
 standardReadTmpDocumentAttributes
     = [ (a_indent,			v_0)
@@ -294,4 +297,3 @@ standardReadTmpDocumentAttributes
       , (a_encoding,			utf8)	-- must correspond to defaultTmpWriteDocumentAttributes
       ]
 
--- ------------------------------------------------------------
