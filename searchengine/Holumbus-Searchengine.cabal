@@ -55,6 +55,7 @@ library
     Holumbus.Index.Hybrid.Memory,
     Holumbus.Index.Inverted.Memory,
     Holumbus.Index.Inverted.Persistent,
+    Holumbus.Index.Inverted.OneFile,
     Holumbus.Index.Inverted.Database,
     Holumbus.Query.Distribution.Client,
     Holumbus.Query.Distribution.Protocol,
