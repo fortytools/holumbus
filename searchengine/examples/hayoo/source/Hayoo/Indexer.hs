@@ -8,7 +8,7 @@
   Maintainer : Sebastian M. Schlatt (sms@holumbus.org)
   Stability  : experimental
   Portability: untested
-  Version    : 0.2.2
+  Version    : 0.2.3
 
   Indexer for the Haskell API Documentation Search Engine Hayoo!
 
@@ -93,7 +93,7 @@ main
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     runX (traceMsg 0 ("           (1) Hackage " ))
-
+{-
     hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
 --    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
 --    let hackageCrawled = emptyDocuments
@@ -117,12 +117,13 @@ main
     
     writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs
     writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs
-    
+-}  
+    hayooDocs <- loadFromBinFile  ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
     hayooDocsSize <- return $! sizeDocs hayooDocs
     
     -- ---------------------------------------------------------------------------------------------
        -- split the locally saved documents into several small xml files
-       -- where each file consists of the documentation for one function
+       -- where each file contains declaration & documentation of one function
     runX (traceMsg 0 (" splitting ----------------------------- " ))
     splitDocs' <- mapReduce 
                     workerThreads 
@@ -265,7 +266,7 @@ getVirtualDocs splitPath docId theUri =
      >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape (theLinkPrefix ++ theTitle)))
      >>> (     constA theTitle 
            &&& constA (theUri ++ theLinkPrefix ++ theTitle)
-           &&& constA (FunctionInfo theModule theSignature (theSourceURI))
+           &&& constA (FunctionInfo theModule theSignature thePackage (theSourceURI))
          )
      >>^ (\(a,(b,c)) -> (a,b,c)) 
   getTheSignature =     removeSourceLinks 
@@ -689,22 +690,24 @@ removeDeclbut = processTopDown (  none `when` isDeclbut )
 data FunctionInfo = FunctionInfo 
   { moduleName :: String      -- ^ The name of the module containing the function, e.g. Data.Map
   , signature :: String       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+  , package   :: String
   , sourceURI :: Maybe String -- ^ An optional URI to the online source of the function.
   } 
   deriving (Show, Eq)
 
 instance XmlPickler FunctionInfo where
-  xpickle = xpWrap (\(m, s, r) -> FunctionInfo m s r, \(FunctionInfo m s r) -> (m, s, r)) xpFunction
+  xpickle = xpWrap (\(m, s, p, r) -> FunctionInfo m s p r, \(FunctionInfo m s p r) -> (m, s, p, r)) xpFunction
     where
-    xpFunction = xpTriple xpModule xpSignature xpSource
+    xpFunction = xp4Tuple xpModule xpSignature xpPackage xpSource
       where -- We are inside a doc-element, therefore everything is stored as attribute.
       xpModule = xpAttr "module" xpText0
       xpSignature = xpAttr "signature" xpText0
+      xpPackage = xpAttr "package" xpText0
       xpSource = xpOption (xpAttr "source" xpText0)
 
 instance Binary FunctionInfo where
-  put (FunctionInfo m s r) = put m >> put s >> put r
-  get = liftM3 FunctionInfo get get get
+  put (FunctionInfo m s p r) = put m >> put s >> put p >> put r
+  get = liftM4 FunctionInfo get get get get
   
 -- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
 -- @a->b->b@. All whitespace will be removed from the resulting string.

@@ -34,22 +34,24 @@ import Holumbus.Utility
 data FunctionInfo = FunctionInfo 
   { moduleName :: String      -- ^ The name of the module containing the function, e.g. Data.Map
   , signature :: String       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+  , package   :: String
   , sourceURI :: Maybe String -- ^ An optional URI to the online source of the function.
   } 
   deriving (Show, Eq)
 
 instance XmlPickler FunctionInfo where
-  xpickle = xpWrap (\(m, s, r) -> FunctionInfo m s r, \(FunctionInfo m s r) -> (m, s, r)) xpFunction
+  xpickle = xpWrap (\(m, s, p, r) -> FunctionInfo m s p r, \(FunctionInfo m s p r) -> (m, s, p, r)) xpFunction
     where
-    xpFunction = xpTriple xpModule xpSignature xpSource
+    xpFunction = xp4Tuple xpModule xpSignature xpPackage xpSource
       where -- We are inside a doc-element, therefore everything is stored as attribute.
       xpModule = xpAttr "module" xpText0
       xpSignature = xpAttr "signature" xpText0
+      xpPackage = xpAttr "package" xpText0
       xpSource = xpOption (xpAttr "source" xpText0)
 
 instance Binary FunctionInfo where
-  put (FunctionInfo m s r) = put m >> put s >> put r
-  get = liftM3 FunctionInfo get get get
+  put (FunctionInfo m s p r) = put m >> put s >> put p >> put r
+  get = liftM4 FunctionInfo get get get get
 
 -- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
 -- @a->b->b@. All whitespace will be removed from the resulting string.
