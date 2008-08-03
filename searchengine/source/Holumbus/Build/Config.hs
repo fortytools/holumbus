@@ -260,13 +260,14 @@ isWordChar c = isAlphaNum c || c `elem` ".-_'@"
 -- | some standard options for the readDocument function
 standardReadDocumentAttributes :: [(String, String)]
 standardReadDocumentAttributes
-    = [ (a_parse_html,			v_1)
-      , (a_encoding,			isoLatin1)
-      , (a_issue_warnings,		v_0)
-      , (a_remove_whitespace,		v_1)
-      , (a_tagsoup,			v_1)
-      , (a_ignore_none_xml_contents,	v_1)
-      , (a_use_curl,			v_1)	-- obsolete since hxt-8.1
+    = [ (a_parse_html,			     v_1)
+      , (a_encoding,			     isoLatin1)
+      , (a_issue_warnings,		     v_0)
+      , (a_remove_whitespace,	     v_1)
+      , (a_tagsoup,			         v_1)
+      , (a_parse_by_mimetype,        v_1)
+      , (a_ignore_none_xml_contents, v_1)
+      , (a_use_curl,			     v_1)	-- obsolete since hxt-8.1, 
       , ("curl--user-agent",  		"HolumBot/0.1@http://holumbus.fh-wedel.de --location")
       ]
 
