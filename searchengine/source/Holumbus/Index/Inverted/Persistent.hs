@@ -26,7 +26,7 @@ module Holumbus.Index.Inverted.Persistent
   -- * Persistent index types
   Persistent (..)
 , emptyPersistent  
---  , makePersistent
+, makePersistent
 )
 where
 
@@ -44,6 +44,7 @@ import Data.Map (Map)
 import qualified Data.Map as M
 
 import Holumbus.Index.Common
+import Holumbus.Index.Inverted.Memory hiding (indexParts, Parts, Part)
 
 import Holumbus.Control.MapReduce.MapReducible
 
@@ -96,11 +97,12 @@ instance HolIndex Persistent where
                         , nextId = (nextId i) + 1 --{unusedIds = tail $ unusedIds i}
                         }
           else do  -- the interesting case. occurences for the word already exist 
-               ind <- SM.lookup w part
+               error "Holumbus.Index.Inverted.Persistent: Inserting additional occurrences not supported"
+--               ind <- SM.lookup w part
                  -- decoding has to be strict, else lazy io will lead to an exception
-               occ <- strictDecodeFile ((path i) ++ escape c ++ "_" ++ show (ind))
-               writeToBinFile ((path i) ++ escape c ++ "_" ++ show (ind)) (mergeOccurrences o occ)
-               return i
+--               occ <- strictDecodeFile ((path i) ++ escape c ++ "_" ++ show (ind))
+--               writeToBinFile ((path i) ++ escape c ++ "_" ++ show (ind)) (mergeOccurrences o occ)
+--               return i
       ) 
 
   deleteOccurrences _ _ _ _ = undefined
@@ -126,6 +128,13 @@ instance XmlPickler Persistent where
 
 instance NFData Persistent where
   rnf (Persistent parts _ _) = rnf parts
+
+-- makePersistent :: FilePath -> Inverted -> Persistent
+-- makePersistent f i = unsafePerformIO (makePersistentM f i)
+
+makePersistent :: FilePath -> Inverted -> Persistent
+makePersistent f i
+  = foldl' (\i' (c,w,o) -> insertOccurrences c w o i') (emptyPersistent f) (toList i)
 
 emptyPersistent :: FilePath -> Persistent
 emptyPersistent f = Persistent M.empty f 1 --[1..]
