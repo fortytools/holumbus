@@ -184,6 +184,13 @@ td.signature {
 	width: 100%;
 }
 
+td.package {
+	text-align: right;
+	vertical-align: top;
+	color: #F0DE00;
+	font-weight:bold;
+}
+
 a.module {
 	font-weight: normal;
 	color: #DD0000;
@@ -200,6 +207,15 @@ a.function {
 }
 
 a.function:hover {
+	text-decoration: underline;
+}
+
+a.package {
+	color: #F0DE00;
+	font-weight: bold;
+}
+
+a.package:hover {
 	text-decoration: underline;
 }
 

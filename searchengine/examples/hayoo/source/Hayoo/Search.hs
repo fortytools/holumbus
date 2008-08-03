@@ -35,8 +35,8 @@ import Network.HTTP (urlDecode)
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
-import Holumbus.Index.Inverted.Memory
-       ( Inverted
+import Holumbus.Index.Inverted.OneFile
+       ( Persistent
        )
 import Holumbus.Index.Documents
        ( Documents
@@ -74,7 +74,7 @@ import Hayoo.Common
 import Hayoo.Parser
 
 data Core = Core
-  { index :: Inverted
+  { index :: Persistent
   , documents :: Documents FunctionInfo
   , cache :: Cache
   }
@@ -115,7 +115,7 @@ _shader_config_log :: JanusPath
 _shader_config_log = jp "/shader/config/@log"
 
 -- | Just an alias with explicit type.
-loadIndex :: FilePath -> IO Inverted
+loadIndex :: FilePath -> IO Persistent
 loadIndex = loadFromFile
 
 -- | Just an alias with explicit type.
@@ -308,17 +308,22 @@ xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContext
 xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
   docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
-  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s l))) _, _)) = (((modLink u, m), (u, t), s), (getDesc i,l))
+  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = (((modLink u, m), (u, t), s), ((pkgLink p, p), (getDesc i,l)))
     where
     modLink = takeWhile ((/=) '#')
+    pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
+    pkgLink "base" = "http://hackage.haskell.org/packages/archive/base/latest/doc/html/"
+    pkgLink p' = "http://hackage.haskell.org/cgi-bin/hackage-scripts/package/" ++ p'
     getDesc = unsafePerformIO . getDocText c "description" 
   xpQualified = xpElem "tr" $ xpClass "function" $ xpTriple xpModule xpFunction xpSignature
     where
     xpModule = xpCell "module" $ xpPair (xpElem "a" $ xpClass "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)
     xpFunction = xpCell "function" $ xpPair (xpElem "a" $ xpClass "function" $ xpAttr "href" $ xpText) xpText
     xpSignature = xpCell "signature" $ xpPrepend ":: " xpSigDecl
-  xpAdditional = xpElem "tr" $ xpClass "description" $ xpFixedElem "td" (xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpPair xpDescription xpSource)
+  xpAdditional = xpElem "tr" $ xpClass "description" $ xpPair xpPackage xpDescSource
     where
+    xpPackage = xpCell "package" $ xpPair (xpElem "a" $ xpClass "package" $ xpAttr "href" $ xpText) xpText
+    xpDescSource = xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpPair xpDescription xpSource
     xpDescription = xpWrap (undefined, limitDescription) (xpElem "span" $ xpClass "description" $ xpText)
     xpSource = xpOption $ (xpElem "span" $ xpClass "source" $ xpElem "a" $ xpClass "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
     limitDescription = maybe "No description. " (\d -> if length d > 100 then (take 100 d) ++ "... " else d ++ " ")
