@@ -187,7 +187,7 @@ td.signature {
 td.package {
 	text-align: right;
 	vertical-align: top;
-	color: #F0DE00;
+	color: #25CA00;
 	font-weight:bold;
 }
 
@@ -211,7 +211,7 @@ a.function:hover {
 }
 
 a.package {
-	color: #F0DE00;
+	color: #25CA00;
 	font-weight: bold;
 }
 
@@ -220,7 +220,7 @@ a.package:hover {
 }
 
 a.source {
-	color: #25CA00;
+	color: #F0DE00;
 	font-weight: bold;
 }
 
