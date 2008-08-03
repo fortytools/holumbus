@@ -93,7 +93,7 @@ main
        -- in the IndexerConfig
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     runX (traceMsg 0 ("           (1) Hackage " ))
-{-
+
     hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
 --    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
 --    let hackageCrawled = emptyDocuments
@@ -117,8 +117,8 @@ main
     
     writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs
     writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs
--}  
-    hayooDocs <- loadFromBinFile  ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
+  
+--    hayooDocs <- loadFromBinFile  ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
     hayooDocsSize <- return $! sizeDocs hayooDocs
     
     -- ---------------------------------------------------------------------------------------------
