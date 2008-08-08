@@ -18,8 +18,12 @@
 
 module Holumbus.Common.FileHandling
 (
+-- * xml files
+  loadFromXmlFile
+, saveToXmlFile
+
 -- * lists in binary files
-  writeToListFile
+, writeToListFile
 , appendToListFile
 , readFromListFile
 
@@ -43,6 +47,34 @@ import           Data.Char
 import           Foreign
 import           System.IO
 import           System.IO.Unsafe
+
+import           Text.XML.HXT.Arrow
+
+
+
+
+-- ----------------------------------------------------------------------------
+-- xml files
+-- ----------------------------------------------------------------------------
+
+
+loadFromXmlFile :: (XmlPickler a) => FilePath -> IO a
+loadFromXmlFile f
+  = do
+    r <- runX (xunpickleDocument xpickle options f)
+    return $! head r
+    where
+    options = [ (a_validate,v_0), (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]
+
+
+saveToXmlFile :: (XmlPickler a) => FilePath -> a -> IO ()
+saveToXmlFile f i 
+  = do
+    runX (constA i >>> xpickleDocument xpickle options f)
+    return ()
+    where
+    options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]  
+
 
 
 -- ----------------------------------------------------------------------------
@@ -134,14 +166,14 @@ lazySlurp fp ix len
   | ix >= len = return []
   | otherwise = do
       cs <- unsafeInterleaveIO (lazySlurp fp (ix + buf_size) len)
-      ws <- withForeignPtr fp $ \p -> loop (min (len-ix) buf_size - 1) 
+      ws <- withForeignPtr fp $ \p -> loop' (min (len-ix) buf_size - 1) 
           ((p :: Ptr Word8) `plusPtr` ix) cs
       return ws
   where
-  loop :: Int -> Ptr Word8 -> String -> IO String
-  loop len' p acc
+  loop' :: Int -> Ptr Word8 -> String -> IO String
+  loop' len' p acc
     | len' `seq` p `seq` False = undefined
     | len' < 0 = return acc
     | otherwise = do
        w <- peekElemOff p len'
-       loop (len'-1) p (chr (fromIntegral w):acc)
+       loop' (len'-1) p (chr (fromIntegral w):acc)

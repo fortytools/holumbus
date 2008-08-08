@@ -25,6 +25,7 @@ where
 
 import System.Log.Logger
 
+import Holumbus.Common.FileHandling
 import Holumbus.Network.Port
 import Holumbus.Network.Messages
 import Holumbus.Network.PortRegistry
@@ -52,6 +53,20 @@ data PortRegistryPort = PortRegistryPort PortRegistryRequestPort
 -- | Creates a new NodePort.
 newPortRegistryPort :: PortRegistryRequestPort -> PortRegistryPort
 newPortRegistryPort p = PortRegistryPort p
+
+
+newPortRegistryFromData :: StreamName -> SocketId -> IO PortRegistryPort
+newPortRegistryFromData sn soid
+  = do
+    p <- newPort sn (Just soid)
+    return $ newPortRegistryPort p
+
+
+newPortRegistryFromXmlFile :: FilePath -> IO PortRegistryPort
+newPortRegistryFromXmlFile fp
+  = do
+    p <- loadFromXmlFile fp
+    return $ newPortRegistryPort p
 
 
 

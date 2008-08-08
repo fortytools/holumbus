@@ -21,9 +21,6 @@ module Holumbus.Common.Utils
 
   decodeMaybe
 
-, loadFromXmlFile
-, saveToXmlFile
-
 , lookupList
 , lookupMaybe
 
@@ -46,8 +43,6 @@ import           Data.Char
 
 import           System.Exit
 
-import           Text.XML.HXT.Arrow
-
 
 -- | parses something from a maybe bytestring, if Nothing, then Nothing
 decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
@@ -56,22 +51,7 @@ decodeMaybe (Just b) = (Just $ decode b)
 
 
 
-loadFromXmlFile :: (XmlPickler a) => FilePath -> IO a
-loadFromXmlFile f
-  = do
-    r <- runX (xunpickleDocument xpickle options f)
-    return $! head r
-    where
-    options = [ (a_validate,v_0), (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]
 
-
-saveToXmlFile :: (XmlPickler a) => FilePath -> a -> IO ()
-saveToXmlFile f i 
-  = do
-    runX (constA i >>> xpickleDocument xpickle options f)
-    return ()
-    where
-    options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]  
 
 
 lookupMaybe :: (Ord k) => Map.Map k v -> Maybe k -> Maybe v
