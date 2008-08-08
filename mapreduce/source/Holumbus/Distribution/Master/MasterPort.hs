@@ -24,7 +24,10 @@ module Holumbus.Distribution.Master.MasterPort
 where
 
 import Holumbus.Network.Port
+import Holumbus.Network.Site
 
+import Holumbus.Common.Debug
+import Holumbus.MapReduce.MapReduce
 import Holumbus.Distribution.Messages
 import Holumbus.Distribution.Master
 
@@ -53,6 +56,79 @@ newMasterPort p = MasterPort p
 -- ----------------------------------------------------------------------------
 -- Typeclass instanciation
 -- ----------------------------------------------------------------------------
+
+instance Debug MasterPort where
+
+  printDebug (MasterPort p)
+    = do
+      putStrLn "MasterPort:"
+      putStrLn $ show p
+      
+      
+     
+
+instance MapReduce MasterPort where
+
+
+  getMySiteId _
+    = getSiteId
+
+  
+  getMapReduceType _
+    = return MRTMaster
+
+  
+  startControlling (MasterPort p)
+    = withStream $
+       \s -> performPortAction p s (MReqStartControlling) $
+         \rsp ->
+         do
+         case rsp of
+           (MRspSuccess) -> return (Just ())
+           _ -> return Nothing
+
+  
+  stopControlling (MasterPort p)
+    = withStream $
+       \s -> performPortAction p s (MReqStopControlling) $
+         \rsp ->
+         do
+         case rsp of
+           (MRspSuccess) -> return (Just ())
+           _ -> return Nothing
+
+
+  isControlling (MasterPort p)
+    = withStream $
+       \s -> performPortAction p s (MReqIsControlling) $
+         \rsp ->
+         do
+         case rsp of
+           (MRspIsControlling b) -> return (Just b)
+           _ -> return Nothing
+  
+
+  
+  doSingleStep (MasterPort p)
+    = withStream $
+        \s -> performPortAction p s (MReqSingleStep) $
+          \rsp ->
+          do
+          case rsp of
+            (MRspSuccess) -> return (Just ())
+            _ -> return Nothing
+
+  
+  doMapReduce ji (MasterPort p)
+    = withStream $
+        \s -> performPortAction p s (MReqPerformJob ji) $
+          \rsp ->
+          do
+          case rsp of
+            (MRspResult r) -> return (Just r)
+            _ -> return Nothing
+
+
 
 
 instance Master MasterPort where
@@ -83,28 +159,6 @@ instance Master MasterPort where
             _ -> return Nothing
 
 
-  addJob ji c@(MasterPort p)
-    = do
-      withStream $
-        \s -> performPortAction p s (MReqAddJob ji) $
-          \rsp ->
-          do
-          case rsp of
-            (MRspSuccess) -> return (Just c)
-            _ -> return Nothing
-
-
-  doSingleStep c@(MasterPort p)
-    = do
-      withStream $
-        \s -> performPortAction p s (MReqSingleStep) $
-          \rsp ->
-          do
-          case rsp of
-            (MRspSuccess) -> return (Just c)
-            _ -> return Nothing
-
-
   receiveTaskCompleted td c@(MasterPort p)
     = do
       withStream $
@@ -125,9 +179,3 @@ instance Master MasterPort where
           case rsp of
             (MRspSuccess) -> return (Just c)
             _ -> return Nothing
-
-
-  printDebug (MasterPort p)
-    = do
-      putStrLn "MasterPort:"
-      putStrLn $ show p

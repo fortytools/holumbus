@@ -412,6 +412,13 @@ data JobResult = JobResult {
     jr_Output        :: [FunctionData]
   } deriving (Show)
 
+instance Binary JobResult where
+  put (JobResult o) = put o
+  get
+    = do
+      o <- get
+      return (JobResult o)
+
 
 -- ----------------------------------------------------------------------------
 -- TestJobInfo

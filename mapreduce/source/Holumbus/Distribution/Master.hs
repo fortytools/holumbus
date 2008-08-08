@@ -22,6 +22,7 @@ where
 
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.MapReduce.Types as T
+import qualified Holumbus.MapReduce.MapReduce as MR
 import           Holumbus.Network.Site
 
 
@@ -31,7 +32,7 @@ import           Holumbus.Network.Site
 -- ----------------------------------------------------------------------------
 
 
-class Master m where
+class (MR.MapReduce m) => Master m where
 
   getMasterRequestPort :: m -> M.MasterRequestPort
   
@@ -39,12 +40,6 @@ class Master m where
   
   unregisterWorker :: M.WorkerId -> m -> IO m
 
-  addJob :: T.JobInfo -> m -> IO m
-
-  doSingleStep :: m -> IO m
-
   receiveTaskCompleted :: T.TaskData -> m -> IO m
 
   receiveTaskError :: T.TaskData -> m -> IO m
-
-  printDebug :: m -> IO ()

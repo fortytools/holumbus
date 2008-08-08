@@ -35,8 +35,11 @@ import qualified Data.Set as Set
 
 import           System.Log.Logger
 
+import           Holumbus.Common.Debug
 import           Holumbus.Network.Site
-import qualified Holumbus.Network.Port as P
+import           Holumbus.Network.Port
+import           Holumbus.Network.Messages
+import qualified Holumbus.MapReduce.MapReduce as MR
 import           Holumbus.MapReduce.JobController
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.Data.MultiMap as MMap
@@ -110,12 +113,12 @@ newWorkerController
     wc <- newMVar wcd
     return wc
 
-newMaster :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> IO MasterData
-newMaster fs mm rm
+newMaster :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> Bool -> IO MasterData
+newMaster fs mm rm start
   = do
     -- initialize values 
-    st    <- (P.newGlobalStream "master"::IO M.MasterRequestStream)
-    po    <- ((P.newPortFromStream st)::IO M.MasterRequestPort)
+    st    <- (newGlobalStream "master"::IO M.MasterRequestStream)
+    po    <- newPortFromStream st
 
     -- we can't start the server yet
     tid   <- newMVar Nothing
@@ -129,9 +132,15 @@ newMaster fs mm rm
     setTaskSendHook (sendStartTask wc) jc
     setMapActions mm jc
     setReduceActions rm jc
+    
+    if (start) 
+      then do startJobController jc
+      else do return ()
 
     -- get the internal data
-    md <- startRequestDispatcher (MasterData tid st po wc jc fs)
+    -- md <- startRequestDispatcher (MasterData tid st po wc jc fs)
+    let md = MasterData tid st po wc jc fs
+    startRequestDispatcher tid  st (dispatch md)
     return md
 
 
@@ -139,11 +148,12 @@ closeMaster :: MasterData -> IO ()
 closeMaster md 
   = do
     -- shutdown the server thread and the stream
-    md' <- stopRequestDispatcher md
-    P.closeStream (md_OwnStream md')
+    -- md' <- stopRequestDispatcher md
+    stopRequestDispatcher (md_ServerThreadId md)
+    closeStream (md_OwnStream md)
     return ()      
   
-
+{-
 startRequestDispatcher :: MasterData -> IO MasterData
 startRequestDispatcher md
   = do
@@ -187,11 +197,11 @@ requestDispatcher md
       do
       -- read the next message from the stream (block, if no message arrived)
       let stream = (md_OwnStream md)
-      msg <- P.readStreamMsg stream
+      msg <- readStreamMsg stream
       -- extract the data
-      let dat = P.getMessageData msg
+      let dat = getMessageData msg
       -- extract the (possible replyport)
-      let replyPort = M.decodeMasterResponsePort $ P.getGenericData msg
+      let replyPort = M.decodeMasterResponsePort $ getGenericData msg
       case replyPort of
         (Nothing) ->  
           do
@@ -205,6 +215,7 @@ requestDispatcher md
           return ()
       --threadDelay 10
       requestDispatcher md
+-}
 
 
 dispatch 
@@ -223,14 +234,6 @@ dispatch md msg replyPort
         do
         handleRequest replyPort (MC.unregisterWorker n md) (\_ -> M.MRspUnregister)
         return ()
-      (M.MReqAddJob ji) ->
-        do
-        handleRequest replyPort (MC.addJob ji md) (\_ -> M.MRspSuccess)
-        return ()
-      (M.MReqSingleStep) ->
-        do
-        handleRequest replyPort (MC.doSingleStep md) (\_ -> M.MRspSuccess)
-        return ()
       (M.MReqTaskCompleted td) ->
         do
         handleRequest replyPort (MC.receiveTaskCompleted td md) (\_ -> M.MRspSuccess)
@@ -239,8 +242,29 @@ dispatch md msg replyPort
         do
         handleRequest replyPort (MC.receiveTaskError td md) (\_ -> M.MRspSuccess)
         return ()
+      (M.MReqStartControlling) ->
+        do
+        handleRequest replyPort (MR.startControlling md) (\_ -> M.MRspSuccess)
+        return ()         
+      (M.MReqStopControlling) ->
+        do
+        handleRequest replyPort (MR.stopControlling md) (\_ -> M.MRspSuccess)
+        return ()         
+      (M.MReqIsControlling) ->
+        do
+        handleRequest replyPort (MR.isControlling md) (\b -> M.MRspIsControlling b)
+        return ()         
+      (M.MReqSingleStep) ->
+        do
+        handleRequest replyPort (MR.doSingleStep md) (\_ -> M.MRspSuccess)
+        return ()
+      (M.MReqPerformJob ji) ->
+        do
+        handleRequest replyPort (MR.doMapReduce ji md) (\r -> M.MRspResult r)
+        return ()
       _ -> handleRequest replyPort (return ()) (\_ -> M.MRspUnknown)
 
+{-
 handleRequest
   :: M.MasterResponsePort
   -> IO a
@@ -252,13 +276,13 @@ handleRequest po fhdl fres
     E.handle (\e -> errorM localLogger $ show e) $ do
       do
       -- in case our operation fails, we send a failure-response
-      E.handle (\e -> P.send po (M.MRspError $ show e)) $
+      E.handle (\e -> send po (M.MRspError $ show e)) $
         do
         -- our action, might raise an exception
         r <- fhdl
         -- send the response
-        P.send po $ fres r
-
+        send po $ fres r
+-}
 
 
 -- ----------------------------------------------------------------------------
@@ -395,31 +419,86 @@ sendStartTask wc td
             return (mm', TSRSend)
 
 
-printJobResult :: MVar JobResult -> IO ()
-printJobResult mVarRes
-  = do
-    forkIO $
-      withMVar mVarRes $ 
-        \(JobResult outs) -> 
-        do
-        putStrLn "RESULT:" 
-        putStrLn $ show (decodeResult outs)
-    return ()
-    where
-    decodeResult :: [FunctionData] -> [(String, Integer)]
-    decodeResult ls = map decodeResult' ls
-      where
-      decodeResult' (FileFunctionData f) = (f, -1)
-      decodeResult' (TupleFunctionData b) = decodeTuple b
+
 
 -- ----------------------------------------------------------------------------
 -- typeclass instanciation
 -- ----------------------------------------------------------------------------
 
+instance Debug MasterData where
+
+  printDebug md
+    = do
+      putStrLn "Master-Object (full)"
+      withMVar (md_ServerThreadId md) $ 
+        \i-> do putStrLn $ prettyRecordLine 15 "ServerId:" i
+      putStrLn $ prettyRecordLine gap "OwnStream:" (md_OwnStream md)
+      putStrLn $ prettyRecordLine gap "OwnPort:" (md_OwnPort md)
+      withMVar (md_WorkerController md) $
+        \wcd -> 
+        do
+        putStrLn $ prettyRecordLine gap "WorkerToSiteMap:" (wcd_WorkerToSiteMap wcd)
+        putStrLn $ prettyRecordLine gap "SiteToWorkerMap:" (wcd_SiteToWorkerMap wcd)
+        putStrLn $ prettyRecordLine gap "SiteMap:" (wcd_SiteMap wcd)
+        putStrLn $ prettyRecordLine gap "Last NodeId:" (wcd_WorkerId wcd)
+        putStrLn $ prettyRecordLine gap "JobMapMap:" (wcd_JobMap wcd)
+        putStrLn $ "JobController:"
+        jc <- printJobController (md_JobController md)
+        putStrLn jc
+      where
+        gap = 20
+
+
+
+
+instance MR.MapReduce MasterData where
+
+
+  getMySiteId _ 
+    = getSiteId
+
+  
+  getMapReduceType _
+    = return MR.MRTMaster
+
+  
+  startControlling md 
+    = do
+      debugM localLogger "startControlling"
+      startJobController (md_JobController md)
+
+
+  stopControlling md 
+    = do
+      debugM localLogger "stopControlling"
+      stopJobController (md_JobController md)
+
+
+  isControlling md
+    = do
+      debugM localLogger "isControlling"
+      isJobControllerRunning (md_JobController md)
+
+  
+  doSingleStep md
+    = do
+      debugM localLogger "doSingleStep"
+      singleStepJobControlling (md_JobController md)
+
+  
+  doMapReduce ji md
+    = do
+      debugM localLogger "doMapReduce"
+      performJob ji (md_JobController md)
+
+
+
 
 instance Master MasterData where
 
+
   getMasterRequestPort md = md_OwnPort md
+
   
   registerWorker sid po md
     = do
@@ -443,22 +522,6 @@ instance Master MasterData where
         return (mm', md) 
 
 
-  addJob ji md
-    = do
-      r <- startJob ji (md_JobController md)
-      case r of
-        (Left m) -> putStrLn m
-        (Right (_,res)) -> printJobResult res
-      return md
-      
-
-  doSingleStep md
-    = do
-      debugM localLogger "doSingleStep"
-      singleStepJobControlling (md_JobController md)
-      return md
-
-
   receiveTaskCompleted td md
     = do
       debugM localLogger $ "completed Task: " ++ show (td_TaskId td)
@@ -473,28 +536,3 @@ instance Master MasterData where
       setTaskError (md_JobController md) td
       -- TODO inform other workers
       return md
-
-
-  printDebug md
-    = do
-      putStrLn "Master-Object (full)"
-      withMVar (md_ServerThreadId md) $ 
-        \i-> do putStrLn $ prettyRecordLine 15 "ServerId:" i
-      putStrLn $ prettyRecordLine gap "OwnStream:" (md_OwnStream md)
-      putStrLn $ prettyRecordLine gap "OwnPort:" (md_OwnPort md)
-      withMVar (md_WorkerController md) $
-        \wcd -> 
-        do
-        putStrLn $ prettyRecordLine gap "WorkerToSiteMap:" (wcd_WorkerToSiteMap wcd)
-        putStrLn $ prettyRecordLine gap "SiteToWorkerMap:" (wcd_SiteToWorkerMap wcd)
-        putStrLn $ prettyRecordLine gap "SiteMap:" (wcd_SiteMap wcd)
-        putStrLn $ prettyRecordLine gap "Last NodeId:" (wcd_WorkerId wcd)
-        putStrLn $ prettyRecordLine gap "JobMapMap:" (wcd_JobMap wcd)
-        putStrLn $ "JobController:"
-        jc <- printJobController (md_JobController md)
-        putStrLn jc
-      where
-        gap = 20
-        
-        
-        

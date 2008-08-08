@@ -48,14 +48,14 @@ runUI mr version
 
 createConsole :: (MR.MapReduce mr) => String -> Console.ConsoleData mr
 createConsole version =
-  Console.addConsoleCommand "step" step "perform a single step" $
-  Console.addConsoleCommand "addJob" addJob "adds a new job" $
-  Console.addConsoleCommand "parseJob" parseJob "parses a job-xml-file and prints the result" $
-  Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
+--  Console.addConsoleCommand "step" step "perform a single step" $
+--  Console.addConsoleCommand "addJob" addJob "adds a new job" $
+--  Console.addConsoleCommand "parseJob" parseJob "parses a job-xml-file and prints the result" $
+--  Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
   Console.initializeConsole
 
- 
+{-
 step :: (MR.MapReduce mr) => mr -> [String] -> IO ()
 step mr _
   = do
@@ -85,15 +85,15 @@ parseJob _ opts
       jobInfo <- (loadFromXmlFile (fromJust mbName))::IO T.JobInfo
       putStrLn $ show jobInfo
       return ()
-
-      
+-}
+{-
 printDebug :: (MR.MapReduce mr) => mr -> [String] -> IO ()
 printDebug mr _
   = do
     handle (\e -> putStrLn $ show e) $
       do
       MR.printDebug mr
-
+-}
   
 printVersion :: (MR.MapReduce mr) => String -> mr -> [String] -> IO ()
 printVersion version _ _

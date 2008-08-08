@@ -116,10 +116,13 @@ decodeWorkerResponsePort = decodeMaybe
 data MasterRequestMessage 
   = MReqRegister Site.SiteId WorkerRequestPort
   | MReqUnregister WorkerId
-  | MReqAddJob JobInfo
-  | MReqSingleStep
   | MReqTaskCompleted TaskData
-  | MReqTaskError TaskData
+  | MReqTaskError TaskData  
+  | MReqStartControlling
+  | MReqStopControlling
+  | MReqIsControlling
+  | MReqSingleStep
+  | MReqPerformJob JobInfo
   | MReqUnknown
   deriving (Show)
 
@@ -127,10 +130,13 @@ data MasterRequestMessage
 instance Binary MasterRequestMessage where
   put (MReqRegister s p)     = putWord8 1 >> put s >> put p
   put (MReqUnregister n)     = putWord8 2 >> put n
-  put (MReqAddJob ji)        = putWord8 3 >> put ji
-  put (MReqSingleStep)       = putWord8 4
-  put (MReqTaskCompleted td) = putWord8 5 >> put td
-  put (MReqTaskError td)     = putWord8 6 >> put td
+  put (MReqTaskCompleted td) = putWord8 3 >> put td
+  put (MReqTaskError td)     = putWord8 4 >> put td  
+  put (MReqStartControlling) = putWord8 5
+  put (MReqStopControlling)  = putWord8 6
+  put (MReqIsControlling)    = putWord8 7
+  put (MReqSingleStep)       = putWord8 8
+  put (MReqPerformJob ji)    = putWord8 9 >> put ji
   put (MReqUnknown)          = putWord8 0
   get
     = do
@@ -138,10 +144,13 @@ instance Binary MasterRequestMessage where
       case t of
         1 -> get >>= \s -> get >>= \p -> return (MReqRegister s p) 
         2 -> get >>= \n -> return (MReqUnregister n)
-        3 -> get >>= \ji-> return (MReqAddJob ji)
-        4 -> return (MReqSingleStep)
-        5 -> get >>= \td -> return (MReqTaskCompleted td)
-        6 -> get >>= \td -> return (MReqTaskError td) 
+        3 -> get >>= \td -> return (MReqTaskCompleted td)
+        4 -> get >>= \td -> return (MReqTaskError td) 
+        5 -> return (MReqStartControlling)
+        6 -> return (MReqStopControlling)
+        7 -> return (MReqIsControlling)
+        8 -> return (MReqSingleStep)
+        9 -> get >>= \ji -> return (MReqPerformJob ji)
         _ -> return (MReqUnknown)
 
 
@@ -155,6 +164,8 @@ data MasterResponseMessage
   = MRspSuccess
   | MRspRegister WorkerId
   | MRspUnregister
+  | MRspIsControlling Bool
+  | MRspResult JobResult
   | MRspError String
   | MRspUnknown
   deriving (Show)
@@ -177,7 +188,9 @@ instance Binary MasterResponseMessage where
   put (MRspSuccess)                       = putWord8 1
   put (MRspRegister n)                    = putWord8 2 >> put n 
   put (MRspUnregister)                    = putWord8 3
-  put (MRspError e)                       = putWord8 4 >> put e
+  put (MRspIsControlling b)               = putWord8 4 >> put b
+  put (MRspResult jr)                     = putWord8 5 >> put jr
+  put (MRspError e)                       = putWord8 6 >> put e
   put (MRspUnknown)                       = putWord8 0
   get
     = do
@@ -186,7 +199,9 @@ instance Binary MasterResponseMessage where
         1 -> return (MRspSuccess)
         2 -> get >>= \n -> return (MRspRegister n) 
         3 -> return (MRspUnregister)
-        4 -> get >>= \e -> return (MRspError e)
+        4 -> get >>= \b -> return (MRspIsControlling b)
+        5 -> get >>= \jr -> return (MRspResult jr)
+        6 -> get >>= \e -> return (MRspError e)
         _ -> return (MRspUnknown)
 
 

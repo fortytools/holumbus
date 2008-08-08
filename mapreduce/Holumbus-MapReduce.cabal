@@ -39,7 +39,7 @@ library
   hs-source-dirs: 
                   source
   exposed-modules:  
-                  Holumbus.Distribution.Distribution
+                  Holumbus.Distribution.DMapReduce
                 , Holumbus.Distribution.Messages
                 , Holumbus.Distribution.Worker
                 , Holumbus.Distribution.Worker.WorkerData
@@ -47,7 +47,7 @@ library
                 , Holumbus.Distribution.Master
                 , Holumbus.Distribution.Master.MasterData
                 , Holumbus.Distribution.Master.MasterPort
-                , Holumbus.Standalone.Standalone
+                , Holumbus.Standalone.SMapReduce
                 , Holumbus.Data.AccuMap
                 , Holumbus.Data.MultiMap
                 , Holumbus.MapReduce.MapReduce
@@ -80,4 +80,5 @@ library
                 , Holumbus.Common.FileHandling
                 , Holumbus.Common.Logging
                 , Holumbus.Common.Utils
+                , Holumbus.Common.Debug
   ghc-options: -Wall -threaded -O

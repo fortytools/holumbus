@@ -1,6 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
-  Module     : Holumbus.Standalone.Standalone
+  Module     : Holumbus.Standalone.SMapReduce
   Copyright  : Copyright (C) 2008 Stefan Schmidt
   License    : MIT
 
@@ -13,20 +13,21 @@
 -}
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Standalone.Standalone
+module Holumbus.Standalone.SMapReduce
 (
 -- * Datatypes
-  Standalone
+  SMapReduce
   
 -- * Creation and Initialisation
-, newStandalone
-, closeStandalone
+, newSMapReduce
+, closeSMapReduce
 )
 where
 
 import           Control.Concurrent
 import           System.Log.Logger
 
+import           Holumbus.Common.Debug
 import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.JobController
@@ -36,20 +37,30 @@ import           Holumbus.Network.Site
 
 
 localLogger :: String
-localLogger = "Holumbus.Standalone.Standalone"
+localLogger = "Holumbus.Standalone.SMapReduce"
 
 -- ----------------------------------------------------------------------------
 -- Datatypes
 -- ----------------------------------------------------------------------------
 
 
-data StandaloneData = StandaloneData {
+data SMapReduceData = SMapReduceData {
     sad_JobController :: JobController
   , sad_TaskProcessor :: TaskProcessor
   }
 
 
-data Standalone = Standalone (MVar StandaloneData)
+data SMapReduce = SMapReduce (MVar SMapReduceData)
+
+instance Show SMapReduce where
+  show _ = "SMapReduce"
+
+
+
+
+-- ----------------------------------------------------------------------------
+-- "glue" between JobController and TaskProcessor
+-- ----------------------------------------------------------------------------
 
 
 sendStartTask :: TaskProcessor -> TaskData -> IO (TaskSendResult)
@@ -83,13 +94,17 @@ sendTaskError jc td
 
 
 
+
 -- ----------------------------------------------------------------------------
 -- Creation and Initialisation
 -- ----------------------------------------------------------------------------
 
 
-newStandalone :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> IO Standalone
-newStandalone fs mm rm
+newSMapReduce 
+  :: FS.FileSystem -> MapActionMap -> ReduceActionMap
+  -> Bool
+  -> IO SMapReduce
+newSMapReduce fs mm rm start
   = do
     -- get a new JobController an TaskProcessor
     jc <- newJobController
@@ -107,16 +122,19 @@ newStandalone fs mm rm
     setTaskCompletedHook (sendTaskCompleted jc) tp
     setTaskErrorHook (sendTaskError jc) tp
      
-    -- startJobController jc
+    if (start)
+      then do startJobController jc
+      else do return ()
+    
     startTaskProcessor tp
     
-    let sad = StandaloneData jc tp
+    let sad = SMapReduceData jc tp
     sa <- (newMVar sad)
-    return (Standalone sa) 
+    return (SMapReduce sa) 
 
 
-closeStandalone :: Standalone -> IO ()
-closeStandalone (Standalone sa)
+closeSMapReduce :: SMapReduce -> IO ()
+closeSMapReduce (SMapReduce sa)
   = do
     modifyMVar sa $
       \sad ->
@@ -125,6 +143,7 @@ closeStandalone (Standalone sa)
       closeJobController (sad_JobController sad)
       return (sad, ())
       
+{-      
 printJobResult :: MVar JobResult -> IO ()
 printJobResult mVarRes
   = do
@@ -141,7 +160,7 @@ printJobResult mVarRes
       where
       decodeResult' (FileFunctionData f) = (f, -1)
       decodeResult' (TupleFunctionData b) = decodeTuple b
-
+-}
 
 
 
@@ -149,35 +168,9 @@ printJobResult mVarRes
 -- Typeclass instanciation
 -- ----------------------------------------------------------------------------
 
-instance MapReduce Standalone where
+instance Debug SMapReduce where
 
-  getMySiteId _
-    = do
-      getSiteId
-
-  addJob ji (Standalone sa)
-    = do
-      withMVar sa $
-        \sad ->
-        do
-        r <- startJob ji (sad_JobController sad)
-        case r of
-          (Left m) -> putStrLn m
-          (Right (_,res)) -> printJobResult res
-        return ()
-
-
-  doSingleStep (Standalone sa)
-    = do
-      withMVar sa $
-        \sad ->
-        do
-        putStrLn "doSingleStep"
-        singleStepJobControlling (sad_JobController sad)
-        return ()
-      
-
-  printDebug (Standalone sa)
+  printDebug (SMapReduce sa)
     = do
       withMVar sa $
         \sad ->
@@ -199,3 +192,44 @@ instance MapReduce Standalone where
         reduceFuns <- getReduceActions (sad_TaskProcessor sad)
         putStrLn $ show $ reduceFuns
         putStrLn "--------------------------------------------------------"
+
+
+
+
+instance MapReduce SMapReduce where
+
+
+  getMySiteId _
+    = getSiteId
+
+  
+  getMapReduceType _
+    = return MRTStandalone
+
+  
+  startControlling (SMapReduce sa)
+    = withMVar sa $
+        \sad -> do startJobController (sad_JobController sad)
+  
+  
+  
+  stopControlling (SMapReduce sa)
+    = withMVar sa $
+        \sad -> do stopJobController (sad_JobController sad)
+  
+
+  
+  isControlling (SMapReduce sa)
+    = withMVar sa $
+        \sad -> do isJobControllerRunning (sad_JobController sad)
+  
+
+    
+  doSingleStep (SMapReduce sa)
+    = withMVar sa $
+        \sad -> do singleStepJobControlling (sad_JobController sad)
+
+  
+  doMapReduce ji (SMapReduce sa)
+    = withMVar sa $
+        \sad -> do performJob ji (sad_JobController sad)

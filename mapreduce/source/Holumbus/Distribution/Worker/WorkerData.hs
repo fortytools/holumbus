@@ -29,7 +29,7 @@ import           Control.Concurrent
 import qualified Control.Exception as E
 
 import           Data.Maybe
-import qualified Data.Set as Set
+-- import qualified Data.Set as Set
 
 import           System.Log.Logger
 

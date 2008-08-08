@@ -35,11 +35,12 @@ module Holumbus.MapReduce.JobController
 -- * Job Controller 
 , startJobController
 , stopJobController
+, isJobControllerRunning
 , singleStepJobControlling
 
 -- * performing MapReduce-Jobs
-, startJob
-, stopJob
+-- , startJob
+-- , stopJob
 , performJob
 
 -- * handling Task-Responses
@@ -292,6 +293,16 @@ stopJobController jc
       return (jcd {jcd_ServerThreadId = Nothing}, ())
 
 
+isJobControllerRunning :: JobController -> IO Bool
+isJobControllerRunning jc
+  = withMVar jc $
+      \jcd ->
+      do
+      case (jcd_ServerThreadId jcd) of
+        (Nothing) -> return True
+        (Just _)  -> return False
+
+
 singleStepJobControlling :: JobController -> IO ()
 singleStepJobControlling jc
   = do
@@ -429,42 +440,36 @@ updateTaskOutput tid o jcd = updateTaskOuput' (Map.lookup tid (jcd_TaskMap jcd))
 
 
 startJob 
-  :: JobInfo -> JobController
-  -> IO (Either String (JobId, MVar JobResult))
+  :: JobInfo -> JobController -> IO (JobId, MVar JobResult)
 startJob ji jc
   = do
     modifyMVar jc $
       \jcd ->
       do
       -- test the job info... we don't want false jobs
-      let (b, m) = testJobInfo ji (jcd_MapActionMap jcd) (jcd_ReduceActionMap jcd)
-      if b 
-        then do
-          (jcd',jd, jr) <- newJobData jcd ji
-          return (addJob jd jcd', Right (jd_JobId jd, jr))
-        else do
-          return (jcd, Left m)
+      -- let (b, m) = testJobInfo ji (jcd_MapActionMap jcd) (jcd_ReduceActionMap jcd)
+      -- if b 
+      --   then do
+      (jcd',jd, jr) <- newJobData jcd ji
+      return (addJob jd jcd', (jd_JobId jd, jr))
+      --   else do
+      --    return (jcd, Left m)
 
-
+{-
 stopJob :: JobId -> JobController -> IO ()
 stopJob _ _
   = do
     undefined
+-}
 
 performJob
-  :: JobInfo -> JobController
-  -> IO (Either String JobResult)
+  :: JobInfo -> JobController -> IO JobResult
 performJob ji jc
   = do
     -- start the Job
-    res <- startJob ji jc
-    case res of
-      (Left m) -> return $ Left m
-      (Right (_, mjr)) ->
-        do
-        -- wait until the result is ready
-        r <- withMVar mjr $ \jr -> return jr
-        return $ Right r
+    (_, mjr) <- startJob ji jc
+    -- wait until the result is ready
+    withMVar mjr $ \jr -> return jr
 
 -- ----------------------------------------------------------------------------
 -- Task Processing

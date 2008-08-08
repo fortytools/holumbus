@@ -15,20 +15,39 @@
 
 module Holumbus.MapReduce.MapReduce
 (
-  MapReduce(..)
+  MapReduceType(..)
+, MapReduce(..)
 )
 where
 
-import Holumbus.MapReduce.Types
-import Holumbus.Network.Site
+import           Holumbus.Common.Debug
+import           Holumbus.MapReduce.Types
+import           Holumbus.Network.Site
 
 
-class MapReduce mr where
+data MapReduceType = MRTMaster | MRTWorker | MRTClient | MRTStandalone
+  deriving (Show, Eq, Ord, Enum)
   
-  getMySiteId :: mr -> IO (SiteId)
-  
-  addJob :: JobInfo -> mr -> IO ()
 
+class (Debug mr) => MapReduce mr where
+  
+  -- | prints the siteId of the MapReduce instance 
+  getMySiteId :: mr -> IO SiteId
+  
+  -- | get the Type of the MapReduce instance
+  getMapReduceType :: mr -> IO MapReduceType
+  
+  -- | get the Controlling-Type (normal or singlestep) of the MapReduce instance
+  startControlling :: mr -> IO ()
+
+  -- | get the Controlling-Type (normal or singlestep) of the MapReduce instance
+  stopControlling :: mr -> IO ()
+
+  -- | test, if Controller is running
+  isControlling :: mr -> IO Bool
+  
+  -- | performs a single step of the controller (if mode is singlestep)
   doSingleStep :: mr -> IO ()
   
-  printDebug :: mr -> IO ()
+  -- | starts a MapReduce-Job (blocking while finished)
+  doMapReduce :: JobInfo -> mr -> IO JobResult
