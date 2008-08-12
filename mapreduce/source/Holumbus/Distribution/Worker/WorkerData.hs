@@ -20,7 +20,6 @@ module Holumbus.Distribution.Worker.WorkerData
   
 -- * creation and destruction
 , newWorker
-, closeWorker
 )
 where
 
@@ -34,8 +33,9 @@ import           Data.Maybe
 import           System.Log.Logger
 
 import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.Network.Port as P
 import           Holumbus.Network.Site
+import           Holumbus.Network.Port
+import           Holumbus.Network.Messages
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.MapReduce.TaskProcessor as TP
 import qualified Holumbus.Distribution.Messages as M
@@ -69,8 +69,8 @@ newWorker fs mm rm mp
     nidMVar <- newMVar Nothing
     sid     <- getSiteId
     tid     <- newMVar Nothing
-    st      <- (P.newLocalStream Nothing::IO M.WorkerRequestStream)
-    po      <- ((P.newPortFromStream st)::IO M.WorkerRequestPort)
+    st      <- (newLocalStream Nothing::IO M.WorkerRequestStream)
+    po      <- newPortFromStream st
     mpMVar  <- newMVar mp
     tp      <- TP.newTaskProcessor
     
@@ -82,24 +82,14 @@ newWorker fs mm rm mp
     TP.setTaskErrorHook (sendTaskError mpMVar) tp
     TP.startTaskProcessor tp
     
-    let wd'' = (WorkerData nidMVar sid tid st po mpMVar tp)
+    let wd' = (WorkerData nidMVar sid tid st po mpMVar tp)
     -- first, we start the server, because we can't handle requests without it
-    wd' <- startRequestDispatcher wd''
+    startRequestDispatcher (wd_ServerThreadId wd') st (dispatch wd')
     -- then we try to register a the server
     wd  <- registerWorker wd'
     return wd
 
-
-closeWorker :: WorkerData -> IO ()
-closeWorker wd
-  = do
-    -- shutdown the server thread and the stream
-    wd'  <- unregisterWorker wd
-    wd'' <- stopRequestDispatcher wd'
-    P.closeStream (wd_OwnStream wd'')
-    return ()      
-
-
+{-
 startRequestDispatcher :: WorkerData -> IO WorkerData
 startRequestDispatcher wd 
   = do
@@ -157,7 +147,7 @@ requestDispatcher wd
           return ()
       --threadDelay 10
       requestDispatcher wd
-
+-}
 
 dispatch 
   :: WorkerData 
@@ -182,7 +172,7 @@ dispatch wd msg replyPort
       _ -> 
         handleRequest replyPort (return ()) (\_ -> M.WRspUnknown)
 
-
+{-
 handleRequest
   :: M.WorkerResponsePort
   -> IO a
@@ -200,6 +190,7 @@ handleRequest po fhdl fres
         r <- fhdl
         -- send the response
         P.send po $ fres r
+-}
 
 -- ----------------------------------------------------------------------------
 --
@@ -274,6 +265,13 @@ sendTaskError mvmp td
 
 instance Worker WorkerData where
 
+  closeWorker wd
+    = do
+      -- shutdown the server thread and the stream
+      wd'  <- unregisterWorker wd
+      stopRequestDispatcher (wd_ServerThreadId wd')
+      closeStream (wd_OwnStream wd')
+      return ()
 
   getWorkerRequestPort wd = wd_OwnPort wd
   

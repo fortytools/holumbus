@@ -19,7 +19,12 @@ module Holumbus.Network.PortRegistry.PortRegistryPort
   PortRegistryPort
   
 -- * Creation
-, newPortRegistryPort  
+, newPortRegistryPort
+, newPortRegistryFromData
+, newPortRegistryFromXmlFile 
+
+-- * reexport
+, setPortRegistry 
 )
 where
 

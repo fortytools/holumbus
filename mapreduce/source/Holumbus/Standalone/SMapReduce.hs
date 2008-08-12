@@ -17,10 +17,14 @@ module Holumbus.Standalone.SMapReduce
 (
 -- * Datatypes
   SMapReduce
+, MapReduce(..)
+
+-- * Configurations
+, SMRConf
+, defaultStandaloneConfig
   
 -- * Creation and Initialisation
 , newSMapReduce
-, closeSMapReduce
 )
 where
 
@@ -55,6 +59,19 @@ data SMapReduce = SMapReduce (MVar SMapReduceData)
 instance Show SMapReduce where
   show _ = "SMapReduce"
 
+
+
+-- ---------------------------------------------------------------------------
+-- Configurations
+-- ---------------------------------------------------------------------------
+
+
+data SMRConf = SMRConf {
+   stc_StartControlling :: Bool
+}
+
+defaultStandaloneConfig :: SMRConf
+defaultStandaloneConfig = SMRConf True
 
 
 
@@ -101,11 +118,11 @@ sendTaskError jc td
 
 
 newSMapReduce 
-  :: FS.FileSystem -> MapActionMap -> ReduceActionMap
-  -> Bool
+  :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> SMRConf
   -> IO SMapReduce
-newSMapReduce fs mm rm start
+newSMapReduce fs mm rm conf
   = do
+    let start = stc_StartControlling conf
     -- get a new JobController an TaskProcessor
     jc <- newJobController
     tp <- newTaskProcessor
@@ -132,16 +149,6 @@ newSMapReduce fs mm rm start
     sa <- (newMVar sad)
     return (SMapReduce sa) 
 
-
-closeSMapReduce :: SMapReduce -> IO ()
-closeSMapReduce (SMapReduce sa)
-  = do
-    modifyMVar sa $
-      \sad ->
-      do
-      closeTaskProcessor (sad_TaskProcessor sad)
-      closeJobController (sad_JobController sad)
-      return (sad, ())
       
 {-      
 printJobResult :: MVar JobResult -> IO ()
@@ -197,6 +204,15 @@ instance Debug SMapReduce where
 
 
 instance MapReduce SMapReduce where
+
+
+  closeMapReduce (SMapReduce sa)
+    = modifyMVar sa $
+        \sad ->
+        do
+        closeTaskProcessor (sad_TaskProcessor sad)
+        closeJobController (sad_JobController sad)
+        return (sad, ())
 
 
   getMySiteId _

@@ -18,7 +18,8 @@ module Holumbus.Distribution.DMapReduce
 (
 -- * Datatypes
   DMapReduce
-  
+, MapReduce(..)
+
 -- * Configuration
 , DMRMasterConf(..)
 , defaultMasterConfig
@@ -32,13 +33,13 @@ module Holumbus.Distribution.DMapReduce
 , mkMapReduceMaster
 , mkMapReduceWorker
 , mkMapReduceClient
-, closeDMapReduce
 
 , getMasterRequestPort
 )
 where
 
 import           Control.Concurrent
+
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
@@ -53,6 +54,7 @@ import qualified Holumbus.Distribution.Worker.WorkerData as WD
 import qualified Holumbus.Distribution.Worker.WorkerPort as WP
 import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.Network.Site
+import           Holumbus.Network.Port
 
 
 localLogger :: String
@@ -82,30 +84,29 @@ instance Show DMapReduce where
 
 data DMRMasterConf = DMRMasterConf {
     msc_StartControlling :: Bool
-  , msc_StreamName       :: String
-  , msc_PortNumber       :: String
+  , msc_StreamName       :: StreamName
   } 
 
 defaultMasterConfig :: DMRMasterConf
-defaultMasterConfig = DMRMasterConf True "" ""
+defaultMasterConfig = DMRMasterConf True "MRMaster"
 
 
 data DMRWorkerConf = DMRWorkerConf {
-    woc_StreamName       :: String
-  , woc_PortNumber       :: String
+    woc_StreamName       :: StreamName
+  , woc_SocketId         :: Maybe SocketId
   } 
 
 defaultWorkerConfig :: DMRWorkerConf
-defaultWorkerConfig = DMRWorkerConf "" ""
+defaultWorkerConfig = DMRWorkerConf "MRMaster" Nothing
 
 
 data DMRClientConf = DMRClientConf {
-    clc_StreamName       :: String
-  , clc_PortNumber       :: String
+    clc_StreamName       :: StreamName
+  , clc_SocketId         :: Maybe SocketId
   } 
 
 defaultClientConfig :: DMRClientConf
-defaultClientConfig = DMRClientConf "" ""
+defaultClientConfig = DMRClientConf "MRMaster" Nothing
 
 
 -- ---------------------------------------------------------------------------
@@ -117,11 +118,12 @@ mkMapReduceMaster
   -> IO DMapReduce
 mkMapReduceMaster fs maps reduces conf
   = do
-    let start = msc_StartControlling conf 
+    let start = msc_StartControlling conf
+        sn    = msc_StreamName conf
     sid <- getSiteId
     infoM localLogger $ "initialising master on site " ++ show sid  
     infoM localLogger "creating master"
-    md <- MD.newMaster fs maps reduces start
+    md <- MD.newMaster fs maps reduces start sn
     newDMapReduce MRTMaster md (Nothing::Maybe WP.WorkerPort)
 
 
@@ -133,11 +135,9 @@ mkMapReduceWorker fs maps reduces conf
     sid <- getSiteId
     infoM localLogger $ "initialising worker on site " ++ show sid  
     infoM localLogger "creating worker"
-    p <- undefined
+    p <- newPort (woc_StreamName conf) (woc_SocketId conf)
     let mp = (MP.newMasterPort p)
-    putStrLn "-> worker"
     wd <- WD.newWorker fs maps reduces mp
-    putStrLn "-> distribution"
     newDMapReduce MRTWorker mp (Just wd)
 
 
@@ -149,9 +149,8 @@ mkMapReduceClient conf
     sid <- getSiteId
     infoM localLogger $ "initialising map-reduce-client on site " ++ show sid  
     infoM localLogger "creating client"
-    p <- undefined
+    p <- newPort (clc_StreamName conf) (clc_SocketId conf) 
     let mp = (MP.newMasterPort p)    
-    putStrLn "-> fileSystem"
     newDMapReduce MRTClient mp (Nothing::Maybe WP.WorkerPort)
     
 
@@ -164,11 +163,6 @@ newDMapReduce t m w
     d <- newMVar (DMapReduceData sid t m w)
     return $ DMapReduce d
     
-
-closeDMapReduce :: DMapReduce -> IO ()
-closeDMapReduce _ = undefined
-
-
 
 getMasterRequestPort :: DMapReduce -> IO MSG.MasterRequestPort
 getMasterRequestPort (DMapReduce mr)
@@ -206,6 +200,16 @@ instance Debug DMapReduce where
 
 
 instance MapReduce DMapReduce where
+
+
+  closeMapReduce (DMapReduce mr)
+    = withMVar mr $
+        \(DMapReduceData _ _ m w) ->
+        do
+        case w of
+          (Just w') -> W.closeWorker w'
+          (Nothing) -> return ()
+        M.closeMaster m
 
 
   getMySiteId (DMapReduce mr)

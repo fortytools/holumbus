@@ -131,7 +131,10 @@ writeDirectory :: FileStorage -> IO (FileStorage)
 writeDirectory stor
   = do
     bracket 
-      (openFile (fs_DirfilePath stor) WriteMode)
+      (do
+       debugM localLogger ("writing filestorage directory: " ++ (fs_DirfilePath stor))
+       createDirectoryIfMissing True (fs_Path stor)
+       openFile (fs_DirfilePath stor) WriteMode)
       (hClose) 
       (\hdl ->
         do 

@@ -296,11 +296,7 @@ stopJobController jc
 isJobControllerRunning :: JobController -> IO Bool
 isJobControllerRunning jc
   = withMVar jc $
-      \jcd ->
-      do
-      case (jcd_ServerThreadId jcd) of
-        (Nothing) -> return True
-        (Just _)  -> return False
+      \jcd -> return $ isJust (jcd_ServerThreadId jcd)
 
 
 singleStepJobControlling :: JobController -> IO ()
@@ -459,7 +455,6 @@ startJob ji jc
 stopJob :: JobId -> JobController -> IO ()
 stopJob _ _
   = do
-    undefined
 -}
 
 performJob

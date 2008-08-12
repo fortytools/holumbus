@@ -34,6 +34,8 @@ import           Holumbus.Network.Site
 
 class (MR.MapReduce m) => Master m where
 
+  closeMaster :: m -> IO () 
+
   getMasterRequestPort :: m -> M.MasterRequestPort
   
   registerWorker :: SiteId -> M.WorkerRequestPort -> m -> IO (M.WorkerId, m)

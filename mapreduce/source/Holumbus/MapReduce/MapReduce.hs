@@ -31,6 +31,8 @@ data MapReduceType = MRTMaster | MRTWorker | MRTClient | MRTStandalone
 
 class (Debug mr) => MapReduce mr where
   
+  closeMapReduce :: mr -> IO ()
+  
   -- | prints the siteId of the MapReduce instance 
   getMySiteId :: mr -> IO SiteId
   

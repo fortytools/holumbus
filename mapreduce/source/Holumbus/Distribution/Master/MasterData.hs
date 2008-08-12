@@ -20,14 +20,12 @@ module Holumbus.Distribution.Master.MasterData
   
 -- * creation and destruction
 , newMaster
-, closeMaster
 )
 where
 
 
 import           Control.Concurrent
 import qualified Control.Exception as E
-
 import           Data.List
 import           Data.Maybe
 import qualified Data.Map as Map
@@ -113,11 +111,14 @@ newWorkerController
     wc <- newMVar wcd
     return wc
 
-newMaster :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> Bool -> IO MasterData
-newMaster fs mm rm start
+newMaster
+  :: FS.FileSystem -> MapActionMap -> ReduceActionMap
+  -> Bool -> StreamName
+  -> IO MasterData
+newMaster fs mm rm start sn
   = do
     -- initialize values 
-    st    <- (newGlobalStream "master"::IO M.MasterRequestStream)
+    st    <- (newGlobalStream sn::IO M.MasterRequestStream)
     po    <- newPortFromStream st
 
     -- we can't start the server yet
@@ -143,15 +144,6 @@ newMaster fs mm rm start
     startRequestDispatcher tid  st (dispatch md)
     return md
 
-
-closeMaster :: MasterData -> IO ()
-closeMaster md 
-  = do
-    -- shutdown the server thread and the stream
-    -- md' <- stopRequestDispatcher md
-    stopRequestDispatcher (md_ServerThreadId md)
-    closeStream (md_OwnStream md)
-    return ()      
   
 {-
 startRequestDispatcher :: MasterData -> IO MasterData
@@ -454,6 +446,9 @@ instance Debug MasterData where
 instance MR.MapReduce MasterData where
 
 
+  closeMapReduce md
+    = closeMaster md
+
   getMySiteId _ 
     = getSiteId
 
@@ -496,6 +491,12 @@ instance MR.MapReduce MasterData where
 
 instance Master MasterData where
 
+
+  closeMaster md 
+    = do
+      stopRequestDispatcher (md_ServerThreadId md)
+      closeStream (md_OwnStream md)
+      return ()
 
   getMasterRequestPort md = md_OwnPort md
 

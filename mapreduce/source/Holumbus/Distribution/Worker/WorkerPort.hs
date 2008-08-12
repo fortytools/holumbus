@@ -50,6 +50,8 @@ newWorkerPort p = WorkerPort p
 
 instance Worker WorkerPort where
   
+  closeWorker _ = return ()
+    
   
   getWorkerRequestPort (WorkerPort p) = p
 

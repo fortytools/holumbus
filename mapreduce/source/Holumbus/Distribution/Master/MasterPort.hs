@@ -70,6 +70,10 @@ instance Debug MasterPort where
 instance MapReduce MasterPort where
 
 
+  closeMapReduce md
+    = closeMaster md
+
+
   getMySiteId _
     = getSiteId
 
@@ -132,6 +136,9 @@ instance MapReduce MasterPort where
 
 
 instance Master MasterPort where
+
+
+  closeMaster _ = return ()
 
 
   getMasterRequestPort (MasterPort p) = p

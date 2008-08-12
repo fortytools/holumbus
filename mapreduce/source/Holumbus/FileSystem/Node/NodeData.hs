@@ -29,7 +29,6 @@ where
 import           Prelude hiding (appendFile)
 
 import           Control.Concurrent
-import qualified Control.Exception as E
 import           Control.Monad
 import Data.Maybe
 import           System.IO hiding (appendFile)
@@ -42,10 +41,10 @@ import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FS
-import qualified Holumbus.Network.Port as P
+
 import           Holumbus.Network.Site
-
-
+import           Holumbus.Network.Port
+import           Holumbus.Network.Messages
 
 localLogger :: String
 localLogger = "Holumbus.FileSystem.Node.NodeData"
@@ -85,13 +84,13 @@ newNode cp s
     nidMVar <- newMVar Nothing
     sid     <- getSiteId
     tid     <- newMVar Nothing
-    st      <- (P.newLocalStream Nothing::IO M.NodeRequestStream)
-    po      <- ((P.newPortFromStream st)::IO M.NodeRequestPort)
+    st      <- (newLocalStream Nothing::IO M.NodeRequestStream)
+    po      <- newPortFromStream st
     sMVar   <- newMVar s'
     cMVar   <- newMVar cp            
-    let nd'' = (NodeData nidMVar sid tid st po cMVar sMVar)
+    let nd' = (NodeData nidMVar sid tid st po cMVar sMVar)
     -- first, we start the server, because we can't handle requests without it
-    nd' <- startRequestDispatcher nd''
+    startRequestDispatcher tid st (dispatch nd')
     -- then we try to register a the server
     nd  <- registerNode nd'
     return nd
@@ -102,11 +101,11 @@ closeNode nd
   = do
     -- shutdown the server thread and the stream
     nd'  <- unregisterNode nd
-    nd'' <- stopRequestDispatcher nd'
-    P.closeStream (nd_OwnStream nd'')
+    stopRequestDispatcher (nd_ServerThreadId nd')
+    closeStream (nd_OwnStream nd')
     return ()      
 
-
+{-
 startRequestDispatcher :: NodeData -> IO NodeData
 startRequestDispatcher nd 
   = do
@@ -164,7 +163,7 @@ requestDispatcher nd
           return ()
       --threadDelay 10
       requestDispatcher nd
-
+-}
 
 dispatch 
   :: NodeData 
@@ -205,7 +204,7 @@ dispatch nd msg replyPort
       _ -> 
         handleRequest replyPort (return ()) (\_ -> M.NRspUnknown)
 
-
+{-
 handleRequest
   :: M.NodeResponsePort
   -> IO a
@@ -228,7 +227,7 @@ handleRequest po fhdl fres
         r <- fhdl
         -- send the response
         P.send po $ fres r
-
+-}
 
 
 -- ----------------------------------------------------------------------------

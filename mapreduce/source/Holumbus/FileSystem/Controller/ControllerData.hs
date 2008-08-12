@@ -34,6 +34,7 @@ import           Data.Maybe
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+
 import           System.Log.Logger
 
 import           Holumbus.Common.Utils
@@ -43,9 +44,9 @@ import qualified Holumbus.FileSystem.Node.NodePort as NP
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 
-import qualified Holumbus.Network.Port as P
 import           Holumbus.Network.Site
-
+import           Holumbus.Network.Port
+import           Holumbus.Network.Messages
 
 localLogger :: String
 localLogger = "Holumbus.FileSystem.Controller"
@@ -89,12 +90,13 @@ newController
     -- initialize values
     let maps = ControllerMaps Map.empty Map.empty Map.empty emptySiteMap 0 
     mapMVar <- newMVar maps
-    st    <- (P.newGlobalStream "filesystem"::IO M.ControllerRequestStream)
-    po    <- ((P.newPortFromStream st)::IO M.ControllerRequestPort)
+    st    <- (newGlobalStream "filesystem"::IO M.ControllerRequestStream)
+    po    <- newPortFromStream st
     -- we can't start the server yet
     tid   <- newMVar Nothing
     -- get the internal data
-    cd <- startRequestDispatcher (ControllerData tid st po mapMVar)
+    let cd = (ControllerData tid st po mapMVar)
+    startRequestDispatcher tid st (dispatch cd)
     return cd
 
 
@@ -102,11 +104,11 @@ closeController :: ControllerData -> IO ()
 closeController cd 
   = do
     -- shutdown the server thread and the stream
-    cd' <- stopRequestDispatcher cd
-    P.closeStream (cd_OwnStream cd')
+    stopRequestDispatcher (cd_ServerThreadId cd)
+    closeStream (cd_OwnStream cd)
     return ()      
   
-
+{-
 startRequestDispatcher :: ControllerData -> IO ControllerData
 startRequestDispatcher cd
   = do
@@ -166,7 +168,7 @@ requestDispatcher cd
           return ()
       --threadDelay 10
       requestDispatcher cd
-
+-}
 
 dispatch 
   :: ControllerData 
@@ -214,7 +216,7 @@ dispatch cd msg replyPort
         return ()
       _ -> handleRequest replyPort (return ()) (\_ -> M.CRspUnknown)
 
-
+{-
 handleRequest
   :: M.ControllerResponsePort
   -> IO a
@@ -232,7 +234,7 @@ handleRequest po fhdl fres
         r <- fhdl
         -- send the response
         P.send po $ fres r
-
+-}
 
 
 -- ----------------------------------------------------------------------------

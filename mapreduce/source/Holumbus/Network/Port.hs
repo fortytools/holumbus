@@ -784,8 +784,8 @@ newPortFromStream s
     return $ Port sn (Just soid)
 
 
-newPort :: StreamName -> HostName -> PortNumber -> IO (Port a)
-newPort sn hn po = return $ Port sn (Just $ SocketId hn po)
+newPort :: StreamName -> Maybe SocketId -> IO (Port a)
+newPort sn soid = return $ Port sn soid
 
 
 newGlobalPort :: StreamName -> IO (Port a)

@@ -29,6 +29,8 @@ import qualified Holumbus.MapReduce.Types as T
 
 class Worker w where
 
+  closeWorker :: w -> IO ()
+
   getWorkerRequestPort :: w -> M.WorkerRequestPort
 
   startTask :: T.TaskData -> w -> IO w

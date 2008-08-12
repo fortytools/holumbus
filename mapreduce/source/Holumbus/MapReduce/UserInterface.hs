@@ -51,31 +51,76 @@ runUI mr version
 
 createConsole :: (MR.MapReduce mr) => String -> Console.ConsoleData mr
 createConsole version =
---  Console.addConsoleCommand "step" step "perform a single step" $
---  Console.addConsoleCommand "addJob" addJob "adds a new job" $
---  Console.addConsoleCommand "parseJob" parseJob "parses a job-xml-file and prints the result" $
---  Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
+  Console.addConsoleCommand "site" getMySiteId "" $
+  Console.addConsoleCommand "mrtype" getMapReduceType "" $
+  Console.addConsoleCommand "startC" startControlling "" $
+  Console.addConsoleCommand "stopC" stopControlling "" $
+  Console.addConsoleCommand "isC" isControlling "" $
+  Console.addConsoleCommand "step" doSingleStep "" $
+  Console.addConsoleCommand "mr" doMapReduce "" $
+  Console.addConsoleCommand "parse" parseJob "" $
+  Console.addConsoleCommand "debug" printDebug "" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
   Console.initializeConsole
 
-{-
-step :: (MR.MapReduce mr) => mr -> [String] -> IO ()
-step mr _
-  = do
-    handle (\e -> putStrLn $ show e) $
+ 
+getMySiteId :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+getMySiteId mr _
+  = handle (\e -> putStrLn $ show e) $
+      do
+      s <- MR.getMySiteId mr
+      putStrLn $ show s
+
+
+getMapReduceType :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+getMapReduceType mr _
+  = handle (\e -> putStrLn $ show e) $
+      do
+      t <- MR.getMapReduceType mr
+      putStrLn $ show t
+
+  
+startControlling :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+startControlling mr _
+  = handle (\e -> putStrLn $ show e) $
+      do
+      MR.startControlling mr
+
+
+stopControlling :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+stopControlling mr _
+  = handle (\e -> putStrLn $ show e) $
+      do
+      MR.stopControlling mr
+
+
+isControlling :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+isControlling mr _
+  = handle (\e -> putStrLn $ show e) $
+      do
+      b <- MR.isControlling mr
+      putStrLn $ show b
+
+
+  
+doSingleStep :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+doSingleStep mr _
+  = handle (\e -> putStrLn $ show e) $
       do
       MR.doSingleStep mr
-      return ()
+
+
   
-  
-addJob :: (MR.MapReduce mr) => mr -> [String] -> IO ()
-addJob mr opts
+doMapReduce :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+doMapReduce mr opts
   = do
     handle (\e -> putStrLn $ show e) $
       do
       (mbName,_) <- Console.nextOption opts
       jobInfo <- (loadFromXmlFile (fromJust mbName))::IO T.JobInfo
-      MR.addJob jobInfo mr
+      r <- MR.doMapReduce jobInfo mr
+      putStrLn "RESULT:" 
+      putStrLn $ show r
       return ()
 
 
@@ -88,15 +133,15 @@ parseJob _ opts
       jobInfo <- (loadFromXmlFile (fromJust mbName))::IO T.JobInfo
       putStrLn $ show jobInfo
       return ()
--}
-{-
+
+
 printDebug :: (MR.MapReduce mr) => mr -> [String] -> IO ()
 printDebug mr _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      MR.printDebug mr
--}
+      DEBUG.printDebug mr
+
   
 printVersion :: (MR.MapReduce mr) => String -> mr -> [String] -> IO ()
 printVersion version _ _

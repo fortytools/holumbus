@@ -23,6 +23,9 @@ module Holumbus.Network.PortRegistry.PortRegistryData
 , closePortRegistryData
 
 , getPortRegistryRequestPort
+
+-- * reexport
+, setPortRegistry 
 )
 where
 
