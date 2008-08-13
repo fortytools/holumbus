@@ -66,18 +66,18 @@ data InvertedM = InvertedM
 
 
 instance Binary InvertedM where
-  put (InvertedM parts path nextId _ ) = put parts >> put path >> put nextId
+  put (InvertedM ps pa ni _ ) = put ps >> put pa >> put ni
   get = do
-        parts  <- get
-        path   <- get
-        nextId <- get
-        return $! InvertedM parts path nextId (unsafePerformIO (createConnection path)) 
+        ps  <- get
+        pa   <- get
+        ni <- get
+        return $! InvertedM ps pa ni (unsafePerformIO (createConnection pa)) 
 --         undefined -- liftM2 InvertedM get get 
 
 
 instance MapReducible InvertedM (Context, Word) Occurrences
   where
-    reduceMR i (c,w) os = undefined -- do let idx = singleton c
+    reduceMR _ (_, _) _ = undefined -- do let idx = singleton c
     mergeMR  = undefined
 
 instance Show InvertedM where
