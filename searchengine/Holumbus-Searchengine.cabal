@@ -52,6 +52,7 @@ library
     Holumbus.Index.Common,
     Holumbus.Index.Compression,
     Holumbus.Index.Documents,
+    Holumbus.Index.SmallDocuments,
     Holumbus.Index.Hybrid.Memory,
     Holumbus.Index.Inverted.Memory,
     Holumbus.Index.Inverted.Persistent,

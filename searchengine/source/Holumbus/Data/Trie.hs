@@ -1,4 +1,4 @@
-{-# OPTIONS -fglasgow-exts -fno-warn-type-defaults #-}  -- Moving these to the top due to a bug in GHC.
+{-# OPTIONS -fglasgow-exts -fno-warn-type-defaults -fbang-patterns #-}  -- Moving these to the top due to a bug in GHC.
 
 -- ----------------------------------------------------------------------------
 
@@ -173,11 +173,18 @@ instance (Binary a) => Binary (Trie a) where
   put (End k v t) = put (0 :: Word8) >> put k >> put v >> put t 
   put (Seq k t)   = put (1 :: Word8) >> put k >> put t
 
-  get = do tag <- getWord8
+  get = do !tag <- getWord8
            case tag of
-             0 -> liftM3 End get get get
-             1 -> liftM2 Seq get get
-             _ -> fail "Trie.get: error while decoding StrMap"                       
+             0 -> do
+               !k <- get
+               !v <- get
+               !t <- get
+               return $! End k v t
+             1 -> do
+               !k <- get
+               !t <- get
+               return $! Seq k t
+             _ -> fail "Trie.get: error while decoding StrMap"
 
 -- | /O(1)/ Create an empty trie.
 empty :: Trie a

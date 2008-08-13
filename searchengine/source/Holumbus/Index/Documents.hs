@@ -11,7 +11,7 @@
   Version    : 0.2
 
   A bijective table between documents and their id's. Implemented on top of
-  
+  "Data.Map" and "Data.IntMap".
 -}
 
 -- ----------------------------------------------------------------------------
@@ -72,9 +72,8 @@ instance Binary a => HolDocuments Documents a where
         where
         checkId = if IM.member i d then let ni = l + 1 in ((i, ni):c, IM.insert ni doc d, ni)
                   else (c, IM.insert i doc d, max i l)
-   
-  makeEmpty _ = emptyDocuments
 
+  makeEmpty _ = emptyDocuments
 
   insertDoc ds d = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri d))
     where
@@ -83,11 +82,11 @@ instance Binary a => HolDocuments Documents a where
       newIdToDoc = IM.insert newId d (idToDoc ds)
       newDocToId = M.insert (uri d) newId (docToId ds)
       newId = (lastDocId ds) + 1
-     
+
   updateDoc ds i d = ds 
                      { idToDoc = IM.insert i d (idToDoc ds)
                      , docToId = M.insert (uri d) i (docToId (removeById ds i))
-                     }    
+                     }
 
 
   removeById ds d = maybe ds reallyRemove (lookupById ds d)
@@ -124,7 +123,6 @@ instance Binary a => Binary (Documents a) where
   get = do
         i2d <- get
         return (Documents i2d (idToDoc2docToId i2d) (lastId i2d))
-
 
 -- | Create an empty table.
 emptyDocuments :: Documents a
