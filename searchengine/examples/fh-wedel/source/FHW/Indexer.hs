@@ -8,7 +8,7 @@ import           Holumbus.Build.Index
 import           Holumbus.Index.Common
 import           Holumbus.Index.Documents 
 import           Holumbus.Index.Inverted.Memory(emptyInverted)
--- import           Holumbus.Index.Cache
+import           Holumbus.Index.Cache
 import           Holumbus.Utility
 
 import qualified Data.IntMap as IM
@@ -26,52 +26,28 @@ main
         docsPerIndex   = 250
         idxConfig      = ic_fhw
         crawlerState     = initialCrawlerState idxConfig emptyDocuments customFunction
-    
-{-     
-       crawlerState <- (loadCrawlerState "/home/sms/indexes/CS-FHW.bin" crawlState)
-       crawlerState <- return $ crawlState
-                    { cs_toBeProcessed = S.filter (cs_fCrawlFilter crawlState) (cs_toBeProcessed crawlState)
-                    , cs_docs          = filterDocuments (\d -> (cs_fCrawlFilter crawlState) (uri d)) (cs_docs crawlState)
-                    }
--}                  
-                      
+
     -- ---------------------------------------------------------------------------------------------
     -- CRAWLING
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     docs       <- crawl traceLevel workerThreads docsPerCrawl crawlerState
-    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tmpPath idxConfig)) docs
+    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tempPath idxConfig)) docs
 
---    docs <- strictDecodeFile "/home/sms/indexes/fhw-docs.bin" :: IO (Documents (Maybe Int))
---    localDocs <- return docs
-    
-    writeToXmlFile ( (ic_idxPath idxConfig) ++ "-docs.xml") (docs)
-    writeToBinFile ( (ic_idxPath idxConfig) ++ "-docs.bin") (docs)
-        
-    
+    writeToBinFile ( (ic_indexPath idxConfig) ++ "-docs.bin") (docs)
+
     -- ---------------------------------------------------------------------------------------------
     -- INDEXING
     -- ---------------------------------------------------------------------------------------------
     runX (traceMsg 0 (" indexing  ----------------------------- " ))
 
---    c <- createCache ((ic_idxPath idxConfig) ++ "-cache.db")
+    c <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
 
---    idx <- buildIndex workerThreads traceLevel localDocs idxConfig emptyInverted (Just c)
-    pathes    <- buildSplitIndex 
-                         workerThreads
-                         traceLevel
-                         localDocs
-                         idxConfig
-                         emptyInverted
-                         True
-                         docsPerIndex
-                         
-    idx       <- foldM mergeIndexes' emptyInverted pathes
+    idx <- buildIndex workerThreads traceLevel localDocs idxConfig emptyInverted (Just c)
 
-    
-    writeToXmlFile ( (ic_idxPath idxConfig) ++ "-index.xml") idx
-    writeToBinFile ( (ic_idxPath idxConfig) ++ "-index.bin") idx    
-  
+    writeToXmlFile ( (ic_indexPath idxConfig) ++ "-index.xml") idx
+    writeToBinFile ( (ic_indexPath idxConfig) ++ "-index.bin") idx
+
     return()
     where
       mergeIndexes' i1 f = do
@@ -94,8 +70,8 @@ ic_fhw
                           , "http://www.fh-wedel.de/sonstiges/sitemap/"
                           , "http://www.fh-wedel.de/wir-ueber-uns/mitarbeiter-innen/?no_cache=1"
                           ]
-    , ic_tmpPath        = Just "/tmp/"
-    , ic_idxPath        = "~/fhw"
+    , ic_tempPath       = Just "/tmp/"
+    , ic_indexPath      = "~/fhw"
     , ic_contextConfigs = ccs_fhw
     , ic_readAttributes = standardReadDocumentAttributes
     , ic_fCrawlFilter   = simpleCrawlFilter -- [ "^http://www\\.fh-wedel\\.de"] -- 
@@ -116,7 +92,7 @@ ic_fhw
                                         , ".dot$", ".png$", ".ps$", ".ps.gz$", ".nb$"
                                         , ".swf$", ".JPG$", ".tex$", ".rss$", ".mpg$"
                                         , ".mp3$", ".m3u$", ".java$", ".tgz$", ".svg", ".mdb$" 
-                                        , ".PDF$", ".xls$", ".dta$", ".lst$", ".rar", ".avi$"
+                                        , ".PDF$", ".xls$", ".dta$", ".lst$", ".rar", ".avi$", ".mp4$" 
                                         , "%7Edi", "/~di"
                                         , "ws99/Ausarbeitung/mico/Beispiel"
                                         , "/rundgang/id=", "/vorlesungsplan/id="
@@ -299,7 +275,7 @@ cc_title
   = ContextConfig
     { cc_name         = "title"
     , cc_preFilter    = this
-    , cc_XPath        = "/html/head/title"  
+    , cc_fExtract     = getXPathTrees "/html/head/title"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = const False -- (\s -> length s < 2)
     , cc_addToCache   = False
@@ -311,7 +287,7 @@ cc_meta
   = ContextConfig
     { cc_name         = "meta"
     , cc_preFilter    = this
-    , cc_XPath        = "/html/head/meta[@name='description' or @name='keywords']/@content"  
+    , cc_fExtract     = getXPathTrees "/html/head/meta[@name='description' or @name='keywords']/@content"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = (\s -> length s < 2)
     , cc_addToCache   = False
@@ -325,7 +301,7 @@ cc_content
   = ContextConfig
     { cc_name         = "content"
     , cc_preFilter    = this
-    , cc_XPath        = "//div[@id='col2_content']"  
+    , cc_fExtract     = getXPathTrees "//div[@id='col2_content']"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = (\s -> length s < 2)
     , cc_addToCache   = True
@@ -338,7 +314,7 @@ cc_raw
   = ContextConfig
     { cc_name         = "raw"
     , cc_preFilter    = this
-    , cc_XPath        = "//body"  
+    , cc_fExtract     = getXPathTrees "//body"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = (\s -> length s < 2)
     , cc_addToCache   = False
