@@ -17,12 +17,17 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts -fbang-patterns #-}
+
 module Hayoo.Common where
 
 import Data.Char
 import Data.Binary
 
 import qualified Data.Map as M
+
+import Data.ByteString.UTF8 (ByteString)
+import qualified Data.ByteString.UTF8 as B
 
 import Control.Monad hiding (join)
 
@@ -32,16 +37,18 @@ import Holumbus.Utility
 
 -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 
-  { moduleName :: String      -- ^ The name of the module containing the function, e.g. Data.Map
-  , signature :: String       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
-  , package   :: String
-  , sourceURI :: Maybe String -- ^ An optional URI to the online source of the function.
+  { moduleName :: ByteString      -- ^ The name of the module containing the function, e.g. Data.Map
+  , signature :: ByteString       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+  , package   :: ByteString       -- ^ The name of the package containing the module, e.g. containers
+  , sourceURI :: Maybe ByteString -- ^ An optional URI to the online source of the function.
   } 
   deriving (Show, Eq)
 
 instance XmlPickler FunctionInfo where
-  xpickle = xpWrap (\(m, s, p, r) -> FunctionInfo m s p r, \(FunctionInfo m s p r) -> (m, s, p, r)) xpFunction
+  xpickle = xpWrap (fromTuple, toTuple) xpFunction
     where
+    fromTuple (m, s, p, r) = FunctionInfo (B.fromString m) (B.fromString s) (B.fromString p) (liftM B.fromString $ r)
+    toTuple (FunctionInfo m s p r) = (B.toString m, B.toString s, B.toString p, liftM B.toString $ r)
     xpFunction = xp4Tuple xpModule xpSignature xpPackage xpSource
       where -- We are inside a doc-element, therefore everything is stored as attribute.
       xpModule = xpAttr "module" xpText0
@@ -51,7 +58,14 @@ instance XmlPickler FunctionInfo where
 
 instance Binary FunctionInfo where
   put (FunctionInfo m s p r) = put m >> put s >> put p >> put r
-  get = liftM4 FunctionInfo get get get get
+-- TH 12.08.2008 De-serialize more strict
+--  get = liftM4 FunctionInfo get get get get
+  get = do
+        !m <- get
+        !s <- get
+        !p <- get
+        !r <- get
+        return $! FunctionInfo m s p r
 
 -- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
 -- @a->b->b@. All whitespace will be removed from the resulting string.

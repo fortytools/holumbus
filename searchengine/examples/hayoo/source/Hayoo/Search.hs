@@ -30,6 +30,8 @@ import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
+import qualified Data.ByteString.UTF8 as B
+
 import Network.HTTP (urlDecode)
 
 import Text.XML.HXT.Arrow
@@ -38,8 +40,8 @@ import Text.XML.HXT.DOM.Unicode
 import Holumbus.Index.Inverted.OneFile
        ( Persistent
        )
-import Holumbus.Index.Documents
-       ( Documents
+import Holumbus.Index.SmallDocuments
+       ( SmallDocuments
        )
 import Holumbus.Index.Cache
 import Holumbus.Index.Common
@@ -69,13 +71,14 @@ import System.Log.Logger
 import System.Log.Handler.Simple
 
 import Control.Concurrent  -- For the global MVar
+import Control.Monad
 
 import Hayoo.Common
 import Hayoo.Parser
 
 data Core = Core
   { index :: Persistent
-  , documents :: Documents FunctionInfo
+  , documents :: SmallDocuments FunctionInfo
   , cache :: Cache
   }
 
@@ -119,7 +122,7 @@ loadIndex :: FilePath -> IO Persistent
 loadIndex = loadFromFile
 
 -- | Just an alias with explicit type.
-loadDocuments :: FilePath -> IO (Documents FunctionInfo)
+loadDocuments :: FilePath -> IO (SmallDocuments FunctionInfo)
 loadDocuments = loadFromFile
 
 hayooShader :: ShaderCreator
@@ -207,7 +210,7 @@ hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 3.0 else 1.0) * (
   where
   baseScore = M.foldWithKey calcWeightedScore 0.0 dch
   isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
-  isInPrelude = maybe False (\fi -> moduleName fi == "Prelude") (custom $ document di)
+  isInPrelude = maybe False (\fi -> (B.toString $ moduleName fi) == "Prelude") (custom $ document di)
   calcWeightedScore :: Context -> DocWordHits -> Score -> Score
   calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
     where
@@ -308,7 +311,7 @@ xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContext
 xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
   docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
-  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = (((modLink u, m), (u, t), s), ((pkgLink p, p), (getDesc i,l)))
+  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
     where
     modLink = takeWhile ((/=) '#')
     pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
