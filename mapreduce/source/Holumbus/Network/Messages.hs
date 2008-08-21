@@ -149,7 +149,6 @@ startRequestDispatcher
   :: (Binary a, Show a, Show b, Binary b, RspMsg b) 
   => MVar (Maybe ThreadId)                      -- ^ threadId, to be filled
   -> P.Stream a                                 -- ^ request-Stream (this is where the messages come in)
---  -> (Maybe B.ByteString -> Maybe (P.Port b))   -- ^ reply-Port decoder (this is how to get the reply port from a bytestring
   -> (a -> P.Port b -> IO ())                   -- ^ the dispatcher (create a reply message)
   -> IO ()
 startRequestDispatcher mVarTid reqS dispatcher
@@ -174,7 +173,8 @@ stopRequestDispatcher mVarTid
         (Nothing) -> return Nothing
         (Just i) -> 
           do
-          E.throwDynTo i myThreadId
+          me <- myThreadId
+          E.throwDynTo i me
           yield
           return Nothing
       return (servId',())
@@ -183,37 +183,45 @@ stopRequestDispatcher mVarTid
 requestDispatcher 
   :: (Binary a, Show a, Show b, Binary b, RspMsg b)
   => P.Stream a 
---  -> (Maybe B.ByteString -> Maybe (P.Port b))
   -> (a -> P.Port b -> IO ())
   -> IO ()
 requestDispatcher reqS dispatcher
   = do
     E.handle (\e -> 
       do
-      -- TODO anderen Weg finden, Thread zu beenden!!!
-      errorM localLogger $ "XXX: " ++ show e
+      -- if a normal exception occurs, the dispatcher should not be killed
+      errorM localLogger $ show e
       yield
       requestDispatcher reqS dispatcher
      ) $
       do
-      -- read the next message from the stream (block, if no message arrived)
-      msg <- P.readStreamMsg reqS
-      -- extract the data
-      let dat = P.getMessageData msg
-      debugM localLogger "dispatching new Message... "
-      debugM localLogger $ show dat
-      -- extract the (possible replyport)
-      let responsePort = decodeMaybe $ P.getGenericData msg
-      if (isNothing responsePort)
-        then do
-          warningM localLogger "no reply port in message"
-          yield
-        else do
-          -- do the dispatching in a new process...
-          _ <- forkIO $ dispatcher dat $ (fromJust responsePort)
-          return ()
-      --threadDelay 10
-      requestDispatcher reqS dispatcher
+      -- catch the exception which tells us to kill the dispatcher and kill it
+      E.catchDyn (requestDispatcher') (handler)
+    where
+    handler :: ThreadId -> IO ()
+    handler i 
+      = do
+        putStrLn $ "requestDispatcher normally closed by thread " ++ show i
+    requestDispatcher'
+      = do
+        -- read the next message from the stream (block, if no message arrived)
+        msg <- P.readStreamMsg reqS
+        -- extract the data
+        let dat = P.getMessageData msg
+        debugM localLogger "dispatching new Message... "
+        debugM localLogger $ show dat
+        -- extract the (possible replyport)
+        let responsePort = decodeMaybe $ P.getGenericData msg
+        if (isNothing responsePort)
+          then do
+            warningM localLogger "no reply port in message"
+            yield
+          else do
+            -- do the dispatching in a new process...
+            _ <- forkIO $ dispatcher dat $ (fromJust responsePort)
+            return ()
+        --threadDelay 10
+        requestDispatcher reqS dispatcher 
 
 
 handleRequest
