@@ -88,65 +88,6 @@ newWorker fs am mp
     wd  <- registerWorker wd'
     return wd
 
-{-
-startRequestDispatcher :: WorkerData -> IO WorkerData
-startRequestDispatcher wd 
-  = do
-    servId <- takeMVar (wd_ServerThreadId wd)
-    servId' <- case servId of
-      i@(Just _) -> return i
-      (Nothing) ->
-        do
-        i <- forkIO $ requestDispatcher wd
-        return (Just i)
-    putMVar (wd_ServerThreadId wd) servId'
-    return wd
-
-
-stopRequestDispatcher :: WorkerData -> IO WorkerData
-stopRequestDispatcher wd 
-  = do
-    servId <- takeMVar (wd_ServerThreadId wd)
-    servId' <- case servId of
-      (Nothing) -> return Nothing
-      (Just i) -> 
-        do
-        E.throwDynTo i myThreadId
-        yield
-        return Nothing
-    putMVar (wd_ServerThreadId wd) servId'
-    return wd
-
-requestDispatcher :: WorkerData -> IO ()
-requestDispatcher wd
-  = do
-    E.handle (\e -> 
-      do
-      errorM localLogger $ show e
-      yield
-      requestDispatcher wd
-     ) $
-      do
-      -- read the next message from the stream (block, if no message arrived)
-      let stream = (wd_OwnStream wd)
-      msg <- P.readStreamMsg stream
-      -- extract the data
-      let dat = P.getMessageData msg
-      debugM localLogger "dispatching new Message... "
-      debugM localLogger $ show dat
-      -- extract the (possible replyport)
-      let replyPort = M.decodeWorkerResponsePort $ P.getGenericData msg
-      if (isNothing replyPort)
-        then do
-          errorM localLogger "no reply port in message"
-          yield
-        else do
-          -- do the dispatching in a new process...
-          _ <- forkIO $ dispatch wd dat $ fromJust replyPort
-          return ()
-      --threadDelay 10
-      requestDispatcher wd
--}
 
 dispatch 
   :: WorkerData 
@@ -171,25 +112,6 @@ dispatch wd msg replyPort
       _ -> 
         handleRequest replyPort (return ()) (\_ -> M.WRspUnknown)
 
-{-
-handleRequest
-  :: M.WorkerResponsePort
-  -> IO a
-  -> (a -> M.WorkerResponseMessage) 
-  -> IO ()
-handleRequest po fhdl fres
-  = do
-    -- in case, we can't send the error...
-    E.handle (\e -> errorM localLogger $ show e) $ do
-      do
-      -- in case our operation fails, we send a failure-response
-      E.handle (\e -> P.send po (M.WRspError $ show e)) $
-        do
-        -- our action, might raise an exception
-        r <- fhdl
-        -- send the response
-        P.send po $ fres r
--}
 
 -- ----------------------------------------------------------------------------
 --

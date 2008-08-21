@@ -201,7 +201,7 @@ requestDispatcher reqS dispatcher
     handler :: ThreadId -> IO ()
     handler i 
       = do
-        putStrLn $ "requestDispatcher normally closed by thread " ++ show i
+        debugM localLogger $ "requestDispatcher normally closed by thread " ++ show i
     requestDispatcher'
       = do
         -- read the next message from the stream (block, if no message arrived)
