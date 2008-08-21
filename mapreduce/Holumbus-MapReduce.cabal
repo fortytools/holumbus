@@ -50,12 +50,12 @@ library
                 , Holumbus.Distribution.Master.MasterPort
                 , Holumbus.Standalone.SMapReduce
                 , Holumbus.Data.AccuMap
+                , Holumbus.Data.KeyMap
                 , Holumbus.Data.MultiMap
                 , Holumbus.MapReduce.MapReduce
                 , Holumbus.MapReduce.JobController
                 , Holumbus.MapReduce.TaskProcessor
                 , Holumbus.MapReduce.Types
-                , Holumbus.MapReduce.TypeCheck
                 , Holumbus.MapReduce.Demo
                 , Holumbus.MapReduce.UserInterface
                 , Holumbus.FileSystem.UserInterface

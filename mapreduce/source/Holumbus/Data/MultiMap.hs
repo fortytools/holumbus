@@ -20,6 +20,7 @@ module Holumbus.Data.MultiMap
 , null
 , insert
 , insertSet
+, insertKeys
 , lookup
 , keys
 , elems
@@ -79,6 +80,11 @@ insertSet k newSet mm@(MM m) =
   where
     altering Nothing = Just newSet
     altering (Just s) = Just $ Set.union newSet s
+
+
+-- | inserts multiple keys with the same values
+insertKeys :: (Ord k, Ord a) => [k] -> Set.Set a -> MultiMap k a -> MultiMap k a
+insertKeys ks a m = foldl (\m' k -> insertSet k a m') m ks 
 
 
 -- | gets all different elements for one key or an empty set

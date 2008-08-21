@@ -15,16 +15,13 @@
 
 module Holumbus.MapReduce.Demo
 (
-  demoMapActions
-, demoReduceActions
+  demoActions
 , demoJob
 , createDemoFiles
 )
 where
 
 import           Data.Binary
-import qualified Data.ByteString.Lazy as B
-import qualified Data.Map as Map
 
 import           System.Log.Logger
 
@@ -32,77 +29,41 @@ import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.Storage as S
 
 import qualified Holumbus.Data.AccuMap as AMap
+import qualified Holumbus.Data.KeyMap as KMap
 import           Holumbus.MapReduce.Types
 
 
 localLogger :: String
 localLogger = "Holumbus.MapReduce.Demo"
 
+
 -- ----------------------------------------------------------------------------
--- MapFunctions
+-- Word-Frequency
 -- ----------------------------------------------------------------------------
 
 
-mapId :: () -> B.ByteString -> B.ByteString -> IO [(B.ByteString, B.ByteString)]
-mapId _ k v
-  = do
-    return [(k, v)]
-
-
-mapWordCount :: () -> String -> String -> IO [(String, Integer)]
-mapWordCount _ k v
+mapWordFrequency :: () -> String -> String -> IO [(String, Integer)]
+mapWordFrequency _ k v
   = do 
-    infoM localLogger "mapCountWords"
+    infoM localLogger "mapWordFrequency"
     debugM localLogger $ show ("input: " ++ k ++ " - " ++ show v)
     let v' = map (\s -> (s,1)) $ words v
     debugM localLogger $ show $ "output: " ++ show v'
     return v'
 
 
-
--- ----------------------------------------------------------------------------
--- ReduceFunctions
--- ----------------------------------------------------------------------------
-
-reduceId :: () -> B.ByteString -> [B.ByteString] -> IO (Maybe B.ByteString)
-reduceId _ k _ = return $ Just k
-
-reduceWordCount :: () -> String -> [Integer] -> IO (Maybe Integer)
-reduceWordCount _ k vs 
+reduceWordFrequency :: () -> String -> [Integer] -> IO (Maybe Integer)
+reduceWordFrequency _ k vs 
   = do
-    infoM localLogger "reduce/combine CountWords"
+    infoM localLogger "reduce/combine WordFrequency"
     debugM localLogger $ show ("input: " ++ k ++ " - " ++ show vs)
     let s = sum vs
     debugM localLogger $ show $ "output: " ++ show s
     return (Just s)
     
   
-
--- ----------------------------------------------------------------------------
--- MergeFunctions
--- ----------------------------------------------------------------------------
-
-mergeX :: () ->  [(B.ByteString, B.ByteString)] -> IO [(B.ByteString, [B.ByteString])]
-mergeX o ls = return $ mapGroupByKey o ls
-
-mergeWordCount :: () -> [(String,Integer)] -> IO [(String,[Integer])]
-mergeWordCount o ls = return $ mapGroupByKey o ls
-
-mapGroupByKey :: (Ord k2) => a -> [(k2, v2)] -> [(k2,[v2])]
-mapGroupByKey _ ls = AMap.toList $ AMap.fromTupleList ls 
-
-
-
--- ----------------------------------------------------------------------------
--- PartitionFunctions
--- ----------------------------------------------------------------------------  
-
-partitionId :: () -> Int -> [(B.ByteString, B.ByteString)] -> IO [(Int,[(B.ByteString, B.ByteString)])]
-partitionId _ n vs
-  = return [(n, vs)]
-
-partitionWordCount :: () -> Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
-partitionWordCount _ _ ls 
+partitionWordFrequency :: () -> Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
+partitionWordFrequency _ _ ls 
   = do
     infoM localLogger "partitionCountWords"
     debugM localLogger $ show ls
@@ -117,26 +78,31 @@ partitionWordCount _ _ ls
 -- Actions
 -- ----------------------------------------------------------------------------
 
-
-demoMapActions :: MapActionMap
-demoMapActions 
-  = Map.insert "WORDCOUNT" wordCount $
-    Map.insert "ID" idFct $
-    Map.empty
+wordFrequencyAction
+  :: ActionConfiguration 
+       ()                                          -- state
+       String String                               -- k1, v1
+       String Integer                              -- k2, v2
+       Integer                                     -- v3 == v2
+       Integer                                     -- v4
+wordFrequencyAction
+  = (defaultActionConfiguration "WORDFREQUENCY")
+        { ac_Map     = Just mapAction
+        , ac_Combine = Nothing
+        , ac_Reduce  = Just reduceAction
+        }
     where
-    wordCount = mkMapAction "WORDCOUNT" "counts the words in a text" mapWordCount partitionWordCount defaultActionConnector
-    idFct = mkMapAction "ID" "foo" mapId partitionId defaultActionConnector 
+      mapAction 
+        = (defaultMapConfiguration mapWordFrequency)
+            { mc_Partition = partitionWordFrequency }
+      reduceAction
+        = (defaultReduceConfiguration reduceWordFrequency)
+            { rc_Partition = partitionWordFrequency }
 
-
-demoReduceActions :: ReduceActionMap
-demoReduceActions
-  = Map.insert "WORDCOUNT" wordCount $
-    Map.insert "ID" idFct $ 
-    Map.empty
-    where
-    wordCount = mkReduceAction "WORDCOUNT" "counts the words in a text" mergeWordCount reduceWordCount partitionWordCount defaultActionConnector
-    idFct = mkReduceAction "ID" "foo" mergeX reduceId partitionId defaultActionConnector
-
+demoActions :: ActionMap
+demoActions
+  = KMap.insert (readActionConfiguration wordFrequencyAction) $
+    KMap.empty
 
 
 -- ----------------------------------------------------------------------------
@@ -146,14 +112,17 @@ demoReduceActions
   
 demoJob :: JobInfo
 demoJob = JobInfo 
-  "demo-WordcountJob"
+  "demo-Word-Frequency-Job"
   (encode ())
-  (Just $ "WORDCOUNT")
-  (Just $ "WORDCOUNT")
-  Nothing
+  (Just $ "WORDFREQUENCY")
+  (Just $ "WORDFREQUENCY")
+  (Just $ "WORDFREQUENCY")
   (Just TOTList)
   (Just TOTText)
   Nothing
+  5
+  1
+  1
   ([TupleFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
    ,TupleFunctionData (encodeTuple ("text2", "aaa bb"))
    ,TupleFunctionData (encodeTuple ("text2", "aaa dd dd"))
@@ -172,5 +141,6 @@ createDemoFiles :: FS.FileSystem -> IO ()
 createDemoFiles fs
   = do
     -- let c = S.BinaryFile (encode ("foo","a aa aaa b bb bbb"))
-    let c = S.TextFile "harddisk file"
+    -- let c = S.TextFile "harddisk file"
+    let c = encode "harddisk file"
     FS.createFile "file1.txt" c fs

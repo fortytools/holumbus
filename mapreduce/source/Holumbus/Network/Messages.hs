@@ -72,12 +72,14 @@ data MessageException
 
     
 talkWithNode 
-  :: (Show a, Binary a, Show b, Binary b, RspMsg b) => P.Port a    -- ^ port to which the message will be send
-  -> P.Stream b 
-  -> a                                 -- ^ message to be send
+  :: (Show a, Binary a, Show b, Binary b, RspMsg b)
+  => P.Port a          -- ^ port to which the message will be send
+  -> P.Stream b        -- ^ the stream from which the response is read
+  -> Int               -- ^ timeout for the response in nanoseconds (1000000 = 1 sec) (0 = wait for ever)
+  -> a                 -- ^ message to be send
   -> (b -> IO c)       -- ^ handler function for the response 
   -> IO c
-talkWithNode p respStream m hdlFct
+talkWithNode p respStream timeout m hdlFct
   = do
     respPort <- P.newPortFromStream respStream
     -- send the request to the node
@@ -85,7 +87,7 @@ talkWithNode p respStream m hdlFct
     P.sendWithGeneric p m (encode respPort)
     --wait for the response
     debugM localLogger $ "waiting for response for: " ++ show m 
-    response <- P.tryWaitReadStream respStream P.time30
+    response <- P.tryWaitReadStream respStream timeout
     -- r' <- P.readStream respStream
     -- let response = Just r'
     debugM localLogger "response Message..."
@@ -127,12 +129,13 @@ performPortAction
   :: (Show a, Binary a, Show b, Binary b, RspMsg b) 
   => P.Port a             -- ^ request port
   -> P.Stream b           -- ^ response Stream 
+  -> Int                  -- ^ timeout for the response in nanoseconds (1000000 = 1 sec) (0 = wait for ever)
   -> a                    -- ^ request message
   -> (b -> IO (Maybe c))  -- ^ response handler
   -> IO c
-performPortAction reqPo resStr reqMsg rspHdl
+performPortAction reqPo resStr timeout reqMsg rspHdl
   = do
-    talkWithNode reqPo resStr reqMsg $
+    talkWithNode reqPo resStr timeout reqMsg $
       basicResponseHandler rspHdl
   
   
@@ -187,7 +190,8 @@ requestDispatcher reqS dispatcher
   = do
     E.handle (\e -> 
       do
-      errorM localLogger $ show e
+      -- TODO anderen Weg finden, Thread zu beenden!!!
+      errorM localLogger $ "XXX: " ++ show e
       yield
       requestDispatcher reqS dispatcher
      ) $

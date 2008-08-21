@@ -26,8 +26,7 @@ module Holumbus.MapReduce.TaskProcessor
 , newTaskProcessor
 , closeTaskProcessor
 , setFileSystemToTaskProcessor
-, setMapActionMap
-, setReduceActionMap
+, setActionMap
 , setTaskCompletedHook  
 , setTaskErrorHook
 
@@ -37,8 +36,8 @@ module Holumbus.MapReduce.TaskProcessor
 
 -- * Info an Debug
 , listTaskIds 
-, getMapActions
-, getReduceActions
+, getActions
+, getActionNames
 
 
 -- * Task Creation and Destruction
@@ -58,6 +57,7 @@ import           Data.Maybe
 import           Data.Typeable
 import           System.Log.Logger
 
+import qualified Holumbus.Data.KeyMap as KMap
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.FileSystem.FileSystem as FS
 
@@ -108,8 +108,7 @@ data TaskProcessorData = TaskProcessorData {
   -- configuration
   , tpd_MaxTasks          :: Int
   , tpd_Functions         :: TaskProcessorFunctions
-  , tpd_MapActionMap      :: MapActionMap
-  , tpd_ReduceActionMap   :: ReduceActionMap
+  , tpd_ActionMap         :: ActionMap
   -- task processing
   , tpd_TaskQueue         :: [TaskData]
   , tpd_CompletedTasks    :: Set.Set TaskData
@@ -143,8 +142,7 @@ defaultTaskProcessorData = tpd
       Nothing
       1
       funs
-      Map.empty
-      Map.empty
+      KMap.empty
       []
       Set.empty
       Set.empty
@@ -175,18 +173,11 @@ setFileSystemToTaskProcessor fs tp
     \tpd -> return $ (tpd { tpd_FileSystem = Just fs }, ())
   
 
--- | adds a MapAction to the TaskProcessor
-setMapActionMap :: MapActionMap -> TaskProcessor -> IO ()
-setMapActionMap m tp
+-- | adds an ActionMap to the TaskProcessor
+setActionMap :: KMap.KeyMap ActionData -> TaskProcessor -> IO ()
+setActionMap m tp
   = modifyMVar tp $
-    \tpd -> return $ (tpd { tpd_MapActionMap = m }, ())
-
-
--- | adds a ReduceAction to the TaskProcessor
-setReduceActionMap :: ReduceActionMap -> TaskProcessor -> IO ()
-setReduceActionMap m tp
-  = modifyMVar tp $
-      \tpd -> return $ (tpd { tpd_ReduceActionMap = m }, ())
+    \tpd -> return $ (tpd { tpd_ActionMap = m }, ())
 
 
 setTaskCompletedHook :: TaskResultFunction -> TaskProcessor -> IO ()  
@@ -306,18 +297,19 @@ listTaskIds tp
       \tpd -> return $ getTasksIds tpd
 
 
--- | Lists all Map-Actions with Name, Descrition and Type
-getMapActions :: TaskProcessor -> IO [MapActionData]
-getMapActions tp
+-- | Lists all Actions with Name, Descrition and so on
+getActions :: TaskProcessor -> IO [ActionData]
+getActions tp
   = withMVar tp $
-      \tpd -> return $ Map.elems (tpd_MapActionMap tpd)
+      \tpd -> return $ KMap.elems (tpd_ActionMap tpd)
 
 
--- | Lists all Reduce-Actions with Name, Descrition and Type
-getReduceActions :: TaskProcessor -> IO [ReduceActionData]
-getReduceActions tp 
-  = withMVar tp $
-      \tpd -> return $ Map.elems (tpd_ReduceActionMap tpd) 
+-- | Lists all Names of the Actions
+getActionNames :: TaskProcessor -> IO [ActionName]
+getActionNames tp
+  = do
+    actions <- getActions tp
+    return $ map (\a -> ad_Name a) actions
 
 
 -- ----------------------------------------------------------------------------
@@ -483,11 +475,7 @@ runTask td tp
         do
         yield
         -- threadDelay 5000000
-        td' <- case (td_Type td) of
-          TTMap     -> performMapTask td tp
-          TTCombine -> performCombineTask td tp 
-          TTReduce  -> performReduceTask td tp
-          _         -> E.throwDyn UnkownTaskException
+        td' <- performTask td tp
         reportCompletedTask td' tp
       
 -- not used, because we are doi    
@@ -516,10 +504,45 @@ sendTasksResults set fun
 
 
 -- ----------------------------------------------------------------------------
--- Contruction and Initialisation
+-- Performing a Task
 -- ----------------------------------------------------------------------------
 
+-- | doing a map task
+performTask :: TaskData -> TaskProcessor-> IO TaskData
+performTask td tp
+  = do
+    infoM taskLogger $ "Task " ++ show (td_TaskId td)
+    debugM taskLogger $ "input td: " ++ show td
+    
+    -- get all functions
+    (ad, parts, bin, mbfs, opt) <- withMVar tp $
+      \tpd ->
+      do
+      let action     = KMap.lookup (td_Action td) (tpd_ActionMap tpd)
+      let parts      = (td_Parts td)
+      let input      = (td_Input td)
+      let option     = (td_Option td)
+      let filesystem = (tpd_FileSystem tpd)
+      return (action, parts, input, filesystem, option)
+    
+    case ad of
+      (Nothing) ->
+        -- TODO throw execption here
+        return td
+      (Just a)  ->
+        do
+        action <- case (getActionForTaskType (td_Type td) a) of
+          (Just a') -> return a'
+          (Nothing) -> E.throwDyn UnkownTaskException
+        
+        let env = mkActionEnvironment td mbfs
+        bout <- action env opt parts bin
+        let td' = td { td_Output = bout }
+        debugM taskLogger $ "output td: " ++ show td'
+        return td'
 
+
+{-
 -- | doing a map task
 performMapTask :: TaskData -> TaskProcessor-> IO TaskData
 performMapTask td tp
@@ -531,7 +554,7 @@ performMapTask td tp
     (ad, bin, mbfs, opt) <- withMVar tp $
       \tpd ->
       do
-      let action     = Map.lookup (td_Action td) (tpd_MapActionMap tpd)
+      let action     = Map.lookup (td_Action td) (tpd_ActionMap tpd)
       let input      = (td_Input td)
       let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)
@@ -561,7 +584,7 @@ performCombineTask td tp
     (ad, bin, mbfs, opt) <- withMVar tp $
       \tpd ->
       do
-      let action     = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
+      let action     = Map.lookup (td_Action td) (tpd_ActionMap tpd)
       let input      = (td_Input td)
       let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)
@@ -592,7 +615,7 @@ performReduceTask td tp
     (ad, bin, mbfs, opt) <- withMVar tp $
       \tpd ->
       do
-      let action     = Map.lookup (td_Action td) (tpd_ReduceActionMap tpd)
+      let action     = Map.lookup (td_Action td) (tpd_ActionMap tpd)
       let input      = (td_Input td)
       let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)
@@ -610,3 +633,4 @@ performReduceTask td tp
         let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
         return td'
+-}

@@ -85,7 +85,7 @@ instance PortRegistry PortRegistryPort where
     = do
       debugM localLogger "registerPort start"
       r <- withStream $
-        \s -> performPortAction p s (PRReqRegister sn soid) $
+        \s -> performPortAction p s time30 (PRReqRegister sn soid) $
           \rsp ->
           do
           case rsp of
@@ -99,7 +99,7 @@ instance PortRegistry PortRegistryPort where
     = do
       debugM localLogger "unregisterPort start"
       r <- withStream $
-        \s -> performPortAction p s (PRReqUnregister sn) $
+        \s -> performPortAction p s time30 (PRReqUnregister sn) $
           \rsp ->
           do
           case rsp of
@@ -112,7 +112,7 @@ instance PortRegistry PortRegistryPort where
     = do
       debugM localLogger "lookupPort start"
       r <- withStream $
-        \s -> performPortAction p s (PRReqLookup sn) $
+        \s -> performPortAction p s time30 (PRReqLookup sn) $
           \rsp ->
           do
           case rsp of
@@ -126,7 +126,7 @@ instance PortRegistry PortRegistryPort where
     = do
       debugM localLogger "getPorts start"
       r <- withStream $
-        \s -> performPortAction p s (PRReqGetPorts) $
+        \s -> performPortAction p s time30 (PRReqGetPorts) $
           \rsp ->
           do
           case rsp of

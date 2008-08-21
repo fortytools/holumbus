@@ -29,8 +29,8 @@ module Holumbus.MapReduce.JobController
 , closeJobController
 , setFileSystemToJobController
 , setTaskSendHook
-, setMapActions
-, setReduceActions
+-- , setMapActions
+-- , setReduceActions
 
 -- * Job Controller 
 , startJobController
@@ -94,13 +94,13 @@ newJobData jcd info
 
 newTaskData 
   :: JobControllerData 
-  -> JobId -> TaskType -> TaskState -> B.ByteString -> [FunctionData] -> FunctionName -> TaskOutputType 
+  -> JobId -> TaskType -> TaskState -> B.ByteString -> Int -> [FunctionData] -> ActionName -> TaskOutputType 
   -> IO (JobControllerData, TaskData)
-newTaskData jcd jid tt ts opt i a ot
+newTaskData jcd jid tt ts opt n i a ot
   = do
     let tid = jcd_NextTaskId jcd
     let jcd' = jcd { jcd_NextTaskId = (tid+1) }
-    return (jcd', TaskData jid tid tt ts opt i [] ot a) 
+    return (jcd', TaskData jid tid tt ts opt n i [] ot a) 
     
 data TaskSendResult = TSRSend | TSRNotSend | TSRError
   deriving (Show, Eq, Ord, Enum)    
@@ -166,8 +166,8 @@ data JobControllerData = JobControllerData {
   , jcd_NextTaskId     :: TaskId
   , jcd_Functions      :: JobControlFunctions
   
-  , jcd_MapActionMap   :: MapActionMap
-  , jcd_ReduceActionMap :: ReduceActionMap
+  -- , jcd_MapActionMap   :: MapActionMap
+  -- , jcd_ReduceActionMap :: ReduceActionMap
   
   -- job control
   , jcd_JobMap         :: ! JobMap
@@ -208,8 +208,8 @@ defaultJobControllerData = jcd
     jcf
     Map.empty
     Map.empty
-    Map.empty
-    Map.empty
+    -- Map.empty
+    -- Map.empty
     MMap.empty
     MMap.empty
     MMap.empty
@@ -246,7 +246,7 @@ setTaskSendHook f jc
       let funs' = funs { jcf_TaskSend = f }
       return (jcd { jcd_Functions = funs' }, ())
 
-
+{-
 setMapActions :: MapActionMap -> JobController -> IO ()
 setMapActions mm jc
   = modifyMVar jc $ \jcd -> return (jcd {jcd_MapActionMap = mm }, ())
@@ -255,7 +255,7 @@ setMapActions mm jc
 setReduceActions :: ReduceActionMap -> JobController -> IO ()
 setReduceActions rm jc
   = modifyMVar jc $ \jcd -> return (jcd {jcd_ReduceActionMap = rm }, ())
-
+-}
 
 -- ----------------------------------------------------------------------------
 -- server functions
@@ -303,11 +303,7 @@ singleStepJobControlling :: JobController -> IO ()
 singleStepJobControlling jc
   = do
     singleStepAllowed <- withMVar jc $ 
-      \jcd -> 
-      do
-      case (jcd_ServerThreadId jcd) of
-        (Nothing) -> return True
-        (Just _)  -> return False
+      \jcd -> return $ isNothing (jcd_ServerThreadId jcd)
     if singleStepAllowed then doProcessing jc False else return ()
 
 -- ----------------------------------------------------------------------------
@@ -587,7 +583,7 @@ hasPhase :: JobData -> Bool
 hasPhase jd = isJust $ getCurrentTaskAction jd
 
 
-getCurrentTaskAction :: JobData -> Maybe FunctionName
+getCurrentTaskAction :: JobData -> Maybe ActionName
 getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   where
   getTaskAction' ji JSMap     = ji_MapAction ji
@@ -604,17 +600,15 @@ getCurrentTaskOutputType jd = getTaskOutputType' (jd_Info jd) (jd_State jd)
   getTaskOutputType' ji JSReduce  = maybe TOTText id (ji_ReduceOutputType ji)
   getTaskOutputType' _  _         = TOTList
 
-{-
-performPartition :: JobControllerData -> JobData -> [FunctionData] -> IO [FunctionData]
-performPartition jcd jd bin
-  = do
-    let pmap = jcd_PartitionMap jcd
-    let fn = getCurrentPartitionFunction jd
-    let maybeP = dispatchPartitionFunction pmap fn
-    let p = maybe (\t -> return t) id maybeP
-    bout <- p bin
-    return bout
--}
+
+getCurrentTaskPartValue :: JobData -> Int
+getCurrentTaskPartValue jd = getTaskPartValue' (jd_Info jd) (jd_State jd)
+  where
+  getTaskPartValue' ji JSMap     = ji_MapPart ji
+  getTaskPartValue' ji JSCombine = ji_CombinePart ji
+  getTaskPartValue' ji JSReduce  = ji_ReducePart ji
+  getTaskPartValue' _  _         = 1
+
 
 createTasks :: JobControllerData -> JobData -> IO JobControllerData
 createTasks jcd jd
@@ -630,9 +624,10 @@ createTasks jcd jd
         let a = fromJust $ getCurrentTaskAction jd
         let ot = getCurrentTaskOutputType jd
         let opts = ji_Option $ jd_Info jd
+        let n = getCurrentTaskPartValue jd
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle opts i a ot) jcd inputList
+        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle opts n i a ot) jcd inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
         return jcd''

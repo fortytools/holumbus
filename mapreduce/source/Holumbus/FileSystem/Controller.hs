@@ -39,6 +39,8 @@ import qualified Holumbus.FileSystem.Storage as S
 
 class Controller c where
   
+  closeController :: c -> IO ()
+  
   -- only debug
   getFileIds :: Integer -> c -> IO ()
   

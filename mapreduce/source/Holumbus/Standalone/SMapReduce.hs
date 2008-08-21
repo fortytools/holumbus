@@ -118,9 +118,9 @@ sendTaskError jc td
 
 
 newSMapReduce 
-  :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> SMRConf
+  :: FS.FileSystem -> ActionMap -> SMRConf
   -> IO SMapReduce
-newSMapReduce fs mm rm conf
+newSMapReduce fs am conf
   = do
     let start = stc_StartControlling conf
     -- get a new JobController an TaskProcessor
@@ -129,13 +129,10 @@ newSMapReduce fs mm rm conf
     
     -- configure the JobController
     setTaskSendHook (sendStartTask tp) jc
-    setMapActions mm jc
-    setReduceActions rm jc
     
     -- configure the TaskProcessor
     setFileSystemToTaskProcessor fs tp
-    setMapActionMap mm tp
-    setReduceActionMap rm tp
+    setActionMap am tp
     setTaskCompletedHook (sendTaskCompleted jc) tp
     setTaskErrorHook (sendTaskError jc) tp
      
@@ -191,14 +188,9 @@ instance Debug SMapReduce where
         showTP <- printTaskProcessor (sad_TaskProcessor sad)
         putStrLn $showTP
         putStrLn "--------------------------------------------------------"
-        putStrLn "Map-Functions"
-        mapFuns <- getMapActions (sad_TaskProcessor sad)
-        putStrLn $ show $ mapFuns
-        putStrLn "--------------------------------------------------------"
-        putStrLn "Reduce-Functions"
-        reduceFuns <- getReduceActions (sad_TaskProcessor sad)
-        putStrLn $ show $ reduceFuns
-        putStrLn "--------------------------------------------------------"
+        putStrLn "Actions"
+        actions <- getActions (sad_TaskProcessor sad)
+        putStrLn $ show $ actions
 
 
 

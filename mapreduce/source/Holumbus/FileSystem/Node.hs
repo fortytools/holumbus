@@ -34,6 +34,8 @@ import qualified Holumbus.FileSystem.Storage as S
 
 class Node n where
 
+  closeNode :: n -> IO ()
+
   getNodeRequestPort :: n -> M.NodeRequestPort
 
   createFile :: S.FileId -> S.FileContent -> n -> IO n

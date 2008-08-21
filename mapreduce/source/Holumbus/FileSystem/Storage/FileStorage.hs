@@ -91,19 +91,14 @@ isMember dir i = Map.member i dir
 -- -----------------------------------------------------------------------------
 
 
-defaultDirectoryFileName :: FilePath
-defaultDirectoryFileName = "directory"
-
 
 -- | Create a new filestorage, which is empty an contains no files 
 newFileStorage 
   :: FilePath           -- ^ the path of the filestorage on disk 
-  -> (Maybe FilePath)   -- ^ the name of the directory file, if "Nothing" the default name will be used
+  -> FilePath           -- ^ the name of the directory file
   -> FileStorage
 newFileStorage path name 
-  = MkFileStorage path (path ++ dirName) Map.empty
-  where
-    dirName = maybe defaultDirectoryFileName id name
+  = MkFileStorage path (path ++ name) Map.empty
 
 
 -- | Loads the filestorage from disk      
@@ -156,10 +151,11 @@ instance S.Storage FileStorage where
 
   createFile stor fn c 
     = do
-      case c of
-        (S.TextFile t) -> writeToTextFile path t
-        (S.ListFile l) -> writeToListFile path l
-        (S.BinFile  b) -> writeToBinFile path b
+      writeToBinFile path c
+      -- case c of
+      --  (S.TextFile t) -> writeToTextFile path t
+      --  (S.ListFile l) -> writeToListFile path l
+      --  (S.BinFile  b) -> writeToBinFile path b
       dat <- S.createFileData fn c
       writeDirectory $ stor {fs_Directory = newdir dat} 
       where
@@ -186,18 +182,19 @@ instance S.Storage FileStorage where
     = do
       if isMember (fs_Directory stor) i
         then do
-          metaData <- S.getFileData stor i
-          if ((S.fd_Type $ fromJust metaData) == (S.getFileContentType c)) 
-            then do
-              case c of
-                (S.TextFile t) -> appendToTextFile path t
-                (S.ListFile l) -> appendToListFile path l
-                (S.BinFile  b) -> appendToBinFile path b
-              dat <- S.createFileData i c
-              writeDirectory $ stor { fs_Directory = newdir dat }
-            else do
+          -- metaData <- S.getFileData stor i
+          -- if ((S.fd_Type $ fromJust metaData) == (S.getFileContentType c)) 
+          --  then do
+          appendToBinFile path c
+              -- case c of
+              --  (S.TextFile t) -> appendToTextFile path t
+              --  (S.ListFile l) -> appendToListFile path l
+              --  (S.BinFile  b) -> appendToBinFile path b
+          dat <- S.createFileData i c
+          writeDirectory $ stor { fs_Directory = newdir dat }
+          --  else do
               -- TODO throw exception...
-              return stor
+          --    return stor
         else do
           S.createFile stor i c      
       where
@@ -220,20 +217,23 @@ instance S.Storage FileStorage where
               return Nothing
             ) $ 
             do
-            metaData <- S.getFileData stor i
+            -- metaData <- S.getFileData stor i
+            c <- readFromBinFile path
+            {-
             c <- case (S.fd_Type $ fromJust metaData) of
               (S.FTText) -> 
                  do
                  t <- readFromTextFile path
                  return $ S.TextFile t
               (S.FTList) ->
-                do
-                l <- readFromListFile path
-                return $ S.ListFile l
+                 do
+                 l <- readFromListFile path
+                 return $ S.ListFile l
               (S.FTBin)  -> 
-                do
-                b <- readFromBinFile path
-                return $ S.BinFile b
+                 do
+                 b <- readFromBinFile path
+                 return $ S.BinFile b
+            -}
             debugM localLogger $ "getFileContent: content: " ++ show c
             return (Just c)
         else do return Nothing

@@ -114,7 +114,7 @@ decodeWorkerResponsePort = decodeMaybe
 
 -- Messages to and from the Master
 data MasterRequestMessage 
-  = MReqRegister Site.SiteId WorkerRequestPort
+  = MReqRegister Site.SiteId WorkerRequestPort [ActionName]
   | MReqUnregister WorkerId
   | MReqTaskCompleted TaskData
   | MReqTaskError TaskData  
@@ -128,7 +128,7 @@ data MasterRequestMessage
 
 
 instance Binary MasterRequestMessage where
-  put (MReqRegister s p)     = putWord8 1 >> put s >> put p
+  put (MReqRegister s p as)  = putWord8 1 >> put s >> put p >> put as
   put (MReqUnregister n)     = putWord8 2 >> put n
   put (MReqTaskCompleted td) = putWord8 3 >> put td
   put (MReqTaskError td)     = putWord8 4 >> put td  
@@ -142,7 +142,7 @@ instance Binary MasterRequestMessage where
     = do
       t <- getWord8
       case t of
-        1 -> get >>= \s -> get >>= \p -> return (MReqRegister s p) 
+        1 -> get >>= \s -> get >>= \p -> get >>= \as -> return (MReqRegister s p as) 
         2 -> get >>= \n -> return (MReqUnregister n)
         3 -> get >>= \td -> return (MReqTaskCompleted td)
         4 -> get >>= \td -> return (MReqTaskError td) 
@@ -185,13 +185,13 @@ instance RspMsg MasterResponseMessage where
 
 
 instance Binary MasterResponseMessage where
-  put (MRspSuccess)                       = putWord8 1
-  put (MRspRegister n)                    = putWord8 2 >> put n 
-  put (MRspUnregister)                    = putWord8 3
-  put (MRspIsControlling b)               = putWord8 4 >> put b
-  put (MRspResult jr)                     = putWord8 5 >> put jr
-  put (MRspError e)                       = putWord8 6 >> put e
-  put (MRspUnknown)                       = putWord8 0
+  put (MRspSuccess)          = putWord8 1
+  put (MRspRegister n)       = putWord8 2 >> put n
+  put (MRspUnregister)       = putWord8 3
+  put (MRspIsControlling b)  = putWord8 4 >> put b
+  put (MRspResult jr)        = putWord8 5 >> put jr
+  put (MRspError e)          = putWord8 6 >> put e
+  put (MRspUnknown)          = putWord8 0
   get
     = do
       t <- getWord8

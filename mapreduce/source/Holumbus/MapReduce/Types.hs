@@ -17,9 +17,7 @@
 {-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.MapReduce.Types
 (
-  FunctionName
-, FunctionInfo
-, FunctionData(..)
+  FunctionData(..)
 
 , encodeTuple
 , decodeTuple
@@ -46,32 +44,43 @@ module Holumbus.MapReduce.Types
 , JobResultContainer(..)
 , JobResult(..)
 
--- * JobTest
-, testJobInfo
 
 -- * TaskAction
+, ActionName
+, ActionInfo
+
 , ActionEnvironment(..)
 , mkActionEnvironment
+
 , ActionConnector(..)
 , defaultActionConnector
 
+, OptionsDecoder
+
+, ActionConfiguration(..)
+, MapConfiguration(..)
+, ReduceConfiguration(..)
+, defaultActionConfiguration
+, defaultMapConfiguration
+, defaultReduceConfiguration
+, readActionConfiguration
+
+, ActionData(..)
+, getActionForTaskType
+, ActionMap
+
 -- * MapAction
 , MapAction
-, BinaryMapAction 
+-- , BinaryMapAction 
 , MapFunction
 , MapPartition
-, MapActionData(..)
-, MapActionMap
-, mkMapAction
 
 -- * Combine-Reduce-Action
 , ReduceAction
-, BinaryReduceAction 
+-- , BinaryReduceAction
+, ReduceMerge 
 , ReduceFunction
 , ReducePartition
-, ReduceActionData(..)
-, ReduceActionMap
-, mkReduceAction
 )
 where
 
@@ -79,8 +88,8 @@ import           Control.Concurrent
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
+import qualified Data.HashTable as Hash
 import           Data.Maybe
-import           Data.Typeable
 import           Data.Time
 
 import           System.Log.Logger
@@ -90,6 +99,7 @@ import           Text.XML.HXT.Arrow
 import           Holumbus.Common.Utils
 -- import           Holumbus.MapReduce.TypeCheck
 import qualified Holumbus.Data.AccuMap as AMap
+import qualified Holumbus.Data.KeyMap as KMap
 import qualified Holumbus.FileSystem.FileSystem as FS
 
 
@@ -100,10 +110,6 @@ localLogger = "Holumbus.MapReduce.Types"
 -- general datatypes
 -- ----------------------------------------------------------------------------
 
-
-type FunctionName = String
-
-type FunctionInfo = String
 
 data FunctionData
   = TupleFunctionData B.ByteString
@@ -242,15 +248,16 @@ data TaskData = TaskData {
   , td_Type       :: ! TaskType
   , td_State      :: ! TaskState
   , td_Option     :: ! B.ByteString
+  , td_Parts      :: ! Int
   , td_Input      :: ! [FunctionData]
   , td_Output     :: ! [(Int,[FunctionData])]
   , td_OutputType :: ! TaskOutputType
-  , td_Action     :: ! FunctionName
+  , td_Action     :: ! ActionName
   } deriving (Show, Eq, Ord)
 
 instance Binary TaskData where
-  put (TaskData jid tid tt ts opt i o ot a)
-    = put jid >> put tid >> put tt >> put ts >> put opt >> put i >> put o >> put ot >> put a
+  put (TaskData jid tid tt ts opt n i o ot a)
+    = put jid >> put tid >> put tt >> put ts >> put opt >> put n >> put i >> put o >> put ot >> put a
   get
     = do
       jid <- get
@@ -258,11 +265,12 @@ instance Binary TaskData where
       tt  <- get
       ts  <- get
       opt <- get
+      n   <- get
       i   <- get
       o   <- get
       ot  <- get
       a   <- get
-      return (TaskData jid tid tt ts opt i o ot a)
+      return (TaskData jid tid tt ts opt n i o ot a)
 
 
 
@@ -327,18 +335,25 @@ type OutputMap = Map.Map JobState (AMap.AccuMap Int FunctionData)
 data JobInfo = JobInfo {
     ji_Description       :: ! String
   , ji_Option            :: ! B.ByteString
-  , ji_MapAction         :: ! (Maybe FunctionName)
-  , ji_CombineAction     :: ! (Maybe FunctionName)
-  , ji_ReduceAction      :: ! (Maybe FunctionName)
+  , ji_MapAction         :: ! (Maybe ActionName)
+  , ji_CombineAction     :: ! (Maybe ActionName)
+  , ji_ReduceAction      :: ! (Maybe ActionName)
   , ji_MapOutputType     :: ! (Maybe TaskOutputType)
   , ji_CombineOutputType :: ! (Maybe TaskOutputType)
   , ji_ReduceOutputType  :: ! (Maybe TaskOutputType)
+  , ji_MapPart           :: ! Int
+  , ji_CombinePart       :: ! Int
+  , ji_ReducePart        :: ! Int
   , ji_Input             :: ! [FunctionData]
   } deriving (Show, Eq)
 
 instance Binary JobInfo where
-  put (JobInfo d opt ma ca ra mo co ro i)
-    = put d >> put opt >> put ma >> put ca >> put ra >> put mo >> put co >> put ro >> put i
+  put (JobInfo d opt ma ca ra mo co ro mp cp rp i)
+    = put d >> put opt >> 
+      put ma >> put ca >> put ra >>
+      put mo >> put co >> put ro >>
+      put mp >> put cp >> put rp >>
+      put i
   get
     = do
       d   <- get
@@ -348,9 +363,12 @@ instance Binary JobInfo where
       ra  <- get
       mo  <- get
       co  <- get
-      ro  <- get      
+      ro  <- get
+      mp  <- get
+      cp  <- get
+      rp  <- get
       i   <- get
-      return (JobInfo d opt ma ca ra mo co ro i)
+      return (JobInfo d opt ma ca ra mo co ro mp cp rp i)
 
 
 instance XmlPickler JobInfo where
@@ -360,8 +378,8 @@ xpJobInfo :: PU JobInfo
 xpJobInfo = 
     xpElem "jobInfo" $
     xpWrap
-      (\(n, (ma,mo), (ca, co), (ra,ro), i) -> JobInfo n (encode ()) ma ca ra mo co ro i, 
-       \(JobInfo n _ ma ca ra mo co ro i) -> (n, (ma,mo), (ca, co), (ra,ro), i)) xpJob
+      (\(n, (ma,mo,mp), (ca,co,cp), (ra,ro,rp), i) -> JobInfo n (encode ()) ma ca ra mo co ro mp cp rp i, 
+       \(JobInfo n _ ma ca ra mo co ro mp cp rp i) -> (n, (ma,mo,mp), (ca,co,cp), (ra,ro,rp), i)) xpJob
     where
     xpJob = 
       xp5Tuple
@@ -378,8 +396,9 @@ xpJobInfo =
         = xpWrap (filterEmptyList,setEmptyList) $ xpOption $
           xpElem "inputList" $ xpList xpFunctionData
       xpFunction = xpOption $ xpAttr "name" xpText
-      xpTaskAction = xpPair (xpFunction) (xpickle)
-
+      xpParts    = xpWrap ((maybe 1 id), Just) $ xpOption $ xpAttr "parts" xpickle
+      xpTaskAction = xpTriple (xpFunction) (xpickle) (xpParts)
+      
 
 -- | the job data, include the user-input and some additional control-data
 data JobData = JobData {
@@ -424,7 +443,7 @@ instance Binary JobResult where
 -- TestJobInfo
 -- ----------------------------------------------------------------------------
 
-
+{-
 testJobInfo :: JobInfo -> MapActionMap -> ReduceActionMap -> (Bool, String)
 testJobInfo ji mm rm = foldl (testAnd) (True, "") testList
   where
@@ -456,7 +475,7 @@ testJobInfo ji mm rm = foldl (testAnd) (True, "") testList
   testIOMC  = (mapAction == Nothing) || (comAction == Nothing) || (mapOut == comIn)
   testIOCR  = (comAction == Nothing) || (redAction == Nothing) || (comOut == redIn)
   testIOMR  = (mapAction == Nothing) || (redAction == Nothing) || (comAction /= Nothing) || (mapOut == redIn) 
-
+-}
 
 -- ----------------------------------------------------------------------------
 -- Reader and Writer
@@ -493,23 +512,26 @@ data ActionConnector k1 v1 k2 v2 = ActionConnector {
   , ac_BinW      :: BinFileWriter k2 v2
   }
 
+
+
 defaultActionConnector 
-  :: (Ord k2, Show k1, Show v1, Show k2, Show v2,
+  :: (Ord k2,
       Binary k1, Binary v1, Binary k2, Binary v2)
   => ActionConnector k1 v1 k2 v2
 defaultActionConnector =
   ActionConnector
     (\b   -> decodeTuple b)
     (\ls  -> encodeTuple ls)
-    (\k v -> decode $ encode [(k,v)])
-    (\ls  -> show ls)
+    (\_ _ -> undefined)
+    (\_   -> undefined)
     (\bs  -> decodeTupleList bs)
     (\ls  -> encodeTupleList ls)
     (\b   -> decode b)
     (\ls  -> encode ls)
-  
+
+
 readConnector
-  :: (Ord k2, Show k1, Show v1, Show k2, Show v2,
+  :: (Ord k2,
       Binary k1, Binary v1, Binary k2, Binary v2)
   => ActionConnector k1 v1 k2 v2
   -> ActionEnvironment
@@ -536,15 +558,16 @@ readConnector ac ae ls
             return Nothing
           else do
             let c = fromJust mbc
-            d <- case c of
-              (FS.TextFile s) -> return $ (ac_TextR ac) f s 
-              (FS.ListFile l) -> return $ (ac_ListR ac) l -- return $ decodeTupleList l 
-              (FS.BinFile b)  -> return $ (ac_BinR  ac) b -- return $ decode b
+            d <- undefined 
+            --  case c of
+            --  (FS.TextFile s) -> return $ (ac_TextR ac) f s 
+            --  (FS.ListFile l) -> return $ (ac_ListR ac) l -- return $ decodeTupleList l 
+            --  (FS.BinFile b)  -> return $ (ac_BinR  ac) b -- return $ decode b
             return $ Just d
             
 
 writeConnector 
-  :: (Ord k2, Show k1, Show v1, Show k2, Show v2,
+  :: (Ord k2,
       Binary k1, Binary v1, Binary k2, Binary v2)
   => ActionConnector k1 v1 k2 v2
   -> ActionEnvironment
@@ -552,7 +575,7 @@ writeConnector
   -> IO [(Int,[FunctionData])]
 writeConnector ac ae ls
   = do
-    debugM localLogger $ "writeConnector: " ++ show ls
+    debugM localLogger $ "writeConnector: "
     os <- mapM (writeOutput mbfs tot) ls
     return $ catMaybes os
     where
@@ -568,21 +591,163 @@ writeConnector ac ae ls
     writeOutput (Nothing) _     _      = return Nothing
     writeOutput (Just fs) t     (i,ts)
       = do
-        c <- case t of
-          (TOTText) -> return $ FS.TextFile $ (ac_TextW ac) ts
-          (TOTList) -> return $ FS.ListFile $ (ac_ListW ac) ts
-          (TOTBin)  -> return $ FS.BinFile  $ (ac_BinW  ac) ts
-          -- TODO exception werfen
-          _         -> undefined
+        c <- undefined
+        -- c <- case t of
+        --  (TOTText) -> return $ FS.TextFile $ (ac_TextW ac) ts
+        --  (TOTList) -> return $ FS.ListFile $ (ac_ListW ac) ts
+        --  (TOTBin)  -> return $ FS.BinFile  $ (ac_BinW  ac) ts
+        -- TODO exception werfen
+        --  _         -> undefined
         FS.appendFile fn c fs
         return $ Just (i,[FileFunctionData fn])
         where
         fn = "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
      
 
+
+type ActionName = String
+
+type ActionInfo = String
+
+data ActionConfiguration a k1 v1 k2 v2 v3 v4
+  = ActionConfiguration {
+    ac_Name       :: ActionName
+  , ac_Info       :: ActionInfo
+  , ac_OptDecoder :: OptionsDecoder a
+  , ac_Map        :: Maybe (MapConfiguration a k1 v1 k2 v2)
+  , ac_Combine    :: Maybe (ReduceConfiguration a k2 v2 v3)
+  , ac_Reduce     :: Maybe (ReduceConfiguration a k2 v3 v4)
+  }  
+
+
+data MapConfiguration a k1 v1 k2 v2
+  = MapConfiguration {
+    mc_Function  :: MapFunction a k1 v1 k2 v2
+  , mc_Partition :: MapPartition a k2 v2
+  , mc_Connector :: ActionConnector k1 v1 k2 v2
+  }
+
+
+data ReduceConfiguration a k2 v2 v3
+  = ReduceConfiguration {
+    rc_Merge     :: ReduceMerge a k2 v2
+  , rc_Function  :: ReduceFunction a k2 v2 v3
+  , rc_Partition :: ReducePartition a k2 v3
+  , rc_Connector :: ActionConnector k2 v2 k2 v3
+  }
+
+defaultActionConfiguration
+  -- :: (Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2, Binary v3)
+  :: (Binary a) => ActionName
+  -> ActionConfiguration a k1 v1 k2 v2 v3 v4
+defaultActionConfiguration name
+  = ActionConfiguration
+      name
+      ""
+      defaultOptionsDecoder
+      Nothing
+      Nothing
+      Nothing
+
+defaultMapConfiguration
+  :: (Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
+  => MapFunction a k1 v1 k2 v2
+  -> MapConfiguration a k1 v1 k2 v2
+defaultMapConfiguration fct
+  = MapConfiguration
+      fct
+      defaultPartition
+      defaultActionConnector
+
+
+defaultReduceConfiguration
+  :: (Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
+  => ReduceFunction a k2 v2 v3
+  -> ReduceConfiguration a k2 v2 v3
+defaultReduceConfiguration fct
+  = ReduceConfiguration
+      defaultMerge
+      fct
+      defaultPartition
+      defaultActionConnector
+
+
+defaultPartition
+  :: (Binary k2, Binary v2)
+  => MapPartition a k2 v2
+defaultPartition _ n ls
+  = do
+    -- calculate partition-Values
+    let markedList = map (\t@(k,_) -> (hash k,t)) ls
+    -- merge them
+    let resultList = AMap.toList $ AMap.fromTupleList markedList
+    return resultList
+    where
+    -- calculate a hash-value, because we only have the Binary-Instance, we
+    -- can only use the Bytestring of the Value
+    hash k = (fromIntegral $ Hash.hashString (show $ encode k)) `mod` n
+
+
+defaultMerge
+  :: (Ord k2, Binary k2, Binary v2)
+  => ReduceMerge a k2 v2
+defaultMerge _ ls
+  = return $ AMap.toList $ AMap.fromTupleList ls
+
+
+
+data ActionData
+  = ActionData {
+    ad_Name    :: ActionName
+  , ad_Info    :: ActionInfo
+  , ad_Map     :: Maybe BinaryMapAction
+  , ad_Combine :: Maybe BinaryReduceAction
+  , ad_Reduce  :: Maybe BinaryReduceAction
+  }
+
+instance KMap.Key ActionData where
+  getKey = ad_Name
+
+instance Show ActionData where
+  show (ActionData n i _ _ _) = "{ActionData name:\"" ++ n ++ "\" info:\"" ++ i ++ "\"}"
+
+
+type ActionMap = KMap.KeyMap ActionData
+
+
+type OptionsDecoder a = B.ByteString -> a
+
+defaultOptionsDecoder :: (Binary a) => OptionsDecoder a
+defaultOptionsDecoder = decode
+
+getActionForTaskType :: TaskType -> ActionData -> Maybe BinaryReduceAction
+getActionForTaskType TTMap     ad = ad_Map ad
+getActionForTaskType TTCombine ad = ad_Combine ad
+getActionForTaskType TTReduce  ad = ad_Reduce ad
+getActionForTaskType _         _  = Nothing
+
+  
+
+readActionConfiguration
+  :: ( Ord k2, Binary a
+     , Binary k1, Binary v1
+     , Binary k2, Binary v2
+     , Binary v3, Binary v4)
+  => ActionConfiguration a k1 v1 k2 v2 v3 v4 
+  -> ActionData
+readActionConfiguration
+  (ActionConfiguration n i d mc cc rc)
+  = ActionData n i mf cf rf
+  where
+  mf = maybe Nothing (\(MapConfiguration f p c) -> Just $ performMapAction d f p c) mc
+  cf = maybe Nothing (\(ReduceConfiguration m f p c) -> Just $ performReduceAction d m f p c) cc
+  rf = maybe Nothing (\(ReduceConfiguration m f p c) -> Just $ performReduceAction d m f p c) rc
+
+
 -- ----------------------------------------------------------------------------
 -- MapAction
 -- ----------------------------------------------------------------------------
+
 
 -- | general MapAction
 type MapAction a k1 v1 k2 v2 = a -> Int -> [(k1,v1)] -> IO [(Int, [(k2,v2)])]
@@ -594,62 +759,28 @@ type MapFunction a k1 v1 k2 v2 = a -> k1 -> v1 -> IO [(k2, v2)]
 
 type MapPartition a k2 v2 = a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v2)])]
     
-data MapActionData = MapActionData {
-    mad_Name       :: FunctionName
-  , mad_Info       :: String
-  , mad_Action     :: BinaryMapAction
-  , mad_InputType  :: TypeRep
-  , mad_OutputType :: TypeRep
-  }
-  
-instance Show MapActionData where
-  show (MapActionData n i _ input output) =
-    "{MapAction: Name: " ++ n ++ ", Info: " ++ i ++ 
-    ", Input: " ++ (show input) ++ ", Output: " ++ (show output) ++ "}"
 
--- | map for storing the MapFunctions    
-type MapActionMap = Map.Map FunctionName MapActionData
-
-mkMapAction
-  :: (Ord k2, Show k1, Show v1, Show k2, Show v2, 
+performMapAction
+  :: (Ord k2,
       Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
-  -- Typeable k1, Typeable k2, Typeable v1, Typeable v2)
-  => FunctionName 
-  -> FunctionInfo
+  => OptionsDecoder a
   -> MapFunction a k1 v1 k2 v2
   -> MapPartition a k2 v2
   -> ActionConnector k1 v1 k2 v2
-  -> MapActionData
-mkMapAction name info fct part ae
-  = MapActionData name info action inputType outputType
-    where
-      action = performMapAction ae fct part
-      inputType = typeOf (10::Int) -- makeTuple $ take 2 $ getFunctionParameters $ typeOf fct
-      outputType = typeOf (10::Int) -- last $ getTupleParameters $ getListParameter $ getIOParameter $ last $ getFunctionParameters $ typeOf part
-
-
-
-performMapAction
-  :: (Ord k2, Show k1, Show v1, Show k2, Show v2, 
-      Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
-  => ActionConnector k1 v1 k2 v2
-  -> MapFunction a k1 v1 k2 v2
-  -> MapPartition a k2 v2
   -> ActionEnvironment
   -> B.ByteString
   -> Int
   -> [FunctionData]
   -> IO [(Int, [FunctionData])]
-performMapAction ac fct part ae opts n ls
+performMapAction optDec fct part conn env opts n ls
   = do
     -- decode the options
-    let a = decode opts
+    let a = optDec opts
     
     infoM localLogger "performMapAction"
-    debugM localLogger $ "ls: " ++ show ls
     
     infoM localLogger "reading inputList"
-    inputList <- readConnector ac ae ls
+    inputList <- readConnector conn env ls
     
     infoM localLogger "doing map"
     tupleList <- mapM (\(k1, v1) -> fct a k1 v1) inputList
@@ -658,8 +789,11 @@ performMapAction ac fct part ae opts n ls
     partedList <- part a n $ concat tupleList
     
     infoM localLogger "writing outputlist"
-    outputList <- writeConnector ac ae partedList
+    outputList <- writeConnector conn env partedList
     return outputList
+
+
+
 
 
 -- ----------------------------------------------------------------------------
@@ -678,65 +812,29 @@ type ReduceFunction a k2 v2 v3 = a -> k2 -> [v2] -> IO (Maybe v3)
 
 type ReducePartition a k2 v3 = a -> Int -> [(k2,v3)] -> IO [(Int, [(k2,v3)])]
     
-data ReduceActionData = ReduceActionData {
-    rad_Name       :: FunctionName
-  , rad_Info       :: String
-  , rad_Action     :: BinaryReduceAction
-  , rad_InputType  :: TypeRep
-  , rad_OutputType :: TypeRep
-  }
-  
-instance Show ReduceActionData where
-  show (ReduceActionData n i _ input output) =
-    "{ReduceAction: Name: " ++ n ++ ", Info: " ++ i ++ 
-    ", Input: " ++ (show input) ++ ", Output: " ++ (show output) ++ "}"
 
-
--- | Map for storing the ReduceFunctions    
-type ReduceActionMap = Map.Map FunctionName ReduceActionData
-
-
-mkReduceAction
-  :: (Ord k2, Show k2, Show v2, Show v3, 
+performReduceAction
+  :: (Ord k2,
       Binary a, Binary k2, Binary v2, Binary v3)
-    --  Typeable k2, Typeable v2, Typeable v3)
-  => FunctionName 
-  -> FunctionInfo
+  => OptionsDecoder a
   -> ReduceMerge a k2 v2
   -> ReduceFunction a k2 v2 v3
   -> ReducePartition a k2 v3
   -> ActionConnector k2 v2 k2 v3
-  -> ReduceActionData
-mkReduceAction name info merge fct part ae
-  = ReduceActionData name info action inputType outputType
-    where
-      action = performReduceAction ae merge fct part
-      inputType = typeOf (10::Int) -- head $ getFunctionParameters $ typeOf merge
-      outputType = typeOf (10::Int) -- last $ getTupleParameters $ getListParameter $ getIOParameter $ last $ getFunctionParameters $ typeOf part
-
-
-performReduceAction
-  :: (Ord k2, Show k2, Show v2, Show v3, 
-      Binary a, Binary k2, Binary v2, Binary v3)
-  => ActionConnector k2 v2 k2 v3
-  -> ReduceMerge a k2 v2
-  -> ReduceFunction a k2 v2 v3
-  -> ReducePartition a k2 v3
   -> ActionEnvironment
   -> B.ByteString
   -> Int
   -> [FunctionData]
   -> IO [(Int, [FunctionData])]
-performReduceAction ac merge fct part ae opts n ls
+performReduceAction optDec merge fct part conn env opts n ls
   = do
     -- decode the options
-    let a = decode opts
+    let a = optDec opts
   
     infoM localLogger "performReduceAction"
-    infoM localLogger $ show ls
     
     infoM localLogger "reading inputList"
-    inputList <- readConnector ac ae ls
+    inputList <- readConnector conn env ls
     
     infoM localLogger "doing merge"
     mergedList <- merge a inputList
@@ -748,7 +846,7 @@ performReduceAction ac merge fct part ae opts n ls
     partedList <- part a n $ catMaybes maybesList
     
     infoM localLogger "writing outputlist"
-    outputList <- writeConnector ac ae partedList
+    outputList <- writeConnector conn env partedList
     
     return outputList
     where

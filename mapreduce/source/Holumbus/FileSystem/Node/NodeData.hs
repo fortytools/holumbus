@@ -22,13 +22,13 @@ module Holumbus.FileSystem.Node.NodeData
 
 -- * creation and destruction
 , newNode
-, closeNode
 )
 where
 
 import           Prelude hiding (appendFile)
 
 import           Control.Concurrent
+import qualified Control.Exception as E
 import           Control.Monad
 import Data.Maybe
 import           System.IO hiding (appendFile)
@@ -96,75 +96,6 @@ newNode cp s
     return nd
 
 
-closeNode :: NodeData -> IO ()
-closeNode nd
-  = do
-    -- shutdown the server thread and the stream
-    nd'  <- unregisterNode nd
-    stopRequestDispatcher (nd_ServerThreadId nd')
-    closeStream (nd_OwnStream nd')
-    return ()      
-
-{-
-startRequestDispatcher :: NodeData -> IO NodeData
-startRequestDispatcher nd 
-  = do
-    servId <- takeMVar (nd_ServerThreadId nd)
-    servId' <- case servId of
-      i@(Just _) -> return i
-      (Nothing) ->
-        do
-        i <- forkIO $ requestDispatcher nd
-        return (Just i)
-    putMVar (nd_ServerThreadId nd) servId'
-    return nd
-
-
-stopRequestDispatcher :: NodeData -> IO NodeData
-stopRequestDispatcher nd 
-  = do
-    servId <- takeMVar (nd_ServerThreadId nd)
-    servId' <- case servId of
-      (Nothing) -> return Nothing
-      (Just i) -> 
-        do
-        E.throwDynTo i myThreadId
-        yield
-        return Nothing
-    putMVar (nd_ServerThreadId nd) servId'
-    return nd
-
-requestDispatcher :: NodeData -> IO ()
-requestDispatcher nd
-  = do
-    E.handle (\e -> 
-      do
-      errorM localLogger $ show e
-      yield
-      requestDispatcher nd
-     ) $
-      do
-      -- read the next message from the stream (block, if no message arrived)
-      let stream = (nd_OwnStream nd)
-      msg <- P.readStreamMsg stream
-      -- extract the data
-      let dat = P.getMessageData msg
-      debugM localLogger "dispatching new Message... "
-      debugM localLogger $ show dat
-      -- extract the (possible replyport)
-      let replyPort = M.decodeNodeResponsePort $ P.getGenericData msg
-      if (isNothing replyPort)
-        then do
-          errorM localLogger "no reply port in message"
-          yield
-        else do
-          -- do the dispatching in a new process...
-          _ <- forkIO $ dispatch nd dat $ fromJust replyPort
-          return ()
-      --threadDelay 10
-      requestDispatcher nd
--}
-
 dispatch 
   :: NodeData 
   -> M.NodeRequestMessage 
@@ -204,30 +135,6 @@ dispatch nd msg replyPort
       _ -> 
         handleRequest replyPort (return ()) (\_ -> M.NRspUnknown)
 
-{-
-handleRequest
-  :: M.NodeResponsePort
-  -> IO a
-  -> (a -> M.NodeResponseMessage) 
-  -> IO ()
-handleRequest po fhdl fres
-  = do
-    -- in case, we can't send the error...
-    E.handle (\e -> do
-        errorM localLogger $ "handleRequest: exeption raised and could not be send to controller" 
-        errorM localLogger $ show e) $ do
-      do
-      -- in case our operation fails, we send a failure-response
-      E.handle (\e -> do
-          errorM localLogger $ "handleRequest: exeption raised and reporting to controller" 
-          errorM localLogger $ show e
-          P.send po (M.NRspError $ show e)) $
-        do
-        -- our action, might raise an exception
-        r <- fhdl
-        -- send the response
-        P.send po $ fres r
--}
 
 
 -- ----------------------------------------------------------------------------
@@ -243,14 +150,21 @@ registerNode nd
     let np = (nd_OwnPort nd)
     -- get the new nid
     -- TODO think about this
-    nid <- withMVar (nd_ControllerPort nd) $
-      \cp ->
-      do  
-      (nid, _) <- C.registerNode sid np cp
-      return (Just nid)
-    -- write the new nodeId in the record
-    modifyMVar (nd_NodeId nd) (\_ -> return (nid,nd)) 
-        
+    E.catch
+     (do
+      nid <- withMVar (nd_ControllerPort nd) $
+        \cp ->
+        do  
+        (nid, _) <- C.registerNode sid np cp
+        return (Just nid)
+      -- write the new nodeId in the record
+      modifyMVar (nd_NodeId nd) (\_ -> return (nid,nd)) 
+     )
+     (\e -> 
+      do 
+      errorM localLogger $ show e
+      return nd
+     )   
 
 unregisterNode :: NodeData -> IO (NodeData)
 unregisterNode nd
@@ -301,6 +215,15 @@ readStorage f nd
 
 instance Node NodeData where
   
+
+  closeNode nd
+    = do
+      -- shutdown the server thread and the stream
+      nd'  <- unregisterNode nd
+      stopRequestDispatcher (nd_ServerThreadId nd')
+      closeStream (nd_OwnStream nd')
+      return ()
+    
      
   getNodeRequestPort = nd_OwnPort   
   

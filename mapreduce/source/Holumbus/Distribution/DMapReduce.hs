@@ -22,11 +22,11 @@ module Holumbus.Distribution.DMapReduce
 
 -- * Configuration
 , DMRMasterConf(..)
-, defaultMasterConfig
+, defaultMRMasterConfig
 , DMRWorkerConf(..)
-, defaultWorkerConfig
+, defaultMRWorkerConfig
 , DMRClientConf(..)
-, defaultClientConfig
+, defaultMRClientConfig
   
 
 -- * Creation and Destruction
@@ -87,8 +87,8 @@ data DMRMasterConf = DMRMasterConf {
   , msc_StreamName       :: StreamName
   } 
 
-defaultMasterConfig :: DMRMasterConf
-defaultMasterConfig = DMRMasterConf True "MRMaster"
+defaultMRMasterConfig :: DMRMasterConf
+defaultMRMasterConfig = DMRMasterConf True "MRMaster"
 
 
 data DMRWorkerConf = DMRWorkerConf {
@@ -96,8 +96,8 @@ data DMRWorkerConf = DMRWorkerConf {
   , woc_SocketId         :: Maybe SocketId
   } 
 
-defaultWorkerConfig :: DMRWorkerConf
-defaultWorkerConfig = DMRWorkerConf "MRMaster" Nothing
+defaultMRWorkerConfig :: DMRWorkerConf
+defaultMRWorkerConfig = DMRWorkerConf "MRMaster" Nothing
 
 
 data DMRClientConf = DMRClientConf {
@@ -105,8 +105,8 @@ data DMRClientConf = DMRClientConf {
   , clc_SocketId         :: Maybe SocketId
   } 
 
-defaultClientConfig :: DMRClientConf
-defaultClientConfig = DMRClientConf "MRMaster" Nothing
+defaultMRClientConfig :: DMRClientConf
+defaultMRClientConfig = DMRClientConf "MRMaster" Nothing
 
 
 -- ---------------------------------------------------------------------------
@@ -114,30 +114,26 @@ defaultClientConfig = DMRClientConf "MRMaster" Nothing
 -- ---------------------------------------------------------------------------
 
 mkMapReduceMaster 
-  :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> DMRMasterConf
+  :: FS.FileSystem -> DMRMasterConf
   -> IO DMapReduce
-mkMapReduceMaster fs maps reduces conf
+mkMapReduceMaster fs conf
   = do
-    let start = msc_StartControlling conf
-        sn    = msc_StreamName conf
     sid <- getSiteId
     infoM localLogger $ "initialising master on site " ++ show sid  
-    infoM localLogger "creating master"
-    md <- MD.newMaster fs maps reduces start sn
+    md <- MD.newMaster fs (msc_StartControlling conf) (msc_StreamName conf)
     newDMapReduce MRTMaster md (Nothing::Maybe WP.WorkerPort)
 
 
 mkMapReduceWorker
- :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> DMRWorkerConf
+ :: FS.FileSystem -> ActionMap -> DMRWorkerConf
  -> IO DMapReduce
-mkMapReduceWorker fs maps reduces conf
+mkMapReduceWorker fs am conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising worker on site " ++ show sid  
-    infoM localLogger "creating worker"
     p <- newPort (woc_StreamName conf) (woc_SocketId conf)
     let mp = (MP.newMasterPort p)
-    wd <- WD.newWorker fs maps reduces mp
+    wd <- WD.newWorker fs am mp
     newDMapReduce MRTWorker mp (Just wd)
 
 
@@ -148,7 +144,6 @@ mkMapReduceClient conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising map-reduce-client on site " ++ show sid  
-    infoM localLogger "creating client"
     p <- newPort (clc_StreamName conf) (clc_SocketId conf) 
     let mp = (MP.newMasterPort p)    
     newDMapReduce MRTClient mp (Nothing::Maybe WP.WorkerPort)

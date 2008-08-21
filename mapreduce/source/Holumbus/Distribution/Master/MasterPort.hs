@@ -84,7 +84,7 @@ instance MapReduce MasterPort where
   
   startControlling (MasterPort p)
     = withStream $
-       \s -> performPortAction p s (MReqStartControlling) $
+       \s -> performPortAction p s time30 (MReqStartControlling) $
          \rsp ->
          do
          case rsp of
@@ -94,7 +94,7 @@ instance MapReduce MasterPort where
   
   stopControlling (MasterPort p)
     = withStream $
-       \s -> performPortAction p s (MReqStopControlling) $
+       \s -> performPortAction p s time30 (MReqStopControlling) $
          \rsp ->
          do
          case rsp of
@@ -104,7 +104,7 @@ instance MapReduce MasterPort where
 
   isControlling (MasterPort p)
     = withStream $
-       \s -> performPortAction p s (MReqIsControlling) $
+       \s -> performPortAction p s time30 (MReqIsControlling) $
          \rsp ->
          do
          case rsp of
@@ -115,7 +115,7 @@ instance MapReduce MasterPort where
   
   doSingleStep (MasterPort p)
     = withStream $
-        \s -> performPortAction p s (MReqSingleStep) $
+        \s -> performPortAction p s time30 (MReqSingleStep) $
           \rsp ->
           do
           case rsp of
@@ -125,7 +125,7 @@ instance MapReduce MasterPort where
   
   doMapReduce ji (MasterPort p)
     = withStream $
-        \s -> performPortAction p s (MReqPerformJob ji) $
+        \s -> performPortAction p s time30 (MReqPerformJob ji) $
           \rsp ->
           do
           case rsp of
@@ -144,10 +144,10 @@ instance Master MasterPort where
   getMasterRequestPort (MasterPort p) = p
   
   
-  registerWorker sid po c@(MasterPort p) 
+  registerWorker sid po as c@(MasterPort p) 
     = do
       withStream $
-        \s -> performPortAction p s (MReqRegister sid po) $
+        \s -> performPortAction p s time30 (MReqRegister sid po as) $
           \rsp ->
           do
           case rsp of
@@ -158,7 +158,7 @@ instance Master MasterPort where
   unregisterWorker wid c@(MasterPort p)
     = do
       withStream $
-        \s -> performPortAction p s (MReqUnregister wid) $
+        \s -> performPortAction p s time30 (MReqUnregister wid) $
           \rsp ->
           do
           case rsp of
@@ -169,7 +169,7 @@ instance Master MasterPort where
   receiveTaskCompleted td c@(MasterPort p)
     = do
       withStream $
-        \s -> performPortAction p s (MReqTaskCompleted td) $
+        \s -> performPortAction p s time30 (MReqTaskCompleted td) $
           \rsp ->
           do
           case rsp of
@@ -180,7 +180,7 @@ instance Master MasterPort where
   receiveTaskError td c@(MasterPort p)
     = do
       withStream $
-        \s -> performPortAction p s (MReqTaskError td) $
+        \s -> performPortAction p s time30 (MReqTaskError td) $
           \rsp ->
           do
           case rsp of

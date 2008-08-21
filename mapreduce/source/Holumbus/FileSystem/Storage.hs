@@ -20,9 +20,9 @@ module Holumbus.FileSystem.Storage
 (
 -- * file datatypes
   FileId
-, FileType(..)
-, FileContent(..)
-, getFileContentType
+-- , FileType(..)
+, FileContent
+--, getFileContentType
 
 -- * file operation
 , getContentLength
@@ -51,6 +51,7 @@ import qualified Data.ByteString.Lazy as B
 --   be an instance of the classes show, eq, ord and binary
 type FileId = String
 
+{-
 data FileType = FTText | FTList | FTBin
   deriving (Show, Eq, Ord, Enum)
   
@@ -65,7 +66,11 @@ instance Binary FileType where
         1 -> return FTText
         2 -> return FTList
         _ -> return FTBin
+-}
 
+type FileContent = B.ByteString
+
+{-
 -- | The content of a file, this will be generic in further versions
 data FileContent 
   = TextFile String
@@ -79,13 +84,18 @@ getFileContentType :: FileContent -> FileType
 getFileContentType (TextFile _) = FTText
 getFileContentType (ListFile _) = FTList
 getFileContentType (BinFile _)  = FTBin
+-}
 
+getContentLength :: FileContent -> Integer
+getContentLength c = fromIntegral $ B.length c
 
+{-
 -- | The length of the file-content
 getContentLength :: FileContent -> Integer
 getContentLength (TextFile s) = fromIntegral $ length s
 getContentLength (ListFile s) = fromIntegral $ length s
 getContentLength (BinFile s)  = fromIntegral $ B.length s
+-}
 
 
 -- | A hash function for the content, to compare two files
@@ -93,6 +103,7 @@ getContentHash :: FileContent -> Integer
 getContentHash _ = 0
 
 
+{-
 instance Binary FileContent where
   put (TextFile s) = putWord8 1 >> put s
   put (ListFile s) = putWord8 2 >> put s
@@ -104,7 +115,7 @@ instance Binary FileContent where
         1 -> get >>= \s -> return (TextFile s)
         2 -> get >>= \s -> return (ListFile s)
         _ -> get >>= \s -> return (BinFile s)       
-
+-}
 
 
 -- -----------------------------------------------------------------------------
@@ -113,8 +124,8 @@ instance Binary FileContent where
 
 -- | metadata of a file, known by the storage.
 data FileData = MkFileData {
-    fd_Type             :: FileType  -- ^ filetype
-  , fd_FileId           :: FileId    -- ^ filename
+  --  fd_Type             :: FileType  -- ^ filetype
+    fd_FileId           :: FileId    -- ^ filename
   , fd_Size             :: Integer   -- ^ filesize
   , fd_CreationDate     :: UTCTime   -- ^ creation date
   , fd_LastModifiedDate :: UTCTime   -- ^ last modified date
@@ -127,7 +138,7 @@ createFileData i c
   = do 
     time <- getCurrentTime
     return (MkFileData
-      (getFileContentType c)
+      -- (getFileContentType c)
       i
       (getContentLength c)
       time
@@ -148,7 +159,7 @@ updateFileData new old
 
 instance Binary FileData where
   put d 
-    = put (fd_Type d) >>
+    = -- put (fd_Type d) >>
       put (fd_FileId d) >> 
       put (fd_Size d) >> 
       put (show $ fd_CreationDate d) >> 
@@ -156,13 +167,13 @@ instance Binary FileData where
       put (fd_Hashvalue d)
   get 
     = do
-      t    <- get
+      -- t    <- get
       name <- get
       size <- get
       dat1 <- get
       dat2 <- get
       hash <- get
-      return (MkFileData t name size (read dat1) (read dat2) hash) 
+      return (MkFileData name size (read dat1) (read dat2) hash) 
 
 
 

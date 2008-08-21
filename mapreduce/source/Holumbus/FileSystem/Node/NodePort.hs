@@ -53,6 +53,8 @@ newNodePort p = NodePort p
 
 instance Node NodePort where
   
+  closeNode _ = return ()
+  
   
   getNodeRequestPort (NodePort p) = p
 
@@ -60,7 +62,7 @@ instance Node NodePort where
   createFile i c (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqCreate i c) $
+        \s -> performPortAction p s time30 (NReqCreate i c) $
           \rsp ->
           do
           case rsp of
@@ -71,7 +73,7 @@ instance Node NodePort where
   appendFile i c (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqAppend i c) $
+        \s -> performPortAction p s time30 (NReqAppend i c) $
           \rsp ->
           do
           case rsp of
@@ -82,7 +84,7 @@ instance Node NodePort where
   deleteFile i b (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqDelete i b) $
+        \s -> performPortAction p s time30 (NReqDelete i b) $
           \rsp ->
           do
           case rsp of
@@ -93,7 +95,7 @@ instance Node NodePort where
   containsFile i (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqContains i) $
+        \s -> performPortAction p s time30 (NReqContains i) $
           \rsp ->
           do
           case rsp of
@@ -104,7 +106,7 @@ instance Node NodePort where
   getFileContent i (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqGetFileContent i) $
+        \s -> performPortAction p s time30 (NReqGetFileContent i) $
           \rsp ->
           do
           case rsp of
@@ -115,7 +117,7 @@ instance Node NodePort where
   getFileData i (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqGetFileData i) $
+        \s -> performPortAction p s time30 (NReqGetFileData i) $
           \rsp ->
           do
           case rsp of
@@ -126,7 +128,7 @@ instance Node NodePort where
   getFileIds (NodePort p)
     = do
       withStream $
-        \s -> performPortAction p s (NReqGetFileIds) $
+        \s -> performPortAction p s time30 (NReqGetFileIds) $
           \rsp ->
           do
           case rsp of

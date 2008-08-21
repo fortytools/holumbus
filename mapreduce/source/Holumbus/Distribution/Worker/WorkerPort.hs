@@ -59,7 +59,7 @@ instance Worker WorkerPort where
   startTask td w@(WorkerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (WReqStartTask td) $
+        \s -> performPortAction p s time30 (WReqStartTask td) $
           \rsp ->
           do
           case rsp of
@@ -70,7 +70,7 @@ instance Worker WorkerPort where
   stopTask tid w@(WorkerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (WReqStopTask tid) $
+        \s -> performPortAction p s time30 (WReqStopTask tid) $
           \rsp ->
           do
           case rsp of
@@ -81,7 +81,7 @@ instance Worker WorkerPort where
   stopAllTasks w@(WorkerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (WReqStopAllTasks) $
+        \s -> performPortAction p s time30 (WReqStopAllTasks) $
           \rsp ->
           do
           case rsp of

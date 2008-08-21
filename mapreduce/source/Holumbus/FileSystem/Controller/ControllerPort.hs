@@ -51,7 +51,11 @@ newControllerPort p = ControllerPort p
 
 instance Controller ControllerPort where
   
+  closeController _ = return ()
+  
+  
   getFileIds _ _ = undefined
+  
   
   getControllerRequestPort (ControllerPort p) = p
   
@@ -59,7 +63,7 @@ instance Controller ControllerPort where
   registerNode sid po c@(ControllerPort p) 
     = do
       withStream $
-        \s -> performPortAction p s (CReqRegister sid po) $
+        \s -> performPortAction p s time30 (CReqRegister sid po) $
           \rsp ->
           do
           case rsp of
@@ -70,7 +74,7 @@ instance Controller ControllerPort where
   unregisterNode nodeId c@(ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqUnregister nodeId) $
+        \s -> performPortAction p s time30 (CReqUnregister nodeId) $
           \rsp ->
           do
           case rsp of
@@ -81,7 +85,7 @@ instance Controller ControllerPort where
   getFileSites f (ControllerPort p)  
     = do
       withStream $
-        \s -> performPortAction p s (CReqGetFileSites f) $
+        \s -> performPortAction p s time30 (CReqGetFileSites f) $
           \rsp ->
           do
           case rsp of
@@ -92,7 +96,7 @@ instance Controller ControllerPort where
   containsFile f (ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqContains f) $
+        \s -> performPortAction p s time30 (CReqContains f) $
           \rsp ->
           do
           case rsp of
@@ -103,7 +107,7 @@ instance Controller ControllerPort where
   getNearestNodePortWithFile f sid (ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqGetNearestNodePortWithFile f sid) $
+        \s -> performPortAction p s time30 (CReqGetNearestNodePortWithFile f sid) $
           \rsp ->
           do
           case rsp of
@@ -114,7 +118,7 @@ instance Controller ControllerPort where
   getNearestNodePortForFile f l sid (ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqGetNearestNodePortForFile f l sid) $
+        \s -> performPortAction p s time30 (CReqGetNearestNodePortForFile f l sid) $
           \rsp ->
           do
           case rsp of
@@ -125,7 +129,7 @@ instance Controller ControllerPort where
   createFile f nid (ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqCreate f nid) $
+        \s -> performPortAction p s time30 (CReqCreate f nid) $
           \rsp ->
           do
           case rsp of
@@ -136,7 +140,7 @@ instance Controller ControllerPort where
   appendFile f nid (ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqAppend f nid) $
+        \s -> performPortAction p s time30 (CReqAppend f nid) $
           \rsp ->
           do
           case rsp of
@@ -147,7 +151,7 @@ instance Controller ControllerPort where
   deleteFile f nid (ControllerPort p)
     = do
       withStream $
-        \s -> performPortAction p s (CReqDelete f nid) $
+        \s -> performPortAction p s time30 (CReqDelete f nid) $
           \rsp ->
           do
           case rsp of

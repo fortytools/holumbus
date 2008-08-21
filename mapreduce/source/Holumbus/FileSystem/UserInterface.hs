@@ -24,6 +24,7 @@ module Holumbus.FileSystem.UserInterface
 where
 
 import           Control.Exception
+import           Data.Binary
 import           Data.List
 
 import qualified Holumbus.Console.Console as Console
@@ -70,7 +71,8 @@ createConsole version =
 
 getFileNameAndContent :: [String] -> (S.FileId, S.FileContent)
 getFileNameAndContent []   = error "no filename given"
-getFileNameAndContent (x:xs) = (x, S.TextFile $ intercalate " " xs)
+getFileNameAndContent (x:xs) = (x, encode $ intercalate " " xs)
+-- getFileNameAndContent (x:xs) = (x, S.TextFile $ intercalate " " xs)
 
 
 getFileNameAndContentSize :: [String] -> (S.FileId, Integer)

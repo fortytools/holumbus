@@ -20,15 +20,25 @@ module Holumbus.FileSystem.FileSystem
 (
 -- * Datatypes
   S.FileId
-, S.FileContent(..)
+, S.FileContent
 , S.getContentLength
 , S.FileData(..)
 , FileSystem
 
+-- * Configuration
+, FSStandaloneConf(..)
+, defaultFSStandaloneConfig
+, FSControllerConf(..)
+, defaultFSControllerConfig
+, FSNodeConf(..)
+, defaultFSNodeConfig
+, FSClientConf(..)
+, defaultFSClientConfig
+
 -- * Creation and Destruction
 , mkStandaloneFileSystem
-, mkSingleController
-, mkSingleNode
+, mkFileSystemController
+, mkFileSystemNode
 , mkFileSystemClient
 , closeFileSystem
 
@@ -58,8 +68,6 @@ import           Control.Monad
 import qualified Data.Set as Set
 import           System.Log.Logger
 
-import           Holumbus.Network.Site
-import qualified Holumbus.Network.Port as P
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Controller.ControllerData as CD
@@ -69,6 +77,8 @@ import qualified Holumbus.FileSystem.Node.NodeData as ND
 import qualified Holumbus.FileSystem.Node.NodePort as NP
 import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FST
+import           Holumbus.Network.Site
+import           Holumbus.Network.Port
 
 
 localLogger :: String
@@ -92,19 +102,64 @@ instance Show FileSystem where
   show _ = "FileSystem"
 
 
+
+-- ---------------------------------------------------------------------------
+-- Configurations
+-- ---------------------------------------------------------------------------
+
+
+data FSStandaloneConf = FSStandaloneConf {
+    fstc_StreamName       :: StreamName
+  , fstc_StoragePath      :: FilePath
+  , fstc_StorageFile      :: FilePath
+  } 
+  
+defaultFSStandaloneConfig :: FSStandaloneConf
+defaultFSStandaloneConfig = FSStandaloneConf "FSController" "storage/" "directory"
+
+
+data FSControllerConf = FSControllerConf {
+    fcoc_StreamName       :: StreamName
+  }
+   
+defaultFSControllerConfig :: FSControllerConf
+defaultFSControllerConfig = FSControllerConf "FSController"
+
+
+data FSNodeConf = FSNodeConf {
+    fnoc_StreamName       :: StreamName
+  , fnoc_SocketId         :: Maybe SocketId
+  , fnoc_StoragePath      :: FilePath
+  , fnoc_StorageFile      :: FilePath
+  }
+   
+defaultFSNodeConfig :: FSNodeConf
+defaultFSNodeConfig = FSNodeConf "FSController" Nothing "storage/" "directory"
+
+
+data FSClientConf = FSClientConf {
+    fclc_StreamName       :: StreamName
+  , fclc_SocketId         :: Maybe SocketId
+  }
+   
+defaultFSClientConfig :: FSClientConf
+defaultFSClientConfig = FSClientConf "FSController" Nothing
+
+
+
+
 -- ---------------------------------------------------------------------------
 -- Creation and Destruction
 -- ---------------------------------------------------------------------------
 
 
 mkStandaloneFileSystem
-  :: FilePath           -- ^ the path of the filestorage on disk 
-  -> (Maybe FilePath)   -- ^ the name of the directory file, if "Nothing" the default name will be used
+  :: FSStandaloneConf 
   -> IO (FileSystem)
-mkStandaloneFileSystem fp fn
+mkStandaloneFileSystem conf
   = do
-    controller <- CD.newController
-    let storage = FST.newFileStorage fp fn
+    controller <- CD.newController (fstc_StreamName conf)
+    let storage = FST.newFileStorage (fstc_StoragePath conf) (fstc_StorageFile conf) 
     let cp = CP.newControllerPort $ C.getControllerRequestPort controller
     n <- ND.newNode cp storage
     fs <- newFileSystem controller (Just n)
@@ -112,65 +167,55 @@ mkStandaloneFileSystem fp fn
     return fs
 
 
-mkSingleController
-  :: FilePath           -- ^ the path of the controller port, which is created
+mkFileSystemController
+  :: FSControllerConf
   -> IO (FileSystem)
-mkSingleController fn
+mkFileSystemController conf
   = do
     sid <- getSiteId
-    infoM localLogger $ "initialising single controller on site " ++ show sid  
-    infoM localLogger "creating controller"
-    controller <- CD.newController
-    infoM localLogger "writing controller-port to file"
-    let port = C.getControllerRequestPort controller
-    P.writePortToFile port fn
-    infoM localLogger "creating filesystem"
-    fs <- newFileSystem controller (Nothing::Maybe NP.NodePort)
-    return fs
+    infoM localLogger $ "initialising controller on site " ++ show sid  
+    controller <- CD.newController (fcoc_StreamName conf)
+    newFileSystem controller (Nothing::Maybe NP.NodePort)
+    
   
 
-mkSingleNode
-  :: FilePath           -- ^ the path of the filestorage on disk 
-  -> (Maybe FilePath)   -- ^ the name of the directory file, if "Nothing" the default name will be used
-  -> FilePath           -- ^ the path of the controller port
+mkFileSystemNode
+  :: FSNodeConf
   -> IO (FileSystem)
-mkSingleNode fp fn pfp
+mkFileSystemNode conf
   = do
     sid <- getSiteId
-    infoM localLogger $ "initialising single node on site " ++ show sid 
-    infoM localLogger $ "loading controller-port from " ++ show pfp
-    p <- P.readPortFromFile pfp
-    infoM localLogger "creating controller-port"
+    infoM localLogger $ "initialising node on site " ++ show sid 
+    p <- newPort (fnoc_StreamName conf) (fnoc_SocketId conf)
     let cp = (CP.newControllerPort p)
-    infoM localLogger "creating storage"
-    let storage = FST.newFileStorage fp fn
-    infoM localLogger "creating node" 
+    infoM localLogger "creating filestorage"
+    let storage = FST.newFileStorage (fnoc_StoragePath conf) (fnoc_StorageFile conf) 
     n <- ND.newNode cp storage
-    infoM localLogger "creating filesystem"
-    fs <- newFileSystem cp (Just n)
-    -- setFileSystemNode n fs
-    return fs
+    newFileSystem cp (Just n)
+    
 
 mkFileSystemClient
-  :: FilePath           -- ^ the path of the controller port
+  :: FSClientConf
   -> IO (FileSystem)
-mkFileSystemClient pfp
+mkFileSystemClient conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising client on site " ++ show sid 
-    infoM localLogger $ "loading controller-port from " ++ show pfp
-    p <- P.readPortFromFile pfp
-    infoM localLogger "creating controller-port"
-    let cp = (CP.newControllerPort p)    
-    infoM localLogger "creating filesystem"
-    fs <- newFileSystem cp (Nothing::Maybe NP.NodePort)
-    return fs
+    p <- newPort (fclc_StreamName conf) (fclc_SocketId conf)
+    let cp = (CP.newControllerPort p)
+    newFileSystem cp (Nothing::Maybe NP.NodePort)
 
 
---TODO
 -- | Closes the filesystem.
 closeFileSystem :: FileSystem -> IO ()
-closeFileSystem _ = return ()
+closeFileSystem (FileSystem fs) 
+  = withMVar fs $
+      \(FileSystemData _ c n) ->
+      do
+      case n of
+        (Just n') -> N.closeNode n'
+        (Nothing) -> return ()
+      C.closeController c
 
 
 
@@ -186,25 +231,6 @@ newFileSystem c n
     sid <- getSiteId
     fs <- newMVar (FileSystemData sid c n)
     return (FileSystem fs)
-
-{-
-newFileSystem :: (C.Controller c) => c -> IO (FileSystem)
-newFileSystem c
-  = do
-    sid <- getSiteId
-    fs <- newMVar (FileSystemData sid c emptyNode)
-    return (FileSystem fs)
-    where
-      emptyNode :: Maybe NP.NodePort
-      emptyNode = Nothing
-
-
-setFileSystemNode :: (N.Node n) => n -> FileSystem -> IO ()
-setFileSystemNode n (FileSystem fs)
-  = do
-    modifyMVar fs $
-      \(FileSystemData s c _) -> return (FileSystemData s c (Just n), ())
--}
 
 
 -- | get a NodePort from a NodeRequestPort

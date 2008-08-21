@@ -62,8 +62,8 @@ data WorkerData = WorkerData {
   
 
 
-newWorker :: FS.FileSystem -> MapActionMap -> ReduceActionMap -> MP.MasterPort -> IO WorkerData
-newWorker fs mm rm mp
+newWorker :: FS.FileSystem -> ActionMap -> MP.MasterPort -> IO WorkerData
+newWorker fs am mp
   = do
     -- initialize values
     nidMVar <- newMVar Nothing
@@ -76,8 +76,7 @@ newWorker fs mm rm mp
     
     -- configure the TaskProcessor
     TP.setFileSystemToTaskProcessor fs tp
-    TP.setMapActionMap mm tp
-    TP.setReduceActionMap rm tp
+    TP.setActionMap am tp
     TP.setTaskCompletedHook (sendTaskCompleted mpMVar) tp
     TP.setTaskErrorHook (sendTaskError mpMVar) tp
     TP.startTaskProcessor tp
@@ -203,11 +202,12 @@ registerWorker wd
     debugM localLogger "registering at controller"
     let sid = (wd_SiteId wd)
     let np = (wd_OwnPort wd)
+    as <- TP.getActionNames (wd_TaskProcessor wd)
     -- get the new nid
     nid <- withMVar (wd_MasterPort wd) $
-      \cp ->
+      \mp ->
       do  
-      (nid, _) <- MC.registerWorker sid np cp
+      (nid, _) <- MC.registerWorker sid np as mp
       return (Just nid)
     -- write the new nodeId in the record
     modifyMVar (wd_WorkerId wd) (\_ -> return (nid,wd)) 

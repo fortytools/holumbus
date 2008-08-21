@@ -865,7 +865,11 @@ sendWithMaybeGeneric p@(Port sn mbsoid) d rp
                 sendRequest (putMessage raw) hn (PortNumber po)
                 return ()
               (Nothing) ->
-                errorM localLogger $ "sendWithMaybeGeneric: global port not found for stream " ++ sn
+                do
+                errorM localLogger errorMsg
+                error errorMsg
+                where
+                errorMsg = "sendWithMaybeGeneric: global port not found for stream " ++ sn
 
 
 -- | Writes a port-description to a file.

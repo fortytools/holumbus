@@ -38,7 +38,7 @@ class (MR.MapReduce m) => Master m where
 
   getMasterRequestPort :: m -> M.MasterRequestPort
   
-  registerWorker :: SiteId -> M.WorkerRequestPort -> m -> IO (M.WorkerId, m)
+  registerWorker :: SiteId -> M.WorkerRequestPort -> [T.ActionName] -> m -> IO (M.WorkerId, m)
   
   unregisterWorker :: M.WorkerId -> m -> IO m
 

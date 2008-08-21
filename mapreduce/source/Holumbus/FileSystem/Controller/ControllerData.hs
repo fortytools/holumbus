@@ -22,7 +22,6 @@ module Holumbus.FileSystem.Controller.ControllerData
   
 -- * creation and destruction
 , newController
-, closeController
 )
 where
 
@@ -84,13 +83,13 @@ data ControllerData = ControllerData {
 -- ----------------------------------------------------------------------------
 
 
-newController :: IO ControllerData
-newController 
+newController :: StreamName -> IO ControllerData
+newController sn
   = do
     -- initialize values
     let maps = ControllerMaps Map.empty Map.empty Map.empty emptySiteMap 0 
     mapMVar <- newMVar maps
-    st    <- (newGlobalStream "filesystem"::IO M.ControllerRequestStream)
+    st    <- (newGlobalStream sn::IO M.ControllerRequestStream)
     po    <- newPortFromStream st
     -- we can't start the server yet
     tid   <- newMVar Nothing
@@ -98,77 +97,7 @@ newController
     let cd = (ControllerData tid st po mapMVar)
     startRequestDispatcher tid st (dispatch cd)
     return cd
-
-
-closeController :: ControllerData -> IO ()
-closeController cd 
-  = do
-    -- shutdown the server thread and the stream
-    stopRequestDispatcher (cd_ServerThreadId cd)
-    closeStream (cd_OwnStream cd)
-    return ()      
   
-{-
-startRequestDispatcher :: ControllerData -> IO ControllerData
-startRequestDispatcher cd
-  = do
-    servId <- takeMVar (cd_ServerThreadId cd)
-    servId' <- case servId of
-      i@(Just _) -> return i
-      (Nothing) ->
-        do
-        i <- forkIO $ requestDispatcher cd
-        return (Just i)
-    putMVar (cd_ServerThreadId cd) servId'
-    return cd
-
-
-stopRequestDispatcher :: ControllerData -> IO ControllerData
-stopRequestDispatcher cd 
-  = do
-    servId <- takeMVar (cd_ServerThreadId cd)
-    servId' <- case servId of
-      (Nothing) -> return Nothing
-      (Just i) -> 
-        do
-        E.throwDynTo i myThreadId
-        yield
-        return Nothing
-    putMVar (cd_ServerThreadId cd) servId'
-    return cd
-
-
-requestDispatcher :: ControllerData -> IO ()
-requestDispatcher cd
-  = do
-    E.handle (\e -> 
-      do
-      putStrLn $ show e
-      yield
-      requestDispatcher cd
-     ) $
-      do
-      -- read the next message from the stream (block, if no message arrived)
-      let stream = (cd_OwnStream cd)
-      msg <- P.readStreamMsg stream
-      -- extract the data
-      let dat = P.getMessageData msg
-      -- extract the (possible replyport)
-      let replyPort = M.decodeControllerResponsePort $ P.getGenericData msg
-      case replyPort of
-        (Nothing) ->  
-          do
-          putStrLn "no reply port in message"
-          yield
-        (Just p) ->
-          do
-          -- putStrLn $ show p
-          -- do the dispatching in a new process...
-          _ <- forkIO $ dispatch cd dat p
-          return ()
-      --threadDelay 10
-      requestDispatcher cd
--}
 
 dispatch 
   :: ControllerData 
@@ -216,25 +145,6 @@ dispatch cd msg replyPort
         return ()
       _ -> handleRequest replyPort (return ()) (\_ -> M.CRspUnknown)
 
-{-
-handleRequest
-  :: M.ControllerResponsePort
-  -> IO a
-  -> (a -> M.ControllerResponseMessage) 
-  -> IO ()
-handleRequest po fhdl fres
-  = do
-    -- in case, we can't send the error...
-    E.handle (\e -> errorM localLogger $ show e) $ do
-      do
-      -- in case our operation fails, we send a failure-response
-      E.handle (\e -> P.send po (M.CRspError $ show e)) $
-        do
-        -- our action, might raise an exception
-        r <- fhdl
-        -- send the response
-        P.send po $ fres r
--}
 
 
 -- ----------------------------------------------------------------------------
@@ -460,6 +370,14 @@ deleteFileFromNodes fid nps = sequence_ $ map deleteFileFromNode nps
 -- ---------------------------------------------------------------------------- 
 
 instance C.Controller ControllerData where
+
+  closeController cd 
+    = do
+      -- shutdown the server thread and the stream
+      stopRequestDispatcher (cd_ServerThreadId cd)
+      closeStream (cd_OwnStream cd)
+      return ()      
+
 
   getFileIds nid cd
     = do

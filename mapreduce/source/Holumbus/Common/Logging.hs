@@ -49,7 +49,7 @@ initializeLogging = do
 
     updateGlobalLogger "Holumbus" (setLevel DEBUG)
     updateGlobalLogger "Holumbus.Network" (setLevel WARNING)
-    updateGlobalLogger "Holumbus.MapReduce.JobController.cycle" (setLevel INFO)
+    updateGlobalLogger "Holumbus.MapReduce.JobController.cycle" (setLevel WARNING)
 
     -- log all to syslog
     -- s <- openlog "SyslogStuff" [PID] USER DEBUG
