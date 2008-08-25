@@ -69,6 +69,7 @@ library
                 , Holumbus.FileSystem.Controller
                 , Holumbus.FileSystem.Controller.ControllerData
                 , Holumbus.FileSystem.Controller.ControllerPort
+                , Holumbus.Network.Communication
                 , Holumbus.Network.Core
                 , Holumbus.Network.Messages
                 , Holumbus.Network.Port
@@ -78,8 +79,9 @@ library
                 , Holumbus.Network.PortRegistry.PortRegistryData
                 , Holumbus.Network.PortRegistry.PortRegistryPort
                 , Holumbus.Console.Console
+                , Holumbus.Common.Debug
                 , Holumbus.Common.FileHandling
                 , Holumbus.Common.Logging
+                , Holumbus.Common.Threading
                 , Holumbus.Common.Utils
-                , Holumbus.Common.Debug
   ghc-options: -Wall -threaded -O
