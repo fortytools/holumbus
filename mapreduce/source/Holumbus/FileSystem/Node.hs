@@ -18,12 +18,11 @@
 module Holumbus.FileSystem.Node
 (
 -- * Typeclass
-  Node(..)
+  NodeClass(..)
 
 )
 where
 
-import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 
 
@@ -32,17 +31,15 @@ import qualified Holumbus.FileSystem.Storage as S
 -- Typeclass
 -- ----------------------------------------------------------------------------
 
-class Node n where
+class NodeClass n where
 
   closeNode :: n -> IO ()
 
-  getNodeRequestPort :: n -> M.NodeRequestPort
+  createFile :: S.FileId -> S.FileContent -> n -> IO ()
 
-  createFile :: S.FileId -> S.FileContent -> n -> IO n
+  appendFile :: S.FileId -> S.FileContent -> n -> IO ()
 
-  appendFile :: S.FileId -> S.FileContent -> n -> IO n
-
-  deleteFile :: S.FileId -> Bool -> n -> IO n
+  deleteFile :: S.FileId -> Bool -> n -> IO ()
 
   containsFile :: S.FileId -> n -> IO Bool
 
@@ -51,5 +48,3 @@ class Node n where
   getFileData :: S.FileId -> n -> IO (Maybe S.FileData)
 
   getFileIds :: n -> IO [S.FileId]
-
-  printDebug :: n -> IO ()

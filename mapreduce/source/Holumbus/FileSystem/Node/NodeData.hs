@@ -18,7 +18,7 @@
 module Holumbus.FileSystem.Node.NodeData
 (
 -- * data types
-  NodeData -- reexport from Data
+  NodeData
 
 -- * creation and destruction
 , newNode
@@ -28,12 +28,13 @@ where
 import           Prelude hiding (appendFile)
 
 import           Control.Concurrent
-import qualified Control.Exception as E
+-- import qualified Control.Exception as E
 import           Control.Monad
 import Data.Maybe
 import           System.IO hiding (appendFile)
 import           System.Log.Logger
 
+import           Holumbus.Common.Debug
 import           Holumbus.Common.Utils
 import           Holumbus.FileSystem.Node
 import qualified Holumbus.FileSystem.Controller as C
@@ -42,9 +43,10 @@ import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FS
 
-import           Holumbus.Network.Site
-import           Holumbus.Network.Port
-import           Holumbus.Network.Messages
+-- import           Holumbus.Network.Site
+-- import           Holumbus.Network.Port
+-- import           Holumbus.Network.Messages
+import           Holumbus.Network.Communication
 
 localLogger :: String
 localLogger = "Holumbus.FileSystem.Node.NodeData"
@@ -57,83 +59,64 @@ localLogger = "Holumbus.FileSystem.Node.NodeData"
       
 -- | Node datatype.
 data NodeData = NodeData {
-    nd_NodeId         :: MVar (Maybe M.NodeId)
-  , nd_SiteId         :: SiteId
-  , nd_ServerThreadId :: MVar (Maybe ThreadId)
-  , nd_OwnStream      :: M.NodeRequestStream
-  , nd_OwnPort        :: M.NodeRequestPort
-  , nd_ControllerPort :: MVar CP.ControllerPort
-  , nd_Storage        :: MVar FS.FileStorage
+    nd_Client          :: Client
+  , nd_Storage         :: FS.FileStorage
   }
 
+data Node = Node (MVar NodeData)
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
---getRequestPortFromNode :: NodeData -> M.NodeRequestPort
---getRequestPortFromNode (External p) = p
---getRequestPortFromNode (Internal _ _ p _ _) = p
-
-newNode :: CP.ControllerPort -> FS.FileStorage -> IO NodeData
-newNode cp s
+newNode :: StreamName -> Maybe SocketId -> FS.FileStorage -> IO Node
+newNode sn soid stor
   = do
+    -- initialise the client
+    node <- newEmptyMVar
+    client <- newClient sn soid (dispatch (Node node))
     -- open storage
-    s' <- S.openStorage s
-    -- initialize values
-    nidMVar <- newMVar Nothing
-    sid     <- getSiteId
-    tid     <- newMVar Nothing
-    st      <- (newLocalStream Nothing::IO M.NodeRequestStream)
-    po      <- newPortFromStream st
-    sMVar   <- newMVar s'
-    cMVar   <- newMVar cp            
-    let nd' = (NodeData nidMVar sid tid st po cMVar sMVar)
-    -- first, we start the server, because we can't handle requests without it
-    startRequestDispatcher tid st (dispatch nd')
-    -- then we try to register a the server
-    nd  <- registerNode nd'
-    return nd
+    stor' <- S.openStorage stor             
+    putMVar node (NodeData client stor')
+    return (Node node)
 
 
 dispatch 
-  :: NodeData 
+  :: Node
   -> M.NodeRequestMessage 
-  -> M.NodeResponsePort
-  -> IO ()
-dispatch nd msg replyPort
+  -> IO (Maybe M.NodeResponseMessage)
+dispatch nd msg
   = do
     case msg of
       (M.NReqCreate i c) ->
         do
-        handleRequest replyPort (createFile i c nd) (\_ -> M.NRspSuccess)
-        return ()
+        createFile i c nd
+        return $ Just M.NRspSuccess        
       (M.NReqAppend i c) -> 
         do
-        handleRequest replyPort (appendFile i c nd) (\_ -> M.NRspSuccess)
-        return ()
+        appendFile i c nd
+        return $ Just M.NRspSuccess
       (M.NReqDelete i b) ->
         do
-        handleRequest replyPort (deleteFile i b nd) (\_ -> M.NRspSuccess)
-        return ()
+        deleteFile i b nd
+        return $ Just M.NRspSuccess 
       (M.NReqContains i)-> 
         do
-        handleRequest replyPort (containsFile i nd) (\b -> M.NRspContains b)
-        return ()
+        b <- containsFile i nd
+        return $ Just $ M.NRspContains b
       (M.NReqGetFileContent i) ->
         do
-        handleRequest replyPort (getFileContent i nd) (\c -> M.NRspGetFileContent c)
-        return ()
+        c <- getFileContent i nd
+        return $ Just $ M.NRspGetFileContent c
       (M.NReqGetFileData i) ->
         do
-        handleRequest replyPort (getFileData i nd) (\d -> M.NRspGetFileData d)       
-        return ()
+        d <- getFileData i nd
+        return $ Just $ M.NRspGetFileData d
       (M.NReqGetFileIds) ->
         do
-        handleRequest replyPort (getFileIds nd) (\ls -> M.NRspGetFileIds ls)       
-        return ()
-      _ -> 
-        handleRequest replyPort (return ()) (\_ -> M.NRspUnknown)
+        ls <- getFileIds nd
+        return $ Just $ M.NRspGetFileIds ls
+      _ -> return Nothing 
 
 
 
@@ -141,8 +124,8 @@ dispatch nd msg replyPort
 --
 -- ----------------------------------------------------------------------------
 
-
-registerNode :: NodeData -> IO (NodeData)
+{-
+registerNode :: NodeData -> IO ()
 registerNode nd
   = do
     debugM localLogger "registering at controller"
@@ -158,21 +141,20 @@ registerNode nd
         (nid, _) <- C.registerNode sid np cp
         return (Just nid)
       -- write the new nodeId in the record
-      modifyMVar (nd_NodeId nd) (\_ -> return (nid,nd)) 
+      modifyMVar (nd_NodeId nd) (\_ -> return (nid,()))
      )
      (\e -> 
       do 
       errorM localLogger $ show e
-      return nd
      )   
 
-unregisterNode :: NodeData -> IO (NodeData)
+unregisterNode :: NodeData -> IO ()
 unregisterNode nd
   = do
     debugM localLogger "unregistering at controller"
     nid <- readMVar (nd_NodeId nd)
     unregister nid
-    modifyMVar (nd_NodeId nd) (\_ -> return (Nothing,nd))
+    modifyMVar (nd_NodeId nd) (\_ -> return (Nothing,()))
     where
       unregister Nothing = return ()
       unregister (Just i)
@@ -180,7 +162,7 @@ unregisterNode nd
           withMVar (nd_ControllerPort nd) $
             \cp -> C.unregisterNode i cp
           return ()
-
+-}
 
 
 -- ----------------------------------------------------------------------------
@@ -188,23 +170,18 @@ unregisterNode nd
 -- ----------------------------------------------------------------------------
 
 
-changeStorage :: (FS.FileStorage -> IO FS.FileStorage) -> NodeData -> IO NodeData
-changeStorage f nd
-  = do
-    -- handle (\e -> return (Left $ show e)) $
-    --   do
-    modifyMVar_ (nd_Storage nd) f
-    return nd
+changeStorage :: (FS.FileStorage -> IO FS.FileStorage) -> Node -> IO ()
+changeStorage f (Node node)
+  = modifyMVar node $ 
+      \nd -> 
+      do
+      stor' <- f (nd_Storage nd)
+      return (nd {nd_Storage = stor'}, ())
 
 
-
-readStorage :: (FS.FileStorage-> IO a) -> NodeData -> IO a
-readStorage f nd
-  = do
-    --handle (\e -> return (Left $ show e)) $
-    --  do
-    res <- withMVar (nd_Storage nd) f
-    return res
+readStorage :: (FS.FileStorage-> IO a) -> Node -> IO a
+readStorage f (Node node)
+  = withMVar node $ \nd -> f (nd_Storage nd)
 
 
 
@@ -213,125 +190,116 @@ readStorage f nd
 -- ----------------------------------------------------------------------------
 
 
-instance Node NodeData where
+instance NodeClass Node where
   
 
-  closeNode nd
-    = do
-      -- shutdown the server thread and the stream
-      nd'  <- unregisterNode nd
-      stopRequestDispatcher (nd_ServerThreadId nd')
-      closeStream (nd_OwnStream nd')
-      return ()
-    
+  closeNode (Node node)
+    = modifyMVar node $
+        \nd ->
+        do
+        closeClient (nd_Client nd)
+        return (nd,())
+      
      
-  getNodeRequestPort = nd_OwnPort   
-  
-     
-  --createFile :: S.FileId -> S.FileContent -> NodeData -> IO NodeData
-  createFile i c nd 
+  --createFile :: S.FileId -> S.FileContent -> Node -> IO ()
+  createFile i c n@(Node node)
     = do
-      nid <- readMVar (nd_NodeId nd)
+      client <- withMVar node $ \nd -> return (nd_Client nd)
+      nid <- getClientId client
       case nid of
         (Nothing) ->
           do
           --TODO besser exception-handling
           putStrLn "ERROR: Node.createFile - no nid"
-          return nd
+          return ()
         (Just nid') ->
           do
-          changeStorage (\stor -> S.createFile stor i c) nd
-          withMVar (nd_ControllerPort nd) $
-            \cp ->
-            do
-            C.createFile i nid' cp
-            return nd
+          changeStorage (\stor -> S.createFile stor i c) n 
+          server <- getServerPort client
+          let cp = CP.newControllerPortFromServerPort server
+          C.createFile i nid' cp
+          return ()
+          
 
-
-  --appendFile :: S.FileId -> S.FileContent -> NodeData -> IO NodeData
-  appendFile i c nd
+  --appendFile :: S.FileId -> S.FileContent -> Node -> IO ()
+  appendFile i c n@(Node node)
     = do
-      nid <- readMVar (nd_NodeId nd)
+      client <- withMVar node $ \nd -> return (nd_Client nd)
+      nid <- getClientId client
       case nid of
         (Nothing) ->
           do
           --TODO besser exception-handling
           putStrLn "ERROR: Node.createFile - no nid"
-          return nd
+          return ()
         (Just nid') ->
           do
-          changeStorage (\stor -> S.appendFile stor i c) nd
-          withMVar (nd_ControllerPort nd) $
-            \cp ->
-            do
-            C.appendFile i nid' cp
-            return nd      
+          changeStorage (\stor -> S.appendFile stor i c) n
+          server <- getServerPort client
+          let cp = CP.newControllerPortFromServerPort server
+          C.appendFile i nid' cp          
+          return ()
 
 
-  --deleteFile :: S.FileId -> NodeData -> IO NodeData
-  deleteFile i b nd
+  --deleteFile :: S.FileId -> Node -> IO ()
+  deleteFile i b n@(Node node)
     = do
-      nid <- readMVar (nd_NodeId nd)
+      client <- withMVar node $ \nd -> return (nd_Client nd)
+      nid <- getClientId client
       case nid of
         (Nothing) ->
           do
           --TODO besser exception-handling
           putStrLn "ERROR: Node.createFile - no nid"
-          return nd
+          return ()
         (Just nid') ->
           do
-          changeStorage (\stor -> S.deleteFile stor i) nd
+          changeStorage (\stor -> S.deleteFile stor i) n
           if (b) 
             then do
-              withMVar (nd_ControllerPort nd) $
-                \cp ->
-                do
-                C.deleteFile i nid' cp
-                return ()
+              server <- getServerPort client
+              let cp = CP.newControllerPortFromServerPort server
+              C.deleteFile i nid' cp
+              return ()
             else return ()
-          return nd      
 
 
-  --containsFile :: S.FileId -> NodeData -> IO Bool
-  containsFile i nd
+  --containsFile :: S.FileId -> Node -> IO Bool
+  containsFile i n
     = do
-      readStorage (\stor -> S.containsFile stor i) nd
+      readStorage (\stor -> S.containsFile stor i) n
 
 
-  --getFileContent :: S.FileId -> NodeData -> IO (Maybe S.FileContent)
-  getFileContent i nd
+  --getFileContent :: S.FileId -> Node -> IO (Maybe S.FileContent)
+  getFileContent i n
     = do
-      c <- readStorage (\stor -> S.getFileContent stor i) nd
+      c <- readStorage (\stor -> S.getFileContent stor i) n
       debugM localLogger $ "getFileContent: " ++ show c
       return c
     
 
-  --getFileData :: S.FileId -> NodeData -> IO (Maybe S.FileData)
+  --getFileData :: S.FileId -> Node -> IO (Maybe S.FileData)
   getFileData i nd
     = do
       readStorage (\stor -> S.getFileData stor i) nd
 
 
-  --getFileIds :: NodeData -> IO [S.FileId]
+  --getFileIds :: Node -> IO [S.FileId]
   getFileIds nd
     = do
       readStorage (\stor -> S.getFileIds stor) nd
 
 
-  printDebug nd
+
+
+instance Debug Node where
+  printDebug (Node node)
     = do
       putStrLn "Node-Object (full)"
-      withMVar (nd_NodeId nd) $
-        \nid -> putStrLn $ prettyRecordLine gap "NodeId:" nid
-      putStrLn $ prettyRecordLine gap "SiteId:" (nd_SiteId nd)
-      putStrLn $ prettyRecordLine gap "OwnStream:" (nd_OwnStream nd)
-      putStrLn $ prettyRecordLine gap "OwnPort:" (nd_OwnPort nd)
-      withMVar (nd_ServerThreadId nd) $
-        \i -> do putStrLn $ prettyRecordLine gap "ServerId:" i
-      withMVar (nd_ControllerPort nd) $
-        \cp -> do putStrLn $ prettyRecordLine gap "ControllerPort:" cp
-      withMVar (nd_Storage nd) $
-        \s -> do putStrLn $ prettyRecordLine gap "Storage:" s
-      where
+      withMVar node $
+        \nd ->
+        do
+        printDebug (nd_Client nd)
+        putStrLn $ prettyRecordLine gap "Storage:" (nd_Storage nd)
+        where
         gap = 20
-      

@@ -57,8 +57,6 @@ module Holumbus.FileSystem.FileSystem
 , getFileData
 , isFileLocal
 
--- * debug
-, printDebug
 )
 where
 
@@ -66,9 +64,11 @@ import           Prelude hiding (appendFile)
 import           Control.Concurrent
 import           Control.Monad
 import qualified Data.Set as Set
+-- import           Network
 import           System.Log.Logger
 
-import qualified Holumbus.FileSystem.Messages as M
+import           Holumbus.Common.Debug
+-- import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Controller.ControllerData as CD
 import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
@@ -78,7 +78,8 @@ import qualified Holumbus.FileSystem.Node.NodePort as NP
 import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FST
 import           Holumbus.Network.Site
-import           Holumbus.Network.Port
+-- import           Holumbus.Network.Port
+import           Holumbus.Network.Communication
 
 
 localLogger :: String
@@ -89,7 +90,7 @@ localLogger = "Holumbus.FileSystem.FileSystem"
 -- ---------------------------------------------------------------------------
 
 data FileSystemData = 
-   forall c n. (C.Controller c, N.Node n) =>
+   forall c n. (C.ControllerClass c, N.NodeClass n, Debug c, Debug n) =>
    FileSystemData SiteId c (Maybe n)
 --    fsd_siteId     :: SiteId
 --  , fsd_controller :: MVar c
@@ -120,10 +121,11 @@ defaultFSStandaloneConfig = FSStandaloneConf "FSController" "storage/" "director
 
 data FSControllerConf = FSControllerConf {
     fcoc_StreamName       :: StreamName
+  , fcoc_PortNumber       :: Maybe PortNumber
   }
    
 defaultFSControllerConfig :: FSControllerConf
-defaultFSControllerConfig = FSControllerConf "FSController"
+defaultFSControllerConfig = FSControllerConf "FSController" Nothing
 
 
 data FSNodeConf = FSNodeConf {
@@ -158,12 +160,10 @@ mkStandaloneFileSystem
   -> IO (FileSystem)
 mkStandaloneFileSystem conf
   = do
-    controller <- CD.newController (fstc_StreamName conf)
+    controller <- CD.newController (fstc_StreamName conf) Nothing
     let storage = FST.newFileStorage (fstc_StoragePath conf) (fstc_StorageFile conf) 
-    let cp = CP.newControllerPort $ C.getControllerRequestPort controller
-    n <- ND.newNode cp storage
-    fs <- newFileSystem controller (Just n)
-    -- setFileSystemNode n fs
+    node <- ND.newNode (fstc_StreamName conf) Nothing storage
+    fs <- newFileSystem controller (Just node)
     return fs
 
 
@@ -174,9 +174,8 @@ mkFileSystemController conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising controller on site " ++ show sid  
-    controller <- CD.newController (fcoc_StreamName conf)
+    controller <- CD.newController (fcoc_StreamName conf) (fcoc_PortNumber conf)
     newFileSystem controller (Nothing::Maybe NP.NodePort)
-    
   
 
 mkFileSystemNode
@@ -185,14 +184,13 @@ mkFileSystemNode
 mkFileSystemNode conf
   = do
     sid <- getSiteId
-    infoM localLogger $ "initialising node on site " ++ show sid 
-    p <- newPort (fnoc_StreamName conf) (fnoc_SocketId conf)
-    let cp = (CP.newControllerPort p)
+    infoM localLogger $ "initialising node on site " ++ show sid  
+    cp <- CP.newControllerPort (fnoc_StreamName conf) (fnoc_SocketId conf)
     infoM localLogger "creating filestorage"
     let storage = FST.newFileStorage (fnoc_StoragePath conf) (fnoc_StorageFile conf) 
-    n <- ND.newNode cp storage
-    newFileSystem cp (Just n)
-    
+    node <- ND.newNode (fnoc_StreamName conf) (fnoc_SocketId conf) storage
+    newFileSystem cp (Just node)
+  
 
 mkFileSystemClient
   :: FSClientConf
@@ -200,9 +198,8 @@ mkFileSystemClient
 mkFileSystemClient conf
   = do
     sid <- getSiteId
-    infoM localLogger $ "initialising client on site " ++ show sid 
-    p <- newPort (fclc_StreamName conf) (fclc_SocketId conf)
-    let cp = (CP.newControllerPort p)
+    infoM localLogger $ "initialising client on site " ++ show sid  
+    cp <- CP.newControllerPort (fclc_StreamName conf) (fclc_SocketId conf)
     newFileSystem cp (Nothing::Maybe NP.NodePort)
 
 
@@ -225,7 +222,7 @@ closeFileSystem (FileSystem fs)
 
 
 -- | Creates a new FileSystem with a controller and (maybe) a node.
-newFileSystem :: (C.Controller c, N.Node n) => c -> Maybe n -> IO (FileSystem)
+newFileSystem :: (C.ControllerClass c, N.NodeClass n, Debug c, Debug n) => c -> Maybe n -> IO (FileSystem)
 newFileSystem c n
   = do
     sid <- getSiteId
@@ -234,10 +231,9 @@ newFileSystem c n
 
 
 -- | get a NodePort from a NodeRequestPort
-createNodePort :: (Maybe M.NodeRequestPort) -> (Maybe NP.NodePort)
+createNodePort :: (Maybe ClientPort) -> (Maybe NP.NodePort)
 createNodePort Nothing = Nothing
 createNodePort (Just p) = Just $ NP.newNodePort p
-
 
 
 -- ---------------------------------------------------------------------------
@@ -262,8 +258,7 @@ getFileSites f (FileSystem fs)
 -- | gets the nearest NodePort with our fileId
 getNearestNodePortWithFile :: S.FileId -> FileSystem -> IO (Maybe NP.NodePort)
 getNearestNodePortWithFile f (FileSystem fs)
-  = do
-    withMVar fs $
+  = withMVar fs $
       \(FileSystemData sid c _) -> 
       (liftM createNodePort) $ C.getNearestNodePortWithFile f sid c
     
@@ -272,8 +267,7 @@ getNearestNodePortWithFile f (FileSystem fs)
 --   content-size to get a node with enough space.
 getNearestNodePortForFile :: S.FileId -> Integer -> FileSystem -> IO (Maybe NP.NodePort)
 getNearestNodePortForFile f l (FileSystem fs)
-  = do
-    withMVar fs $
+  = withMVar fs $
       \(FileSystemData sid c _) -> 
       (liftM createNodePort) $ C.getNearestNodePortForFile f l sid c
 
@@ -360,21 +354,21 @@ isFileLocal f (FileSystem fs)
       maybe (return False) (\n' -> N.containsFile f n') n
 
 
-printDebug :: FileSystem -> IO ()
-printDebug (FileSystem fs)
-  = do
-    withMVar fs $
-      \(FileSystemData s c n) ->
-      do
-      putStrLn "--------------------------------------------------------"
-      putStrLn "FileSystem - internal data\n"
-      putStrLn "--------------------------------------------------------"
-      putStrLn "SiteId:"
-      putStrLn $ show s
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Controller:"
-      C.printDebug c
-      putStrLn "--------------------------------------------------------"
-      putStrLn "Node:"
-      maybe (putStrLn "NOTHING") (\n' -> N.printDebug n') n
-      putStrLn "--------------------------------------------------------"
+instance Debug FileSystem where  
+  printDebug (FileSystem fs)
+    = do
+      withMVar fs $
+        \(FileSystemData s c n) ->
+        do
+        putStrLn "--------------------------------------------------------"
+        putStrLn "FileSystem - internal data\n"
+        putStrLn "--------------------------------------------------------"
+        putStrLn "SiteId:"
+        putStrLn $ show s
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Controller:"
+        printDebug c
+        putStrLn "--------------------------------------------------------"
+        putStrLn "Node:"
+        maybe (putStrLn "NOTHING") (\n' -> printDebug n') n
+        putStrLn "--------------------------------------------------------"

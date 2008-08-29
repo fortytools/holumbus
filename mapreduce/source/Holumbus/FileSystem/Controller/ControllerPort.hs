@@ -22,10 +22,12 @@ module Holumbus.FileSystem.Controller.ControllerPort
   
 -- * Creation and Destruction
 , newControllerPort
+, newControllerPortFromServerPort
 )
 where
 
-import Holumbus.Network.Port
+import Holumbus.Common.Debug
+import Holumbus.Network.Communication
 import Holumbus.FileSystem.Messages
 import Holumbus.FileSystem.Controller
 
@@ -35,130 +37,105 @@ import Holumbus.FileSystem.Controller
 -- ----------------------------------------------------------------------------
 
 
-data ControllerPort = ControllerPort ControllerRequestPort
+data ControllerPort = ControllerPort ServerPort
   deriving (Show)
 
 
 -- | Creates a new ControllerPort
-newControllerPort :: ControllerRequestPort -> ControllerPort
-newControllerPort p = ControllerPort p
+newControllerPort :: StreamName -> Maybe SocketId -> IO ControllerPort
+newControllerPort sn soid
+  = do
+    sp <- newServerPort sn soid
+    return (ControllerPort sp)
 
+newControllerPortFromServerPort :: ServerPort -> ControllerPort
+newControllerPortFromServerPort sp = ControllerPort sp
 
 -- ----------------------------------------------------------------------------
 -- Typeclass instanciation
 -- ----------------------------------------------------------------------------
 
 
-instance Controller ControllerPort where
+instance ControllerClass ControllerPort where
   
   closeController _ = return ()
   
-  
-  getFileIds _ _ = undefined
-  
-  
-  getControllerRequestPort (ControllerPort p) = p
-  
-  
-  registerNode sid po c@(ControllerPort p) 
-    = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqRegister sid po) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspRegister n) -> return (Just (n,c))
-            _ -> return Nothing
-  
-
-  unregisterNode nodeId c@(ControllerPort p)
-    = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqUnregister nodeId) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspUnregister) -> return (Just c)
-            _ -> return Nothing
+    
+  -- getServerPort (ControllerPort p) = p
   
   
   getFileSites f (ControllerPort p)  
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqGetFileSites f) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspGetFileSites set) -> return (Just set)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqGetFileSites f) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspGetFileSites set) -> return (Just set)
+          _ -> return Nothing
 
   
   containsFile f (ControllerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqContains f) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspContains b) -> return (Just b)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqContains f) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspContains b) -> return (Just b)
+          _ -> return Nothing
   
   
   getNearestNodePortWithFile f sid (ControllerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqGetNearestNodePortWithFile f sid) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspGetNearestNodePortWithFile po) -> return (Just po)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqGetNearestNodePortWithFile f sid) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspGetNearestNodePortWithFile po) -> return (Just po)
+          _ -> return Nothing
 
   
   getNearestNodePortForFile f l sid (ControllerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqGetNearestNodePortForFile f l sid) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspGetNearestNodePortForFile po) -> return (Just po)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqGetNearestNodePortForFile f l sid) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspGetNearestNodePortForFile po) -> return (Just po)
+          _ -> return Nothing
             
             
   createFile f nid (ControllerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqCreate f nid) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspSuccess) -> return (Just $ ControllerPort p)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqCreate f nid) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspSuccess) -> return (Just $ ())
+          _ -> return Nothing
 
 
   appendFile f nid (ControllerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqAppend f nid) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspSuccess) -> return (Just $ ControllerPort p)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqAppend f nid) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspSuccess) -> return (Just $ ())
+          _ -> return Nothing
 
 
   deleteFile f nid (ControllerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (CReqDelete f nid) $
-          \rsp ->
-          do
-          case rsp of
-            (CRspSuccess) -> return (Just $ ControllerPort p)
-            _ -> return Nothing
+      sendRequestToServer p time30 (CReqDelete f nid) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspSuccess) -> return (Just $ ())
+          _ -> return Nothing
 
             
+            
+instance Debug ControllerPort where            
   printDebug (ControllerPort p)
     = do
       putStrLn "ControllerPort:"

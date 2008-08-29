@@ -18,7 +18,7 @@
 module Holumbus.FileSystem.Controller
 (
 -- * Typeclass
-  Controller(..)
+  ControllerClass(..)
 )
 where
 
@@ -27,7 +27,7 @@ import           Prelude hiding (appendFile)
 import qualified Data.Set as Set
 
 import           Holumbus.Network.Site
-import qualified Holumbus.FileSystem.Messages as M
+import           Holumbus.Network.Communication
 import qualified Holumbus.FileSystem.Storage as S
 
 
@@ -37,34 +37,25 @@ import qualified Holumbus.FileSystem.Storage as S
 -- ----------------------------------------------------------------------------
 
 
-class Controller c where
+class ControllerClass c where
   
   closeController :: c -> IO ()
-  
-  -- only debug
-  getFileIds :: Integer -> c -> IO ()
-  
-  getControllerRequestPort :: c -> M.ControllerRequestPort
-  
-  registerNode :: SiteId -> M.NodeRequestPort -> c -> IO (M.NodeId, c)
-  
-  unregisterNode :: M.NodeId -> c -> IO c
-  
+    
+  -- getServerPort :: c -> ServerPort
+    
   getFileSites :: S.FileId -> c -> IO (Set.Set SiteId)
   
   containsFile :: S.FileId -> c -> IO Bool
   
-  getNearestNodePortWithFile :: S.FileId -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
+  getNearestNodePortWithFile :: S.FileId -> SiteId -> c -> IO (Maybe ClientPort)
   
-  getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
+  getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe ClientPort)
   
   
   -- only to be used by the nodes
   
-  createFile :: S.FileId -> M.NodeId -> c -> IO c
+  createFile :: S.FileId -> IdType -> c -> IO ()
 
-  deleteFile :: S.FileId -> M.NodeId -> c -> IO c
+  deleteFile :: S.FileId -> IdType -> c -> IO ()
 
-  appendFile :: S.FileId -> M.NodeId -> c -> IO c
-  
-  printDebug :: c -> IO ()
+  appendFile :: S.FileId -> IdType -> c -> IO ()

@@ -17,21 +17,41 @@
 
 module Holumbus.Network.Communication
 (
+  StreamName
+, SocketId
+, PortNumber
+-- time constants
+, time30
+
+, IdType
+
+, ClientInfo(..)
+
 -- * server operations
-  Server
+, Server
 , newServer
 , closeServer
+, ServerPort
+, newServerPort
+, sendRequestToServer
+
+, getClientInfo
+, getAllClientInfos
 
 -- * client operations
+, ClientClass(..)
 , Client
 , newClient
 , closeClient
+, ClientPort
+, sendRequestToClient 
 )
 where
 
 import           Control.Concurrent
 import qualified Control.Exception as E
 import           Data.Binary
+import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 import           Data.Maybe
 import           Network
@@ -68,6 +88,7 @@ data ServerRequestMessage
   = SReqRegisterClient SiteId (Port ClientRequestMessage)
   | SReqUnregisterClient IdType
   | SReqPing IdType
+  | SReqServerAction B.ByteString
   | SReqUnknown
   deriving (Show)
 
@@ -75,6 +96,7 @@ instance Binary (ServerRequestMessage) where
   put (SReqRegisterClient sid po) = putWord8 1 >> put sid >> put po
   put (SReqUnregisterClient i)    = putWord8 2 >> put i
   put (SReqPing i)                = putWord8 3 >> put i
+  put (SReqServerAction b)        = putWord8 4 >> put b
   put (SReqUnknown)               = putWord8 0
   get
     = do
@@ -83,6 +105,7 @@ instance Binary (ServerRequestMessage) where
         1 -> get >>= \sid -> get >>= \po -> return (SReqRegisterClient sid po)
         2 -> get >>= \i -> return (SReqUnregisterClient i)
         3 -> get >>= \i -> return (SReqPing i)
+        4 -> get >>= \b -> return (SReqServerAction b)
         _ -> return (SReqUnknown)
 
 
@@ -92,6 +115,7 @@ data ServerResponseMessage
   | SRspRegisterClient IdType
   | SRspUnregisterClient
   | SRspPing Bool
+  | SRspServerAction B.ByteString
   | SRspError String
   | SRspUnknown
   deriving (Show)
@@ -101,7 +125,8 @@ instance Binary (ServerResponseMessage) where
   put (SRspRegisterClient i) = putWord8 2 >> put i
   put (SRspUnregisterClient) = putWord8 3
   put (SRspPing b)           = putWord8 4 >> put b
-  put (SRspError e)          = putWord8 5 >> put e
+  put (SRspServerAction b)   = putWord8 5 >> put b
+  put (SRspError e)          = putWord8 6 >> put e
   put (SRspUnknown)          = putWord8 0
   get
     = do
@@ -111,7 +136,8 @@ instance Binary (ServerResponseMessage) where
         2 -> get >>= \i -> return (SRspRegisterClient i)
         3 -> return (SRspUnregisterClient)
         4 -> get >>= \b -> return (SRspPing b)
-        5 -> get >>= \e -> return (SRspError e)
+        5 -> get >>= \b -> return (SRspServerAction b)
+        6 -> get >>= \e -> return (SRspError e)
         _ -> return (SRspUnknown)
   
 instance RspMsg (ServerResponseMessage) where
@@ -145,6 +171,8 @@ class ServerClass s where
 -- Server-Data
 -- ----------------------------------------------------------------------------
   
+type RegistrationAction = (IdType -> ClientPort -> IO ())
+  
 -- the information of the client known by the server
 data ClientInfo = ClientInfo {
     ci_Site         :: SiteId                -- ^ SiteId (Hostname,PID) of the client process
@@ -164,6 +192,8 @@ data ServerData = ServerData {
   , sd_ClientMap       :: Map.Map IdType ClientInfo     -- ^ infomation of the the clients
   , sd_SiteToClientMap :: MMap.MultiMap SiteId IdType   -- ^ needed to get the closest client
   , sd_SiteMap         :: SiteMap                       -- ^ needed to get the closest site
+  , sd_Register        :: RegistrationAction
+  , sd_Unregister      :: RegistrationAction
   , sd_NextId          :: IdType
   }
   
@@ -172,19 +202,26 @@ data Server = Server (MVar ServerData)
   
 
 -- | creates a new server
-newServer 
-  :: StreamName -> Maybe PortNumber -> IO Server
-newServer sn pn
+newServer
+  :: (Binary a, Binary b)
+  => StreamName -> Maybe PortNumber
+  -> (a -> IO (Maybe b))             -- ^ handling own request
+  -> Maybe RegistrationAction        -- ^ for registration
+  -> Maybe RegistrationAction        -- ^ for unregistration 
+  -> IO Server
+newServer sn pn dispatch register unregister
   = do
     -- create a new server
     st    <- (newStream STGlobal (Just sn) pn::IO (Stream ServerRequestMessage))
     po    <- newPortFromStream st
     tid   <- newMVar Nothing
-    let sd = ServerData tid st po Map.empty MMap.empty Map.empty 1
+    let reg   = maybe (\_ _ -> return ()) id register
+    let unreg = maybe (\_ _ -> return ()) id unregister
+    let sd = ServerData tid st po Map.empty MMap.empty Map.empty reg unreg 1
     s <- newMVar sd
     let server =  Server s
     -- start the requestDispatcher to handle requests
-    startRequestDispatcher tid st (dispatchServerRequest server)
+    startRequestDispatcher tid st (dispatchServerRequest server dispatch)
     return server
 
 
@@ -208,11 +245,13 @@ closeServer s@(Server server)
 
 -- | handles the requests from the client
 dispatchServerRequest
-  :: Server
+  :: (Binary a, Binary b)
+  => Server
+  -> (a -> IO (Maybe b))
   -> ServerRequestMessage
   -> Port (ServerResponseMessage)
   -> IO ()
-dispatchServerRequest server msg replyPort
+dispatchServerRequest server action msg replyPort
   = do
     case msg of
       (SReqRegisterClient s po) ->
@@ -227,6 +266,11 @@ dispatchServerRequest server msg replyPort
         do
         handleRequest replyPort (pingServer i server) (\b -> SRspPing b)
         return ()
+      (SReqServerAction b) ->
+        do
+        handleRequest replyPort
+          (action $ decode b) 
+          (\res -> maybe (SRspUnknown) (\r -> SRspServerAction $ encode r) res)
       _ -> 
         handleRequest replyPort (return ()) (\_ -> SRspUnknown)
 
@@ -281,36 +325,60 @@ deleteClientFromServer i sd
 
 -- gets the ClientPort from a ClientId
 lookupClientInfo :: IdType -> ServerData -> Maybe ClientInfo
-lookupClientInfo i sd = Map.lookup i (sd_ClientMap sd) 
+lookupClientInfo i sd = Map.lookup i (sd_ClientMap sd)
+
+
+lookupAllClientInfos :: ServerData -> [ClientInfo]
+lookupAllClientInfos sd = Map.elems (sd_ClientMap sd)
+
+
+getClientInfo :: IdType -> Server -> IO (Maybe ClientInfo)
+getClientInfo i (Server server)
+  = withMVar server $ \sd -> return $ lookupClientInfo i sd 
+
+
+getAllClientInfos :: Server -> IO [ClientInfo]
+getAllClientInfos (Server server)
+  = withMVar server $ \sd -> return $ lookupAllClientInfos sd
+
 
 instance ServerClass Server where
   registerClient sid po s@(Server server)
     = do
       let cp = newClientPort po
       -- register the client at the server
-      (ptid,i) <- modifyMVar server $
+      (ptid,i,register) <- modifyMVar server $
         \sd ->
         do
         -- create a new Id and a new Port
         let (i, sd') = getNextId sd
+        let register = sd_Register sd
         -- add node to controller
         ptid <- newMVar Nothing  
         let sd'' = addClientToServer i sid cp ptid sd'
-        return (sd'', (ptid, i))
+        return (sd'', (ptid, i, register))
+      -- do general registration action
+      register i cp
       -- startPingProcess for Client
       startThread ptid 5000000 (checkClient i cp ptid s)
       return i
      
   unregisterClient i (Server server)
     = do
-      mbInfo <- modifyMVar server $
+      (mbInfo, unregister) <- modifyMVar server $
         \sd ->
         do
+        let unregister = sd_Unregister sd
         let mbInfo = lookupClientInfo i sd 
         let sd' = deleteClientFromServer i sd
-        return (sd', mbInfo)
+        return (sd', (mbInfo,unregister))
       case mbInfo of
-        (Just info) -> stopThread (ci_PingThreadId info)
+        (Just info) -> 
+          do
+          unregister i (ci_Port info)
+          stopThread (ci_PingThreadId info)
+          -- no actions beyond this point, because we raise an exception that
+          -- terminates this thread
         (Nothing)   -> return () 
         
   pingServer i (Server server)
@@ -342,10 +410,23 @@ instance Debug Server where
 data ServerPort = ServerPort (Port ServerRequestMessage)
   deriving (Show)
 
+instance Binary ServerPort where
+  put (ServerPort p) = put p
+  get
+    = do
+      p <- get
+      return (ServerPort p)
+      
 
 -- | creates a new ServerPort
-newServerPort :: Port ServerRequestMessage -> ServerPort
-newServerPort p = ServerPort p
+-- newServerPort :: Port ServerRequestMessage -> ServerPort
+-- newServerPort p = ServerPort p
+
+newServerPort :: StreamName -> Maybe SocketId -> IO ServerPort
+newServerPort sn soid
+  = do
+    p <- newPort sn soid
+    return (ServerPort p)
 
 -- | the instanciation of the 
 instance ServerClass ServerPort where
@@ -388,38 +469,56 @@ instance ServerClass ServerPort where
   
   -- | Requests datatype, which is send to a filesystem node.
 data ClientRequestMessage
-  = CReqPing IdType 
+  = CReqPing IdType
+  | CReqClientAction B.ByteString
+  | CReqClientId
+  | CReqServerPort
   | CReqUnknown         
   deriving (Show)
 
 instance Binary ClientRequestMessage where
-  put (CReqPing i)  = putWord8 1 >> put i 
-  put (CReqUnknown) = putWord8 0
+  put (CReqPing i)         = putWord8 1 >> put i
+  put (CReqClientAction b) = putWord8 2 >> put b
+  put (CReqClientId)       = putWord8 3
+  put (CReqServerPort)     = putWord8 4
+  put (CReqUnknown)        = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> get >>= \i -> return (CReqPing i)
+        2 -> get >>= \b -> return (CReqClientAction b)
+        3 -> return (CReqClientId)
+        4 -> return (CReqServerPort)
         _ -> return (CReqUnknown)
 
 
 -- | Response datatype from a filesystem node.
 data ClientResponseMessage
   = CRspPing Bool
+  | CRspClientAction B.ByteString
+  | CRspClientId (Maybe IdType)
+  | CRspServerPort ServerPort
   | CRspError String
   | CRspUnknown
   deriving (Show)      
 
 instance Binary ClientResponseMessage where
-  put (CRspPing b)  = putWord8 1 >> put b
-  put (CRspError e) = putWord8 2 >> put e
-  put (CRspUnknown) = putWord8 0
+  put (CRspPing b)         = putWord8 1 >> put b
+  put (CRspClientAction b) = putWord8 2 >> put b
+  put (CRspClientId i)     = putWord8 3 >> put i
+  put (CRspServerPort p)   = putWord8 4 >> put p
+  put (CRspError e)        = putWord8 5 >> put e
+  put (CRspUnknown)        = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> get >>= \b -> return (CRspPing b)
-        2 -> get >>= \e -> return (CRspError e)
+        2 -> get >>= \b -> return (CRspClientAction b)
+        3 -> get >>= \i -> return (CRspClientId i)
+        4 -> get >>= \p -> return (CRspServerPort p)
+        5 -> get >>= \e -> return (CRspError e)
         _ -> return (CRspUnknown)
 
 instance RspMsg ClientResponseMessage where
@@ -443,6 +542,8 @@ instance RspMsg ClientResponseMessage where
 
 class ClientClass c where
   pingClient :: IdType-> c -> IO Bool
+  getClientId :: c -> IO (Maybe IdType)
+  getServerPort :: c -> IO (ServerPort)
         
 
 
@@ -468,11 +569,14 @@ data Client = Client (MVar ClientData)
 
 
 -- | creates a new client, it needs the StreamName and optional the SocketId of the server
-newClient :: StreamName -> Maybe SocketId -> IO Client
-newClient sn soid
-  = do
-    p <- newPort sn soid
-    let sp = (newServerPort p)
+newClient
+  :: (Binary a, Binary b)
+  => StreamName -> Maybe SocketId
+  -> (a -> IO (Maybe b))  -- | the individual request dispatcher for the client
+  -> IO Client
+newClient sn soid action
+  = do  
+    sp <- newServerPort sn soid
     -- initialize values
     sid     <- getSiteId
     stid    <- newMVar Nothing
@@ -483,7 +587,7 @@ newClient sn soid
     c <- newMVar cd
     let client = Client c 
     -- first, we start the server, because we can't handle requests without it
-    startRequestDispatcher stid st (dispatchClientRequest client)
+    startRequestDispatcher stid st (dispatchClientRequest client action)
     -- then we try to register a the server
     startThread ptid 5000000 (checkServer sp sid po client)
     return client
@@ -506,26 +610,41 @@ closeClient (Client client)
 
 -- | handles the requests from the server
 dispatchClientRequest
-  :: Client
+  :: (Binary a, Binary b)
+  => Client
+  -> (a -> IO (Maybe b))
   -> ClientRequestMessage 
   -> Port ClientResponseMessage
   -> IO ()
-dispatchClientRequest client msg replyPort
+dispatchClientRequest client action msg replyPort
   = do
     case msg of
       (CReqPing i) ->
         do
         handleRequest replyPort (pingClient i client) (\b -> CRspPing b)
         return ()
+      (CReqClientAction b) ->
+        do
+        -- now, we have a specific client request
+        handleRequest replyPort 
+          (action $ decode b) 
+          (\res -> maybe (CRspUnknown) (\r -> CRspClientAction $ encode r) res)
       _ -> 
         handleRequest replyPort (return ()) (\_ -> CRspUnknown)
-
 
 
 instance ClientClass Client where
   pingClient i (Client client)
     = withMVar client $
         \cd -> return $ (cd_Id cd) == (Just i)
+        
+  getClientId (Client client)
+    = withMVar client $
+        \cd -> return $ (cd_Id cd)
+    
+  getServerPort (Client client)
+    = withMVar client $
+        \cd -> return $ (cd_ServerPort cd)
 
 
 instance Debug Client where
@@ -551,6 +670,13 @@ instance Debug Client where
 data ClientPort = ClientPort (Port ClientRequestMessage)
   deriving (Show)
 
+instance Binary ClientPort where
+  put (ClientPort p) = put p
+  get
+    = do
+      p <- get
+      return (ClientPort p)
+
 
 -- | creates a new ClientPort
 newClientPort :: Port ClientRequestMessage -> ClientPort
@@ -569,8 +695,66 @@ instance ClientClass ClientPort where
             (CRspPing b) -> return (Just b)
             _ -> return Nothing
 
+  getClientId (ClientPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s time30 (CReqClientId) $
+          \rsp ->
+          do
+          case rsp of
+            (CRspClientId i) -> return (Just i)
+            _ -> return Nothing
+    
+  getServerPort (ClientPort p)
+    = do
+      withStream $
+        \s -> performPortAction p s time30 (CReqServerPort) $
+          \rsp ->
+          do
+          case rsp of
+            (CRspServerPort sp) -> return (Just sp)
+            _ -> return Nothing
 
 
+
+sendRequestToClient 
+  :: (Binary a, Binary b)
+  => ClientPort -> Int
+  -> a
+  -> (b -> IO (Maybe c))  -- ^ response handler
+  -> IO c
+sendRequestToClient (ClientPort p) timeout a handler
+  = do
+    withStream $
+      \s -> performPortAction p s timeout (CReqClientAction (encode a)) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspClientAction b) -> 
+            do
+            handler (decode b)
+          _ -> return Nothing
+
+
+sendRequestToServer 
+  :: (Binary a, Binary b)
+  => ServerPort -> Int
+  -> a
+  -> (b -> IO (Maybe c))  -- ^ response handler
+  -> IO c
+sendRequestToServer (ServerPort p) timeout a handler
+  = do
+    withStream $
+      \s -> performPortAction p s timeout (SReqServerAction (encode a)) $
+        \rsp ->
+        do
+        case rsp of
+          (SRspServerAction b) -> 
+            do
+            handler (decode b)
+          _ -> return Nothing
+
+          
 -- ----------------------------------------------------------------------------
 -- Ping-Functions
 -- ----------------------------------------------------------------------------

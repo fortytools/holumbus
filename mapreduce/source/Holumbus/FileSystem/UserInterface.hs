@@ -27,6 +27,7 @@ import           Control.Exception
 import           Data.Binary
 import           Data.List
 
+import qualified Holumbus.Common.Debug as DEBUG
 import qualified Holumbus.Console.Console as Console
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.Storage as S
@@ -192,7 +193,7 @@ printDebug fs _
   = do
     handle (\e -> putStrLn $ show e) $
       do
-      FS.printDebug fs
+      DEBUG.printDebug fs
   
   
 printVersion :: String -> FS.FileSystem -> [String] -> IO ()

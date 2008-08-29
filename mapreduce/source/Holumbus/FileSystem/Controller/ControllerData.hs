@@ -36,6 +36,7 @@ import qualified Data.Set as Set
 
 import           System.Log.Logger
 
+import           Holumbus.Common.Debug
 import           Holumbus.Common.Utils
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Node as N
@@ -44,7 +45,7 @@ import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 
 import           Holumbus.Network.Site
-import           Holumbus.Network.Port
+import           Holumbus.Network.Communication
 import           Holumbus.Network.Messages
 
 localLogger :: String
@@ -55,98 +56,125 @@ localLogger = "Holumbus.FileSystem.Controller"
 -- ----------------------------------------------------------------------------
 
 
-type SiteData = (SiteId, NP.NodePort, Integer)
+-- type SiteData = (SiteId, NP.NodePort, Integer)
 
 type FileToNodeMap = Map.Map S.FileId (Set.Set M.NodeId)
-type NodeToSiteMap = Map.Map M.NodeId SiteData
-type SiteToNodeMap = Map.Map SiteId (Set.Set M.NodeId)
+-- type NodeToSiteMap = Map.Map M.NodeId SiteData
+-- type SiteToNodeMap = Map.Map SiteId (Set.Set M.NodeId)
 
 data ControllerMaps = ControllerMaps {
     cm_FileToNodeMap :: ! FileToNodeMap
-  , cm_NodeToSiteMap :: ! NodeToSiteMap
-  , cm_SiteToNodeMap :: ! SiteToNodeMap
-  , cm_SiteMap       :: ! SiteMap
-  , cm_NodeId        :: ! M.NodeId
+--  , cm_NodeToSiteMap :: ! NodeToSiteMap
+--  , cm_SiteToNodeMap :: ! SiteToNodeMap
+--  , cm_SiteMap       :: ! SiteMap
+--  , cm_NodeId        :: ! M.NodeId
   }
 
 data ControllerData = ControllerData {
-    cd_ServerThreadId ::   MVar (Maybe ThreadId)
-  , cd_OwnStream      :: ! M.ControllerRequestStream
-  , cd_OwnPort        :: ! M.ControllerRequestPort
-  , cd_Maps           ::   MVar ControllerMaps
+    cd_Server :: Server
+--    cd_ServerThreadId ::   MVar (Maybe ThreadId)
+--  , cd_OwnStream      :: ! M.ControllerRequestStream
+--  , cd_OwnPort        :: ! M.ControllerRequestPort
+    , cd_Maps           ::   ControllerMaps
   }
 
+data Controller = Controller (MVar ControllerData)
 
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
+{-
+-- initialise the client
+    node <- newEmptyMVar
+    client <- newClient sn soid (dispatch (Node node))
+    -- open storage
+    stor' <- S.openStorage stor             
+    putMVar node (NodeData client stor')
+    return (Node node)
+-}
 
-newController :: StreamName -> IO ControllerData
-newController sn
+newController :: StreamName -> Maybe PortNumber -> IO Controller
+newController sn pn
   = do
+    -- initialise the server
+    controller <- newEmptyMVar
+    let c = Controller controller
+    server <- newServer sn pn (dispatch c) (Just $ registerNode c) (Just $ unregisterNode c)
     -- initialize values
-    let maps = ControllerMaps Map.empty Map.empty Map.empty emptySiteMap 0 
-    mapMVar <- newMVar maps
-    st    <- (newGlobalStream sn::IO M.ControllerRequestStream)
-    po    <- newPortFromStream st
+    let maps = ControllerMaps Map.empty -- Map.empty Map.empty emptySiteMap 0 
+    -- mapMVar <- newMVar maps
+    -- st    <- (newGlobalStream sn::IO M.ControllerRequestStream)
+    -- po    <- newPortFromStream st
     -- we can't start the server yet
-    tid   <- newMVar Nothing
+    -- tid   <- newMVar Nothing
     -- get the internal data
-    let cd = (ControllerData tid st po mapMVar)
-    startRequestDispatcher tid st (dispatch cd)
-    return cd
+    putMVar controller (ControllerData server maps)
+    -- startRequestDispatcher tid st (dispatch cd)
+    return (Controller controller)
   
 
 dispatch 
-  :: ControllerData 
+  :: Controller 
   -> M.ControllerRequestMessage 
-  -> M.ControllerResponsePort
-  -> IO ()
-dispatch cd msg replyPort
+  -> IO (Maybe M.ControllerResponseMessage)
+dispatch cd msg
   = do
     case msg of
-      (M.CReqRegister s p) ->
-        do
-        handleRequest replyPort (C.registerNode s p cd) (\(nid, _) -> M.CRspRegister nid)
-        return ()
-      (M.CReqUnregister n) ->
-        do
-        handleRequest replyPort (C.unregisterNode n cd) (\_ -> M.CRspUnregister)
-        return ()
       (M.CReqGetFileSites f) ->
         do
-        handleRequest replyPort (C.getFileSites f cd) (\s -> M.CRspGetFileSites s)
-        return ()
+        s <- C.getFileSites f cd
+        return $ Just $ M.CRspGetFileSites s
       (M.CReqContains f) ->
         do
-        handleRequest replyPort (C.containsFile f cd) (\b -> M.CRspContains b)
-        return ()
+        b <- C.containsFile f cd
+        return $ Just $ M.CRspContains b
       (M.CReqGetNearestNodePortWithFile f sid) ->
         do
-        handleRequest replyPort (C.getNearestNodePortWithFile f sid cd) (\p -> M.CRspGetNearestNodePortWithFile p)
-        return ()
+        p <- C.getNearestNodePortWithFile f sid cd
+        return $ Just $ M.CRspGetNearestNodePortWithFile p
       (M.CReqGetNearestNodePortForFile f l sid) ->
         do
-        handleRequest replyPort (C.getNearestNodePortForFile f l sid cd) (\p -> M.CRspGetNearestNodePortForFile p)
-        return ()
+        p <- C.getNearestNodePortForFile f l sid cd
+        return $ Just $ M.CRspGetNearestNodePortForFile p
       (M.CReqCreate f n) ->
         do
-        handleRequest replyPort (C.createFile f n cd) (\_ -> M.CRspSuccess)
-        return ()
+        C.createFile f n cd
+        return $ Just $ M.CRspSuccess
       (M.CReqAppend f n) -> 
         do
-        handleRequest replyPort (C.appendFile f n cd) (\_ -> M.CRspSuccess)
-        return ()
+        C.appendFile f n cd
+        return $ Just $ M.CRspSuccess
       (M.CReqDelete f n) ->
         do
-        handleRequest replyPort (C.deleteFile f n cd) (\_ -> M.CRspSuccess)
-        return ()
-      _ -> handleRequest replyPort (return ()) (\_ -> M.CRspUnknown)
+        C.deleteFile f n cd
+        return $ Just $ M.CRspSuccess
+      _ -> return Nothing
 
 
+registerNode :: Controller -> IdType -> ClientPort -> IO ()
+registerNode (Controller controller) i cp
+  = do
+    let np = NP.newNodePort cp
+    fids <- N.getFileIds np
+    modifyMVar controller $
+      \cd ->
+      do
+      let cm = addFilesToController fids i (cd_Maps cd)
+      return (cd {cd_Maps = cm}, ())
 
+
+unregisterNode :: Controller -> IdType -> ClientPort -> IO ()
+unregisterNode (Controller controller) i _
+  = do
+    modifyMVar controller $
+      \cd ->
+      do
+      let cm = deleteFilesFromController i (cd_Maps cd)
+      return (cd {cd_Maps = cm}, ())
+    
+    
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -197,12 +225,13 @@ getFilesForCopying fnm = (fst . unzip) filteredList
     setSelector (_,s) = Set.size s < copyingLimit
 -}
 
+{-
 getNextId :: ControllerMaps -> (M.NodeId, ControllerMaps)
 getNextId cm 
   = (nid, cm { cm_NodeId = nid })
   where
     nid = (cm_NodeId cm) + 1
-
+-}
 
 -- | Adds the files of a node to the global directory.
 addFilesToController :: [S.FileId] -> M.NodeId -> ControllerMaps -> ControllerMaps
@@ -237,7 +266,7 @@ deleteFileFromController fid cm
     fnm = cm_FileToNodeMap cm 
     fnm' = Map.delete fid fnm
 
-
+{-
 lookupNodePort :: M.NodeId -> ControllerMaps -> Maybe NP.NodePort
 lookupNodePort nid cm = getPort sd
   where
@@ -293,65 +322,78 @@ deleteNodeFromController nid cm
         filterEmpty set
           | set == Set.empty = Nothing
           | otherwise = Just set
+-}
 
-
-getSiteDataList :: ControllerMaps -> [SiteData]
-getSiteDataList (ControllerMaps _ nsm _ _ _) = Map.elems nsm
 
 
 -- | gets the List of all sites the file is located on...
-getFileSiteDataList :: S.FileId -> ControllerMaps -> [SiteData]
-getFileSiteDataList f (ControllerMaps fnm nsm _ _ _) = dats
-  where
-    nids = Set.toList $ maybe Set.empty id (Map.lookup f fnm)
-    dats = mapMaybe (\nid -> Map.lookup nid nsm) nids 
+getFileClientInfoList :: S.FileId -> Server -> ControllerMaps -> IO [ClientInfo]
+getFileClientInfoList f s (ControllerMaps fnm)
+  = do
+    let is = Set.toList $ maybe Set.empty id (Map.lookup f fnm)
+    mbDats <- mapM (\i -> getClientInfo i s) is
+    return $ catMaybes mbDats  
 
 
-lookupNearestPortWithFile :: S.FileId -> SiteId -> ControllerMaps -> Maybe NP.NodePort
-lookupNearestPortWithFile f sid cm
-  = maybe Nothing (\(_,np,_) -> Just np) mbdat
-  where
-    dats = getFileSiteDataList f cm
-    sids = map (\(s,_,_) -> s) dats
-    mbns = nearestId sid sids
-    mbdat = maybe Nothing (\ns -> List.find (\(s,_,_) -> s == ns) dats) mbns
+
+lookupNearestPortWithFile :: S.FileId -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortWithFile f sid s cm
+  = do
+    dats <- getFileClientInfoList f s cm
+    let sids  = map (\ci -> ci_Site ci) dats
+        mbns  = nearestId sid sids
+        mbdat = maybe Nothing (\ns -> List.find (\ci -> (ci_Site ci) == ns) dats) mbns
+        mbnp  = maybe Nothing (\ci -> Just $ ci_Port ci) mbdat 
+    return mbnp
 
 
-lookupNearestPortWithFileAndSpace :: S.FileId -> Integer -> SiteId -> ControllerMaps -> Maybe NP.NodePort
-lookupNearestPortWithFileAndSpace f size sid cm
-  = maybe Nothing (\(_,np,_) -> Just np) mbdat
-  where
-    dats = getFileSiteDataList f cm
-    sids = map (\(s,_,_) -> s) $ filter (\(_,_,c) -> c >= size) dats
-    mbns = nearestId sid sids
-    mbdat = maybe Nothing (\ns -> List.find (\(s,_,_) -> s == ns) dats) mbns
- 
+lookupNearestPortWithFileAndSpace :: S.FileId -> Integer -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortWithFileAndSpace f size sid s cm
+  = lookupNearestPortWithFile f sid s cm
+{-    dats <- getFileClientInfoList f s cm
+    -- TODO add Capacity
+    let sids  = map (\ci -> ci_Site ci) $ filter (...) dats
+        mbns  = nearestId sid sids
+        mbdat = maybe Nothing (\ns -> List.find (\(s,_,_) -> s == ns) dats) mbns
+        mbnp  = maybe Nothing (\(_,np,_) -> Just np) mbdat
+    return mbnp 
+-}
 
-lookupNearestPortWithSpace :: Integer -> SiteId -> ControllerMaps -> Maybe NP.NodePort
-lookupNearestPortWithSpace size sid cm
-  = maybe Nothing (\(_,np,_) -> Just np) mbdat
-  where
-    dats = getSiteDataList cm
-    sids = map (\(s,_,_) -> s) $ filter (\(_,_,c) -> c >= size) dats
-    mbns = nearestId sid sids
-    mbdat = maybe Nothing (\ns -> List.find (\(s,_,_) -> s == ns) dats) mbns
+lookupNearestPortWithSpace :: Integer -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortWithSpace size sid s cm
+  = do
+    dats <- getAllClientInfos s
+    case dats of
+      (ci:_) -> return $ Just $ ci_Port ci
+      []     -> return Nothing 
+{-    do
+    dats <- getClientInfoList s cm
+    -- TODO add capacity 
+    let sids  = map (\ci -> ci_Site ci) $ filter (...) dats
+        mbns  = nearestId sid sids
+        mbdat = maybe Nothing (\ns -> List.find (\(s,_,_) -> s == ns) dats) mbns
+        mbnp  = maybe Nothing (\(_,np,_) -> Just np) mbdat
+    return mbnp
+-}
 
-
-lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> ControllerMaps -> Maybe NP.NodePort
-lookupNearestPortForFile f size sid cm
+lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortForFile f size sid s cm
   -- if file exists, get nearest node, else the closest with space
-  = maybe nodeWithoutFile (\np -> Just np) nodeWithFile
-  where 
-    nodeWithFile =  lookupNearestPortWithFileAndSpace f size sid cm
-    nodeWithoutFile = lookupNearestPortWithSpace size sid cm 
+  = do
+    nodeWithFile    <- lookupNearestPortWithFileAndSpace f size sid s cm
+    nodeWithoutFile <- lookupNearestPortWithSpace size sid s cm 
+    let mbnp = maybe nodeWithoutFile (\np -> Just np) nodeWithFile
+    return mbnp
+    
 
+getOtherFilePorts :: S.FileId -> IdType -> Server -> ControllerMaps -> IO [ClientInfo]
+getOtherFilePorts f nid s (ControllerMaps fnm)
+  = do
+    -- get all nodes which hold the file without the given node
+    let otherids = Set.toList $ Set.delete nid $ maybe Set.empty id (Map.lookup f fnm)
+    mbDats <- mapM (\i -> getClientInfo i s) otherids    
+    return $ catMaybes mbDats
 
-getOtherFileNodePorts :: S.FileId -> M.NodeId -> ControllerMaps -> [NP.NodePort]
-getOtherFileNodePorts f nid cm@(ControllerMaps fnm _ _ _ _) = ps
-  where
-    othernids = Set.toList $ Set.delete nid $ maybe Set.empty id (Map.lookup f fnm)
-    ps = mapMaybe (\i -> lookupNodePort i cm) othernids
-  
   
 deleteFileFromNodes :: S.FileId -> [NP.NodePort] -> IO ()
 deleteFileFromNodes fid nps = sequence_ $ map deleteFileFromNode nps
@@ -369,102 +411,42 @@ deleteFileFromNodes fid nps = sequence_ $ map deleteFileFromNode nps
 --
 -- ---------------------------------------------------------------------------- 
 
-instance C.Controller ControllerData where
+instance C.ControllerClass Controller where
 
-  closeController cd 
-    = do
-      -- shutdown the server thread and the stream
-      stopRequestDispatcher (cd_ServerThreadId cd)
-      closeStream (cd_OwnStream cd)
-      return ()      
+  closeController (Controller controller) 
+    = modifyMVar controller $
+        \cd ->
+        do      
+        closeServer (cd_Server cd)
+        return (cd,())
 
-
-  getFileIds nid cd
-    = do
-      modifyMVar (cd_Maps cd) $
-        \cm ->
-        do
-        let np = lookupNodePort nid cm
-        case np of 
-          (Nothing) -> return (cm, ())
-          (Just np') ->
-            do
-            --insert all Files into fsm
-            fids <- N.getFileIds np'
-            let cm' = addFilesToController fids nid cm
-            return (cm', ())        
-
-        
-  getControllerRequestPort cd = (cd_OwnPort cd)
   
-
---  registerNode :: SiteId -> M.NodeRequestPort -> ControllerData -> IO (M.NodeId, ControllerData)
-  registerNode sid po cd
-    = do
-      modifyMVar (cd_Maps cd) $
-        \cm ->
+  -- getFileSites :: S.FileId -> Controller -> IO (Set.Set SiteId) 
+  getFileSites f (Controller controller)
+    = withMVar (controller) $
+        \cd ->
         do
-        -- create a new Id and a new Port
-        let (nid, cm') = getNextId cm
-        let np = NP.newNodePort po
-        -- add node to controller
-        let cm'' = addNodeToController nid sid np cm'
-        --insert all Files into fsm
-        fids <- N.getFileIds np
-        let cm''' = addFilesToController fids nid cm''
-        return (cm''', (nid, cd))        
-
-
---unregisterNode :: M.NodeId -> ControllerData -> IO ControllerData
-  unregisterNode nodeId cd
-    = do
-      modifyMVar (cd_Maps cd) $
-        \cm ->
-        do
-        let cm' = deleteFilesFromController nodeId cm
-        let cm'' = deleteNodeFromController nodeId cm'
-        return (cm'', cd) 
-        
-  
---  getFileSites :: S.FileId -> ControllerData -> IO (Set.Set SiteId) 
-  getFileSites f cd
-    = do
-      withMVar (cd_Maps cd) $
-        \cm ->
-        do
-        let dats = getFileSiteDataList f cm
-        let sids = map (\(s,_,_) -> s) dats
+        dats <- getFileClientInfoList f (cd_Server cd) (cd_Maps cd)
+        let sids = map (\ci -> ci_Site ci) dats
         return (Set.fromList sids)
 
   
---containsFile :: S.FileId -> ControllerData -> IO Bool
-  containsFile f cd
-    = do
-      withMVar (cd_Maps cd) $
-        \(ControllerMaps fsm _ _ _ _) -> return $ Map.member f fsm
+  -- containsFile :: S.FileId -> Controller -> IO Bool
+  containsFile f (Controller controller)
+    = withMVar (controller) $
+        \cd -> return $ Map.member f (cm_FileToNodeMap $ cd_Maps cd)
   
       
---  getNearestNodePortWithFile :: S.FileId -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
-  getNearestNodePortWithFile f sid cd
-    = do
-      withMVar (cd_Maps cd) $
-        \cm ->
-        do
-        let np = lookupNearestPortWithFile f sid cm 
-        let po = maybe Nothing (\np' -> Just $ N.getNodeRequestPort np') np
-        return po        
+  -- getNearestNodePortWithFile :: S.FileId -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
+  getNearestNodePortWithFile f sid (Controller controller)
+    = withMVar (controller) $
+        \cd -> lookupNearestPortWithFile f sid (cd_Server cd) (cd_Maps cd) 
 
  
---  getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
-  getNearestNodePortForFile f c sid cd
-    = do
-      withMVar (cd_Maps cd) $
-        \cm ->
-        do
-        let np = lookupNearestPortForFile f c sid cm
-        let po = maybe Nothing (\np' -> Just $ N.getNodeRequestPort np') np
-        return po 
-      
+  -- getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
+  getNearestNodePortForFile f c sid (Controller controller)
+    = withMVar (controller) $
+        \cd -> lookupNearestPortForFile f c sid (cd_Server cd) (cd_Maps cd)
 
 
 -- ----------------------------------------------------------------------------
@@ -472,30 +454,14 @@ instance C.Controller ControllerData where
 -- ----------------------------------------------------------------------------
 
 
-{-
-getNearestNeighbor :: SiteId -> ControllerData -> IO (Set.Set SiteId)
-getNearestNeighbor sid cd
-  = do
-    handle (\e -> return (Left $ show e)) $
-      do
-      s <- withMVar (cd_maps cd) $
-        \(ControllerMaps _ _ _ sm _) ->
-        do
-        let sids = getNeighbourSiteIds sid sm
-        return sids
-      return (Right s)
--}
-
-
 --createFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
-  createFile f nid cd
-    = do
-      modifyMVar (cd_Maps cd) $
-        \cm ->
+  createFile f nid (Controller controller)
+    = modifyMVar controller $
+        \cd ->
         do
-        let cm' = addFileToController f nid cm
+        let cm =  addFileToController f nid (cd_Maps cd)
         --TODO copy file
-        return (cm', cd)
+        return (cd {cd_Maps = cm}, ())
 
 
 --appendFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
@@ -504,35 +470,31 @@ getNearestNeighbor sid cd
 
 
 --deleteFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
-  deleteFile f nid cd
-    = do
-      modifyMVar (cd_Maps cd) $
-        \cm ->
+  deleteFile f nid (Controller controller)
+    = modifyMVar controller $
+        \cd ->
         do
         -- inform all other nodes to delete node
-        let nps = getOtherFileNodePorts f nid cm
+        cps <- getOtherFilePorts f nid (cd_Server cd) (cd_Maps cd)
+        let nps = map (\ci -> NP.newNodePort (ci_Port ci)) cps
         deleteFileFromNodes f nps
         -- delete file from Controller
-        let cm' = deleteFileFromController f cm        
-        return (cm', cd)
+        let cm = deleteFileFromController f (cd_Maps cd)        
+        return (cd {cd_Maps = cm}, ())
+        
+        
 
-
-  printDebug cd
+instance Debug Controller where
+  printDebug (Controller controller)
     = do
       putStrLn "Controller-Object (full)"
-      withMVar (cd_ServerThreadId cd) $ 
-        \i-> do putStrLn $ prettyRecordLine 15 "ServerId:" i
-      putStrLn $ prettyRecordLine gap "OwnStream:" (cd_OwnStream cd)
-      putStrLn $ prettyRecordLine gap "OwnPort:" (cd_OwnPort cd)
-      withMVar (cd_Maps cd) $
-        \cm -> 
+      withMVar controller $
+        \cd ->
         do
-        putStrLn $ prettyRecordLine gap "FileToNodeMap:" (cm_FileToNodeMap cm)
-        putStrLn $ prettyRecordLine gap "NoteToSiteMap:" (cm_NodeToSiteMap cm)
-        putStrLn $ prettyRecordLine gap "SiteToNodeMap:" (cm_SiteToNodeMap cm)
-        putStrLn $ prettyRecordLine gap "SiteMap:"       (cm_SiteMap cm)
-        putStrLn $ prettyRecordLine gap "Last NodeId:"   (cm_NodeId cm)
-      where
-        gap = 20
-
+        putStrLn "--------------------------------------------------------"        
+        putStrLn "Server"
+        printDebug (cd_Server cd)
+        putStrLn "--------------------------------------------------------"
+        putStrLn "FileToNodeMap:"
+        putStrLn $ show (cm_FileToNodeMap $ cd_Maps cd) 
         

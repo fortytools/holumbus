@@ -25,7 +25,8 @@ module Holumbus.FileSystem.Node.NodePort
 )
 where
 
-import Holumbus.Network.Port
+import Holumbus.Common.Debug
+import Holumbus.Network.Communication
 import Holumbus.FileSystem.Messages
 import Holumbus.FileSystem.Node
 
@@ -35,12 +36,12 @@ import Holumbus.FileSystem.Node
 -- ----------------------------------------------------------------------------
 
 
-data NodePort = NodePort NodeRequestPort
+data NodePort = NodePort ClientPort
   deriving (Show)
 
 
 -- | Creates a new NodePort.
-newNodePort :: NodeRequestPort -> NodePort
+newNodePort :: ClientPort -> NodePort
 newNodePort p = NodePort p
 
 
@@ -51,91 +52,85 @@ newNodePort p = NodePort p
 -- ----------------------------------------------------------------------------
 
 
-instance Node NodePort where
+instance NodeClass NodePort where
   
   closeNode _ = return ()
   
   
-  getNodeRequestPort (NodePort p) = p
+  -- getClientPort (NodePort p) = p
 
   
   createFile i c (NodePort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqCreate i c) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspSuccess) -> return (Just $ NodePort p)
+      sendRequestToClient p time30 (NReqCreate i c) $
+        \rsp ->
+        do
+        case rsp of
+            (NRspSuccess) -> return (Just ())
             _ -> return Nothing
 
 
   appendFile i c (NodePort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqAppend i c) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspSuccess) -> return (Just $ NodePort p)
-            _ -> return Nothing
+      sendRequestToClient p time30 (NReqAppend i c) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspSuccess) -> return (Just ())
+          _ -> return Nothing
 
 
-  deleteFile i b (NodePort p)
+  deleteFile i b (NodePort p) 
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqDelete i b) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspSuccess) -> return (Just $ NodePort p)
-            _ -> return Nothing         
+      sendRequestToClient p time30 (NReqDelete i b) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspSuccess) -> return (Just ())
+          _ -> return Nothing         
 
 
   containsFile i (NodePort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqContains i) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspContains b) -> return (Just b)
-            _ -> return Nothing
+      sendRequestToClient p time30 (NReqContains i) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspContains b) -> return (Just b)
+          _ -> return Nothing
 
 
   getFileContent i (NodePort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqGetFileContent i) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspGetFileContent c) -> return (Just c)
-            _ -> return Nothing
+      sendRequestToClient p time30 (NReqGetFileContent i) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspGetFileContent c) -> return (Just c)
+          _ -> return Nothing
 
     
   getFileData i (NodePort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqGetFileData i) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspGetFileData d) -> return (Just d)
-            _ -> return Nothing
+      sendRequestToClient p time30 (NReqGetFileData i) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspGetFileData d) -> return (Just d)
+          _ -> return Nothing
 
 
   getFileIds (NodePort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (NReqGetFileIds) $
-          \rsp ->
-          do
-          case rsp of
-            (NRspGetFileIds ls) -> return (Just ls)
-            _ -> return Nothing
+      sendRequestToClient p time30 (NReqGetFileIds) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspGetFileIds ls) -> return (Just ls)
+          _ -> return Nothing
 
 
+instance Debug NodePort where
   printDebug (NodePort p)
     = do
       putStrLn "NodePort:"
