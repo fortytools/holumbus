@@ -1,14 +1,14 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : HayooParser
+  Module     : Hayoo.Parser
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+  Version    : 0.2
 
   The parser for the Hayoo! web search.
  
@@ -41,12 +41,12 @@ andQuery = do t <- orQuery
               try (andOp' t) <|> return t
   where
   andOp' r = do andOp
-                q <- (notQuery <|> andQuery)
+                q <- andQuery
                 return (BinQuery And r q)
 
 -- | Parse an or query.
 orQuery :: Parser Query
-orQuery = do t <- parQuery
+orQuery = do t <- notQuery
              do orOp
                 q <- orQuery
                 return (BinQuery Or t q)
@@ -54,9 +54,22 @@ orQuery = do t <- parQuery
 
 -- | Parse a negation.
 notQuery :: Parser Query
-notQuery = do notOp
-              q <- parQuery
-              return (Negation q)
+notQuery = do notQuery' <|> contextQuery
+  where
+  notQuery' = do notOp
+                 q <- contextQuery
+                 return (Negation q)
+
+-- | Parse a context query.
+contextQuery :: Parser Query
+contextQuery = try contextQuery' <|> parQuery
+  where
+  contextQuery' = do c <- contexts
+                     spaces
+                     char ':'
+                     spaces
+                     t <- parQuery
+                     return (Specifier c t)
 
 -- | Parse a query surrounded by parentheses.
 parQuery :: Parser Query
@@ -139,6 +152,17 @@ wordChar = noneOf "\")( "
 -- | Parse a character of a phrases.
 phraseChar :: Parser Char
 phraseChar = noneOf "\""
+
+-- | Parse a list of contexts.
+contexts :: Parser [String]
+contexts = context `sepBy1` (char ',')
+
+-- | Parse a context.
+context :: Parser String
+context = do spaces 
+             c <- (many1 alphaNum)
+             spaces
+             return c
 
 -- | Parse at least on white space character.
 spaces1 :: Parser ()

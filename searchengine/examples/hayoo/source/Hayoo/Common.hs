@@ -34,6 +34,10 @@ import Control.Monad hiding (join)
 import Text.XML.HXT.Arrow
 
 import Holumbus.Utility
+import Holumbus.Query.Result
+
+-- Status information of query processing.
+type StatusResult = (String, Result FunctionInfo)
 
 -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 

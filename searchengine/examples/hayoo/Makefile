@@ -38,6 +38,7 @@ install :
 	cp output/Hayoo/Search.* $(JANUS_ROOT)/Hayoo/
 	cp output/Hayoo/Parser.* $(JANUS_ROOT)/Hayoo/
 	cp output/Hayoo/Common.* $(JANUS_ROOT)/Hayoo/
+	cp output/Hayoo/HTML.* $(JANUS_ROOT)/Hayoo/
 
 clean :
 	$(RM) $(OUTPUT) $(PROGS)
