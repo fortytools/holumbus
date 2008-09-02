@@ -23,7 +23,8 @@ module Holumbus.Distribution.Worker.WorkerPort
 )
 where
 
-import Holumbus.Network.Port
+import Holumbus.Common.Debug
+import Holumbus.Network.Communication
 import Holumbus.Distribution.Messages
 import Holumbus.Distribution.Worker
 
@@ -33,12 +34,12 @@ import Holumbus.Distribution.Worker
 -- ----------------------------------------------------------------------------
 
 
-data WorkerPort = WorkerPort WorkerRequestPort
+data WorkerPort = WorkerPort ClientPort
   deriving (Show)
 
 
 -- | Creates a new NodePort.
-newWorkerPort :: WorkerRequestPort -> WorkerPort
+newWorkerPort :: ClientPort -> WorkerPort
 newWorkerPort p = WorkerPort p
 
 
@@ -48,18 +49,14 @@ newWorkerPort p = WorkerPort p
 -- ----------------------------------------------------------------------------
 
 
-instance Worker WorkerPort where
+instance WorkerClass WorkerPort where
   
   closeWorker _ = return ()
-    
-  
-  getWorkerRequestPort (WorkerPort p) = p
 
 
   startTask td w@(WorkerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (WReqStartTask td) $
+      sendRequestToClient p time30 (WReqStartTask td) $
           \rsp ->
           do
           case rsp of
@@ -69,8 +66,7 @@ instance Worker WorkerPort where
 
   stopTask tid w@(WorkerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (WReqStopTask tid) $
+      sendRequestToClient p time30 (WReqStopTask tid) $
           \rsp ->
           do
           case rsp of
@@ -80,8 +76,7 @@ instance Worker WorkerPort where
 
   stopAllTasks w@(WorkerPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (WReqStopAllTasks) $
+      sendRequestToClient p time30 (WReqStopAllTasks) $
           \rsp ->
           do
           case rsp of
@@ -89,6 +84,8 @@ instance Worker WorkerPort where
             _ -> return Nothing
 
 
+
+instance Debug WorkerPort where
   printDebug (WorkerPort p)
       = do
         putStrLn "WorkerPort:"

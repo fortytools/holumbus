@@ -28,21 +28,22 @@ import           Control.Concurrent
 import qualified Control.Exception as E
 
 import           Data.Maybe
--- import qualified Data.Set as Set
 
 import           System.Log.Logger
 
+import           Holumbus.Common.Debug
 import qualified Holumbus.FileSystem.FileSystem as FS
-import           Holumbus.Network.Site
-import           Holumbus.Network.Port
-import           Holumbus.Network.Messages
+-- import           Holumbus.Network.Site
+-- import           Holumbus.Network.Port
+-- import           Holumbus.Network.Messages
+import           Holumbus.Network.Communication
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.MapReduce.TaskProcessor as TP
 import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.Distribution.Master.MasterPort as MP
 import qualified Holumbus.Distribution.Master as MC
 import           Holumbus.Distribution.Worker
-import           Holumbus.Common.Utils
+-- import           Holumbus.Common.Utils
 
 localLogger :: String
 localLogger = "Holumbus.Distribution.Worker.WorkerData"
@@ -50,74 +51,72 @@ localLogger = "Holumbus.Distribution.Worker.WorkerData"
 
 
 data WorkerData = WorkerData {
-    wd_WorkerId       :: MVar (Maybe M.WorkerId)
-  , wd_SiteId         :: ! SiteId
-  , wd_ServerThreadId :: MVar (Maybe ThreadId)
-  , wd_OwnStream      :: ! M.WorkerRequestStream
-  , wd_OwnPort        :: ! M.WorkerRequestPort
-  , wd_MasterPort     :: MVar MP.MasterPort
+    wd_Client         :: Client
+--    wd_WorkerId       :: MVar (Maybe M.WorkerId)
+--  , wd_SiteId         :: ! SiteId
+--  , wd_ServerThreadId :: MVar (Maybe ThreadId)
+--  , wd_OwnStream      :: ! M.WorkerRequestStream
+--  , wd_OwnPort        :: ! M.WorkerRequestPort
+--  , wd_MasterPort     :: MVar MP.MasterPort
   , wd_TaskProcessor  :: TP.TaskProcessor   
   }
   
   
 
 
-newWorker :: FS.FileSystem -> ActionMap -> MP.MasterPort -> IO WorkerData
-newWorker fs am mp
+newWorker :: FS.FileSystem -> ActionMap -> StreamName -> Maybe SocketId -> IO WorkerData
+newWorker fs am sn soid
   = do
-    -- initialize values
-    nidMVar <- newMVar Nothing
-    sid     <- getSiteId
-    tid     <- newMVar Nothing
-    st      <- (newLocalStream Nothing::IO M.WorkerRequestStream)
-    po      <- newPortFromStream st
+    -- initialise the client
+    w <- newEmptyMVar
+    client <- newClient sn soid (dispatch w)
+
+    mp <- MP.newMasterPort sn soid
     mpMVar  <- newMVar mp
-    tp      <- TP.newTaskProcessor
     
     -- configure the TaskProcessor
+    tp <- TP.newTaskProcessor
     TP.setFileSystemToTaskProcessor fs tp
     TP.setActionMap am tp
     TP.setTaskCompletedHook (sendTaskCompleted mpMVar) tp
     TP.setTaskErrorHook (sendTaskError mpMVar) tp
     TP.startTaskProcessor tp
     
-    let wd' = (WorkerData nidMVar sid tid st po mpMVar tp)
-    -- first, we start the server, because we can't handle requests without it
-    startRequestDispatcher (wd_ServerThreadId wd') st (dispatch wd')
-    -- then we try to register a the server
-    wd  <- registerWorker wd'
+    let wd = (WorkerData client tp)
+
+    putMVar w wd
+
     return wd
 
 
 dispatch 
-  :: WorkerData 
+  :: MVar WorkerData
   -> M.WorkerRequestMessage 
-  -> M.WorkerResponsePort
-  -> IO ()
-dispatch wd msg replyPort
+  -> IO (Maybe M.WorkerResponseMessage)
+dispatch w msg
   = do
+    wd <- readMVar w
     case msg of
       (M.WReqStartTask td) ->
         do
-        handleRequest replyPort (startTask td wd) (\_ -> M.WRspSuccess)
-        return ()
+        startTask td wd
+        return $ Just $ M.WRspSuccess
       (M.WReqStopTask tid) ->
         do
-        handleRequest replyPort (stopTask tid wd) (\_ -> M.WRspSuccess)
-        return ()
+        stopTask tid wd
+        return $ Just $ M.WRspSuccess
       (M.WReqStopAllTasks) ->
         do
-        handleRequest replyPort (stopAllTasks wd) (\_ -> M.WRspSuccess)
-        return ()
-      _ -> 
-        handleRequest replyPort (return ()) (\_ -> M.WRspUnknown)
+        stopAllTasks wd
+        return $ Just $ M.WRspSuccess
+      _ -> return Nothing
 
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
-
+{-
 registerWorker :: WorkerData -> IO (WorkerData)
 registerWorker wd
   = do
@@ -149,7 +148,7 @@ unregisterWorker wd
           withMVar (wd_MasterPort wd) $
             \cp -> MC.unregisterWorker i cp
           return ()
-
+-}
 
 
 -- ----------------------------------------------------------------------------
@@ -185,17 +184,12 @@ sendTaskError mvmp td
 
 
 
-instance Worker WorkerData where
+instance WorkerClass WorkerData where
 
   closeWorker wd
     = do
-      -- shutdown the server thread and the stream
-      wd'  <- unregisterWorker wd
-      stopRequestDispatcher (wd_ServerThreadId wd')
-      closeStream (wd_OwnStream wd')
+      closeClient (wd_Client wd)
       return ()
-
-  getWorkerRequestPort wd = wd_OwnPort wd
   
   
   startTask td wd
@@ -222,20 +216,11 @@ instance Worker WorkerData where
       return wd
 
   
+instance Debug WorkerData where
   printDebug wd
     = do
       putStrLn "Worker-Object (full)"
-      withMVar (wd_WorkerId wd) $
-        \wid -> putStrLn $ prettyRecordLine gap "WorkerId:" wid                      
-      withMVar (wd_ServerThreadId wd) $ 
-        \i-> do putStrLn $ prettyRecordLine 15 "ServerId:" i
-      putStrLn $ prettyRecordLine gap "SiteId:" (wd_SiteId wd)
-      putStrLn $ prettyRecordLine gap "OwnStream:" (wd_OwnStream wd)
-      putStrLn $ prettyRecordLine gap "OwnPort:" (wd_OwnPort wd)
-      withMVar (wd_MasterPort wd) $
-        \mp -> do putStrLn $ prettyRecordLine gap "MasterPort:" mp
+      printDebug (wd_Client wd)
       tp <- TP.printTaskProcessor (wd_TaskProcessor wd)
       putStrLn "TaskProcessor:"
       putStrLn tp
-      where
-        gap = 20

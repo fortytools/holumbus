@@ -18,24 +18,6 @@ module Holumbus.Distribution.Messages
 -- * Datatypes
   WorkerId
 
--- * Request and Response Ports for the Master
-, MasterRequestStream
-, MasterRequestPort
-
-, MasterResponseStream
-, MasterResponsePort
-
--- * Request and Response Ports for the Worker
-, WorkerRequestStream
-, WorkerRequestPort
-
-, WorkerResponseStream
-, WorkerResponsePort
-
-, decodeMasterResponsePort
-
-, decodeWorkerResponsePort
-
 -- * Messages to and from the Master
 , MasterRequestMessage(..)
 , MasterResponseMessage(..)
@@ -51,59 +33,16 @@ where
 
 
 import           Data.Binary
-import qualified Data.ByteString.Lazy as B
 
-import qualified Holumbus.Network.Port as P
-import qualified Holumbus.Network.Site as Site
 import           Holumbus.Network.Messages
 import           Holumbus.MapReduce.Types
 
--- ----------------------------------------------------------------------------
---
--- ----------------------------------------------------------------------------
-
-
-type WorkerId = Integer
-
-
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
-
--- Request and Response Ports for the Master
-type MasterRequestStream  = P.Stream MasterRequestMessage
-type MasterRequestPort    = P.Port MasterRequestMessage
-
-
-type MasterResponseStream = P.Stream MasterResponseMessage
-type MasterResponsePort   = P.Port MasterResponseMessage
-
-
--- Request and Response Ports for the Worker
-type WorkerRequestStream  = P.Stream WorkerRequestMessage
-type WorkerRequestPort    = P.Port WorkerRequestMessage
-
-
-type WorkerResponseStream = P.Stream WorkerResponseMessage
-type WorkerResponsePort   = P.Port WorkerResponseMessage
-
-
--- | parses something from a maybe bytestring, if Nothing, then Nothing
-decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
-decodeMaybe Nothing = Nothing
-decodeMaybe (Just b) = (Just $ decode b)
-
-
--- | parses a Master reply port from a bytestring 
-decodeMasterResponsePort :: Maybe B.ByteString -> Maybe MasterResponsePort
-decodeMasterResponsePort = decodeMaybe
-
-
--- | parses a Worker reply port from a bytestring
-decodeWorkerResponsePort :: Maybe B.ByteString -> Maybe WorkerResponsePort
-decodeWorkerResponsePort = decodeMaybe
+type WorkerId = Int
 
 
 
@@ -114,9 +53,7 @@ decodeWorkerResponsePort = decodeMaybe
 
 -- Messages to and from the Master
 data MasterRequestMessage 
-  = MReqRegister Site.SiteId WorkerRequestPort [ActionName]
-  | MReqUnregister WorkerId
-  | MReqTaskCompleted TaskData
+  = MReqTaskCompleted TaskData
   | MReqTaskError TaskData  
   | MReqStartControlling
   | MReqStopControlling
@@ -128,29 +65,25 @@ data MasterRequestMessage
 
 
 instance Binary MasterRequestMessage where
-  put (MReqRegister s p as)  = putWord8 1 >> put s >> put p >> put as
-  put (MReqUnregister n)     = putWord8 2 >> put n
-  put (MReqTaskCompleted td) = putWord8 3 >> put td
-  put (MReqTaskError td)     = putWord8 4 >> put td  
-  put (MReqStartControlling) = putWord8 5
-  put (MReqStopControlling)  = putWord8 6
-  put (MReqIsControlling)    = putWord8 7
-  put (MReqSingleStep)       = putWord8 8
-  put (MReqPerformJob ji)    = putWord8 9 >> put ji
+  put (MReqTaskCompleted td) = putWord8 1 >> put td
+  put (MReqTaskError td)     = putWord8 2 >> put td  
+  put (MReqStartControlling) = putWord8 3
+  put (MReqStopControlling)  = putWord8 4
+  put (MReqIsControlling)    = putWord8 5
+  put (MReqSingleStep)       = putWord8 6
+  put (MReqPerformJob ji)    = putWord8 7 >> put ji
   put (MReqUnknown)          = putWord8 0
   get
     = do
       t <- getWord8
       case t of
-        1 -> get >>= \s -> get >>= \p -> get >>= \as -> return (MReqRegister s p as) 
-        2 -> get >>= \n -> return (MReqUnregister n)
-        3 -> get >>= \td -> return (MReqTaskCompleted td)
-        4 -> get >>= \td -> return (MReqTaskError td) 
-        5 -> return (MReqStartControlling)
-        6 -> return (MReqStopControlling)
-        7 -> return (MReqIsControlling)
-        8 -> return (MReqSingleStep)
-        9 -> get >>= \ji -> return (MReqPerformJob ji)
+        1 -> get >>= \td -> return (MReqTaskCompleted td)
+        2 -> get >>= \td -> return (MReqTaskError td) 
+        3 -> return (MReqStartControlling)
+        4 -> return (MReqStopControlling)
+        5 -> return (MReqIsControlling)
+        6 -> return (MReqSingleStep)
+        7 -> get >>= \ji -> return (MReqPerformJob ji)
         _ -> return (MReqUnknown)
 
 
@@ -162,8 +95,6 @@ instance Binary MasterRequestMessage where
 
 data MasterResponseMessage 
   = MRspSuccess
-  | MRspRegister WorkerId
-  | MRspUnregister
   | MRspIsControlling Bool
   | MRspResult JobResult
   | MRspError String
@@ -186,22 +117,18 @@ instance RspMsg MasterResponseMessage where
 
 instance Binary MasterResponseMessage where
   put (MRspSuccess)          = putWord8 1
-  put (MRspRegister n)       = putWord8 2 >> put n
-  put (MRspUnregister)       = putWord8 3
-  put (MRspIsControlling b)  = putWord8 4 >> put b
-  put (MRspResult jr)        = putWord8 5 >> put jr
-  put (MRspError e)          = putWord8 6 >> put e
+  put (MRspIsControlling b)  = putWord8 2 >> put b
+  put (MRspResult jr)        = putWord8 3 >> put jr
+  put (MRspError e)          = putWord8 4 >> put e
   put (MRspUnknown)          = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> return (MRspSuccess)
-        2 -> get >>= \n -> return (MRspRegister n) 
-        3 -> return (MRspUnregister)
-        4 -> get >>= \b -> return (MRspIsControlling b)
-        5 -> get >>= \jr -> return (MRspResult jr)
-        6 -> get >>= \e -> return (MRspError e)
+        2 -> get >>= \b -> return (MRspIsControlling b)
+        3 -> get >>= \jr -> return (MRspResult jr)
+        4 -> get >>= \e -> return (MRspError e)
         _ -> return (MRspUnknown)
 
 
@@ -234,7 +161,6 @@ instance Binary WorkerRequestMessage where
         2 -> get >>= \tid -> return (WReqStopTask tid)
         3 -> return (WReqStopAllTasks)
         _ -> return (WReqUnknown)
-
 
 
 

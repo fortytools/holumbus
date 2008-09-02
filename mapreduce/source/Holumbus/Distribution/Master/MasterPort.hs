@@ -20,10 +20,11 @@ module Holumbus.Distribution.Master.MasterPort
   
 -- * Creation and Destruction
 , newMasterPort
+, newMasterPortFromServerPort
 )
 where
 
-import Holumbus.Network.Port
+import Holumbus.Network.Communication
 import Holumbus.Network.Site
 
 import Holumbus.Common.Debug
@@ -37,7 +38,7 @@ import Holumbus.Distribution.Master
 -- ----------------------------------------------------------------------------
 
 
-data MasterPort = MasterPort MasterRequestPort
+data MasterPort = MasterPort ServerPort
   deriving (Show)
 
 
@@ -47,10 +48,15 @@ data MasterPort = MasterPort MasterRequestPort
 -- ----------------------------------------------------------------------------
 
 
--- | Creates a new MasterPort
-newMasterPort :: MasterRequestPort -> MasterPort
-newMasterPort p = MasterPort p
+-- | Creates a new ControllerPort
+newMasterPort :: StreamName -> Maybe SocketId -> IO MasterPort
+newMasterPort sn soid
+  = do
+    sp <- newServerPort sn soid
+    return (MasterPort sp)
 
+newMasterPortFromServerPort :: ServerPort -> MasterPort
+newMasterPortFromServerPort sp = MasterPort sp
 
 
 -- ----------------------------------------------------------------------------
@@ -83,8 +89,8 @@ instance MapReduce MasterPort where
 
   
   startControlling (MasterPort p)
-    = withStream $
-       \s -> performPortAction p s time30 (MReqStartControlling) $
+    = do
+      sendRequestToServer p time30 (MReqStartControlling) $
          \rsp ->
          do
          case rsp of
@@ -93,8 +99,8 @@ instance MapReduce MasterPort where
 
   
   stopControlling (MasterPort p)
-    = withStream $
-       \s -> performPortAction p s time30 (MReqStopControlling) $
+    = do
+      sendRequestToServer p time30 (MReqStopControlling) $
          \rsp ->
          do
          case rsp of
@@ -103,8 +109,8 @@ instance MapReduce MasterPort where
 
 
   isControlling (MasterPort p)
-    = withStream $
-       \s -> performPortAction p s time30 (MReqIsControlling) $
+    = do
+      sendRequestToServer p time30 (MReqIsControlling) $
          \rsp ->
          do
          case rsp of
@@ -114,8 +120,8 @@ instance MapReduce MasterPort where
 
   
   doSingleStep (MasterPort p)
-    = withStream $
-        \s -> performPortAction p s time30 (MReqSingleStep) $
+    = do
+      sendRequestToServer p time30 (MReqSingleStep) $
           \rsp ->
           do
           case rsp of
@@ -124,8 +130,8 @@ instance MapReduce MasterPort where
 
   
   doMapReduce ji (MasterPort p)
-    = withStream $
-        \s -> performPortAction p s time30 (MReqPerformJob ji) $
+    = do
+      sendRequestToServer p time30 (MReqPerformJob ji) $
           \rsp ->
           do
           case rsp of
@@ -135,41 +141,15 @@ instance MapReduce MasterPort where
 
 
 
-instance Master MasterPort where
+instance MasterClass MasterPort where
 
 
   closeMaster _ = return ()
 
 
-  getMasterRequestPort (MasterPort p) = p
-  
-  
-  registerWorker sid po as c@(MasterPort p) 
-    = do
-      withStream $
-        \s -> performPortAction p s time30 (MReqRegister sid po as) $
-          \rsp ->
-          do
-          case rsp of
-            (MRspRegister n) -> return (Just (n,c))
-            _ -> return Nothing
-
-
-  unregisterWorker wid c@(MasterPort p)
-    = do
-      withStream $
-        \s -> performPortAction p s time30 (MReqUnregister wid) $
-          \rsp ->
-          do
-          case rsp of
-            (MRspUnregister) -> return (Just c)
-            _ -> return Nothing
-
-
   receiveTaskCompleted td c@(MasterPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (MReqTaskCompleted td) $
+      sendRequestToServer p time30 (MReqTaskCompleted td) $
           \rsp ->
           do
           case rsp of
@@ -179,8 +159,7 @@ instance Master MasterPort where
 
   receiveTaskError td c@(MasterPort p)
     = do
-      withStream $
-        \s -> performPortAction p s time30 (MReqTaskError td) $
+      sendRequestToServer p time30 (MReqTaskError td) $
           \rsp ->
           do
           case rsp of

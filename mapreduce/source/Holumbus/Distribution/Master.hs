@@ -15,16 +15,12 @@
 
 module Holumbus.Distribution.Master
 (
-  Master(..)
+  MasterClass(..)
 )
 where
 
-
-import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.MapReduce.Types as T
 import qualified Holumbus.MapReduce.MapReduce as MR
-import           Holumbus.Network.Site
-
 
 
 -- ----------------------------------------------------------------------------
@@ -32,16 +28,10 @@ import           Holumbus.Network.Site
 -- ----------------------------------------------------------------------------
 
 
-class (MR.MapReduce m) => Master m where
+class (MR.MapReduce m) => MasterClass m where
 
   closeMaster :: m -> IO () 
-
-  getMasterRequestPort :: m -> M.MasterRequestPort
   
-  registerWorker :: SiteId -> M.WorkerRequestPort -> [T.ActionName] -> m -> IO (M.WorkerId, m)
-  
-  unregisterWorker :: M.WorkerId -> m -> IO m
-
   receiveTaskCompleted :: T.TaskData -> m -> IO m
 
   receiveTaskError :: T.TaskData -> m -> IO m

@@ -35,8 +35,9 @@ import           System.Log.Logger
 
 import           Holumbus.Common.Debug
 import           Holumbus.Network.Site
-import           Holumbus.Network.Port
-import           Holumbus.Network.Messages
+-- import           Holumbus.Network.Port
+-- import           Holumbus.Network.Messages
+import           Holumbus.Network.Communication
 import qualified Holumbus.MapReduce.MapReduce as MR
 import           Holumbus.MapReduce.JobController
 import           Holumbus.MapReduce.Types
@@ -60,10 +61,10 @@ localLogger = "Holumbus.Distribution.Master.MasterData"
 -- ----------------------------------------------------------------------------
 
 
-type SiteData = (SiteId, WP.WorkerPort, [ActionName])
+-- type SiteData = (SiteId, WP.WorkerPort, [ActionName])
 
-type WorkerToSiteMap = Map.Map M.WorkerId SiteData
-type SiteToWorkerMap = MMap.MultiMap SiteId M.WorkerId
+-- type WorkerToSiteMap = Map.Map M.WorkerId SiteData
+-- type SiteToWorkerMap = MMap.MultiMap SiteId M.WorkerId
 
 type JobMap = Map.Map JobId JobData
 
@@ -74,11 +75,11 @@ type ActionToWorkerMap = MMap.MultiMap ActionName M.WorkerId
 
 
 data WorkerControllerData = WorkerControllerData {
-    wcd_WorkerToSiteMap   :: ! WorkerToSiteMap
-  , wcd_SiteToWorkerMap   :: ! SiteToWorkerMap
-  , wcd_SiteMap           :: ! SiteMap
-  , wcd_WorkerId          :: ! M.WorkerId
-  , wcd_JobMap            :: ! JobMap
+  -- wcd_WorkerToSiteMap   :: ! WorkerToSiteMap
+  -- , wcd_SiteToWorkerMap   :: ! SiteToWorkerMap
+  -- , wcd_SiteMap           :: ! SiteMap
+  -- , wcd_WorkerId          :: ! M.WorkerId
+    wcd_JobMap            :: ! JobMap
   , wcd_TaskToWorkerMap   :: ! TaskToWorkerMap
   , wcd_WorkerToTaskMap   :: ! WorkerToTaskMap
   , wcd_ActionToWorkerMap :: ! ActionToWorkerMap
@@ -87,9 +88,10 @@ data WorkerControllerData = WorkerControllerData {
 type WorkerController = MVar WorkerControllerData
 
 data MasterData = MasterData {
-    md_ServerThreadId   ::   MVar (Maybe ThreadId)
-  , md_OwnStream        :: ! M.MasterRequestStream
-  , md_OwnPort          :: ! M.MasterRequestPort
+    md_Server          :: Server
+  --  md_ServerThreadId   ::   MVar (Maybe ThreadId)
+  -- , md_OwnStream        :: ! M.MasterRequestStream
+  -- , md_OwnPort          :: ! M.MasterRequestPort
   , md_WorkerController ::   WorkerController
   , md_JobController    ::   JobController
   , md_FileSystem       ::   FS.FileSystem
@@ -108,10 +110,6 @@ newWorkerController
     let wcd = WorkerControllerData
                 Map.empty
                 MMap.empty
-                emptySiteMap
-                0
-                Map.empty
-                MMap.empty
                 MMap.empty
                 MMap.empty
     wc <- newMVar wcd
@@ -120,101 +118,114 @@ newWorkerController
 
 newMaster
   :: FS.FileSystem
-  -> Bool -> StreamName
+  -> Bool -> StreamName -> Maybe PortNumber
   -> IO MasterData
-newMaster fs start sn
+newMaster fs start sn pn
   = do
-    -- initialize values 
-    st    <- (newGlobalStream sn::IO M.MasterRequestStream)
-    po    <- newPortFromStream st
-
-    -- we can't start the server yet
-    tid   <- newMVar Nothing
-
+    -- initialise the server
+    m <- newEmptyMVar
+    server <- newServer sn pn (dispatch m) (Just $ registerWorker m) (Just $ unregisterWorker m)
+    
     -- start the WorkerController
     wc <- newWorkerController
 
     -- start the JobController
     jc <- newJobController
     -- configure the JobController
-    setTaskSendHook (sendStartTask wc) jc
-    
+    setTaskSendHook (sendStartTask server wc) jc
     if (start) 
       then do startJobController jc
       else do return ()
 
     -- get the internal data
-    let md = MasterData tid st po wc jc fs
-    startRequestDispatcher tid  st (dispatch md)
+    let md = MasterData server wc jc fs
+    
+    -- get the internal data
+    putMVar m md
+    
     return md
 
   
 dispatch 
-  :: MasterData 
+  :: MVar MasterData 
   -> M.MasterRequestMessage 
-  -> M.MasterResponsePort
-  -> IO ()
-dispatch md msg replyPort
+  -> IO (Maybe M.MasterResponseMessage)
+dispatch m msg
   = do
+    md <- readMVar m
     case msg of
-      (M.MReqRegister s p as) ->
-        do
-        handleRequest replyPort (MC.registerWorker s p as md) (\(nid, _) -> M.MRspRegister nid)
-        return ()
-      (M.MReqUnregister n) ->
-        do
-        handleRequest replyPort (MC.unregisterWorker n md) (\_ -> M.MRspUnregister)
-        return ()
       (M.MReqTaskCompleted td) ->
         do
-        handleRequest replyPort (MC.receiveTaskCompleted td md) (\_ -> M.MRspSuccess)
-        return ()
+        MC.receiveTaskCompleted td md
+        return $ Just $ M.MRspSuccess
       (M.MReqTaskError td) ->
         do
-        handleRequest replyPort (MC.receiveTaskError td md) (\_ -> M.MRspSuccess)
-        return ()
+        MC.receiveTaskError td md
+        return $ Just $ M.MRspSuccess
       (M.MReqStartControlling) ->
         do
-        handleRequest replyPort (MR.startControlling md) (\_ -> M.MRspSuccess)
-        return ()         
+        MR.startControlling md
+        return $ Just $ M.MRspSuccess         
       (M.MReqStopControlling) ->
         do
-        handleRequest replyPort (MR.stopControlling md) (\_ -> M.MRspSuccess)
-        return ()         
+        MR.stopControlling md
+        return $ Just $ M.MRspSuccess         
       (M.MReqIsControlling) ->
         do
-        handleRequest replyPort (MR.isControlling md) (\b -> M.MRspIsControlling b)
-        return ()         
+        MR.isControlling md
+        return $ Just $ M.MRspSuccess         
       (M.MReqSingleStep) ->
         do
-        handleRequest replyPort (MR.doSingleStep md) (\_ -> M.MRspSuccess)
-        return ()
+        MR.doSingleStep md
+        return $ Just $ M.MRspSuccess
       (M.MReqPerformJob ji) ->
         do
-        handleRequest replyPort (MR.doMapReduce ji md) (\r -> M.MRspResult r)
-        return ()
-      _ -> handleRequest replyPort (return ()) (\_ -> M.MRspUnknown)
+        r <- MR.doMapReduce ji md
+        return $ Just $ M.MRspResult r
+      _ -> return Nothing
 
+
+
+registerWorker :: MVar MasterData -> IdType -> ClientPort -> IO ()
+registerWorker m i _
+  = do
+    md <- readMVar m
+    modifyMVar (md_WorkerController md) $
+      \wcd ->
+      do
+      -- TODO get actions from Worker
+      let as = []
+      let wcd' = addWorkerToMaster i as wcd      
+      return (wcd',())
+    
+    
+
+
+unregisterWorker :: MVar MasterData -> IdType -> ClientPort -> IO ()
+unregisterWorker m i _
+  = do
+    md <- readMVar m
+    modifyMVar (md_WorkerController md) $
+      \wcd ->
+      do
+      -- TODO delete Tasks from Worker
+      let wcd' = deleteWorkerFromMaster i wcd      
+      return (wcd',())
+    
+    return ()
 
 
 -- ----------------------------------------------------------------------------
 -- private functions
 -- ----------------------------------------------------------------------------
 
-
-getNextWorkerId :: WorkerControllerData -> (M.WorkerId, WorkerControllerData)
-getNextWorkerId wcd
-  = (wid, wcd { wcd_WorkerId = wid })
-  where
-    wid = (wcd_WorkerId wcd) + 1
-
-
+{-
 lookupWorkerSiteId :: M.WorkerId -> WorkerControllerData -> Maybe SiteId
 lookupWorkerSiteId wid wcd = convertSite sd
   where 
     sd = Map.lookup wid $ wcd_WorkerToSiteMap wcd 
     convertSite Nothing = Nothing
-    convertSite (Just (sid, _, _)) = Just sid
+    convertSite (Just (sid, _, _)) = Just sid 
 
 
 lookupWorkerPort :: M.WorkerId -> WorkerControllerData -> Maybe WP.WorkerPort
@@ -223,59 +234,32 @@ lookupWorkerPort wid wcd = getPort sd
     sd = Map.lookup wid $ wcd_WorkerToSiteMap wcd
     getPort Nothing = Nothing
     getPort (Just (_, wp, _)) = Just wp
-
-
+-}
+{-
 lookupWorkerActions :: M.WorkerId -> WorkerControllerData -> Maybe [ActionName]
 lookupWorkerActions wid wcd = getActions sd
   where 
     sd = Map.lookup wid $ wcd_WorkerToSiteMap wcd
     getActions Nothing = Nothing
     getActions (Just (_, _, as)) = Just as
-
+-}
 
 addWorkerToMaster
-  :: M.WorkerId -> SiteId -> WP.WorkerPort -> [ActionName]
+  :: M.WorkerId -> [ActionName]
   -> WorkerControllerData -> WorkerControllerData
-addWorkerToMaster wid sid wp as wcd
-  = wcd 
-      { wcd_WorkerToSiteMap = wsm'
-      , wcd_SiteToWorkerMap = swm'
-      , wcd_SiteMap = sm' 
-      , wcd_ActionToWorkerMap = awm' }
+addWorkerToMaster wid as wcd
+  = wcd { wcd_ActionToWorkerMap = awm' }
   where
-    --update the nodetosite map
-    wsm' = Map.insert wid (sid, wp, as) $ wcd_WorkerToSiteMap wcd
-    --update the sitetonode map
-    swm' = MMap.insert sid wid $ wcd_SiteToWorkerMap wcd
-    -- update the SiteMap
-    sm' = addIdToMap sid $ wcd_SiteMap wcd
-    -- update the ActionToWorkerMap
-    awm' = MMap.insertKeys as (Set.singleton wid) $ wcd_ActionToWorkerMap wcd
+  -- update the ActionToWorkerMap
+  awm' = MMap.insertKeys as (Set.singleton wid) $ wcd_ActionToWorkerMap wcd
         
 
 deleteWorkerFromMaster :: M.WorkerId -> WorkerControllerData -> WorkerControllerData
 deleteWorkerFromMaster wid wcd
-  = wcd 
-      { wcd_WorkerToSiteMap = wsm'
-      , wcd_SiteToWorkerMap = swm'
-      , wcd_SiteMap = sm'
-      , wcd_ActionToWorkerMap = awm' }
+  = wcd { wcd_ActionToWorkerMap = awm' }
   where
-    -- update the nodetosite map 
-    wsm' = Map.delete wid $ wcd_WorkerToSiteMap wcd 
-    -- update the sitetonode and the siteIdMap
-    sid = lookupWorkerSiteId wid wcd
-    swm = wcd_SiteToWorkerMap wcd
-    sm = wcd_SiteMap wcd
-    (swm', sm') = deleteSiteId sid
-    deleteSiteId Nothing = (swm, sm)
-    deleteSiteId (Just s) = (MMap.deleteElem s wid swm , deleteIdFromMap s sm)
-    -- update the sitetonode and the siteIdMap
-    as = lookupWorkerActions wid wcd
-    awm = wcd_ActionToWorkerMap wcd
-    awm' = deleteActions as
-    deleteActions Nothing = awm
-    deleteActions (Just s) = foldl (\m a -> MMap.deleteElem a wid m) awm s
+  -- update the ActionToWorkerMap 
+  awm' = MMap.deleteAllElems wid $ wcd_ActionToWorkerMap wcd
 
 
 getTasksPerWorkerWithAction :: ActionName -> WorkerControllerData -> [(Int, M.WorkerId)]
@@ -302,7 +286,7 @@ addTaskToWorker tid wid wcd = wcd { wcd_TaskToWorkerMap = twm',  wcd_WorkerToTas
   twm' = MMap.insert tid wid (wcd_TaskToWorkerMap wcd)
   wtm' = MMap.insert wid tid (wcd_WorkerToTaskMap wcd)
   
-
+{-
 deleteTaskFromWorker :: TaskId -> M.WorkerId -> WorkerControllerData -> WorkerControllerData
 deleteTaskFromWorker tid wid wcd = wcd { wcd_TaskToWorkerMap = twm',  wcd_WorkerToTaskMap = wtm'}
   where
@@ -315,10 +299,10 @@ deleteTaskFromWorkers tid wcd = wcd''
   where
   wids = Set.toList $ MMap.lookup tid (wcd_TaskToWorkerMap wcd)
   wcd'' = foldl (\wcd' wid -> deleteTaskFromWorker tid wid wcd') wcd wids
+-}
 
-
-sendStartTask :: WorkerController -> TaskData -> IO (TaskSendResult)
-sendStartTask wc td
+sendStartTask :: Server -> WorkerController -> TaskData -> IO (TaskSendResult)
+sendStartTask s wc td
   = E.handle (\e -> 
               do 
               errorM localLogger $ "sendStartTask: " ++ show e
@@ -338,11 +322,15 @@ sendStartTask wc td
             infoM localLogger $ "starting Task: " ++ show (td_TaskId td)
             debugM localLogger $ "sendStartTask: wls:" ++ show wls
             let (_,wid) = head wls
-            let wp = fromJust $ lookupWorkerPort wid wcd
-            WC.startTask td wp
-            let mm' = addTaskToWorker (td_TaskId td) wid wcd
-            return (mm', TSRSend)
-
+            info <- getClientInfo wid s
+            case info of
+              (Just ci) ->
+                do
+                WC.startTask td $ WP.newWorkerPort (ci_Port ci)
+                let wcd' = addTaskToWorker (td_TaskId td) wid wcd
+                return (wcd', TSRSend)                
+              (Nothing) ->
+                return (wcd, TSRNotSend)
 
 
 
@@ -350,34 +338,7 @@ sendStartTask wc td
 -- typeclass instanciation
 -- ----------------------------------------------------------------------------
 
-instance Debug MasterData where
-
-  printDebug md
-    = do
-      putStrLn "Master-Object (full)"
-      withMVar (md_ServerThreadId md) $ 
-        \i-> do putStrLn $ prettyRecordLine 15 "ServerId:" i
-      putStrLn $ prettyRecordLine gap "OwnStream:" (md_OwnStream md)
-      putStrLn $ prettyRecordLine gap "OwnPort:" (md_OwnPort md)
-      withMVar (md_WorkerController md) $
-        \wcd -> 
-        do
-        putStrLn $ prettyRecordLine gap "WorkerToSiteMap:" (wcd_WorkerToSiteMap wcd)
-        putStrLn $ prettyRecordLine gap "SiteToWorkerMap:" (wcd_SiteToWorkerMap wcd)
-        putStrLn $ prettyRecordLine gap "SiteMap:" (wcd_SiteMap wcd)
-        putStrLn $ prettyRecordLine gap "Last NodeId:" (wcd_WorkerId wcd)
-        putStrLn $ prettyRecordLine gap "JobMapMap:" (wcd_JobMap wcd)
-        putStrLn $ "JobController:"
-        jc <- printJobController (md_JobController md)
-        putStrLn jc
-      where
-        gap = 20
-
-
-
-
 instance MR.MapReduce MasterData where
-
 
   closeMapReduce md
     = closeMaster md
@@ -422,38 +383,13 @@ instance MR.MapReduce MasterData where
 
 
 
-instance Master MasterData where
+instance MasterClass MasterData where
 
 
   closeMaster md 
     = do
-      stopRequestDispatcher (md_ServerThreadId md)
-      closeStream (md_OwnStream md)
+      closeServer (md_Server md)
       return ()
-
-  getMasterRequestPort md = md_OwnPort md
-
-  
-  registerWorker sid po as md
-    = do
-      modifyMVar (md_WorkerController md) $
-        \mm ->
-        do
-        -- create a new Id and a new Port
-        let (wid, mm') = getNextWorkerId mm
-        let wp = WP.newWorkerPort po
-        -- add worker to master
-        let mm'' = addWorkerToMaster wid sid wp as mm'
-        return (mm'', (wid, md))        
-
-
-  unregisterWorker workerId md
-    = do
-      modifyMVar (md_WorkerController md) $
-        \mm ->
-        do
-        let mm' = deleteWorkerFromMaster workerId mm
-        return (mm', md) 
 
 
   receiveTaskCompleted td md
@@ -470,3 +406,24 @@ instance Master MasterData where
       setTaskError (md_JobController md) td
       -- TODO inform other workers
       return md
+      
+      
+
+
+instance Debug MasterData where
+  printDebug md
+    = do
+      putStrLn "Master-Object (full)"
+      putStrLn "--------------------------------------------------------"        
+      putStrLn "Server"
+      printDebug (md_Server md)
+      withMVar (md_WorkerController md) $
+        \wcd -> 
+        do
+        putStrLn $ prettyRecordLine gap "JobMapMap:" (wcd_JobMap wcd)
+        putStrLn $ "JobController:"
+        jc <- printJobController (md_JobController md)
+        putStrLn jc
+      where
+        gap = 20
+      

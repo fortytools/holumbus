@@ -15,11 +15,10 @@
 
 module Holumbus.Distribution.Worker
 (
-  Worker(..)
+  WorkerClass(..)
 )
 where
 
-import qualified Holumbus.Distribution.Messages as M
 import qualified Holumbus.MapReduce.Types as T
 
 -- ----------------------------------------------------------------------------
@@ -27,17 +26,12 @@ import qualified Holumbus.MapReduce.Types as T
 -- ----------------------------------------------------------------------------
 
 
-class Worker w where
+class WorkerClass w where
 
   closeWorker :: w -> IO ()
-
-  getWorkerRequestPort :: w -> M.WorkerRequestPort
 
   startTask :: T.TaskData -> w -> IO w
 
   stopTask :: T.TaskId -> w -> IO w
 
-  stopAllTasks :: w -> IO w
-
-  printDebug :: w -> IO ()
-  
+  stopAllTasks :: w -> IO w  

@@ -33,19 +33,16 @@ module Holumbus.Distribution.DMapReduce
 , mkMapReduceMaster
 , mkMapReduceWorker
 , mkMapReduceClient
-
-, getMasterRequestPort
 )
 where
 
 import           Control.Concurrent
-
+import           Network
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce
-import qualified Holumbus.Distribution.Messages as MSG
 import qualified Holumbus.Distribution.Master as M
 import qualified Holumbus.Distribution.Master.MasterData as MD
 import qualified Holumbus.Distribution.Master.MasterPort as MP
@@ -66,7 +63,7 @@ localLogger = "Holumbus.Distribution.DMapReduce"
 
 
 data DMapReduceData = 
-   forall m w. (M.Master m, W.Worker w) =>
+   forall m w. (M.MasterClass m, W.WorkerClass w, Debug m, Debug w) =>
    DMapReduceData SiteId MapReduceType m (Maybe w)
 
 
@@ -85,10 +82,11 @@ instance Show DMapReduce where
 data DMRMasterConf = DMRMasterConf {
     msc_StartControlling :: Bool
   , msc_StreamName       :: StreamName
+  , msc_PortNumber       :: Maybe PortNumber
   } 
 
 defaultMRMasterConfig :: DMRMasterConf
-defaultMRMasterConfig = DMRMasterConf True "MRMaster"
+defaultMRMasterConfig = DMRMasterConf True "MRMaster" Nothing
 
 
 data DMRWorkerConf = DMRWorkerConf {
@@ -113,6 +111,7 @@ defaultMRClientConfig = DMRClientConf "MRMaster" Nothing
 -- Creation and Destruction
 -- ---------------------------------------------------------------------------
 
+
 mkMapReduceMaster 
   :: FS.FileSystem -> DMRMasterConf
   -> IO DMapReduce
@@ -120,7 +119,7 @@ mkMapReduceMaster fs conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising master on site " ++ show sid  
-    md <- MD.newMaster fs (msc_StartControlling conf) (msc_StreamName conf)
+    md <- MD.newMaster fs (msc_StartControlling conf) (msc_StreamName conf) (msc_PortNumber conf)
     newDMapReduce MRTMaster md (Nothing::Maybe WP.WorkerPort)
 
 
@@ -131,9 +130,8 @@ mkMapReduceWorker fs am conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising worker on site " ++ show sid  
-    p <- newPort (woc_StreamName conf) (woc_SocketId conf)
-    let mp = (MP.newMasterPort p)
-    wd <- WD.newWorker fs am mp
+    mp <- MP.newMasterPort (woc_StreamName conf) (woc_SocketId conf)
+    wd <- WD.newWorker fs am (woc_StreamName conf) (woc_SocketId conf)
     newDMapReduce MRTWorker mp (Just wd)
 
 
@@ -144,13 +142,12 @@ mkMapReduceClient conf
   = do
     sid <- getSiteId
     infoM localLogger $ "initialising map-reduce-client on site " ++ show sid  
-    p <- newPort (clc_StreamName conf) (clc_SocketId conf) 
-    let mp = (MP.newMasterPort p)    
+    mp <- MP.newMasterPort (clc_StreamName conf) (clc_SocketId conf)
     newDMapReduce MRTClient mp (Nothing::Maybe WP.WorkerPort)
     
 
 newDMapReduce
-  :: (M.Master m, W.Worker w)
+  :: (M.MasterClass m, W.WorkerClass w, Debug m, Debug w)
   => MapReduceType -> m -> Maybe w -> IO DMapReduce
 newDMapReduce t m w
   = do
@@ -158,11 +155,11 @@ newDMapReduce t m w
     d <- newMVar (DMapReduceData sid t m w)
     return $ DMapReduce d
     
-
+{-
 getMasterRequestPort :: DMapReduce -> IO MSG.MasterRequestPort
 getMasterRequestPort (DMapReduce mr)
   = withMVar mr $ \(DMapReduceData _ _ m _) -> return $ M.getMasterRequestPort m
-    
+-}    
 
 
 
@@ -188,7 +185,7 @@ instance Debug DMapReduce where
         printDebug m
         putStrLn "--------------------------------------------------------"
         putStrLn "Worker:"
-        maybe (putStrLn "NOTHING") (\w' -> W.printDebug w') w
+        maybe (putStrLn "NOTHING") (\w' -> printDebug w') w
         putStrLn "--------------------------------------------------------"
 
 
