@@ -29,6 +29,7 @@ module Holumbus.Data.MultiMap
 , delete
 , deleteKey
 , deleteElem
+, deleteAllElems
 , fromList
 , fromTupleList
 , toList
@@ -69,8 +70,8 @@ null (MM m) = Map.null m
 insert :: (Ord k, Ord a) => k -> a -> MultiMap k a -> MultiMap k a
 insert k a (MM m) = MM $ Map.alter altering k m
   where
-    altering Nothing = Just $ Set.singleton a
-    altering (Just s) = Just $ Set.insert a s
+  altering Nothing = Just $ Set.singleton a
+  altering (Just s) = Just $ Set.insert a s
   
 
 -- | inserts multiple elements in a set to the MultiMap
@@ -78,8 +79,8 @@ insertSet :: (Ord k, Ord a) => k -> Set.Set a -> MultiMap k a -> MultiMap k a
 insertSet k newSet mm@(MM m) = 
   if (Set.null newSet) then mm else MM $ Map.alter altering k m
   where
-    altering Nothing = Just newSet
-    altering (Just s) = Just $ Set.union newSet s
+  altering Nothing = Just newSet
+  altering (Just s) = Just $ Set.union newSet s
 
 
 -- | inserts multiple keys with the same values
@@ -127,15 +128,22 @@ deleteKey :: (Ord k, Ord a) => k -> MultiMap k a -> MultiMap k a
 deleteKey k (MM m) = MM $ Map.delete k m
 
 
--- | deletes a single Elemete from the map
+-- | deletes a single Element from the map
 deleteElem :: (Ord k, Ord a) => k -> a -> MultiMap k a -> MultiMap k a
 deleteElem k a (MM m) = MM $ Map.alter delSet k m
   where
-    delSet Nothing = Nothing
-    delSet (Just set) = filterEmpty $ Set.delete a set
-    filterEmpty set
-      | set == Set.empty = Nothing
-      | otherwise = Just set
+  delSet Nothing = Nothing
+  delSet (Just set) = filterEmpty $ Set.delete a set
+  filterEmpty set
+    | set == Set.empty = Nothing
+    | otherwise = Just set
+
+
+-- | deletes all Elements (*,a) (slow!!!)
+deleteAllElems :: (Ord k, Ord a) => a -> MultiMap k a -> MultiMap k a
+deleteAllElems a m = foldl (\m'' k -> deleteElem k a m'') m ks
+  where
+  ks = Set.toList $ keys m
 
 
 fromList :: (Ord k, Ord a) => [(k,Set.Set a)] -> MultiMap k a
