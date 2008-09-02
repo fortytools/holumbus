@@ -22,26 +22,6 @@ module Holumbus.FileSystem.Messages
 -- * Datatypes
   NodeId
 
--- * ports and streams
-{-
-, ControllerRequestStream
-, ControllerRequestPort
-
-, ControllerResponseStream
-, ControllerResponsePort
-
-, NodeRequestStream
-, NodeRequestPort
-
-, NodeResponseStream
-, NodeResponsePort
--}
-
-{-
-, decodeNodeResponsePort
-, decodeControllerResponsePort
--}
-
 -- * Message Types from and to the Controller
 , ControllerRequestMessage(..)
 , ControllerResponseMessage(..)
@@ -58,10 +38,8 @@ where
 import           Prelude hiding (appendFile)
 
 import           Data.Binary
--- import qualified Data.ByteString.Lazy as B
 import           Data.Set
 
--- import qualified Holumbus.Network.Port as P
 import           Holumbus.Network.Communication
 import qualified Holumbus.Network.Site as Site
 import qualified Holumbus.FileSystem.Storage as S
@@ -76,39 +54,6 @@ import           Holumbus.Network.Messages
 type NodeId = Int
 
 
--- ----------------------------------------------------------------------------
--- Ports and Streams
--- ----------------------------------------------------------------------------
-{-
-type ControllerRequestStream  = P.Stream ControllerRequestMessage
-type ControllerRequestPort    = P.Port ControllerRequestMessage
-
-type ControllerResponseStream = P.Stream ControllerResponseMessage
-type ControllerResponsePort   = P.Port ControllerResponseMessage
-
-type NodeRequestStream        = P.Stream NodeRequestMessage
-type NodeRequestPort          = P.Port NodeRequestMessage
-
-type NodeResponseStream       = P.Stream NodeResponseMessage
-type NodeResponsePort         = P.Port NodeResponseMessage
--}
-
-{-
--- | parses something from a maybe bytestring, if Nothing, then Nothing
-decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
-decodeMaybe Nothing = Nothing
-decodeMaybe (Just b) = (Just $ decode b)
-
-
--- | parses a node reply port from a bytestring 
-decodeNodeResponsePort :: Maybe B.ByteString -> Maybe NodeResponsePort
-decodeNodeResponsePort = decodeMaybe
-
-
--- | parses a Controller reply port from a bytestring
-decodeControllerResponsePort :: Maybe B.ByteString -> Maybe ControllerResponsePort
-decodeControllerResponsePort = decodeMaybe
--}
 
 -- ----------------------------------------------------------------------------
 -- Message Types from and to the Controller
@@ -129,41 +74,35 @@ data ControllerRequestMessage
 
 
 instance Binary ControllerRequestMessage where
---  put (CReqRegister s p)                    = putWord8 1  >> put s >> put p
---  put (CReqUnregister n)                    = putWord8 2  >> put n
-  put (CReqContains f)                      = putWord8 3  >> put f
-  put (CReqGetFileSites f)                  = putWord8 4  >> put f
-  put (CReqGetNearestNodePortWithFile f s)  = putWord8 5  >> put f >> put s
-  put (CReqGetNearestNodePortForFile f l s) = putWord8 6  >> put f >> put l >> put s
-  put (CReqCreate f n)                      = putWord8 7  >> put f >> put n
-  put (CReqAppend f n)                      = putWord8 8  >> put f >> put n
-  put (CReqDelete f n)                      = putWord8 9  >> put f >> put n
+  put (CReqContains f)                      = putWord8 1  >> put f
+  put (CReqGetFileSites f)                  = putWord8 2  >> put f
+  put (CReqGetNearestNodePortWithFile f s)  = putWord8 3  >> put f >> put s
+  put (CReqGetNearestNodePortForFile f l s) = putWord8 4  >> put f >> put l >> put s
+  put (CReqCreate f n)                      = putWord8 5  >> put f >> put n
+  put (CReqAppend f n)                      = putWord8 6  >> put f >> put n
+  put (CReqDelete f n)                      = putWord8 7  >> put f >> put n
   put (CReqUnknown)                         = putWord8 0
   get
     = do
       t <- getWord8
       case t of
---        1  -> get >>= \s -> get >>= \p -> return (CReqRegister s p) 
---        2  -> get >>= \n -> return (CReqUnregister n)
-        3  -> get >>= \f -> return (CReqContains f)
-        4  -> get >>= \f -> return (CReqGetFileSites f)
-        5  -> get >>= \f -> get >>= \s -> return (CReqGetNearestNodePortWithFile f s)
-        6  -> get >>= \f -> get >>= \l -> get >>= \s -> return (CReqGetNearestNodePortForFile  f l s)
-        7  -> get >>= \f -> get >>= \n -> return (CReqCreate f n)
-        8  -> get >>= \f -> get >>= \n -> return (CReqAppend f n)
-        9  -> get >>= \f -> get >>= \n -> return (CReqDelete f n)
+        1  -> get >>= \f -> return (CReqContains f)
+        2  -> get >>= \f -> return (CReqGetFileSites f)
+        3  -> get >>= \f -> get >>= \s -> return (CReqGetNearestNodePortWithFile f s)
+        4  -> get >>= \f -> get >>= \l -> get >>= \s -> return (CReqGetNearestNodePortForFile  f l s)
+        5  -> get >>= \f -> get >>= \n -> return (CReqCreate f n)
+        6  -> get >>= \f -> get >>= \n -> return (CReqAppend f n)
+        7  -> get >>= \f -> get >>= \n -> return (CReqDelete f n)
         _  -> return (CReqUnknown)
 
 
 -- | Response datatype from a filesystem Controller.
 data ControllerResponseMessage
   = CRspSuccess
---  | CRspRegister NodeId
---  | CRspUnregister
   | CRspGetFileSites (Set Site.SiteId)
   | CRspContains Bool
-  | CRspGetNearestNodePortWithFile (Maybe ClientPort) -- (Maybe NodeRequestPort)
-  | CRspGetNearestNodePortForFile (Maybe ClientPort) -- (Maybe NodeRequestPort)
+  | CRspGetNearestNodePortWithFile (Maybe ClientPort)
+  | CRspGetNearestNodePortForFile (Maybe ClientPort)
   | CRspError String
   | CRspUnknown
   deriving (Show)
@@ -184,26 +123,22 @@ instance RspMsg ControllerResponseMessage where
 
 instance Binary ControllerResponseMessage where
   put (CRspSuccess)                       = putWord8 1
---  put (CRspRegister n)                    = putWord8 2 >> put n 
---  put (CRspUnregister)                    = putWord8 3
-  put (CRspGetFileSites s)                = putWord8 4 >> put s 
-  put (CRspContains b)                    = putWord8 5 >> put b
-  put (CRspGetNearestNodePortWithFile p)  = putWord8 6 >> put p
-  put (CRspGetNearestNodePortForFile p)   = putWord8 7 >> put p
-  put (CRspError e)                       = putWord8 8 >> put e
+  put (CRspGetFileSites s)                = putWord8 2 >> put s 
+  put (CRspContains b)                    = putWord8 3 >> put b
+  put (CRspGetNearestNodePortWithFile p)  = putWord8 4 >> put p
+  put (CRspGetNearestNodePortForFile p)   = putWord8 5 >> put p
+  put (CRspError e)                       = putWord8 6 >> put e
   put (CRspUnknown)                       = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> return (CRspSuccess)
---        2 -> get >>= \n -> return (CRspRegister n) 
---        3 -> return (CRspUnregister)
-        4 -> get >>= \s -> return (CRspGetFileSites s) 
-        5 -> get >>= \b -> return (CRspContains b)
-        6 -> get >>= \p -> return (CRspGetNearestNodePortWithFile p)
-        7 -> get >>= \p -> return (CRspGetNearestNodePortForFile p)
-        8 -> get >>= \e -> return (CRspError e)
+        2 -> get >>= \s -> return (CRspGetFileSites s) 
+        3 -> get >>= \b -> return (CRspContains b)
+        4 -> get >>= \p -> return (CRspGetNearestNodePortWithFile p)
+        5 -> get >>= \p -> return (CRspGetNearestNodePortForFile p)
+        6 -> get >>= \e -> return (CRspError e)
         _ -> return (CRspUnknown)
 
 
@@ -293,5 +228,3 @@ instance Binary NodeResponseMessage where
         5 -> get >>= \ls -> return (NRspGetFileIds ls)
         6 -> get >>= \e  -> return (NRspError e)
         _ -> return (NRspUnknown)
-        
-              

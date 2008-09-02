@@ -41,8 +41,6 @@ class ControllerClass c where
   
   closeController :: c -> IO ()
     
-  -- getServerPort :: c -> ServerPort
-    
   getFileSites :: S.FileId -> c -> IO (Set.Set SiteId)
   
   containsFile :: S.FileId -> c -> IO Bool

@@ -34,48 +34,34 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import           System.Log.Logger
+-- import           System.Log.Logger
 
 import           Holumbus.Common.Debug
-import           Holumbus.Common.Utils
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Node as N
 import qualified Holumbus.FileSystem.Node.NodePort as NP
 import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
-
 import           Holumbus.Network.Site
 import           Holumbus.Network.Communication
-import           Holumbus.Network.Messages
 
-localLogger :: String
-localLogger = "Holumbus.FileSystem.Controller"
+
+-- localLogger :: String
+-- localLogger = "Holumbus.FileSystem.Controller"
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
 
-
--- type SiteData = (SiteId, NP.NodePort, Integer)
-
 type FileToNodeMap = Map.Map S.FileId (Set.Set M.NodeId)
--- type NodeToSiteMap = Map.Map M.NodeId SiteData
--- type SiteToNodeMap = Map.Map SiteId (Set.Set M.NodeId)
 
 data ControllerMaps = ControllerMaps {
     cm_FileToNodeMap :: ! FileToNodeMap
---  , cm_NodeToSiteMap :: ! NodeToSiteMap
---  , cm_SiteToNodeMap :: ! SiteToNodeMap
---  , cm_SiteMap       :: ! SiteMap
---  , cm_NodeId        :: ! M.NodeId
   }
 
 data ControllerData = ControllerData {
     cd_Server :: Server
---    cd_ServerThreadId ::   MVar (Maybe ThreadId)
---  , cd_OwnStream      :: ! M.ControllerRequestStream
---  , cd_OwnPort        :: ! M.ControllerRequestPort
-    , cd_Maps           ::   ControllerMaps
+  , cd_Maps           ::   ControllerMaps
   }
 
 data Controller = Controller (MVar ControllerData)
@@ -85,15 +71,6 @@ data Controller = Controller (MVar ControllerData)
 --
 -- ----------------------------------------------------------------------------
 
-{-
--- initialise the client
-    node <- newEmptyMVar
-    client <- newClient sn soid (dispatch (Node node))
-    -- open storage
-    stor' <- S.openStorage stor             
-    putMVar node (NodeData client stor')
-    return (Node node)
--}
 
 newController :: StreamName -> Maybe PortNumber -> IO Controller
 newController sn pn
@@ -103,15 +80,9 @@ newController sn pn
     let c = Controller controller
     server <- newServer sn pn (dispatch c) (Just $ registerNode c) (Just $ unregisterNode c)
     -- initialize values
-    let maps = ControllerMaps Map.empty -- Map.empty Map.empty emptySiteMap 0 
-    -- mapMVar <- newMVar maps
-    -- st    <- (newGlobalStream sn::IO M.ControllerRequestStream)
-    -- po    <- newPortFromStream st
-    -- we can't start the server yet
-    -- tid   <- newMVar Nothing
+    let maps = ControllerMaps Map.empty 
     -- get the internal data
     putMVar controller (ControllerData server maps)
-    -- startRequestDispatcher tid st (dispatch cd)
     return (Controller controller)
   
 
@@ -180,9 +151,6 @@ unregisterNode (Controller controller) i _
 -- ----------------------------------------------------------------------------
 
 
---newNodeData :: M.NodeId -> SiteId -> M.NodeRequestPort -> NodeData
---newNodeData nid sid po = NodeData nid sid po
-
 {-
 
 nodes2sites :: ControllerMaps -> [M.NodeId] ->  [SiteId]
@@ -225,13 +193,6 @@ getFilesForCopying fnm = (fst . unzip) filteredList
     setSelector (_,s) = Set.size s < copyingLimit
 -}
 
-{-
-getNextId :: ControllerMaps -> (M.NodeId, ControllerMaps)
-getNextId cm 
-  = (nid, cm { cm_NodeId = nid })
-  where
-    nid = (cm_NodeId cm) + 1
--}
 
 -- | Adds the files of a node to the global directory.
 addFilesToController :: [S.FileId] -> M.NodeId -> ControllerMaps -> ControllerMaps
@@ -265,66 +226,7 @@ deleteFileFromController fid cm
   where 
     fnm = cm_FileToNodeMap cm 
     fnm' = Map.delete fid fnm
-
-{-
-lookupNodePort :: M.NodeId -> ControllerMaps -> Maybe NP.NodePort
-lookupNodePort nid cm = getPort sd
-  where
-    nsm = cm_NodeToSiteMap cm
-    sd = Map.lookup nid nsm
-    getPort Nothing = Nothing
-    getPort (Just (_, np, _)) = Just np
     
-    
-lookupNodeSiteId :: M.NodeId -> ControllerMaps -> Maybe SiteId
-lookupNodeSiteId nid cm = convertSite sd
-  where
-    nsm = cm_NodeToSiteMap cm
-    sd = Map.lookup nid nsm
-    convertSite Nothing = Nothing
-    convertSite (Just (sid, _, _)) = Just sid
-
-    
-addNodeToController :: M.NodeId -> SiteId -> NP.NodePort -> ControllerMaps -> ControllerMaps
-addNodeToController nid sid np cm
-  = cm { cm_NodeToSiteMap = nsm', cm_SiteToNodeMap = snm', cm_SiteMap = sm' }
-  where
-    --update the nodetosite map
-    nsm = cm_NodeToSiteMap cm
-    nsm' = Map.insert nid (sid, np, 100000000) nsm
-    --update the sitetonode map
-    snm = cm_SiteToNodeMap cm
-    snm' = Map.alter altering sid snm
-    altering Nothing = Just $ Set.singleton nid
-    altering (Just s) = Just $ Set.insert nid s
-    -- update the SiteMap
-    sm = cm_SiteMap cm
-    sm' = addIdToMap sid sm
-        
-
-deleteNodeFromController :: M.NodeId -> ControllerMaps -> ControllerMaps
-deleteNodeFromController nid cm 
-  = cm { cm_NodeToSiteMap = nsm', cm_SiteToNodeMap = snm', cm_SiteMap = sm' }
-  where
-    --update the nodetosite map
-    nsm = cm_NodeToSiteMap cm
-    nsm' = Map.delete nid nsm
-    --update the sitetonode and the siteIdMap
-    sid = lookupNodeSiteId nid cm
-    snm = cm_SiteToNodeMap cm
-    sm = cm_SiteMap cm
-    (snm', sm') = deleteSiteId sid
-    deleteSiteId Nothing = (snm, sm)
-    deleteSiteId (Just s) = (Map.alter delSet s snm , deleteIdFromMap s sm)
-      where
-        delSet Nothing = Nothing
-        delSet (Just set) = filterEmpty $ Set.delete nid set
-        filterEmpty set
-          | set == Set.empty = Nothing
-          | otherwise = Just set
--}
-
-
 
 -- | gets the List of all sites the file is located on...
 getFileClientInfoList :: S.FileId -> Server -> ControllerMaps -> IO [ClientInfo]

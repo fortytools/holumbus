@@ -57,9 +57,6 @@ instance NodeClass NodePort where
   closeNode _ = return ()
   
   
-  -- getClientPort (NodePort p) = p
-
-  
   createFile i c (NodePort p)
     = do
       sendRequestToClient p time30 (NReqCreate i c) $

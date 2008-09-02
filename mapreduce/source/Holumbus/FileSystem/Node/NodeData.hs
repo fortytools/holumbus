@@ -28,9 +28,8 @@ where
 import           Prelude hiding (appendFile)
 
 import           Control.Concurrent
--- import qualified Control.Exception as E
 import           Control.Monad
-import Data.Maybe
+import           Data.Maybe
 import           System.IO hiding (appendFile)
 import           System.Log.Logger
 
@@ -43,9 +42,6 @@ import qualified Holumbus.FileSystem.Messages as M
 import qualified Holumbus.FileSystem.Storage as S
 import qualified Holumbus.FileSystem.Storage.FileStorage as FS
 
--- import           Holumbus.Network.Site
--- import           Holumbus.Network.Port
--- import           Holumbus.Network.Messages
 import           Holumbus.Network.Communication
 
 localLogger :: String
@@ -118,51 +114,6 @@ dispatch nd msg
         return $ Just $ M.NRspGetFileIds ls
       _ -> return Nothing 
 
-
-
--- ----------------------------------------------------------------------------
---
--- ----------------------------------------------------------------------------
-
-{-
-registerNode :: NodeData -> IO ()
-registerNode nd
-  = do
-    debugM localLogger "registering at controller"
-    let sid = (nd_SiteId nd)
-    let np = (nd_OwnPort nd)
-    -- get the new nid
-    -- TODO think about this
-    E.catch
-     (do
-      nid <- withMVar (nd_ControllerPort nd) $
-        \cp ->
-        do  
-        (nid, _) <- C.registerNode sid np cp
-        return (Just nid)
-      -- write the new nodeId in the record
-      modifyMVar (nd_NodeId nd) (\_ -> return (nid,()))
-     )
-     (\e -> 
-      do 
-      errorM localLogger $ show e
-     )   
-
-unregisterNode :: NodeData -> IO ()
-unregisterNode nd
-  = do
-    debugM localLogger "unregistering at controller"
-    nid <- readMVar (nd_NodeId nd)
-    unregister nid
-    modifyMVar (nd_NodeId nd) (\_ -> return (Nothing,()))
-    where
-      unregister Nothing = return ()
-      unregister (Just i)
-        = do        
-          withMVar (nd_ControllerPort nd) $
-            \cp -> C.unregisterNode i cp
-          return ()
--}
 
 
 -- ----------------------------------------------------------------------------
