@@ -26,7 +26,6 @@ import           Data.Binary
 import           System.Log.Logger
 
 import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.FileSystem.Storage as S
 
 import qualified Holumbus.Data.AccuMap as AMap
 import qualified Holumbus.Data.KeyMap as KMap
@@ -117,8 +116,8 @@ demoJob = JobInfo
   (Just $ "WORDFREQUENCY")
   (Just $ "WORDFREQUENCY")
   (Just $ "WORDFREQUENCY")
-  (Just TOTList)
-  (Just TOTText)
+  (Just TOTFile)
+  (Just TOTRawTuple)
   Nothing
   5
   1

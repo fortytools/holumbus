@@ -26,6 +26,7 @@ module Holumbus.Common.FileHandling
 , writeToListFile
 , appendToListFile
 , readFromListFile
+, parseByteStringToList
 
 -- * bytestring file handling
 , writeToBinFile

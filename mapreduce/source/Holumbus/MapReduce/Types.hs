@@ -52,8 +52,8 @@ module Holumbus.MapReduce.Types
 , ActionEnvironment(..)
 , mkActionEnvironment
 
-, ActionConnector(..)
-, defaultActionConnector
+, InputReader
+, OutputWriter
 
 , OptionsDecoder
 
@@ -96,8 +96,8 @@ import           System.Log.Logger
 
 import           Text.XML.HXT.Arrow
 
+import           Holumbus.Common.FileHandling
 import           Holumbus.Common.Utils
--- import           Holumbus.MapReduce.TypeCheck
 import qualified Holumbus.Data.AccuMap as AMap
 import qualified Holumbus.Data.KeyMap as KMap
 import qualified Holumbus.FileSystem.FileSystem as FS
@@ -220,22 +220,18 @@ getNextTaskState TSFinished = TSFinished
 getNextTaskState s          = succ s
 
 
-data TaskOutputType = TOTRawTuple | TOTText | TOTList | TOTBin
+data TaskOutputType = TOTRawTuple | TOTFile
   deriving (Show, Read, Eq, Ord, Enum)
   
 instance Binary TaskOutputType where
   put (TOTRawTuple) = putWord8 0
-  put (TOTText)     = putWord8 1
-  put (TOTList)     = putWord8 2
-  put (TOTBin)      = putWord8 3
+  put (TOTFile)     = putWord8 1
   get
     = do
      t <- getWord8
      case t of
        0 -> return (TOTRawTuple)
-       2 -> return (TOTList)
-       3 -> return (TOTBin)
-       _ -> return (TOTText)
+       _ -> return (TOTFile)
 
 instance XmlPickler TaskOutputType where
   xpickle = xpAttr "output" $ xpPrim
@@ -481,6 +477,7 @@ testJobInfo ji mm rm = foldl (testAnd) (True, "") testList
 -- Reader and Writer
 -- ----------------------------------------------------------------------------
 
+{-
 type RawTupleReader k v = B.ByteString -> (k,v)
 type RawTupleWriter k v = (k,v) -> B.ByteString
 
@@ -492,15 +489,9 @@ type ListFileWriter k v = [(k,v)] -> [B.ByteString]
 
 type BinFileReader  k v = B.ByteString -> [(k,v)]
 type BinFileWriter  k v = [(k,v)] -> B.ByteString
+-}
 
-data ActionEnvironment = ActionEnvironment {
-    ae_TaskData   :: TaskData
-  , ae_FileSystem :: Maybe FS.FileSystem
-  }
-
-mkActionEnvironment :: TaskData -> Maybe FS.FileSystem -> ActionEnvironment
-mkActionEnvironment td fs = ActionEnvironment td fs
-
+{-
 data ActionConnector k1 v1 k2 v2 = ActionConnector {
     ac_RawTupleR :: RawTupleReader k1 v1
   , ac_RawTupleW :: RawTupleWriter k2 v2
@@ -528,8 +519,9 @@ defaultActionConnector =
     (\ls  -> encodeTupleList ls)
     (\b   -> decode b)
     (\ls  -> encode ls)
+-}
 
-
+{-
 readConnector
   :: (Ord k2,
       Binary k1, Binary v1, Binary k2, Binary v2)
@@ -564,8 +556,9 @@ readConnector ac ae ls
             --  (FS.ListFile l) -> return $ (ac_ListR ac) l -- return $ decodeTupleList l 
             --  (FS.BinFile b)  -> return $ (ac_BinR  ac) b -- return $ decode b
             return $ Just d
+-}
             
-
+{-
 writeConnector 
   :: (Ord k2,
       Binary k1, Binary v1, Binary k2, Binary v2)
@@ -602,7 +595,91 @@ writeConnector ac ae ls
         return $ Just (i,[FileFunctionData fn])
         where
         fn = "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
-     
+-}     
+
+
+data ActionEnvironment = ActionEnvironment {
+    ae_TaskData   :: TaskData
+  , ae_FileSystem :: Maybe FS.FileSystem
+  }
+
+mkActionEnvironment :: TaskData -> Maybe FS.FileSystem -> ActionEnvironment
+mkActionEnvironment td fs = ActionEnvironment td fs
+
+
+type InputReader k1 v1 = B.ByteString -> IO [(k1,v1)]
+
+type OutputWriter k2 v2 = [(k2,v2)] -> IO B.ByteString
+
+readConnector
+  :: (Binary k1, Binary v1)
+  => InputReader k1 v1
+  -> ActionEnvironment
+  -> [FunctionData] 
+  -> IO [(k1,v1)]
+readConnector ic ae ls
+  = do
+    debugM localLogger $ "readConnector: " ++ show ls
+    os <- mapM (readInput mbfs) ls
+    return $ concat $ catMaybes os
+    where
+    mbfs = ae_FileSystem ae
+    -- readInput :: Maybe FS.FileSystem -> FunctionData -> IO (Maybe [(k1,v1)])
+    readInput _         (TupleFunctionData t) = return $ Just $ [decode t] 
+    readInput (Nothing) (FileFunctionData _)  = return Nothing
+    readInput (Just fs) (FileFunctionData f)
+      = do        
+        debugM localLogger $ "loadInputList: getting content for: " ++ f
+        mbc <- FS.getFileContent f fs
+        debugM localLogger $ "loadInputList: content is: " ++ show mbc
+        if isNothing mbc
+          then do
+            debugM localLogger $ "loadInputList: no content found"
+            return Nothing
+          else do
+            d <- ic $ fromJust mbc
+            return $ Just d
+
+
+writeConnector 
+  :: (Ord k2, Binary k2, Binary v2)
+  => OutputWriter k2 v2
+  -> ActionEnvironment
+  -> [(Int,[(k2,v2)])] 
+  -> IO [(Int,[FunctionData])]
+writeConnector oc ae ls
+  = do
+    debugM localLogger $ "writeConnector: "
+    os <- mapM (writeOutput mbfs tot) ls
+    return $ catMaybes os
+    where
+    mbfs = ae_FileSystem ae
+    td   = ae_TaskData ae
+    tot  = td_OutputType $ ae_TaskData ae
+    -- writeOutput :: Maybe FS.FileSystem -> TaskOutputType -> (Int,[(k2,v2)]) -> IO (Maybe (Int,[FunctionData]))
+    writeOutput _        TOTRawTuple (i,ts) 
+      = return $ Just $ (i,bs)
+      where
+      bs = map (\t -> TupleFunctionData $ encode t) ts
+    -- TODO exception werfen 
+    writeOutput (Nothing) _     _      = return Nothing
+    writeOutput (Just fs) _     (i,ts)
+      = do
+        c <- oc ts
+        FS.appendFile fn c fs
+        return $ Just (i,[FileFunctionData fn])
+        where
+        fn = "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
+
+
+defaultInputReader :: (Binary k1, Binary v1) => InputReader k1 v1
+defaultInputReader b
+  = return $ parseByteStringToList b
+
+
+defaultOutputWriter :: (Binary k2, Binary v2) => OutputWriter k2 v2
+defaultOutputWriter ls
+  = return $ B.concat $ map encode ls
 
 
 type ActionName = String
@@ -624,7 +701,8 @@ data MapConfiguration a k1 v1 k2 v2
   = MapConfiguration {
     mc_Function  :: MapFunction a k1 v1 k2 v2
   , mc_Partition :: MapPartition a k2 v2
-  , mc_Connector :: ActionConnector k1 v1 k2 v2
+  , mc_Reader    :: InputReader k1 v1
+  , mc_Writer    :: OutputWriter k2 v2
   }
 
 
@@ -633,11 +711,12 @@ data ReduceConfiguration a k2 v2 v3
     rc_Merge     :: ReduceMerge a k2 v2
   , rc_Function  :: ReduceFunction a k2 v2 v3
   , rc_Partition :: ReducePartition a k2 v3
-  , rc_Connector :: ActionConnector k2 v2 k2 v3
+  , rc_Reader    :: InputReader k2 v2
+  , rc_Writer    :: OutputWriter k2 v3
   }
 
+
 defaultActionConfiguration
-  -- :: (Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2, Binary v3)
   :: (Binary a) => ActionName
   -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 defaultActionConfiguration name
@@ -649,6 +728,7 @@ defaultActionConfiguration name
       Nothing
       Nothing
 
+
 defaultMapConfiguration
   :: (Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction a k1 v1 k2 v2
@@ -657,7 +737,8 @@ defaultMapConfiguration fct
   = MapConfiguration
       fct
       defaultPartition
-      defaultActionConnector
+      defaultInputReader
+      defaultOutputWriter
 
 
 defaultReduceConfiguration
@@ -669,7 +750,8 @@ defaultReduceConfiguration fct
       defaultMerge
       fct
       defaultPartition
-      defaultActionConnector
+      defaultInputReader
+      defaultOutputWriter
 
 
 defaultPartition
@@ -739,9 +821,9 @@ readActionConfiguration
   (ActionConfiguration n i d mc cc rc)
   = ActionData n i mf cf rf
   where
-  mf = maybe Nothing (\(MapConfiguration f p c) -> Just $ performMapAction d f p c) mc
-  cf = maybe Nothing (\(ReduceConfiguration m f p c) -> Just $ performReduceAction d m f p c) cc
-  rf = maybe Nothing (\(ReduceConfiguration m f p c) -> Just $ performReduceAction d m f p c) rc
+  mf = maybe Nothing (\(MapConfiguration f p ir ow) -> Just $ performMapAction d f p ir ow) mc
+  cf = maybe Nothing (\(ReduceConfiguration m f p ir ow) -> Just $ performReduceAction d m f p ir ow) cc
+  rf = maybe Nothing (\(ReduceConfiguration m f p ir ow) -> Just $ performReduceAction d m f p ir ow) rc
 
 
 -- ----------------------------------------------------------------------------
@@ -766,13 +848,14 @@ performMapAction
   => OptionsDecoder a
   -> MapFunction a k1 v1 k2 v2
   -> MapPartition a k2 v2
-  -> ActionConnector k1 v1 k2 v2
+  -> InputReader k1 v1
+  -> OutputWriter k2 v2
   -> ActionEnvironment
   -> B.ByteString
   -> Int
   -> [FunctionData]
   -> IO [(Int, [FunctionData])]
-performMapAction optDec fct part conn env opts n ls
+performMapAction optDec fct part reader writer env opts n ls
   = do
     -- decode the options
     let a = optDec opts
@@ -780,7 +863,7 @@ performMapAction optDec fct part conn env opts n ls
     infoM localLogger "performMapAction"
     
     infoM localLogger "reading inputList"
-    inputList <- readConnector conn env ls
+    inputList <- readConnector reader env ls
     
     infoM localLogger "doing map"
     tupleList <- mapM (\(k1, v1) -> fct a k1 v1) inputList
@@ -789,7 +872,7 @@ performMapAction optDec fct part conn env opts n ls
     partedList <- part a n $ concat tupleList
     
     infoM localLogger "writing outputlist"
-    outputList <- writeConnector conn env partedList
+    outputList <- writeConnector writer env partedList
     return outputList
 
 
@@ -820,13 +903,14 @@ performReduceAction
   -> ReduceMerge a k2 v2
   -> ReduceFunction a k2 v2 v3
   -> ReducePartition a k2 v3
-  -> ActionConnector k2 v2 k2 v3
+  -> InputReader k2 v2
+  -> OutputWriter k2 v3
   -> ActionEnvironment
   -> B.ByteString
   -> Int
   -> [FunctionData]
   -> IO [(Int, [FunctionData])]
-performReduceAction optDec merge fct part conn env opts n ls
+performReduceAction optDec merge fct part reader writer env opts n ls
   = do
     -- decode the options
     let a = optDec opts
@@ -834,7 +918,7 @@ performReduceAction optDec merge fct part conn env opts n ls
     infoM localLogger "performReduceAction"
     
     infoM localLogger "reading inputList"
-    inputList <- readConnector conn env ls
+    inputList <- readConnector reader env ls
     
     infoM localLogger "doing merge"
     mergedList <- merge a inputList
@@ -846,7 +930,7 @@ performReduceAction optDec merge fct part conn env opts n ls
     partedList <- part a n $ catMaybes maybesList
     
     infoM localLogger "writing outputlist"
-    outputList <- writeConnector conn env partedList
+    outputList <- writeConnector writer env partedList
     
     return outputList
     where

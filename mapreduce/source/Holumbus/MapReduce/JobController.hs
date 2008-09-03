@@ -595,10 +595,10 @@ getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
 getCurrentTaskOutputType :: JobData -> TaskOutputType
 getCurrentTaskOutputType jd = getTaskOutputType' (jd_Info jd) (jd_State jd)
   where
-  getTaskOutputType' ji JSMap     = maybe TOTList id (ji_MapOutputType ji)
-  getTaskOutputType' ji JSCombine = maybe TOTList id (ji_CombineOutputType ji)
-  getTaskOutputType' ji JSReduce  = maybe TOTText id (ji_ReduceOutputType ji)
-  getTaskOutputType' _  _         = TOTList
+  getTaskOutputType' ji JSMap     = maybe TOTFile id (ji_MapOutputType ji)
+  getTaskOutputType' ji JSCombine = maybe TOTFile id (ji_CombineOutputType ji)
+  getTaskOutputType' ji JSReduce  = maybe TOTRawTuple id (ji_ReduceOutputType ji)
+  getTaskOutputType' _  _         = TOTFile
 
 
 getCurrentTaskPartValue :: JobData -> Int
