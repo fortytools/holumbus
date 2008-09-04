@@ -187,14 +187,14 @@ dispatch m msg
 
 
 registerWorker :: MVar MasterData -> IdType -> ClientPort -> IO ()
-registerWorker m i _
+registerWorker m i cp
   = do
+    let wp = WP.newWorkerPort cp
+    as <- WC.getActionNames wp
     md <- readMVar m
     modifyMVar (md_WorkerController md) $
       \wcd ->
       do
-      -- TODO get actions from Worker
-      let as = []
       let wcd' = addWorkerToMaster i as wcd      
       return (wcd',())
     
@@ -317,6 +317,7 @@ sendStartTask s wc td
         let wls = getTasksPerWorkerWithAction (td_Action td) wcd
         if (null wls)
           then do
+            warningM localLogger $ "sendStartTask: no worker with action \"" ++ (td_Action td) ++ "\"found"
             return (wcd, TSRNotSend)
           else do          
             infoM localLogger $ "starting Task: " ++ show (td_TaskId td)
@@ -421,6 +422,7 @@ instance Debug MasterData where
         \wcd -> 
         do
         putStrLn $ prettyRecordLine gap "JobMapMap:" (wcd_JobMap wcd)
+        putStrLn $ prettyRecordLine gap "ActionMap:" (wcd_ActionToWorkerMap wcd)
         putStrLn $ "JobController:"
         jc <- printJobController (md_JobController md)
         putStrLn jc

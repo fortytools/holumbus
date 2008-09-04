@@ -144,14 +144,16 @@ data WorkerRequestMessage
   = WReqStartTask TaskData
   | WReqStopTask TaskId
   | WReqStopAllTasks
+  | WReqGetActionNames
   | WReqUnknown
   deriving (Show)
 
 
 instance Binary WorkerRequestMessage where
-  put (WReqStartTask td) = putWord8 1 >> put td
-  put (WReqStopTask tid) = putWord8 2 >> put tid
-  put (WReqStopAllTasks) = putWord8 3
+  put (WReqStartTask td)   = putWord8 1 >> put td
+  put (WReqStopTask tid)   = putWord8 2 >> put tid
+  put (WReqStopAllTasks)   = putWord8 3
+  put (WReqGetActionNames) = putWord8 4
   put (WReqUnknown) = putWord8 0
   get
     = do
@@ -160,6 +162,7 @@ instance Binary WorkerRequestMessage where
         1 -> get >>= \td -> return (WReqStartTask td)
         2 -> get >>= \tid -> return (WReqStopTask tid)
         3 -> return (WReqStopAllTasks)
+        4 -> return (WReqGetActionNames)
         _ -> return (WReqUnknown)
 
 
@@ -171,7 +174,8 @@ instance Binary WorkerRequestMessage where
 
 data WorkerResponseMessage
   = WRspSuccess
-  | WRspError String 
+  | WRspGetActionNames [ActionName]
+  | WRspError String
   | WRspUnknown
   deriving (Show)
 
@@ -190,13 +194,15 @@ instance RspMsg WorkerResponseMessage where
 
 
 instance Binary WorkerResponseMessage where
-  put (WRspSuccess)          = putWord8 1
-  put (WRspError e)          = putWord8 2 >> put e
-  put (WRspUnknown)          = putWord8 0
+  put (WRspSuccess)           = putWord8 1
+  put (WRspGetActionNames as) = putWord8 2 >> put as
+  put (WRspError e)           = putWord8 3 >> put e
+  put (WRspUnknown)           = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> return (WRspSuccess)
-        2 -> get >>= \e  -> return (WRspError e)
+        2 -> get >>= \as -> return (WRspGetActionNames as)
+        3 -> get >>= \e  -> return (WRspError e)
         _ -> return (WRspUnknown)

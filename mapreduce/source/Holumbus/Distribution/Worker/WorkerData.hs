@@ -109,6 +109,10 @@ dispatch w msg
         do
         stopAllTasks wd
         return $ Just $ M.WRspSuccess
+      (M.WReqGetActionNames) ->
+        do
+        as <- getActionNames wd
+        return $ Just $ M.WRspGetActionNames as
       _ -> return Nothing
 
 
@@ -214,6 +218,15 @@ instance WorkerClass WorkerData where
       debugM localLogger "stopping all Tasks"
       TP.stopAllTasks tp
       return wd
+
+
+  getActionNames wd
+    = do 
+      debugM localLogger "getting action names"
+      as <- TP.getActionNames (wd_TaskProcessor wd)
+      debugM localLogger $ "actions: " ++ show as
+      return as
+      
 
   
 instance Debug WorkerData where

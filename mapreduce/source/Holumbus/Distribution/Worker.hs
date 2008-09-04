@@ -34,4 +34,6 @@ class WorkerClass w where
 
   stopTask :: T.TaskId -> w -> IO w
 
-  stopAllTasks :: w -> IO w  
+  stopAllTasks :: w -> IO w
+  
+  getActionNames :: w -> IO [T.ActionName]

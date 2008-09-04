@@ -84,6 +84,16 @@ instance WorkerClass WorkerPort where
             _ -> return Nothing
 
 
+  getActionNames (WorkerPort p)
+    = do
+      sendRequestToClient p time30 (WReqGetActionNames) $
+          \rsp ->
+          do
+          case rsp of
+            (WRspGetActionNames as) -> return (Just as)
+            _ -> return Nothing
+
+
 
 instance Debug WorkerPort where
   printDebug (WorkerPort p)
