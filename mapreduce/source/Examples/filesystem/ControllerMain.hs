@@ -1,5 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
+
   Module     : 
   Copyright  : Copyright (C) 2008 Stefan Schmidt
   License    : MIT
@@ -18,12 +19,13 @@ module Main(main) where
 import           Control.Exception
 
 import           Holumbus.Common.Logging
+import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.FileSystem.UserInterface as UI
 
 
 version :: String
-version = "Holumbus-FileSystem Standalone-Node 0.1"
+version = "Holumbus-FileSystem Standalone-Controller 0.1"
 
 
 main :: IO ()
@@ -32,7 +34,9 @@ main
     putStrLn version
     handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
-      initializeLogging      
+      initializeLogging
+      p <- newPortRegistryFromXmlFile "registry.xml"
+      setPortRegistry p
       fs <- initializeData
       UI.runUI fs version      
       deinitializeData fs
@@ -41,7 +45,7 @@ main
 initializeData :: IO (FS.FileSystem)
 initializeData 
   = do
-    fs <- FS.mkSingleNode "storage/" Nothing "controller.port"
+    fs <- FS.mkFileSystemController FS.defaultFSControllerConfig
     return fs
 
 

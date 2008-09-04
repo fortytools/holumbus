@@ -4,7 +4,7 @@
 # only the tests and the examples will be built using make.
 
 # TEST_BASE	= test
-EXAMPLES_BASE	= examples
+EXAMPLES_BASE	= source/Examples
 
 all : configure build doc
 	

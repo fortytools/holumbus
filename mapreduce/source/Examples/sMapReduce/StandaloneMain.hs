@@ -20,8 +20,7 @@ import Control.Exception
 import qualified Holumbus.Common.Logging as LOG
 import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.MapReduce.Demo as DEMO
-import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.Standalone.Standalone as SA
+import qualified Holumbus.Standalone.SMapReduce as MR
 import qualified Holumbus.MapReduce.UserInterface as UI
 
 
@@ -41,17 +40,18 @@ main
       deinitializeData sa
 
 
-initializeData :: IO SA.Standalone
+initializeData :: IO MR.SMapReduce
 initializeData
   = do
-    let maps = DEMO.demoMapActions
-    let reduces = DEMO.demoReduceActions
-    fs <- FS.mkStandaloneFileSystem "storage/" Nothing
+    fs <- FS.mkStandaloneFileSystem FS.defaultFSStandaloneConfig
     DEMO.createDemoFiles fs
-    SA.newStandalone fs maps reduces
+  
+    let actions = DEMO.demoActions
+    let config  = MR.defaultStandaloneConfig
+    MR.newSMapReduce fs actions config
 
 
-deinitializeData :: SA.Standalone -> IO ()
+deinitializeData :: MR.SMapReduce -> IO ()
 deinitializeData sa
   = do
-    SA.closeStandalone sa
+    MR.closeMapReduce sa

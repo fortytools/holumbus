@@ -18,7 +18,7 @@ module Main(main) where
 import           Control.Exception
 
 import           Holumbus.Common.Logging
-import           Holumbus.Common.Utils
+import           Holumbus.Common.FileHandling
 import           Holumbus.Network.Port
 import           Holumbus.Network.PortRegistry
 import           Holumbus.Network.PortRegistry.PortRegistryData

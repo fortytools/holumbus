@@ -18,12 +18,9 @@ module Main(main) where
 import           Control.Exception
 
 import           Holumbus.Common.Logging
-import           Holumbus.Network.Site
-import qualified Holumbus.Network.Port as Port
+import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.Distribution.Master.MasterPort as MP
-import qualified Holumbus.Distribution.Worker.WorkerData as W
-import qualified Holumbus.Distribution.Distribution as D
+import qualified Holumbus.Distribution.DMapReduce as MR
 import qualified Holumbus.MapReduce.UserInterface as UI
 import qualified Holumbus.MapReduce.Demo as DEMO
 
@@ -39,33 +36,26 @@ main
     putStrLn version
     handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
-      initializeLogging      
+      initializeLogging
+      p <- newPortRegistryFromXmlFile "registry.xml"
+      setPortRegistry p
       d <- initializeData
       UI.runUI d version      
       deinitializeData d
 
 
-initializeData :: IO (D.Distribution)
+initializeData :: IO (MR.DMapReduce)
 initializeData 
   = do
-    sid <- getSiteId
-    putStrLn $ "initialising master on site" ++ show sid 
-    putStrLn "-> master-port"
-    p <- Port.readPortFromFile "master.port"
-    let mp = (MP.newMasterPort p)
-    putStrLn "-> worker"
-    let maps = DEMO.demoMapActions
-    let reduces = DEMO.demoReduceActions
-    fs <- FS.mkSingleNode "storage/" Nothing "controller.port" 
-    w <- W.newWorker fs maps reduces mp
-    putStrLn "-> distribution"
-    d <- D.newDistribution mp 
-    d' <- D.setDistributionWorker w d
-    return d'
+    fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+
+    let actions = DEMO.demoActions
+    let config  = MR.defaultMRWorkerConfig
+    MR.mkMapReduceWorker fs actions config
 
 
-deinitializeData :: D.Distribution -> IO ()
-deinitializeData d
+deinitializeData :: MR.DMapReduce -> IO ()
+deinitializeData mr
   = do
-    D.closeDistribution d
+    MR.closeMapReduce mr
     

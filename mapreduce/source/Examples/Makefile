@@ -1,6 +1,6 @@
 # Making all examples
 
-EXAMPLES	= filesystem distribution standalone ports pickle filehandling portregistry
+EXAMPLES	= filesystem sMapReduce dMapReduce portregistry
 
 all :	clean
 	$(foreach i,$(EXAMPLES),$(MAKE) -C $i all ;)
