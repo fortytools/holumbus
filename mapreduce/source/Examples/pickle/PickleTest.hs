@@ -15,7 +15,7 @@
 
 module Main(main) where
 
-import           Holumbus.Common.Utils
+import           Holumbus.Common.FileHandling
 import           Holumbus.MapReduce.Demo
 import           Holumbus.MapReduce.Types
 
