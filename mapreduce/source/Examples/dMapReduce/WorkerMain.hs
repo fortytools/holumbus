@@ -39,23 +39,24 @@ main
       initializeLogging
       p <- newPortRegistryFromXmlFile "registry.xml"
       setPortRegistry p
-      d <- initializeData
-      UI.runUI d version      
-      deinitializeData d
+      (mr,fs) <- initializeData
+      UI.runUI mr version      
+      deinitializeData (mr,fs)
 
 
-initializeData :: IO (MR.DMapReduce)
+initializeData :: IO (MR.DMapReduce, FS.FileSystem)
 initializeData 
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
-
     let actions = DEMO.demoActions
     let config  = MR.defaultMRWorkerConfig
-    MR.mkMapReduceWorker fs actions config
+    mr <- MR.mkMapReduceWorker fs actions config
+    return (mr,fs)
 
 
-deinitializeData :: MR.DMapReduce -> IO ()
-deinitializeData mr
+deinitializeData :: (MR.DMapReduce, FS.FileSystem) -> IO ()
+deinitializeData (mr,fs)
   = do
     MR.closeMapReduce mr
+    FS.closeFileSystem fs
     
