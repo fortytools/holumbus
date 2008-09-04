@@ -764,7 +764,7 @@ checkClient :: IdType -> ClientPort -> MVar (Maybe ThreadId) -> Server -> IO ()
 checkClient i po mVarTid server
   = E.handle (\e -> 
       do
-      debugM localLogger $ show e
+      warningM localLogger $ show e
       deleteClient
      ) $
       do
@@ -773,7 +773,7 @@ checkClient i po mVarTid server
       case b of
         False -> 
           do
-          debugM localLogger "pingCient: client is not reachable... delete him"
+          warningM localLogger "pingCient: client is not reachable... delete him"
           deleteClient
         True  -> 
           do
@@ -793,7 +793,7 @@ checkServer sepo sid clpo c
   = E.handle
      (\e -> 
       do
-      debugM localLogger $ show e
+      warningM localLogger $ show e
       deleteServer c
      ) $
       do
@@ -808,7 +808,7 @@ checkServer sepo sid clpo c
               debugM localLogger "pingServer: server is ok"  
               return ()              
             else do
-              debugM localLogger "pingServer: server is down" 
+              warningM localLogger "pingServer: server is down" 
               deleteServer c
         else do 
           debugM localLogger "pingServer: trying to register client"
