@@ -60,12 +60,6 @@ localLogger = "Holumbus.Distribution.Master.MasterData"
 --
 -- ----------------------------------------------------------------------------
 
-
--- type SiteData = (SiteId, WP.WorkerPort, [ActionName])
-
--- type WorkerToSiteMap = Map.Map M.WorkerId SiteData
--- type SiteToWorkerMap = MMap.MultiMap SiteId M.WorkerId
-
 type JobMap = Map.Map JobId JobData
 
 type TaskToWorkerMap = MMap.MultiMap TaskId M.WorkerId
@@ -75,10 +69,6 @@ type ActionToWorkerMap = MMap.MultiMap ActionName M.WorkerId
 
 
 data WorkerControllerData = WorkerControllerData {
-  -- wcd_WorkerToSiteMap   :: ! WorkerToSiteMap
-  -- , wcd_SiteToWorkerMap   :: ! SiteToWorkerMap
-  -- , wcd_SiteMap           :: ! SiteMap
-  -- , wcd_WorkerId          :: ! M.WorkerId
     wcd_JobMap            :: ! JobMap
   , wcd_TaskToWorkerMap   :: ! TaskToWorkerMap
   , wcd_WorkerToTaskMap   :: ! WorkerToTaskMap
@@ -89,9 +79,6 @@ type WorkerController = MVar WorkerControllerData
 
 data MasterData = MasterData {
     md_Server          :: Server
-  --  md_ServerThreadId   ::   MVar (Maybe ThreadId)
-  -- , md_OwnStream        :: ! M.MasterRequestStream
-  -- , md_OwnPort          :: ! M.MasterRequestPort
   , md_WorkerController ::   WorkerController
   , md_JobController    ::   JobController
   , md_FileSystem       ::   FS.FileSystem
@@ -112,8 +99,7 @@ newWorkerController
                 MMap.empty
                 MMap.empty
                 MMap.empty
-    wc <- newMVar wcd
-    return wc
+    newMVar wcd
 
 
 newMaster
@@ -195,7 +181,7 @@ registerWorker m i cp
     modifyMVar (md_WorkerController md) $
       \wcd ->
       do
-      let wcd' = addWorkerToMaster i as wcd      
+      let wcd' = addWorkerToMaster i as wcd
       return (wcd',())
     
     
@@ -218,31 +204,6 @@ unregisterWorker m i _
 -- ----------------------------------------------------------------------------
 -- private functions
 -- ----------------------------------------------------------------------------
-
-{-
-lookupWorkerSiteId :: M.WorkerId -> WorkerControllerData -> Maybe SiteId
-lookupWorkerSiteId wid wcd = convertSite sd
-  where 
-    sd = Map.lookup wid $ wcd_WorkerToSiteMap wcd 
-    convertSite Nothing = Nothing
-    convertSite (Just (sid, _, _)) = Just sid 
-
-
-lookupWorkerPort :: M.WorkerId -> WorkerControllerData -> Maybe WP.WorkerPort
-lookupWorkerPort wid wcd = getPort sd
-  where 
-    sd = Map.lookup wid $ wcd_WorkerToSiteMap wcd
-    getPort Nothing = Nothing
-    getPort (Just (_, wp, _)) = Just wp
--}
-{-
-lookupWorkerActions :: M.WorkerId -> WorkerControllerData -> Maybe [ActionName]
-lookupWorkerActions wid wcd = getActions sd
-  where 
-    sd = Map.lookup wid $ wcd_WorkerToSiteMap wcd
-    getActions Nothing = Nothing
-    getActions (Just (_, _, as)) = Just as
--}
 
 addWorkerToMaster
   :: M.WorkerId -> [ActionName]

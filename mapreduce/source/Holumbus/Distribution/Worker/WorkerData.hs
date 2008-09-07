@@ -33,9 +33,6 @@ import           System.Log.Logger
 
 import           Holumbus.Common.Debug
 import qualified Holumbus.FileSystem.FileSystem as FS
--- import           Holumbus.Network.Site
--- import           Holumbus.Network.Port
--- import           Holumbus.Network.Messages
 import           Holumbus.Network.Communication
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.MapReduce.TaskProcessor as TP
@@ -52,12 +49,6 @@ localLogger = "Holumbus.Distribution.Worker.WorkerData"
 
 data WorkerData = WorkerData {
     wd_Client         :: Client
---    wd_WorkerId       :: MVar (Maybe M.WorkerId)
---  , wd_SiteId         :: ! SiteId
---  , wd_ServerThreadId :: MVar (Maybe ThreadId)
---  , wd_OwnStream      :: ! M.WorkerRequestStream
---  , wd_OwnPort        :: ! M.WorkerRequestPort
---  , wd_MasterPort     :: MVar MP.MasterPort
   , wd_TaskProcessor  :: TP.TaskProcessor   
   }
   
@@ -115,44 +106,6 @@ dispatch w msg
         return $ Just $ M.WRspGetActionNames as
       _ -> return Nothing
 
-
--- ----------------------------------------------------------------------------
---
--- ----------------------------------------------------------------------------
-
-{-
-registerWorker :: WorkerData -> IO (WorkerData)
-registerWorker wd
-  = do
-    debugM localLogger "registering at controller"
-    let sid = (wd_SiteId wd)
-    let np = (wd_OwnPort wd)
-    as <- TP.getActionNames (wd_TaskProcessor wd)
-    -- get the new nid
-    nid <- withMVar (wd_MasterPort wd) $
-      \mp ->
-      do  
-      (nid, _) <- MC.registerWorker sid np as mp
-      return (Just nid)
-    -- write the new nodeId in the record
-    modifyMVar (wd_WorkerId wd) (\_ -> return (nid,wd)) 
-        
-
-unregisterWorker :: WorkerData -> IO (WorkerData)
-unregisterWorker wd
-  = do
-    debugM localLogger "unregistering at controller"
-    nid <- readMVar (wd_WorkerId wd)
-    unregister nid
-    modifyMVar (wd_WorkerId wd) (\_ -> return (Nothing,wd))
-    where
-      unregister Nothing = return ()
-      unregister (Just i)
-        = do        
-          withMVar (wd_MasterPort wd) $
-            \cp -> MC.unregisterWorker i cp
-          return ()
--}
 
 
 -- ----------------------------------------------------------------------------
