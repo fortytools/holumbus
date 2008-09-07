@@ -54,7 +54,7 @@ data KillThreadException = KillThreadException ThreadId
 data ThreadData = ThreadData {
     thd_Id      :: Maybe ThreadId
   , thd_Running :: Bool
-  , thd_Delay   :: Int
+  , thd_Delay   :: Maybe Int
   , thd_Action  :: (IO ())
   , thd_Error   :: (IO ())
   }
@@ -68,13 +68,13 @@ newThread
     newMVar $ ThreadData Nothing False defaultDelay noAction noAction
     where
     noAction     = return ()
-    defaultDelay = 10000
+    defaultDelay = Nothing
 
 
 setThreadDelay :: Int -> Thread -> IO ()
 setThreadDelay d thread
   = do
-    modifyMVar thread $ \thd -> return (thd {thd_Delay = d},())
+    modifyMVar thread $ \thd -> return (thd {thd_Delay = Just d},())
     
     
 setThreadAction :: (IO ()) -> Thread -> IO ()
@@ -120,7 +120,9 @@ startThread th
               E.catchDyn
                (do
                 -- wait for next watch-cycle
-                threadDelay (thd_Delay thd)
+                if (isJust (thd_Delay thd)) 
+                  then do threadDelay $ fromJust (thd_Delay thd)
+                  else do return ()
                 -- do the action
                 (thd_Action thd)
                 -- and again
