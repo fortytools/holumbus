@@ -835,7 +835,7 @@ checkServer sepo sid clpo c
             return ()              
           else do
             warningM localLogger "pingServer: server is down" 
-            unsetClientId c
+            handleCheckServerError c
       else do 
         debugM localLogger "pingServer: trying to register client"
         i' <- registerClient sid clpo sepo
