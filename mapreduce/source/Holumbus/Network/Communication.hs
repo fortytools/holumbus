@@ -49,7 +49,6 @@ module Holumbus.Network.Communication
 where
 
 import           Control.Concurrent
-import qualified Control.Exception as E
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
@@ -177,7 +176,7 @@ type RegistrationAction = (IdType -> ClientPort -> IO ())
 data ClientInfo = ClientInfo {
     ci_Site         :: SiteId                -- ^ SiteId (Hostname,PID) of the client process
   , ci_Port         :: ClientPort            -- ^ the port of the client
-  , ci_PingThreadId :: MVar (Maybe ThreadId) -- ^ the threadId of the ping-Process (needed to stop it)
+  , ci_PingThreadId :: Thread                -- ^ the threadId of the ping-Process (needed to stop it)
   }
   
 instance Show ClientInfo where
@@ -292,7 +291,7 @@ getNextId sd
 -- | adds a new client to the server datastructures
 --   the ping-thread will not be started
 addClientToServer
-  :: IdType -> SiteId -> ClientPort -> MVar (Maybe ThreadId)
+  :: IdType -> SiteId -> ClientPort -> Thread
   -> ServerData -> ServerData
 addClientToServer i sid cp tid sd
   = sd { sd_ClientMap = nsm', sd_SiteToClientMap = snm', sd_SiteMap = sm' }
@@ -359,13 +358,16 @@ instance ServerClass Server where
         let (i, sd') = getNextId sd
         let register = sd_Register sd
         -- add node to controller
-        ptid <- newMVar Nothing  
+        ptid <- newThread
         let sd'' = addClientToServer i sid cp ptid sd'
         return (sd'', (ptid, i, register))
       -- do general registration action
       register i cp
       -- startPingProcess for Client
-      startThread ptid 5000000 (checkClient i cp ptid s)
+      setThreadDelay 5000000 ptid
+      setThreadAction (checkClient i cp s ptid) ptid
+      setThreadErrorHandler (handleCheckClientError i s ptid) ptid
+      startThread ptid
       return i
      
   unregisterClient i (Server server)
@@ -384,10 +386,6 @@ instance ServerClass Server where
           do
           debugM localLogger "unregisterClient: killing the ping thread"
           -- kill the ping-thread
-          me <- myThreadId
-          him <- readMVar (ci_PingThreadId info)
-          debugM localLogger $ "me:  " ++ show me
-          debugM localLogger $ "him: " ++ show him
           stopThread (ci_PingThreadId info)
           debugM localLogger "unregisterClient: ping thread killed"
           debugM localLogger "unregisterClient: executing unregister-function"
@@ -575,7 +573,7 @@ class ClientClass c where
 -- | client datatype.
 data ClientData = ClientData {
     cd_ServerThreadId  :: MVar (Maybe ThreadId)
-  , cd_PingThreadId    :: MVar (Maybe ThreadId)
+  , cd_PingThreadId    :: Thread
   , cd_Id              :: Maybe IdType
   , cd_SiteId          :: SiteId
   , cd_OwnStream       :: Stream ClientRequestMessage
@@ -598,17 +596,20 @@ newClient sn soid action
     sp <- newServerPort sn soid
     -- initialize values
     sid     <- getSiteId
-    stid    <- newMVar Nothing
-    ptid    <- newMVar Nothing
+    stid    <- newMVar Nothing    
     st      <- (newLocalStream Nothing::IO (Stream ClientRequestMessage))
     po      <- newPortFromStream st
+    ptid    <- newThread
     let cd = (ClientData stid ptid Nothing sid st po sp)
     c <- newMVar cd
     let client = Client c 
     -- first, we start the server, because we can't handle requests without it
     startRequestDispatcher stid st (dispatchClientRequest client action)
     -- then we try to register a the server
-    startThread ptid 5000000 (checkServer sp sid po client)
+    setThreadDelay 5000000 ptid
+    setThreadAction (checkServer sp sid po client) ptid
+    setThreadErrorHandler (handleCheckServerError client) ptid
+    startThread ptid
     return client
 
 
@@ -650,6 +651,21 @@ dispatchClientRequest client action msg replyPort
           (\res -> maybe (CRspUnknown) (\r -> CRspClientAction $ encode r) res)
       _ -> 
         handleRequest replyPort (return ()) (\_ -> CRspUnknown)
+
+
+isClientRegistered :: Client -> IO (Bool, Maybe IdType)
+isClientRegistered (Client client)
+  = withMVar client $ \cd -> return $ (isJust (cd_Id cd), (cd_Id cd))
+
+
+unsetClientId :: Client -> IO ()
+unsetClientId (Client client)
+  = modifyMVar client $ \cd -> return ( cd {cd_Id = Nothing}, ())
+
+
+setClientId :: IdType -> Client -> IO ()
+setClientId i (Client client)
+      = modifyMVar client $ \cd -> return ( cd {cd_Id = Just i}, ())  
 
 
 instance ClientClass Client where
@@ -779,64 +795,54 @@ sendRequestToServer (ServerPort p) timeout a handler
 -- ----------------------------------------------------------------------------
 
 -- | checks, if a client is still reachable, otherwise it will be deleted from the server
-checkClient :: IdType -> ClientPort -> MVar (Maybe ThreadId) -> Server -> IO ()
-checkClient i po mVarTid server
-  = E.handle (\e -> 
-      do
-      warningM localLogger $ show e
-      deleteClient
-     ) $
-      do
-      debugM localLogger "pingClient"
-      b <- pingClient i po
-      case b of
-        False -> 
-          do
-          warningM localLogger "pingCient: client is not reachable... delete him"
-          deleteClient
-        True  -> 
-          do
-          debugM localLogger "pingCient: client is ok"
-          return ()
-    where
-     deleteClient
-       = do
-         unregisterClient i server
-         forkIO $ stopThread mVarTid
-         return ()     
+checkClient :: IdType -> ClientPort -> Server -> Thread -> IO ()
+checkClient i po server thread
+  = do
+    debugM localLogger "pingClient"
+    b <- pingClient i po
+    case b of
+      False -> 
+        do
+        warningM localLogger "pingCient: client is not reachable... delete him"
+        handleCheckClientError i server thread
+      True  -> 
+        do
+        debugM localLogger "pingCient: client is ok"
+        return ()
+    
+    
+handleCheckClientError :: IdType -> Server -> Thread -> IO ()
+handleCheckClientError i server thread
+   = do
+     unregisterClient i server
+     stopThread thread
+     return ()     
 
 
 -- | checks, if a server is still reachable, otherwise it will be deleted from the client
 checkServer :: ServerPort -> SiteId -> Port ClientRequestMessage -> Client -> IO ()
 checkServer sepo sid clpo c
-  = E.handle
-     (\e -> 
-      do
-      warningM localLogger $ show e
-      deleteServer c
-     ) $
-      do
-      debugM localLogger "pingServer"
-      (reg,i) <- isClientRegistered c
-      if (reg)
-        then do
-          debugM localLogger "pingServer: client is registered, testing server" 
-          b <- pingServer (fromJust i) sepo
-          if (b)
-            then do
-              debugM localLogger "pingServer: server is ok"  
-              return ()              
-            else do
-              warningM localLogger "pingServer: server is down" 
-              deleteServer c
-        else do 
-          debugM localLogger "pingServer: trying to register client"
-          i' <- registerClient sid clpo sepo
-          addServer i' c
-    where
-    isClientRegistered (Client client)
-      = withMVar client $ \cd -> return $ (isJust (cd_Id cd), (cd_Id cd))
-    deleteServer (Client client)
-      = modifyMVar client $ \cd -> return ( cd {cd_Id = Nothing}, ())
-    addServer i (Client client)
-      = modifyMVar client $ \cd -> return ( cd {cd_Id = Just i}, ())  
+  = do
+    debugM localLogger "pingServer"
+    (reg,i) <- isClientRegistered c
+    if (reg)
+      then do
+        debugM localLogger "pingServer: client is registered, testing server" 
+        b <- pingServer (fromJust i) sepo
+        if (b)
+          then do
+            debugM localLogger "pingServer: server is ok"  
+            return ()              
+          else do
+            warningM localLogger "pingServer: server is down" 
+            unsetClientId c
+      else do 
+        debugM localLogger "pingServer: trying to register client"
+        i' <- registerClient sid clpo sepo
+        setClientId i' c    
+
+
+handleCheckServerError :: Client -> IO ()
+handleCheckServerError c
+  = do
+    unsetClientId c

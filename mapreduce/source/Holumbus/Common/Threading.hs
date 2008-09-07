@@ -18,9 +18,16 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Common.Threading
 (
-  startThread
+  Thread
+, newThread
+, setThreadDelay
+, setThreadAction
+, setThreadErrorHandler
+
+, startThread
 , stopThread
 )
 where
@@ -28,72 +35,126 @@ where
 import           Control.Concurrent
 import qualified Control.Exception as E
 import           Data.Maybe
+import           Data.Typeable
 import           System.Log.Logger
 
 
 localLogger :: String
 localLogger = "Holumbus.Common.Threading"
 
+
 -- ----------------------------------------------------------------------------
 -- Thread-Control
 -- ----------------------------------------------------------------------------
 
-startThread
-  :: MVar (Maybe ThreadId)     -- ^ threadId of the watcher, to be filled
-  -> Int                       -- ^ delay value in ns
-  -> IO ()                     -- ^ action to be done if ping does not success 
-  -> IO ()
-startThread mVarTid d f
-  = modifyMVar mVarTid $
-      \servId ->
+data KillThreadException = KillThreadException ThreadId
+  deriving (Typeable)
+
+
+data ThreadData = ThreadData {
+    thd_Id      :: Maybe ThreadId
+  , thd_Running :: Bool
+  , thd_Delay   :: Int
+  , thd_Action  :: (IO ())
+  , thd_Error   :: (IO ())
+  }
+  
+type Thread = MVar ThreadData 
+
+
+newThread :: IO Thread
+newThread
+  = do 
+    newMVar $ ThreadData Nothing False defaultDelay noAction noAction
+    where
+    noAction     = return ()
+    defaultDelay = 10000
+
+
+setThreadDelay :: Int -> Thread -> IO ()
+setThreadDelay d thread
+  = do
+    modifyMVar thread $ \thd -> return (thd {thd_Delay = d},())
+    
+    
+setThreadAction :: (IO ()) -> Thread -> IO ()
+setThreadAction f thread
+  = do
+    modifyMVar thread $ \thd -> return (thd {thd_Action = f},())
+
+
+setThreadErrorHandler :: (IO ()) -> Thread -> IO ()
+setThreadErrorHandler e thread
+  = do
+    modifyMVar thread $ \thd -> return (thd {thd_Error = e},())
+
+
+startThread :: Thread -> IO ()
+startThread th
+  = modifyMVar th $
+      \thd ->
       do
-      servId' <- case servId of
+      servId' <- case (thd_Id thd) of
         i@(Just _) -> return i
         (Nothing) ->
           do
-          i <- forkIO $ doAction d f
+          i <- forkIO $ doAction th
           return (Just i)
-      return (servId',())
-    where
-    doAction delay fct
-      = E.handle (\e -> 
-          do
-          -- if a normal exception occurs, the thread should not be killed
-          warningM localLogger $ show e
-          yield
-          doAction delay fct
-         ) $
-          do
-          -- catch the exception which tells us to kill the dispatcher and kill it
-          E.catchDyn (doAction') (handler)
+      return (thd {thd_Id = servId', thd_Running = True},())
+    where    
+    doAction thread
+      = do
+        thd <- readMVar thread
+        if (thd_Running thd)
+          -- if thread is still running 
+          then do
+            E.handle 
+             (\e -> do
+              -- if a normal exception occurs, the error handler should be excuted
+              warningM localLogger $ show e
+              (thd_Error thd)
+              doAction thread
+             ) $
+              do
+              -- catch the exception which tells us to kill the dispatcher and kill it
+              E.catchDyn
+               (do
+                -- wait for next watch-cycle
+                threadDelay (thd_Delay thd)
+                -- do the action
+                (thd_Action thd)
+                -- and again
+                doAction thread
+               )
+               (killHandler) 
+          else do
+            debugM localLogger $ "thread normally closed by himself"
+            deleteThreadId thread
         where
-        handler :: ThreadId -> IO ()
-        handler i 
+        killHandler :: KillThreadException -> IO ()
+        killHandler (KillThreadException i)
           = do
             debugM localLogger $ "thread normally closed by other thread " ++ show i
-        doAction'
-          = do
-            -- wait for next watch-cycle
-            threadDelay delay
-            -- do the action
-            fct
-            -- and again
-            doAction delay fct
+            deleteThreadId thread
+        deleteThreadId :: Thread -> IO ()
+        deleteThreadId t
+          = modifyMVar t $ \thd -> return (thd {thd_Id = Nothing, thd_Running = False},())
 
 
-stopThread
-  :: MVar (Maybe ThreadId)     -- ^ threadId of the watcher, to be filled
-  -> IO ()
-stopThread mVarTid
-  = modifyMVar mVarTid $
-      \servId ->
-      do
-      servId' <- case servId of
-        (Nothing) -> return Nothing
-        (Just i) -> 
-          do
-          me <- myThreadId
-          E.throwDynTo i me
-          yield
-          return Nothing
-      return (servId',())
+stopThread :: Thread -> IO ()
+stopThread thread
+  = do
+    me <- myThreadId
+    him <- withMVar thread $ \thd -> return $ thd_Id thd
+    if (isJust him) 
+      then do
+        let he = fromJust him
+        if (me == he) 
+          -- if stop is called from the thread, we want to finish our work
+          then do 
+            modifyMVar thread $ \thd -> return (thd {thd_Running = False},())
+          -- else we kill it the unfriendly way...
+          else do
+            E.throwDynTo he (KillThreadException me)
+      else do
+        return ()
