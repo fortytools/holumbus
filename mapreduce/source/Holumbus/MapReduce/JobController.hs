@@ -29,8 +29,6 @@ module Holumbus.MapReduce.JobController
 , closeJobController
 , setFileSystemToJobController
 , setTaskSendHook
--- , setMapActions
--- , setReduceActions
 
 -- * Job Controller 
 , startJobController
@@ -117,10 +115,10 @@ intersections (s:ss) = foldl Set.intersection s ss
 mapAccumLM
   :: (Monad m) 
   => (acc -> x -> m (acc, y)) -- Function of of input list
-                               -- and accumulator, returning new
-                               -- accumulator and of result list
-  -> acc                       -- Initial accumulator 
-  -> [x]                       -- Input list
+                              -- and accumulator, returning new
+                              -- accumulator and of result list
+  -> acc                      -- Initial accumulator 
+  -> [x]                      -- Input list
   -> m (acc, [y])             -- Final accumulator and result list
 mapAccumLM _ s [] = return (s, [])
 mapAccumLM f s (x:xs) 
@@ -161,14 +159,9 @@ data JobControllerData = JobControllerData {
   , jcd_ServerDelay    :: Int
   , jcd_FileSystem     :: Maybe FS.FileSystem
   -- control
-  -- , jcd_MaxRunningJobs :: Int
   , jcd_NextJobId      :: JobId
   , jcd_NextTaskId     :: TaskId
   , jcd_Functions      :: JobControlFunctions
-  
-  -- , jcd_MapActionMap   :: MapActionMap
-  -- , jcd_ReduceActionMap :: ReduceActionMap
-  
   -- job control
   , jcd_JobMap         :: ! JobMap
   , jcd_TaskMap        :: ! TaskMap
@@ -208,8 +201,6 @@ defaultJobControllerData = jcd
     jcf
     Map.empty
     Map.empty
-    -- Map.empty
-    -- Map.empty
     MMap.empty
     MMap.empty
     MMap.empty
@@ -246,16 +237,6 @@ setTaskSendHook f jc
       let funs' = funs { jcf_TaskSend = f }
       return (jcd { jcd_Functions = funs' }, ())
 
-{-
-setMapActions :: MapActionMap -> JobController -> IO ()
-setMapActions mm jc
-  = modifyMVar jc $ \jcd -> return (jcd {jcd_MapActionMap = mm }, ())
-
-
-setReduceActions :: ReduceActionMap -> JobController -> IO ()
-setReduceActions rm jc
-  = modifyMVar jc $ \jcd -> return (jcd {jcd_ReduceActionMap = rm }, ())
--}
 
 -- ----------------------------------------------------------------------------
 -- server functions
