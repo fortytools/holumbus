@@ -95,7 +95,7 @@ data TaskProcessorException
 
 data TaskException
    = KillTaskException
-   | UnkownTaskException
+   | UnkownTaskException ActionName
    deriving (Show, Typeable)
 
 
@@ -473,10 +473,15 @@ runTask td tp
           reportErrorTask td tp
         ) $ 
         do
-        yield
-        -- threadDelay 5000000
-        td' <- performTask td tp
-        reportCompletedTask td' tp
+        E.catchDyn 
+         (do
+          yield
+          td' <- performTask td tp
+          reportCompletedTask td' tp)
+         (\(e :: TaskException) -> do
+           errorM taskLogger $ show e
+           reportErrorTask td tp) 
+
       
 -- not used, because we are doi    
 handleFinishedTasks :: TaskProcessor -> IO ()
@@ -533,7 +538,7 @@ performTask td tp
         do
         action <- case (getActionForTaskType (td_Type td) a) of
           (Just a') -> return a'
-          (Nothing) -> E.throwDyn UnkownTaskException
+          (Nothing) -> E.throwDyn (UnkownTaskException $ td_Action td)
         
         let env = mkActionEnvironment td mbfs
         bout <- action env opt parts bin
