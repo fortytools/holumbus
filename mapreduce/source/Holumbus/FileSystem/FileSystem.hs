@@ -206,13 +206,23 @@ mkFileSystemClient conf
 -- | Closes the filesystem.
 closeFileSystem :: FileSystem -> IO ()
 closeFileSystem (FileSystem fs) 
-  = withMVar fs $
+  = do
+    debugM localLogger "beginning to close filesystem"
+    withMVar fs $
       \(FileSystemData _ c n) ->
       do
       case n of
-        (Just n') -> N.closeNode n'
-        (Nothing) -> return ()
+        (Just n') -> 
+          do
+          debugM localLogger "closing Node"
+          N.closeNode n'
+        (Nothing) -> 
+          do
+          debugM localLogger "no Node to close"
+          return ()
+      debugM localLogger "closing Controller"
       C.closeController c
+      debugM localLogger "filesystem closed"
 
 
 

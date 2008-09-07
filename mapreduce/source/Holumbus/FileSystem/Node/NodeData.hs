@@ -148,6 +148,7 @@ instance NodeClass Node where
     = modifyMVar node $
         \nd ->
         do
+        debugM localLogger "closing filesystem node"
         closeClient (nd_Client nd)
         return (nd,())
       

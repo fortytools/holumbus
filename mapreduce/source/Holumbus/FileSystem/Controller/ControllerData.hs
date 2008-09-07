@@ -34,7 +34,7 @@ import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--- import           System.Log.Logger
+import           System.Log.Logger
 
 import           Holumbus.Common.Debug
 import qualified Holumbus.FileSystem.Controller as C
@@ -46,8 +46,8 @@ import           Holumbus.Network.Site
 import           Holumbus.Network.Communication
 
 
--- localLogger :: String
--- localLogger = "Holumbus.FileSystem.Controller"
+localLogger :: String
+localLogger = "Holumbus.FileSystem.Controller"
 
 -- ----------------------------------------------------------------------------
 --
@@ -55,43 +55,49 @@ import           Holumbus.Network.Communication
 
 type FileToNodeMap = Map.Map S.FileId (Set.Set M.NodeId)
 
-data ControllerMaps = ControllerMaps {
+data FileControllerData = FileControllerData {
     cm_FileToNodeMap :: ! FileToNodeMap
   }
 
-data ControllerData = ControllerData {
-    cd_Server :: Server
-  , cd_Maps           ::   ControllerMaps
-  }
+type FileController = MVar FileControllerData
 
-data Controller = Controller (MVar ControllerData)
+
+data ControllerData = ControllerData {
+    cd_Server         :: Server
+  , cd_FileController :: FileController
+  }
 
 
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
+newFileController :: IO FileController
+newFileController
+  = do
+    let fc = FileControllerData Map.empty
+    newMVar fc
 
 
-newController :: StreamName -> Maybe PortNumber -> IO Controller
+newController :: StreamName -> Maybe PortNumber -> IO ControllerData
 newController sn pn
   = do
     -- initialise the server
-    controller <- newEmptyMVar
-    let c = Controller controller
+    c <- newEmptyMVar
     server <- newServer sn pn (dispatch c) (Just $ registerNode c) (Just $ unregisterNode c)
     -- initialize values
-    let maps = ControllerMaps Map.empty 
-    -- get the internal data
-    putMVar controller (ControllerData server maps)
-    return (Controller controller)
+    fc <- newFileController
+    let con = ControllerData server fc
+    putMVar c con    
+    return con
   
 
 dispatch 
-  :: Controller 
+  :: MVar ControllerData 
   -> M.ControllerRequestMessage 
   -> IO (Maybe M.ControllerResponseMessage)
-dispatch cd msg
+dispatch c msg
   = do
+    cd <-readMVar c
     case msg of
       (M.CReqGetFileSites f) ->
         do
@@ -124,26 +130,30 @@ dispatch cd msg
       _ -> return Nothing
 
 
-registerNode :: Controller -> IdType -> ClientPort -> IO ()
-registerNode (Controller controller) i cp
+registerNode :: MVar ControllerData -> IdType -> ClientPort -> IO ()
+registerNode c i cp
   = do
     let np = NP.newNodePort cp
     fids <- N.getFileIds np
-    modifyMVar controller $
-      \cd ->
+    cd <- readMVar c
+    modifyMVar (cd_FileController cd) $
+      \fc ->
       do
-      let cm = addFilesToController fids i (cd_Maps cd)
-      return (cd {cd_Maps = cm}, ())
+      let fc' = addFilesToController fids i fc
+      return (fc', ())
 
 
-unregisterNode :: Controller -> IdType -> ClientPort -> IO ()
-unregisterNode (Controller controller) i _
+unregisterNode :: MVar ControllerData -> IdType -> ClientPort -> IO ()
+unregisterNode c i _
   = do
-    modifyMVar controller $
-      \cd ->
+    debugM localLogger "unregisterNode: start"
+    cd <- readMVar c
+    modifyMVar (cd_FileController cd) $
+      \fc ->
       do
-      let cm = deleteFilesFromController i (cd_Maps cd)
-      return (cd {cd_Maps = cm}, ())
+      let fc' = deleteFilesFromController i fc
+      return (fc', ())
+    debugM localLogger "unregisterNode: end"
     
     
 -- ----------------------------------------------------------------------------
@@ -195,7 +205,7 @@ getFilesForCopying fnm = (fst . unzip) filteredList
 
 
 -- | Adds the files of a node to the global directory.
-addFilesToController :: [S.FileId] -> M.NodeId -> ControllerMaps -> ControllerMaps
+addFilesToController :: [S.FileId] -> M.NodeId -> FileControllerData -> FileControllerData
 addFilesToController fids nid cm 
   = cm { cm_FileToNodeMap = fnm' }
   where
@@ -206,7 +216,7 @@ addFilesToController fids nid cm
 
 
 -- | Deletes the files of a node from the global directory.
-deleteFilesFromController :: M.NodeId -> ControllerMaps -> ControllerMaps
+deleteFilesFromController :: M.NodeId -> FileControllerData -> FileControllerData
 deleteFilesFromController nid cm
   = cm { cm_FileToNodeMap = fnm' }
   where 
@@ -216,11 +226,11 @@ deleteFilesFromController nid cm
     list = map (\(k,s) -> (k, Set.delete nid s)) (Map.toList fnm)
 
 
-addFileToController :: S.FileId -> M.NodeId -> ControllerMaps -> ControllerMaps
+addFileToController :: S.FileId -> M.NodeId -> FileControllerData -> FileControllerData
 addFileToController fid nid cm = addFilesToController [fid] nid cm
 
 
-deleteFileFromController :: S.FileId -> ControllerMaps -> ControllerMaps
+deleteFileFromController :: S.FileId -> FileControllerData -> FileControllerData
 deleteFileFromController fid cm
   = cm { cm_FileToNodeMap = fnm' }
   where 
@@ -229,16 +239,17 @@ deleteFileFromController fid cm
     
 
 -- | gets the List of all sites the file is located on...
-getFileClientInfoList :: S.FileId -> Server -> ControllerMaps -> IO [ClientInfo]
-getFileClientInfoList f s (ControllerMaps fnm)
+getFileClientInfoList :: S.FileId -> Server -> FileControllerData -> IO [ClientInfo]
+getFileClientInfoList f s cm
   = do
+    let fnm = cm_FileToNodeMap cm
     let is = Set.toList $ maybe Set.empty id (Map.lookup f fnm)
     mbDats <- mapM (\i -> getClientInfo i s) is
     return $ catMaybes mbDats  
 
 
 
-lookupNearestPortWithFile :: S.FileId -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortWithFile :: S.FileId -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortWithFile f sid s cm
   = do
     dats <- getFileClientInfoList f s cm
@@ -249,7 +260,7 @@ lookupNearestPortWithFile f sid s cm
     return mbnp
 
 
-lookupNearestPortWithFileAndSpace :: S.FileId -> Integer -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortWithFileAndSpace :: S.FileId -> Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortWithFileAndSpace f size sid s cm
   = lookupNearestPortWithFile f sid s cm
 {-    dats <- getFileClientInfoList f s cm
@@ -261,7 +272,7 @@ lookupNearestPortWithFileAndSpace f size sid s cm
     return mbnp 
 -}
 
-lookupNearestPortWithSpace :: Integer -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortWithSpace :: Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortWithSpace size sid s cm
   = do
     dats <- getAllClientInfos s
@@ -278,7 +289,7 @@ lookupNearestPortWithSpace size sid s cm
     return mbnp
 -}
 
-lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> Server -> ControllerMaps -> IO (Maybe ClientPort)
+lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortForFile f size sid s cm
   -- if file exists, get nearest node, else the closest with space
   = do
@@ -288,9 +299,10 @@ lookupNearestPortForFile f size sid s cm
     return mbnp
     
 
-getOtherFilePorts :: S.FileId -> IdType -> Server -> ControllerMaps -> IO [ClientInfo]
-getOtherFilePorts f nid s (ControllerMaps fnm)
+getOtherFilePorts :: S.FileId -> IdType -> Server -> FileControllerData -> IO [ClientInfo]
+getOtherFilePorts f nid s cm
   = do
+    let fnm = cm_FileToNodeMap cm
     -- get all nodes which hold the file without the given node
     let otherids = Set.toList $ Set.delete nid $ maybe Set.empty id (Map.lookup f fnm)
     mbDats <- mapM (\i -> getClientInfo i s) otherids    
@@ -313,42 +325,42 @@ deleteFileFromNodes fid nps = sequence_ $ map deleteFileFromNode nps
 --
 -- ---------------------------------------------------------------------------- 
 
-instance C.ControllerClass Controller where
+instance C.ControllerClass ControllerData where
 
-  closeController (Controller controller) 
-    = modifyMVar controller $
-        \cd ->
-        do      
-        closeServer (cd_Server cd)
-        return (cd,())
+  closeController cd 
+    = do
+      debugM localLogger "closing Server"
+      closeServer (cd_Server cd)
+      debugM localLogger "server closed"
+
 
   
   -- getFileSites :: S.FileId -> Controller -> IO (Set.Set SiteId) 
-  getFileSites f (Controller controller)
-    = withMVar (controller) $
-        \cd ->
+  getFileSites f cd
+    = withMVar (cd_FileController cd) $
+        \fc ->
         do
-        dats <- getFileClientInfoList f (cd_Server cd) (cd_Maps cd)
+        dats <- getFileClientInfoList f (cd_Server cd) fc 
         let sids = map (\ci -> ci_Site ci) dats
         return (Set.fromList sids)
 
   
   -- containsFile :: S.FileId -> Controller -> IO Bool
-  containsFile f (Controller controller)
-    = withMVar (controller) $
-        \cd -> return $ Map.member f (cm_FileToNodeMap $ cd_Maps cd)
+  containsFile f cd
+    = withMVar (cd_FileController cd) $
+        \fc -> return $ Map.member f (cm_FileToNodeMap fc)
   
       
   -- getNearestNodePortWithFile :: S.FileId -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
-  getNearestNodePortWithFile f sid (Controller controller)
-    = withMVar (controller) $
-        \cd -> lookupNearestPortWithFile f sid (cd_Server cd) (cd_Maps cd) 
+  getNearestNodePortWithFile f sid cd
+    = withMVar (cd_FileController cd) $
+        \fc -> lookupNearestPortWithFile f sid (cd_Server cd) fc 
 
  
   -- getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
-  getNearestNodePortForFile f c sid (Controller controller)
-    = withMVar (controller) $
-        \cd -> lookupNearestPortForFile f c sid (cd_Server cd) (cd_Maps cd)
+  getNearestNodePortForFile f c sid cd
+    = withMVar (cd_FileController cd) $
+        \fc -> lookupNearestPortForFile f c sid (cd_Server cd) fc
 
 
 -- ----------------------------------------------------------------------------
@@ -357,13 +369,13 @@ instance C.ControllerClass Controller where
 
 
 --createFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
-  createFile f nid (Controller controller)
-    = modifyMVar controller $
-        \cd ->
+  createFile f nid cd
+    = modifyMVar (cd_FileController cd) $
+        \fc ->
         do
-        let cm =  addFileToController f nid (cd_Maps cd)
+        let fc' = addFileToController f nid fc
         --TODO copy file
-        return (cd {cd_Maps = cm}, ())
+        return (fc', ())
 
 
 --appendFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
@@ -372,31 +384,30 @@ instance C.ControllerClass Controller where
 
 
 --deleteFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
-  deleteFile f nid (Controller controller)
-    = modifyMVar controller $
-        \cd ->
+  deleteFile f nid cd
+    = modifyMVar (cd_FileController cd) $
+        \fc ->
         do
         -- inform all other nodes to delete node
-        cps <- getOtherFilePorts f nid (cd_Server cd) (cd_Maps cd)
+        cps <- getOtherFilePorts f nid (cd_Server cd) fc
         let nps = map (\ci -> NP.newNodePort (ci_Port ci)) cps
         deleteFileFromNodes f nps
         -- delete file from Controller
-        let cm = deleteFileFromController f (cd_Maps cd)        
-        return (cd {cd_Maps = cm}, ())
+        let fc' = deleteFileFromController f fc        
+        return (fc', ())
         
         
 
-instance Debug Controller where
-  printDebug (Controller controller)
+instance Debug ControllerData where
+  printDebug cd
     = do
       putStrLn "Controller-Object (full)"
-      withMVar controller $
-        \cd ->
-        do
-        putStrLn "--------------------------------------------------------"        
-        putStrLn "Server"
-        printDebug (cd_Server cd)
-        putStrLn "--------------------------------------------------------"
-        putStrLn "FileToNodeMap:"
-        putStrLn $ show (cm_FileToNodeMap $ cd_Maps cd) 
+      putStrLn "--------------------------------------------------------"        
+      putStrLn "Server"
+      printDebug (cd_Server cd)
+      putStrLn "--------------------------------------------------------"
+      putStrLn "FileToNodeMap:"
+      withMVar (cd_FileController cd) $
+        \fc -> do
+        putStrLn $ show (cm_FileToNodeMap $ fc) 
         
