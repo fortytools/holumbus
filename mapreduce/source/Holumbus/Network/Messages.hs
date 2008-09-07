@@ -38,6 +38,7 @@ import           Data.Typeable
 
 import           System.Log.Logger
 
+import           Holumbus.Common.Threading
 import           Holumbus.Common.Utils
 import qualified Holumbus.Network.Port as P
 
@@ -147,12 +148,16 @@ performPortAction reqPo resStr timeout reqMsg rspHdl
 
 startRequestDispatcher
   :: (Binary a, Show a, Show b, Binary b, RspMsg b) 
-  => MVar (Maybe ThreadId)                      -- ^ threadId, to be filled
+  => Thread                                     -- ^ threadId, to be filled
   -> P.Stream a                                 -- ^ request-Stream (this is where the messages come in)
   -> (a -> P.Port b -> IO ())                   -- ^ the dispatcher (create a reply message)
   -> IO ()
-startRequestDispatcher mVarTid reqS dispatcher
-  = modifyMVar mVarTid $
+startRequestDispatcher thread reqS dispatcher
+  = do
+    setThreadAction (requestDispatcher reqS dispatcher) thread
+    startThread thread
+    {-
+    modifyMVar mVarTid $
       \servId ->
       do
       servId' <- case servId of
@@ -162,11 +167,14 @@ startRequestDispatcher mVarTid reqS dispatcher
           i <- forkIO $ requestDispatcher reqS dispatcher
           return (Just i)
       return (servId',())
+-}
 
-
-stopRequestDispatcher :: MVar (Maybe ThreadId) -> IO ()
-stopRequestDispatcher mVarTid
-  = modifyMVar mVarTid $
+stopRequestDispatcher :: Thread -> IO ()
+stopRequestDispatcher thread
+  = do
+    stopThread thread 
+  {-
+  modifyMVar mVarTid $
       \servId ->
       do
       servId' <- case servId of
@@ -178,7 +186,7 @@ stopRequestDispatcher mVarTid
           yield
           return Nothing
       return (servId',())
-
+  -}
 
 requestDispatcher 
   :: (Binary a, Show a, Show b, Binary b, RspMsg b)
@@ -187,6 +195,24 @@ requestDispatcher
   -> IO ()
 requestDispatcher reqS dispatcher
   = do
+    -- read the next message from the stream (block, if no message arrived)
+    msg <- P.readStreamMsg reqS
+    -- extract the data
+    let dat = P.getMessageData msg
+    debugM localLogger "dispatching new Message... "
+    debugM localLogger $ show dat
+    -- extract the (possible replyport)
+    let responsePort = decodeMaybe $ P.getGenericData msg
+    if (isNothing responsePort)
+      then do
+        warningM localLogger "no reply port in message"
+        -- yield
+      else do
+        -- do the dispatching in a new process...
+        _ <- forkIO $ dispatcher dat $ (fromJust responsePort)
+        return ()
+
+  {- = do
     E.handle (\e -> 
       do
       -- if a normal exception occurs, the dispatcher should not be killed
@@ -201,8 +227,8 @@ requestDispatcher reqS dispatcher
     handler :: ThreadId -> IO ()
     handler i 
       = do
-        debugM localLogger $ "requestDispatcher normally closed by thread " ++ show i
-    requestDispatcher'
+        debugM localLogger $ "requestDispatcher normally closed by thread " ++ show i    
+    requestDispatcher'    
       = do
         -- read the next message from the stream (block, if no message arrived)
         msg <- P.readStreamMsg reqS
@@ -222,7 +248,7 @@ requestDispatcher reqS dispatcher
             return ()
         --threadDelay 10
         requestDispatcher reqS dispatcher 
-
+-}
 
 handleRequest
   :: (Show b, Binary b, RspMsg b)
@@ -247,14 +273,3 @@ handleRequest po fhdl fres
         r <- fhdl
         -- send the response
         P.send po $ fres r
-
-
-
-
-
-
-
-
-
-
-

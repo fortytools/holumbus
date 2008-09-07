@@ -35,6 +35,7 @@ import qualified Data.Map as Map
 import           Network
 import           System.Log.Logger
 
+import           Holumbus.Common.Threading
 import           Holumbus.Network.Port
 import           Holumbus.Network.Messages
 import           Holumbus.Network.PortRegistry
@@ -51,7 +52,7 @@ localLogger = "Holumbus.Network.PortRegistry.PortRegistryData"
 -- ----------------------------------------------------------------------------
 
 data PortRegistryData = PortRegistryData {
-    prd_ServerThreadId :: MVar (Maybe ThreadId)
+    prd_ServerThreadId :: Thread
   , prd_OwnStream      :: PortRegistryRequestStream
   , prd_SocketMap      :: MVar (Map.Map StreamName SocketId)
   }
@@ -67,7 +68,7 @@ newPortRegistryData sn pn
   = do
     st      <- (newStream STLocal (Just sn) pn)::IO PortRegistryRequestStream
     mMVar   <- newMVar Map.empty
-    sMVar   <- newMVar Nothing            
+    sMVar   <- newThread            
     let prd = PortRegistryData sMVar st mMVar
     startRequestDispatcher sMVar st (dispatch prd)
     return prd

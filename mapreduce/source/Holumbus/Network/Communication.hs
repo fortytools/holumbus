@@ -185,7 +185,7 @@ instance Show ClientInfo where
 
 -- | the data of the server needed to organise the clients
 data ServerData = ServerData {
-    sd_ServerThreadId  :: MVar (Maybe ThreadId)         -- ^ threadId of the streamDispatcher
+    sd_ServerThreadId  :: Thread                        -- ^ threadId of the streamDispatcher
   , sd_OwnStream       :: Stream (ServerRequestMessage) -- ^ the stream the requestDispatcher reads from
   , sd_OwnPort         :: Port (ServerRequestMessage)   -- ^ the port the clients send messages to
   , sd_ClientMap       :: Map.Map IdType ClientInfo     -- ^ infomation of the the clients
@@ -213,7 +213,7 @@ newServer sn pn dispatch register unregister
     -- create a new server
     st    <- (newStream STGlobal (Just sn) pn::IO (Stream ServerRequestMessage))
     po    <- newPortFromStream st
-    tid   <- newMVar Nothing
+    tid   <- newThread
     let reg   = maybe (\_ _ -> return ()) id register
     let unreg = maybe (\_ _ -> return ()) id unregister
     let sd = ServerData tid st po Map.empty MMap.empty Map.empty reg unreg 1
@@ -572,7 +572,7 @@ class ClientClass c where
   
 -- | client datatype.
 data ClientData = ClientData {
-    cd_ServerThreadId  :: MVar (Maybe ThreadId)
+    cd_ServerThreadId  :: Thread
   , cd_PingThreadId    :: Thread
   , cd_Id              :: Maybe IdType
   , cd_SiteId          :: SiteId
@@ -596,7 +596,7 @@ newClient sn soid action
     sp <- newServerPort sn soid
     -- initialize values
     sid     <- getSiteId
-    stid    <- newMVar Nothing    
+    stid    <- newThread  
     st      <- (newLocalStream Nothing::IO (Stream ClientRequestMessage))
     po      <- newPortFromStream st
     ptid    <- newThread
