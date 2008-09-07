@@ -229,17 +229,22 @@ newServer sn pn dispatch register unregister
 closeServer :: Server -> IO ()
 closeServer s@(Server server)
   = do
+    debugM localLogger "closeServer: start"
     allIds <- modifyMVar server $
       \sd ->
       do    
+      debugM localLogger "closeServer: stopRequestDispatcher"
       -- shutdown the server thread
       stopRequestDispatcher (sd_ServerThreadId sd)
       -- close the stream
+      debugM localLogger "closeServer: closeStream"
       closeStream (sd_OwnStream sd)
       -- getAll ClientIds
       let allIds = Map.keys (sd_ClientMap sd)
       return (sd, allIds)
+    debugM localLogger "closeServer: unregister clients"
     mapM (\i -> do unregisterClient i s) allIds
+    debugM localLogger "closeServer: end"
     return ()
 
 
@@ -365,6 +370,7 @@ instance ServerClass Server where
      
   unregisterClient i (Server server)
     = do
+      debugM localLogger "unregisterClient: start"
       (mbInfo, unregister) <- modifyMVar server $
         \sd ->
         do
@@ -372,14 +378,27 @@ instance ServerClass Server where
         let mbInfo = lookupClientInfo i sd 
         let sd' = deleteClientFromServer i sd
         return (sd', (mbInfo,unregister))
+      debugM localLogger "unregisterClient: client deleted"
       case mbInfo of
         (Just info) -> 
           do
-          unregister i (ci_Port info)
+          debugM localLogger "unregisterClient: killing the ping thread"
+          -- kill the ping-thread
+          me <- myThreadId
+          him <- readMVar (ci_PingThreadId info)
+          debugM localLogger $ "me:  " ++ show me
+          debugM localLogger $ "him: " ++ show him
           stopThread (ci_PingThreadId info)
-          -- no actions beyond this point, because we raise an exception that
-          -- terminates this thread
-        (Nothing)   -> return () 
+          debugM localLogger "unregisterClient: ping thread killed"
+          debugM localLogger "unregisterClient: executing unregister-function"
+          -- execute the unregister function
+          unregister i (ci_Port info)
+          debugM localLogger "unregisterClient: unregister-function executed"
+        (Nothing)   ->
+          do
+          debugM localLogger "unregisterClient: no client info found"
+          return ()
+      debugM localLogger "unregisterClient: end"
         
   pingServer i (Server server)
     = withMVar server $
