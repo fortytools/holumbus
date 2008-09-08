@@ -229,18 +229,18 @@ closeServer :: Server -> IO ()
 closeServer s@(Server server)
   = do
     debugM localLogger "closeServer: start"
-    allIds <- modifyMVar server $
+    (allIds,thread,stream) <- withMVar server $
       \sd ->
-      do    
-      debugM localLogger "closeServer: stopRequestDispatcher"
-      -- shutdown the server thread
-      stopRequestDispatcher (sd_ServerThreadId sd)
-      -- close the stream
-      debugM localLogger "closeServer: closeStream"
-      closeStream (sd_OwnStream sd)
+      do
       -- getAll ClientIds
       let allIds = Map.keys (sd_ClientMap sd)
-      return (sd, allIds)
+      return (allIds, sd_ServerThreadId sd, sd_OwnStream sd)          
+    debugM localLogger "closeServer: stopRequestDispatcher"
+    -- shutdown the server thread
+    stopRequestDispatcher thread
+    -- close the stream
+    debugM localLogger "closeServer: closeStream"
+    closeStream stream
     debugM localLogger "closeServer: unregister clients"
     mapM (\i -> do unregisterClient i s) allIds
     debugM localLogger "closeServer: end"
