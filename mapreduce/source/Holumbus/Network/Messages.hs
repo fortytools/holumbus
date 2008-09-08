@@ -95,7 +95,8 @@ talkWithNode p respStream timeout m hdlFct
     debugM localLogger $ show response
     res <- case response of
       -- if no response
-      Nothing ->
+      Nothing -> do
+        warningM localLogger "talkWithNode: timeout"
         E.throwDyn TimeoutException          
       -- handle the response
       (Just r) ->
@@ -121,9 +122,15 @@ basicResponseHandler hdlFct rsp
         handleError
     where
       handleError
-        | (isError rsp)   = E.throwDyn $ ErrorResponse $ getErrorMsg rsp
-        | (isUnknown rsp) = E.throwDyn UnknownRequest
-        | otherwise       = E.throwDyn $ FalseResponse $ show rsp
+        | (isError rsp)   = do
+          warningM localLogger $ "basicResponseHandler: error: " ++ show rsp
+          E.throwDyn $ ErrorResponse $ getErrorMsg rsp
+        | (isUnknown rsp) = do
+          warningM localLogger $ "basicResponseHandler: unknown: " ++ show rsp
+          E.throwDyn UnknownRequest
+        | otherwise       = do
+          warningM localLogger $ "basicResponseHandler: false: " ++ show rsp
+          E.throwDyn $ FalseResponse $ show rsp
         
                     
 performPortAction

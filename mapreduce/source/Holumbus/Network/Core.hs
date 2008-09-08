@@ -212,7 +212,10 @@ sendRequest f n p =
 putMessage :: B.ByteString -> Handle -> IO ()
 putMessage msg hdl
   = do
-    handle (\e -> errorM localLogger $ "putMessage: " ++ show e) $ do
+    handle (\e -> do
+      errorM localLogger $ "putMessage: " ++ show e
+      errorM localLogger $ "message: " ++ show msg 
+     ) $ do
       hPutStrLn hdl ((show $ B.length msg) ++ " ")
       B.hPut hdl msg
 

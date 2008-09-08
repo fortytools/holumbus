@@ -257,6 +257,7 @@ dispatchServerRequest
   -> IO ()
 dispatchServerRequest server action msg replyPort
   = do
+    debugM localLogger $ "dispatchServerRequest: " ++ show msg
     case msg of
       (SReqRegisterClient s po) ->
         do
@@ -638,6 +639,7 @@ dispatchClientRequest
   -> IO ()
 dispatchClientRequest client action msg replyPort
   = do
+    debugM localLogger $ "dispatchClientRequest: " ++ show msg
     case msg of
       (CReqPing i) ->
         do
@@ -753,13 +755,14 @@ instance ClientClass ClientPort where
 
 
 sendRequestToClient 
-  :: (Binary a, Binary b)
+  :: (Show a, Binary a, Binary b)
   => ClientPort -> Int
   -> a
   -> (b -> IO (Maybe c))  -- ^ response handler
   -> IO c
 sendRequestToClient (ClientPort p) timeout a handler
   = do
+    debugM localLogger $ "sending request to Client: " ++ show a
     withStream $
       \s -> performPortAction p s timeout (CReqClientAction (encode a)) $
         \rsp ->
@@ -772,13 +775,14 @@ sendRequestToClient (ClientPort p) timeout a handler
 
 
 sendRequestToServer 
-  :: (Binary a, Binary b)
+  :: (Show a, Binary a, Binary b)
   => ServerPort -> Int
   -> a
   -> (b -> IO (Maybe c))  -- ^ response handler
   -> IO c
 sendRequestToServer (ServerPort p) timeout a handler
   = do
+    debugM localLogger $ "sending message to Server: " ++ show a
     withStream $
       \s -> performPortAction p s timeout (SReqServerAction (encode a)) $
         \rsp ->
