@@ -108,7 +108,7 @@ readDirectory stor
     handle (\_ -> writeDirectory stor) $
       bracket
         (do
-         debugM localLogger ("opening filestorage directory: " ++ (fs_DirfilePath stor))
+         infoM localLogger ("opening filestorage directory: " ++ (fs_DirfilePath stor))
          openFile (fs_DirfilePath stor) ReadMode
         )
         (hClose)
@@ -127,7 +127,7 @@ writeDirectory stor
   = do
     bracket 
       (do
-       debugM localLogger ("writing filestorage directory: " ++ (fs_DirfilePath stor))
+       infoM localLogger ("writing filestorage directory: " ++ (fs_DirfilePath stor))
        createDirectoryIfMissing True (fs_Path stor)
        openFile (fs_DirfilePath stor) WriteMode)
       (hClose) 
@@ -209,7 +209,7 @@ instance S.Storage FileStorage where
   
   getFileContent stor i
     = do
-      debugM localLogger $ "getFileContent: reading " ++ show i
+      infoM localLogger $ "getFileContent: reading " ++ show i
       if (isMember (fs_Directory stor) i) 
         then do
           handle (\e -> do
