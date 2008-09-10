@@ -131,7 +131,9 @@ instance MapReduce MasterPort where
   
   doMapReduce ji (MasterPort p)
     = do
-      sendRequestToServer p time30 (MReqPerformJob ji) $
+      -- bad hack... we should build an extra client for the MapReduce-System
+      -- which pings for the server and so on
+      sendRequestToServer p timeIndefinitely (MReqPerformJob ji) $
           \rsp ->
           do
           case rsp of

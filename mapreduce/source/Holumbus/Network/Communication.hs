@@ -22,6 +22,7 @@ module Holumbus.Network.Communication
 , PortNumber
 -- time constants
 , time30
+, timeIndefinitely
 
 , IdType
 

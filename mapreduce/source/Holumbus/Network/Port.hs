@@ -27,6 +27,7 @@ module Holumbus.Network.Port
 , time30
 , time60
 , time120
+, timeIndefinitely
 
 -- * Datatypes
 , SocketId(..) -- reexport from core
@@ -135,6 +136,10 @@ time60 = 60000000
 time120 :: Int
 time120 = 120000000
 
+
+-- | wait so long it takes
+timeIndefinitely :: Int
+timeIndefinitely = -1
 
 
 defaultPort :: PortNumber
