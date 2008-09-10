@@ -498,6 +498,8 @@ sendTask jc td
           setTaskInProgress jc td
         (TSRNotSend) ->
           do
+          -- TODO can this function be called twice before it is not finished?
+          -- TODO and is this bad?
           -- Task already in idle
           return ()
         (TSRError) ->
