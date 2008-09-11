@@ -42,3 +42,28 @@ install :
 
 clean :
 	$(RM) $(OUTPUT) $(PROGS)
+
+# ------------------------------------------------------------
+#
+# build a statically linked janus server
+#
+# all servlet sources must be located under source subdir
+# and must be in the package Network.Server.Janus.Shader
+
+SERVLETS	:= $(wildcard source/Hayoo/*.hs)
+CONF		= conf/server.xml
+
+# janus-conf is installed togeher with the janus-library
+JANUSCONF	= janus-conf
+
+# 1. step: generate the Janus main from server.xml
+Janus.hs	: $(CONF)
+		$(JANUSCONF) $(CONF)
+
+
+# 2. step: generate the executable janus from the main prog
+janus		: Janus.hs $(SERVLETS)
+		ghc -Wall -o $@ --make -i./source Janus.hs
+
+cleanjanus	:
+		rm -f Janus.hs Janus.o Janus.hi $(SERVLETS:.hs=.o) $(SERVLETS:.hs=.hi)

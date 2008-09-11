@@ -11,29 +11,31 @@ synopsis:      A distributed search and indexing engine.
 homepage:      http://holumbus.fh-wedel.de
 description:   The Holumbus-Searchengine library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
 cabal-version: >=1.2
+build-type:    Simple
 
 flag splitBase
   description: Choose the new smaller, split-up base package.
 
 library
-  build-depends: base >= 3
-               , haskell98
-               , containers
-               , directory
-               , old-time
-               , parallel
-               , parsec
-               , network
-               , bytestring
-               , unix
-               , utf8-string
-               , hxt
-               , binary
-               , bzlib
-               , regex-compat
-               , HDBC
-               , HDBC-sqlite3
-               , pureMD5 >= 0.1.2 && < 0.2
+  build-depends: base           >= 3
+               , haskell98      >= 1.0
+               , containers     >= 0.1
+               , directory      >= 1.0
+               , old-time       >= 1.0
+               , parallel       >= 1.0
+               , parsec         >= 2.1 && < 3
+               , network        >= 2.1
+               , bytestring     >= 0.9
+               , unix           >= 2.3
+               , utf8-string    >= 0.3
+               , hxt            >= 8.0
+               , binary         >= 0.4
+               , bzlib          >= 0.4
+               , regex-compat   >= 0.71
+               , HDBC           >= 1.1
+               , HDBC-sqlite3   >= 1.1
+               , pureMD5        >= 0.1.2 && < 0.2
+
   exposed-modules:
     Holumbus.Utility,
     Holumbus.Build.Crawl,

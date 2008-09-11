@@ -35,8 +35,8 @@ import Control.Parallel.Strategies
 import Char
 import Data.Maybe
 import Data.Function
-import Data.Binary
-import Text.XML.HXT.Arrow.Pickle
+import Data.Binary               ()	-- nothing used
+import Text.XML.HXT.Arrow.Pickle ()	-- nothing used
 import Control.Monad
 
 import qualified Data.List as L

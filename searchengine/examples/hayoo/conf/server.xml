@@ -67,7 +67,9 @@
       <loadshader reference="ttyThread" object="ttyThreadShader" module="Network.Server.Janus.Shader.ConsoleShader"/>
       <loadshader reference="ttyVersion" object="ttyVersionShader" module="Network.Server.Janus.Shader.ConsoleShader"/>
 
+      <!-- Hayoo! special, was disabled during testing due to lack of missing index -->
       <loadshader reference="hayoo" object="hayooShader" module="Hayoo.Search"/>
+      <!-- -->
 
       <shader type="init_mime" typefile="./conf/mime.types"/>
       <shader type="loadXml" file="./conf/server.xml" node="/local/hummelbummel"/>
@@ -113,11 +115,15 @@
 
         <like>
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
+
+          <!-- Hayoo! special, was disabled during testing due to lack of missing index -->
       	  <case match="^/results/hayoo.html$" >
       	    <shader type="hayoo">
       	    	<config index="indexes/hayoo-index.bin" documents="indexes/hayoo-docs.bin" cache="indexes/hayoo-cache.db"/>
       	    </shader>
       	  </case>
+          <!-- -->
+
           <default>
             <shader id="file_shader" type="file_shader">
               <config base_url="/" maps_to="./wwwpages"/>

@@ -32,10 +32,10 @@ trc m	= do
 main :: IO ()
 main 
   = do
-    let traceLevel     = 5
+    let traceLevel     = 1
         workerThreads  = 1
         docsPerCrawl   = 250
-        docsPerIndex   = 500
+        docsPerIndex   = 2500
         idxConfig      = ic_photos
         crawlerState   = ( initialCrawlerState idxConfig emptyDocuments customFunction )
 			 { cs_fGetReferences = fromLA editJSUris
@@ -85,15 +85,16 @@ customFunction = constA Nothing
 ic_photos :: IndexerConfig
 ic_photos 
   = IndexerConfig
-    { ic_startPages     = [ "http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos/2007/2007.03.11.Hagenbeck/Gefluegel/pic-0005.html"
-			    -- "http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos.html"
+    { ic_startPages     = [ -- "http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos/2007/2007.03.11.Hagenbeck/Gefluegel/pic-0005.html"
+			    "http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos.html"
                           ]
     , ic_contextConfigs = ccs_photo
     , ic_fCrawlFilter   = crawlFilter
                           False
-                          [ ("^http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos/2007/.*[.]html$", True)
+                          [ -- ("^http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos/2007/.*[.]html$", True)
+			    ("^http://192.168.2.11/~uwe/Alben/1600x1200-css/Photos/.*[.]html$", True)
 			  ]
-    , ic_tmpPath        = Just "/tmp/"
+    , ic_tmpPath        = Just "./pages/"	-- dir for crawled pages
     , ic_idxPath        = "./photo/hol"		-- dir and prefix for index files
     , ic_readAttributes = addEntries [ (a_remove_whitespace, v_1)
 				     , (a_options_curl, "--user-agent HolumBot/0.5@http://hobel.welt.all")

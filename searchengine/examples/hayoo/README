@@ -19,11 +19,26 @@ Requirements
 
 - hslogger >= 1.0.5
 - Holumbus >= 0.4
-- Janus >= 1.0
+- Janus >= 2.0
+
+Installation (Janus static build)
+---------------------------------
+
+1. Install Janus-Library package and janus-conf
+   with janus package for static linkage.
+
+2. Run "make all" in this directory
+   This builds an executable "janus"
+
+3. Start the server with "./janus"
+   This requires access to the hayoo search index
+
+4. Point your browser to http://localhost:8080/hayoo.html
 
 Installation (Janus split build)
 --------------------------------
 
+FIXME: This is not up to date anymore.
 This description only describes the installation of the Hayoo! search engine,
 please refer to the respective README files for informations about the 
 "Indexer" program and the "Hebalizer" program.
