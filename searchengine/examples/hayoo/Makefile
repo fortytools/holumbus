@@ -6,20 +6,21 @@ GHC				= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM				= rm $(RM_FLAGS)
 
-SOURCE    = source
-OUTPUT    = output
+SOURCE		= source
+OUTPUT		= output
 
-SHADER    = $(SOURCE)/Hayoo/Search.hs
+PROGS		= Indexer Hebalizer
 
-PROGS     = Indexer Hebalizer
+all		: $(PROGS) janus
 
-all : shader $(PROGS)
+indexer		: Indexer
+hebalizer	: Hebalizer
+
+# ------------------------------------------------------------
+# old stuff for janus with hs-plugins
 
 shader : $(SHADER) output
 	$(GHC) -threaded --make $< -hidir $(OUTPUT) -odir $(OUTPUT) -i./$(SOURCE)
-
-indexer : Indexer
-hebalizer : Hebalizer
 
 % : $(SOURCE)/Hayoo/%.hs output
 	$(GHC) -threaded --make -o $@ $< -hidir $(OUTPUT) -odir $(OUTPUT) -i./$(SOURCE)
@@ -40,7 +41,10 @@ install :
 	cp output/Hayoo/Common.* $(JANUS_ROOT)/Hayoo/
 	cp output/Hayoo/HTML.* $(JANUS_ROOT)/Hayoo/
 
+# ------------------------------------------------------------
+
 clean :
+	$(MAKE) cleanjanus
 	$(RM) $(OUTPUT) $(PROGS)
 
 # ------------------------------------------------------------
@@ -50,7 +54,7 @@ clean :
 # all servlet sources must be located under source subdir
 # and must be in the package Network.Server.Janus.Shader
 
-SERVLETS	:= $(wildcard source/Hayoo/*.hs)
+SERVLETS	:= $(wildcard $(SOURCE)/Hayoo/*.hs)
 CONF		= conf/server.xml
 
 # janus-conf is installed togeher with the janus-library
@@ -63,7 +67,7 @@ Janus.hs	: $(CONF)
 
 # 2. step: generate the executable janus from the main prog
 janus		: Janus.hs $(SERVLETS)
-		ghc -Wall -o $@ --make -i./source Janus.hs
+		$(GHC) -threaded -o $@ --make -i./source Janus.hs
 
 cleanjanus	:
 		rm -f Janus.hs Janus.o Janus.hi $(SERVLETS:.hs=.o) $(SERVLETS:.hs=.hi)
