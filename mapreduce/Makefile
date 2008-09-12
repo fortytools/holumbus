@@ -4,7 +4,7 @@
 # only the tests and the examples will be built using make.
 
 # TEST_BASE	= test
-EXAMPLES_BASE	= source/Examples
+EXAMPLES_BASE	= Examples
 
 all : configure build doc
 	
@@ -31,7 +31,7 @@ allexamples :
 	$(MAKE) -C $(EXAMPLES_BASE) all
 
 wc :
-	@wc -l `find ./source -wholename './_darcs/*' -prune -o -name "*.hs" -print`   
+	@wc -l `find ./source/Holumbus -wholename './_darcs/*' -prune -o -name "*.hs" -print`   
 	# $(MAKE) -C $(TEST_BASE) wc
 	$(MAKE) -C $(EXAMPLES_BASE) wc
 
