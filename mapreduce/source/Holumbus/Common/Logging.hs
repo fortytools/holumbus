@@ -51,6 +51,7 @@ initializeLogging = do
     updateGlobalLogger "Holumbus.Network" (setLevel WARNING)
     updateGlobalLogger "Holumbus.MapReduce.TaskProcessor.task" (setLevel WARNING)
     updateGlobalLogger "Holumbus.FileSystem.Storage.FileStorage" (setLevel WARNING)
+    updateGlobalLogger "Holumbus.FileSystem.Node.NodeData" (setLevel INFO)
     updateGlobalLogger "Holumbus.MapReduce.Types" (setLevel INFO)
     -- updateGlobalLogger "Holumbus.Network.Communication" (setLevel DEBUG)
     updateGlobalLogger "Holumbus.MapReduce.JobController.cycle" (setLevel WARNING)
