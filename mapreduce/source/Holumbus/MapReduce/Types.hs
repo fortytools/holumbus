@@ -440,6 +440,11 @@ instance Binary JobResult where
 -- Reader and Writer
 -- ----------------------------------------------------------------------------
 
+-- | the ActionEnvironment contains all data that might be needed
+--   during an action. So far, it only keeps the current task data and
+--   a reference to the global filesystem and the options. 
+--   This is a good place to implement counters for the map-reduce-system 
+--   or other stuff...
 data ActionEnvironment = ActionEnvironment {
     ae_TaskData   :: TaskData
   , ae_FileSystem :: Maybe FS.FileSystem
@@ -599,7 +604,7 @@ defaultReduceConfiguration fct
 defaultPartition
   :: (Binary k2, Binary v2)
   => MapPartition a k2 v2
-defaultPartition _ n ls
+defaultPartition _ _ n ls
   = do
     -- calculate partition-Values
     let markedList = map (\t@(k,_) -> (hash k,t)) ls
@@ -615,7 +620,7 @@ defaultPartition _ n ls
 defaultMerge
   :: (Ord k2, Binary k2, Binary v2)
   => ReduceMerge a k2 v2
-defaultMerge _ ls
+defaultMerge _ _ ls
   = return $ AMap.toList $ AMap.fromTupleList ls
 
 
@@ -674,14 +679,14 @@ readActionConfiguration
 
 
 -- | general MapAction
-type MapAction a k1 v1 k2 v2 = a -> Int -> [(k1,v1)] -> IO [(Int, [(k2,v2)])]
+type MapAction a k1 v1 k2 v2 = ActionEnvironment -> a -> Int -> [(k1,v1)] -> IO [(Int, [(k2,v2)])]
 
 -- | MapAction on ByteStrings
 type BinaryMapAction = ActionEnvironment -> B.ByteString -> Int -> [FunctionData] -> IO [(Int, [FunctionData])] 
 
-type MapFunction a k1 v1 k2 v2 = a -> k1 -> v1 -> IO [(k2, v2)]
+type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 
-type MapPartition a k2 v2 = a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v2)])]
+type MapPartition a k2 v2 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v2)])]
     
 
 performMapAction
@@ -708,10 +713,10 @@ performMapAction optDec fct part reader writer env opts n ls
     inputList <- readConnector reader env ls
     
     infoM localLogger "doing map"
-    tupleList <- mapM (\(k1, v1) -> fct a k1 v1) inputList
+    tupleList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
     
     infoM localLogger "doing partition"
-    partedList <- part a n $ concat tupleList
+    partedList <- part env a n $ concat tupleList
     
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList
@@ -726,16 +731,16 @@ performMapAction optDec fct part reader writer env opts n ls
 -- ----------------------------------------------------------------------------
 
 -- | general MapAction
-type ReduceAction a k2 v2 v3 = a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v3)])]
+type ReduceAction a k2 v2 v3 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v3)])]
 
 -- | MapAction on ByteStrings
 type BinaryReduceAction = ActionEnvironment -> B.ByteString -> Int -> [FunctionData] -> IO [(Int, [FunctionData])] 
 
-type ReduceMerge a k2 v2 = a -> [(k2,v2)] -> IO [(k2,[v2])]
+type ReduceMerge a k2 v2 = ActionEnvironment -> a -> [(k2,v2)] -> IO [(k2,[v2])]
 
-type ReduceFunction a k2 v2 v3 = a -> k2 -> [v2] -> IO (Maybe v3)
+type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
 
-type ReducePartition a k2 v3 = a -> Int -> [(k2,v3)] -> IO [(Int, [(k2,v3)])]
+type ReducePartition a k2 v3 = ActionEnvironment -> a -> Int -> [(k2,v3)] -> IO [(Int, [(k2,v3)])]
     
 
 performReduceAction
@@ -763,13 +768,13 @@ performReduceAction optDec merge fct part reader writer env opts n ls
     inputList <- readConnector reader env ls
     
     infoM localLogger "doing merge"
-    mergedList <- merge a inputList
+    mergedList <- merge env a inputList
     
     infoM localLogger "doing reduce"
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction a k2 v2s) mergedList
     
     infoM localLogger "doing partition" 
-    partedList <- part a n $ catMaybes maybesList
+    partedList <- part env a n $ catMaybes maybesList
     
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList
@@ -778,7 +783,7 @@ performReduceAction optDec merge fct part reader writer env opts n ls
     where
       performReduceFunction a k2 v2s
         = do
-          mbV3 <- fct a k2 v2s
+          mbV3 <- fct env a k2 v2s
           case mbV3 of
             (Nothing) -> return Nothing
             (Just v3) -> return $ Just (k2,v3)

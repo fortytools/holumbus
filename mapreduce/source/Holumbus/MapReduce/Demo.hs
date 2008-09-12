@@ -41,8 +41,8 @@ localLogger = "Holumbus.MapReduce.Demo"
 -- ----------------------------------------------------------------------------
 
 
-mapWordFrequency :: () -> String -> String -> IO [(String, Integer)]
-mapWordFrequency _ k v
+mapWordFrequency :: ActionEnvironment -> () -> String -> String -> IO [(String, Integer)]
+mapWordFrequency _ _ k v
   = do 
     infoM localLogger "mapWordFrequency"
     debugM localLogger $ show ("input: " ++ k ++ " - " ++ show v)
@@ -51,8 +51,8 @@ mapWordFrequency _ k v
     return v'
 
 
-reduceWordFrequency :: () -> String -> [Integer] -> IO (Maybe Integer)
-reduceWordFrequency _ k vs 
+reduceWordFrequency :: ActionEnvironment -> () -> String -> [Integer] -> IO (Maybe Integer)
+reduceWordFrequency _ _ k vs 
   = do
     infoM localLogger "reduce/combine WordFrequency"
     debugM localLogger $ show ("input: " ++ k ++ " - " ++ show vs)
@@ -61,8 +61,8 @@ reduceWordFrequency _ k vs
     return (Just s)
     
   
-partitionWordFrequency :: () -> Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
-partitionWordFrequency _ _ ls 
+partitionWordFrequency :: ActionEnvironment -> () -> Int -> [(String, Integer)] -> IO [(Int,[(String, Integer)])]
+partitionWordFrequency _ _ _ ls 
   = do
     infoM localLogger "partitionCountWords"
     debugM localLogger $ show ls
