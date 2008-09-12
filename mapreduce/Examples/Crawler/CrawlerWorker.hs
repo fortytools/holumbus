@@ -17,7 +17,7 @@ module Main(main) where
 
 import           Control.Exception
 
-import           Text.XML.HXT.Arrow 
+-- import           Text.XML.HXT.Arrow 
 
 import qualified Holumbus.Data.KeyMap as KMap
 import           Holumbus.MapReduce.Types
@@ -30,6 +30,7 @@ import qualified Holumbus.MapReduce.UserInterface as UI
 
 import           Examples.Crawler.Config
 import           Examples.Crawler.Crawl
+import           Examples.Crawler.Index
 
 version :: String
 version = "Holumbus-Distribution Standalone-Worker 0.1"
@@ -55,7 +56,9 @@ initializeData
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
 
     let cc = getConfig        
-    let actions = KMap.insert (readActionConfiguration $ crawlerAction cc) $ KMap.empty
+    let actions = KMap.insert (readActionConfiguration $ indexerAction cc) $
+                  KMap.insert (readActionConfiguration $ crawlerAction cc) $ 
+                  KMap.empty
     
     let config  = MR.defaultMRWorkerConfig
     mr <- MR.mkMapReduceWorker fs actions config

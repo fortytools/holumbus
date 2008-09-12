@@ -27,7 +27,7 @@ module Examples.Crawler.Crawl
 
   -- * Crawling
   , crawl
-  , crawlFileSystem
+  -- , crawlFileSystem
   
   -- * Initializing
   , initialCrawlerState
@@ -60,13 +60,13 @@ import           Holumbus.Utility
 
 import           Text.XML.HXT.Arrow hiding (getXPathTrees)
 import           Text.XML.HXT.Arrow.XPathSimple
-import           System.Directory
+-- import           System.Directory
 import           System.Time
 
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce
 
-import          Examples.Crawler.Config
+import           Examples.Crawler.Config
 
 -- import Control.Parallel.Strategies
 
@@ -110,15 +110,16 @@ crawlerAction cc
 
 mapCrawl
   :: (Binary a, Show a, HolDocuments d a)
-  => MRCrawlerConfig d a                    -- ^ type Whitness 
+  => MRCrawlerConfig d a                 -- ^ static configuration
+  -> ActionEnvironment
   -> (Int, CrawlerState d a)             -- ^ state
   -> DocId -> String                     -- ^ key - value
   -> IO [((), (MD5Hash, Maybe (Document a), S.Set URI))]
-mapCrawl cc (traceLevel,_) docId theUri
+mapCrawl cc _ (traceLevel,_) docId theUri
   = do
     let cs        = cc_CrawlerState cc
         attrs     = cs_readAttributes cs 
-        -- tmpPath   = cs_tempPath cs
+        tmpPath   = cs_tempPath cs
         getRefs   = cs_fGetReferences cs
         getCustom = cs_fGetCustom cs 
 
@@ -126,7 +127,7 @@ mapCrawl cc (traceLevel,_) docId theUri
     -- putStrLn "################"
     -- putStrLn $ show attrs
     -- putStrLn "################"
-    res <- crawlDoc traceLevel attrs Nothing getRefs getCustom docId theUri
+    res <- crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri
     runX (traceMsg 0 ("Result: "))
     runX (traceMsg 0 (show res))
     return res
@@ -136,11 +137,12 @@ mapCrawl cc (traceLevel,_) docId theUri
 
 mapPartitionCrawl
   :: (Binary a, Show a, HolDocuments d a) 
-  -- => CrawlerState d a                    -- ^ type Whitness 
-  => (Int, CrawlerState d a)             -- ^ state
+  -- => CrawlerState d a                    -- ^ type Whitness
+  => ActionEnvironment 
+  -> (Int, CrawlerState d a)             -- ^ state
   -> Int -> [((), (MD5Hash, Maybe (Document b), S.Set URI))]
   -> IO [(Int, [((), (MD5Hash, Maybe (Document b), S.Set URI))])]
-mapPartitionCrawl _ _ ls = return [(1,ls)]
+mapPartitionCrawl _ _ _ ls = return [(1,ls)]
 
 
 
@@ -151,10 +153,11 @@ mapPartitionCrawl _ _ ls = return [(1,ls)]
 mergeCrawl
   :: (Binary a, Show a, HolDocuments d a)
   -- => CrawlerState d a         -- ^ type Whitness
-  => (Int,CrawlerState d a)   -- ^ state
+  => ActionEnvironment
+  -> (Int,CrawlerState d a)   -- ^ state
   -> [((), (MD5Hash, Maybe (Document a), S.Set URI))]
   -> IO [((), [(MD5Hash, Maybe (Document a), S.Set URI)])]
-mergeCrawl _ ls = return [((), ls')]
+mergeCrawl _ _ ls = return [((), ls')]
   where
   ls' = foldr (\(_,v) vs -> v:vs) [] ls
 
@@ -162,20 +165,22 @@ mergeCrawl _ ls = return [((), ls')]
 reduceCrawl
   :: (Binary a, Show a, HolDocuments d a)
   => MRCrawlerConfig d a          -- ^ type Whitness 
+  -> ActionEnvironment
   -> (Int,CrawlerState d a)    -- ^ state
   -> () -> [(MD5Hash, Maybe (Document a), S.Set URI)]
   -> IO (Maybe (CrawlerState d a))
-reduceCrawl cc (_,cs) k ls = processCrawlResults cs' cs k ls
+reduceCrawl cc _ (_,cs) k ls = processCrawlResults cs' cs k ls
   where
   cs' = cc_CrawlerState cc
 
 
 reducePartitionCrawl
   :: (Binary a, Show a, HolDocuments d a)
-  -- => CrawlerState d a           -- ^ type Whitness 
-  => (Int, CrawlerState d a)    -- ^ state
+  -- => CrawlerState d a           -- ^ type Whitness
+  => ActionEnvironment
+  -> (Int, CrawlerState d a)    -- ^ state
   -> Int -> [((),CrawlerState d a)] -> IO [(Int,[((),CrawlerState d a)])]
-reducePartitionCrawl _ _ ls = return [(1,ls)]
+reducePartitionCrawl _ _ _ ls = return [(1,ls)]
 
 
 encodeDocList :: [(DocId, URI)] -> [FunctionData]
@@ -198,7 +203,8 @@ instance (Binary a, HolDocuments d a) => MapReducible (CrawlerState d a) () (Str
   reduceMR     = processCrawlResults
   mergeMR _ cs = return cs
 -}
-         
+
+{-         
 crawlFileSystem :: HolDocuments d Int =>  [FilePath] -> (FilePath -> Bool) -> d Int -> IO (d Int)
 crawlFileSystem startPages docFilter emptyDocuments 
   = do
@@ -222,6 +228,7 @@ crawlFileSystem' docFilter path
                         else do
                              print s
                              return $ s : res
+-}
 
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.

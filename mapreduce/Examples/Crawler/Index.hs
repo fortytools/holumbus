@@ -20,21 +20,23 @@
 
 module Examples.Crawler.Index 
   (
+    indexerAction
   -- * Building indexes
-    buildIndex
-  , buildIndexM
+  , buildIndex
+  -- , buildIndexM
   
   -- * Indexer Configuration
   , IndexerConfig (..)
-  , ContextConfig (..)
-  , mergeIndexerConfigs
+  -- , ContextConfig (..)
+  -- , mergeIndexerConfigs
   
-  , getTexts
+  -- , getTexts
   )
 
 where
 
 import           Data.List
+import           Data.Binary hiding (Word)
 import qualified Data.Map    as M
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
@@ -42,10 +44,12 @@ import           Data.Maybe
 
 -- import           Control.Exception
 import           Control.Monad
+import           Control.Parallel.Strategies
 
 import           Holumbus.Build.Config
-import           Holumbus.Control.MapReduce.ParallelWithClass 
+-- import           Holumbus.Control.MapReduce.ParallelWithClass 
 import           Holumbus.Index.Common
+import           Holumbus.Index.Inverted.Memory
 import           Holumbus.Utility
 
 import           System.Time
@@ -53,107 +57,142 @@ import           System.Time
 import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
 
 
-import Holumbus.MapReduce.Types
-
-indexerMapAction :: MapActionData
-indexerMapAction
-  = mkMapAction
-       "CRAWL" ""
-       (mapIndex)
-       (mapPartitionIndex)
-       defaultActionConnector
+import           Holumbus.MapReduce.Types
+import           Holumbus.MapReduce.MapReduce
 
 
-computeOccurrences :: HolCache c =>
-               Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
-            -> DocId -> String -> IO [((Context, Word), Occurrences)]
+import           Examples.Crawler.Config
 
--- MapFunction = () -> DocId -> String -> IO [((Context, Word), Occurrences)]
 
--- MapPartition () k2 v2 = () -> Int -> [((Context, Word), Occurrences)] -> IO [(Int, [((Context, Word), Occurrences)])]
-
+indexerAction
+  :: MRCrawlerConfig d a
+  -> ActionConfiguration 
+       ()                         -- state
+       DocId String               -- k1, v1
+       (Context,Word) Occurrences -- k2, v2
+       Occurrences                -- v3 == v2
+       Inverted                   -- v4
+indexerAction cc
+  = -- readActionConfiguration $
+      (defaultActionConfiguration "INDEX")
+        { ac_Map     = Just mapAction
+        , ac_Combine = Nothing
+        , ac_Reduce  = Just reduceAction
+        }
+    where
+      mapAction 
+        = (defaultMapConfiguration (mapIndex cc))
+            { mc_Partition = mapPartitionIndex }
+      reduceAction
+        = (defaultReduceConfiguration (reduceIndex))
+            {{- rc_Merge     = mergeIndex -} 
+             rc_Partition = reducePartitionIndex }
 
 mapIndex 
-  :: Int              -- ^ state
-  -> DocId -> String  -- ^ key - value
+  :: MRCrawlerConfig d a
+  -> ActionEnvironment -> ()
+  -> DocId -> String
   -> IO [((Context, Word), Occurrences)]
-mapIndex _ traceLevel docId theUri
+mapIndex cc _ _ docId theUri
   = do
-    undefined
---    let attrs     = cs_readAttributes cs 
---        tmpPath   = cs_tempPath cs
---        getRefs   = cs_fGetReferences cs
---        getCustom = cs_fGetCustom cs
---    computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
-    -- crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri
+    let idxConfig      = cc_IndexerConfig cc
+    let traceLevel     = cc_TraceLevel cc
+    let fromTmp        = (isJust $ ic_tempPath idxConfig)
+    let contextConfigs = (ic_contextConfigs idxConfig)
+    let attrs          = (ic_readAttributes idxConfig)
+    computeOccurrences traceLevel fromTmp contextConfigs attrs {- cache -} docId theUri
 
 
 mapPartitionIndex
-  :: Int         -- ^ state
+  :: ActionEnvironment -> ()
   -> Int -> [((Context, Word), Occurrences)]
   -> IO [(Int, [((Context, Word), Occurrences)])]
 mapPartitionIndex _ _ _ ls = return [(1,ls)]
 
-
-
--- ----------------------------------------------------------------------------
--- Reduce-Action
--- ----------------------------------------------------------------------------
-
-
-indexerReduceAction :: ReduceActionData
-indexerReduceAction
-  = mkReduceAction
-      "CRAWL" ""
-      (mergeIndex)
-      (reduceIndex)
-      (reducePartitionIndex)
-      defaultActionConnector
-
-mergeIndex
-  :: Int -- ^ state
-  -> [((Context, Word), Occurrences)]
-  -> IO [((), [(MD5Hash, Maybe (Document a), S.Set URI)])]
-mergeIndex _ _ ls = return [((), ls')]
-  where
-  ls' = foldr (\(_,v) vs -> v:vs) [] ls
-
 {-
-processDocument :: HolCache c =>  
-     Int
-  -> Attributes
-  -> [ContextConfig]
-  -> Maybe c
-  -> DocId 
-  -> URI
-  -> IOSLA (XIOState s) b (Context, Word, DocId, Position)
+class (Ord k2) => MapReducible mr k2 v2 | mr -> k2, mr -> v2 where
+  mergeMR  :: mr -> mr -> IO mr
+  reduceMR :: mr -> k2 -> [v2] -> IO (Maybe (mr)) 
+
+mergeMR i1 i2       = return $ mergeIndexes i1 i2 
+-}
+{-
+mergeIndex
+  :: ActionEnvironment -> ()
+  -> [((Context, Word), Occurrences)] -> IO [((Context, Word), [Occurrences])]
+mergeIndex =
 -}
 
-reduceIndex
-  :: Int -- ^ state
+reduceIndex 
+  :: ActionEnvironment -> ()
   -> (Context, Word) -> [Occurrences]
-  -> IO (Maybe (CrawlerState d a))
-reduceIndex _ cs k ls = processCrawlResults cs k ls
+  -> IO (Maybe Inverted)
+reduceIndex _ _ (c,w) os
+ = do
+   let idx = singleton c w (IM.unionsWith IS.union os)
+       _   = rnf idx
+   return $ Just $ idx 
 
 
-reducePartitionIndex
-  :: Int -- ^ state
-  -> Int -> [((),CrawlerState d a)] -> IO [(Int,[((),CrawlerState d a)])]
+reducePartitionIndex 
+  :: (HolIndex i)
+  => ActionEnvironment -> () -> Int -> [((Context, Word),i)] -> IO [(Int, [((Context, Word),i)])]
 reducePartitionIndex _ _ _ ls = return [(1,ls)]
-
 
 -- -----------------------------------------------------------------------------
 
-buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) => 
-              Int                -- ^ Number of parallel threads for MapReduce
-           -> Int                -- ^ TraceLevel for Arrows
-           -> d a                -- ^ List of input Data
-           -> IndexerConfig      -- ^ Configuration for the Indexing process
-           -> i                  -- ^ An empty HolIndex. This is used to determine which kind of index to use.
-           -> Maybe c
-           -> IO i               -- ^ returns a HolIndex
-buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
+encodeDocList :: [(DocId, URI)] -> [FunctionData]
+encodeDocList ls = map (\t -> TupleFunctionData (encode t)) ls
+
+decodeIndexList :: [FunctionData] -> [Inverted]
+decodeIndexList ls = map (\(TupleFunctionData t) -> decode t) ls
+
+{-
+decodeResult :: JobResult -> Inverted
+decodeResult (JobResult []) = error "no index found"
+decodeResult (JobResult r) = decodeFunctionData $ head r
+  where
+  decodeFunctionData (TupleFunctionData b) = decode b
+  decodeFunctionData _ = error "no index found" 
+-}
+
+buildIndex :: (HolDocuments d a, {- HolIndex i -} MapReduce mr {-, HolCache c -}) => 
+           --   Int                -- ^ Number of parallel threads for MapReduce
+           --   Int                -- ^ TraceLevel for Arrows
+              d a                -- ^ List of input Data
+           -- -> IndexerConfig      -- ^ Configuration for the Indexing process
+           -- -> Inverted           -- ^ An empty HolIndex. This is used to determine which kind of index to use.
+           -> mr
+           -> IO [Inverted]        -- ^ returns a HolIndex
+buildIndex {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -} mr
+  = do
+    let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
+    
+    let ji = JobInfo
+             "indexer-job"
+             (encode ())
+             (Just "INDEX")
+             (Nothing)
+             (Just "INDEX")
+             (Just TOTFile)
+             (Nothing)
+             (Just TOTFile)
+             1
+             1
+             1
+             (encodeDocList docs')
+       
+    res <- doMapReduce ji mr 
+       
+    runX (traceMsg 0 (" result of the indexer: "))       
+    
+    runX (traceMsg 0 (" num of indexes: "))
+    runX (traceMsg 0 (show $ length (jr_Output res)))
+    
+    let idx = decodeIndexList $ jr_Output res
+                               
+    return idx
+{-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
        -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 
                     workerThreads
@@ -164,12 +203,12 @@ buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
                               (isJust $ ic_tempPath idxConfig)
                               (ic_contextConfigs idxConfig) 
                               (ic_readAttributes idxConfig)
-                              cache
+
                     )
                     docs'
                  )
-
-
+-}
+{-
 buildIndexM :: (HolDocuments d a, HolIndexM m i, HolCache c) => 
               Int                -- ^ Number of parallel threads for MapReduce
            -> Int                -- ^ TraceLevel for Arrows
@@ -194,7 +233,7 @@ buildIndexM workerThreads traceLevel docs idxConfig emptyIndex cache
                     )
                     docs'
                  )
-
+-}
 
 
 -- | The MAP function in a MapReduce computation for building indexes.
@@ -207,10 +246,10 @@ buildIndexM workerThreads traceLevel docs idxConfig emptyIndex cache
 --   is read and then the interesting parts configured in the
 --   context configurations are extracted.
 
-computeOccurrences :: HolCache c =>
-               Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
+computeOccurrences :: -- HolCache c =>
+               Int -> Bool -> [ContextConfig] -> Attributes -- -> Maybe c  
             -> DocId -> String -> IO [((Context, Word), Occurrences)]
-computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
+computeOccurrences traceLevel fromTmp contextConfigs attrs {- cache -} docId theUri
     = do
       clt <- getClockTime
       cat <- toCalendarTime clt
@@ -218,7 +257,7 @@ computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
                     >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
                                                                ++ show docId ++ " -> "
                                                                ++ show theUri)
-                    >>> processDocument traceLevel attrs' contextConfigs cache docId theUri
+                    >>> processDocument traceLevel attrs' contextConfigs {- cache -} docId theUri
 --                    >>> arr (\ (c, w, d, p) -> (c, (w, d, p)))
                     >>> strictA
              )
@@ -234,35 +273,35 @@ computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
     
 -- | Downloads a document and calls the function to process the data for the
 --   different contexts of the index
-processDocument :: HolCache c =>  
+processDocument :: -- HolCache c =>  
      Int
   -> Attributes
   -> [ContextConfig]
-  -> Maybe c
+--  -> Maybe c
   -> DocId 
   -> URI
   -> IOSLA (XIOState s) b (Context, Word, DocId, Position)
-processDocument traceLevel attrs ccs cache docId theUri =
+processDocument traceLevel attrs ccs {- cache -} docId theUri =
         withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
-    >>> (catA $ map (processContext cache docId) ccs )   -- process all context configurations  
+    >>> (catA $ map (processContext {- cache -} docId) ccs )   -- process all context configurations  
     
 
 
 -- | Process a Context. Applies the given context configuration to extract information from
 --   the XmlTree that is passed in the arrow.
 processContext :: 
-  ( HolCache c) => 
-     Maybe c
-  -> DocId
+--  ( HolCache c) => 
+--     Maybe c
+     DocId
   -> ContextConfig
   -> IOSLA (XIOState s) XmlTree (Context, Word, DocId, Position)
 
-processContext cache docId cc
+processContext {-cache-} docId cc
     = cc_preFilter cc                                         -- convert XmlTree
       >>>
       fromLA extractWords
       >>>
-      ( if ( isJust cache
+{-      ( if ( isJust cache
        &&
        cc_addToCache cc
      )
@@ -270,7 +309,7 @@ processContext cache docId cc
   else this
       )
       >>>
-      arrL genWordList
+-}    arrL genWordList
       >>>
       strictA
     where
@@ -292,11 +331,12 @@ processContext cache docId cc
         filter (not . (cc_fIsStopWord cc) . snd)            -- delete boring words
         >>>
         map ( \ (p, w) -> (cc_name cc, w, docId, p) )       -- attach context and docId
-
+{-
     storeInCache s
       = let t = unwords s in 
             if t /= "" then putDocText (fromJust cache) (cc_name cc) docId t
                        else return()
+-}
 
 getTexts  :: LA XmlTree XmlTree
 getTexts                                                      -- select all text nodes

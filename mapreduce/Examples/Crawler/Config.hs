@@ -19,9 +19,10 @@ import           Data.List
 
 
 data MRCrawlerConfig d a = MRCrawlerConfig {
-    cc_CrawlerState :: CrawlerState d a
-  , cc_TraceLevel   :: Int
-  , cc_DocsPerCrawl :: Int
+    cc_CrawlerState  :: CrawlerState d a
+  , cc_TraceLevel    :: Int
+  , cc_DocsPerCrawl  :: Int
+  , cc_IndexerConfig :: IndexerConfig
   }
   
   
@@ -29,6 +30,7 @@ getConfig = MRCrawlerConfig
   (initialCrawlerState idxConfig emptyDocuments customFunction) 
   traceLevel
   docsPerCrawl
+  ic_test
   where
   idxConfig      = ic_test
   traceLevel     = 1
@@ -40,7 +42,7 @@ customFunction = constA Nothing
 
 
 ic_test :: IndexerConfig
-ic_test = ic_fhw {ic_startPages = ["http://localhost"], ic_fCrawlFilter = const True}
+ic_test = ic_fhw {ic_startPages = ["http://april"], ic_fCrawlFilter = const True}
 
 
 ic_fhw :: IndexerConfig
@@ -51,7 +53,7 @@ ic_fhw
                           , "http://www.fh-wedel.de/wir-ueber-uns/mitarbeiter-innen/?no_cache=1"
                           ]
     , ic_tempPath       = Just "/tmp/"
-    , ic_indexPath      = "~/fhw"
+    , ic_indexPath      = "/tmp/fhw"
     , ic_indexerTimeOut  = 10 * 60 * 1000000        
     , ic_contextConfigs = ccs_fhw
     , ic_readAttributes = standardReadDocumentAttributes
