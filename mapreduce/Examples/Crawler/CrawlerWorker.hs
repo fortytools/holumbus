@@ -56,7 +56,8 @@ initializeData
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
 
     let cc = getConfig        
-    let actions = KMap.insert (readActionConfiguration $ indexerAction cc) $
+    let actions = KMap.insert (readActionConfiguration $ indexerOccurrencesAction cc) $
+                  KMap.insert (readActionConfiguration $ indexerBuildIndexAction) $
                   KMap.insert (readActionConfiguration $ crawlerAction cc) $ 
                   KMap.empty
     

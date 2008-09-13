@@ -20,7 +20,8 @@
 
 module Examples.Crawler.Index 
   (
-    indexerAction
+    indexerOccurrencesAction
+  , indexerBuildIndexAction
   -- * Building indexes
   , buildIndex
   -- , buildIndexM
@@ -64,17 +65,17 @@ import           Holumbus.MapReduce.MapReduce
 import           Examples.Crawler.Config
 
 
-indexerAction
+indexerOccurrencesAction
   :: MRCrawlerConfig d a
   -> ActionConfiguration 
        ()                         -- state
        DocId String               -- k1, v1
        (Context,Word) Occurrences -- k2, v2
        Occurrences                -- v3 == v2
-       Inverted                   -- v4
-indexerAction cc
+       Occurrences                -- v4
+indexerOccurrencesAction cc
   = -- readActionConfiguration $
-      (defaultActionConfiguration "INDEX")
+      (defaultActionConfiguration "INDEX_OCCURRENCES")
         { ac_Map     = Just mapAction
         , ac_Combine = Nothing
         , ac_Reduce  = Just reduceAction
@@ -84,9 +85,9 @@ indexerAction cc
         = (defaultMapConfiguration (mapIndex cc))
             { mc_Partition = mapPartitionIndex }
       reduceAction
-        = (defaultReduceConfiguration (reduceIndex))
+        = (defaultReduceConfiguration (reduceOccurrences))
             {{- rc_Merge     = mergeIndex -} 
-             rc_Partition = reducePartitionIndex }
+             rc_Partition = reducePartitionOccurrences }
 
 mapIndex 
   :: MRCrawlerConfig d a
@@ -123,28 +124,85 @@ mergeIndex
 mergeIndex =
 -}
 
-reduceIndex 
+reduceOccurrences 
   :: ActionEnvironment -> ()
   -> (Context, Word) -> [Occurrences]
-  -> IO (Maybe Inverted)
-reduceIndex _ _ (c,w) os
+  -> IO (Maybe Occurrences)
+reduceOccurrences _ _ _ os
  = do
-   let idx = singleton c w (IM.unionsWith IS.union os)
-       _   = rnf idx
-   return $ Just $ idx 
+   let os' = (IM.unionsWith IS.union os)
+   return $ Just $ os'
 
 
-reducePartitionIndex 
-  :: (HolIndex i)
-  => ActionEnvironment -> () -> Int -> [((Context, Word),i)] -> IO [(Int, [((Context, Word),i)])]
-reducePartitionIndex _ _ _ ls = return [(1,ls)]
+reducePartitionOccurrences
+  :: ActionEnvironment -> ()
+  -> Int -> [((Context, Word),Occurrences)] -> IO [(Int, [((Context, Word),Occurrences)])]
+reducePartitionOccurrences _ _ _ ls = return [(1,ls)]
+
+
+
+indexerBuildIndexAction
+  :: ActionConfiguration 
+       ()                                -- state
+       () ((Context, Word),Occurrences)  -- k1, v1
+       () ((Context, Word),Occurrences)  -- k2, v2
+       ((Context, Word),Occurrences)     -- v3 == v2
+       Inverted                          -- v4
+indexerBuildIndexAction
+  = -- readActionConfiguration $
+      (defaultActionConfiguration "INDEX_BUILD")
+        { ac_Map     = Just mapAction
+        , ac_Combine = Nothing
+        , ac_Reduce  = Just reduceAction
+        }
+    where
+      mapAction 
+        = (defaultMapConfiguration (mapBuildIndex))
+            { mc_Partition = mapPartitionBuildIndex }
+      reduceAction
+        = (defaultReduceConfiguration (reduceBuildIndex))
+            {{- rc_Merge     = mergeIndex -} 
+             rc_Partition = reducePartitionBuildIndex }
+
+mapBuildIndex 
+  :: ActionEnvironment -> ()
+  -> () -> ((Context, Word), Occurrences)
+  -> IO [((),((Context, Word), Occurrences))]
+mapBuildIndex _ _ k v = return [(k,v)]
+
+mapPartitionBuildIndex
+  :: ActionEnvironment -> ()
+  -> Int -> [((),((Context, Word), Occurrences))]
+  -> IO [(Int, [((),((Context, Word), Occurrences))])]
+mapPartitionBuildIndex _ _ _ ls = return [(1,ls)]
+
+reduceBuildIndex 
+  :: ActionEnvironment -> ()
+  -> () -> [((Context, Word),Occurrences)]
+  -> IO (Maybe Inverted)
+reduceBuildIndex _ _ _ os
+  = do
+    let i   = emptyInverted
+    let idx = foldl (\i' ((c,w),o) -> insertOccurrences c w o i') i os
+        _   = rnf idx
+    return $ Just $ idx 
+
+
+
+reducePartitionBuildIndex
+  :: ActionEnvironment -> ()
+  -> Int -> [((),Inverted)] -> IO [(Int, [((),Inverted)])]
+reducePartitionBuildIndex _ _ _ ls = return [(1,ls)]
 
 -- -----------------------------------------------------------------------------
 
-encodeDocList :: [(DocId, URI)] -> [FunctionData]
-encodeDocList ls = map (\t -> TupleFunctionData (encode t)) ls
+encodeInputList :: (Binary k, Binary v) => [(k,v)] -> [FunctionData]
+encodeInputList ls = map (\t -> TupleFunctionData (encode t)) ls
 
-decodeIndexList :: [FunctionData] -> [Inverted]
+decodeOccurrencesList :: [FunctionData] -> [((Context, Word),Occurrences)]
+decodeOccurrencesList ls = map (\(TupleFunctionData t) -> decode t) ls
+
+decodeIndexList :: [FunctionData] -> [((),Inverted)]
 decodeIndexList ls = map (\(TupleFunctionData t) -> decode t) ls
 
 {-
@@ -171,27 +229,58 @@ buildIndex {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -} mr
     let ji = JobInfo
              "indexer-job"
              (encode ())
-             (Just "INDEX")
+             (Just "INDEX_OCCURRENCES")
              (Nothing)
-             (Just "INDEX")
+             (Just "INDEX_OCCURRENCES")
              (Just TOTFile)
              (Nothing)
-             (Just TOTFile)
+             (Just TOTRawTuple)
              1
              1
              1
-             (encodeDocList docs')
+             (encodeInputList docs')
+       
+    runX (traceMsg 0 (" run indexer phase 1: "))
        
     res <- doMapReduce ji mr 
        
+    runX (traceMsg 0 (" result of phase 1: "))       
+    
+    runX (traceMsg 0 (" num of tuples: "))
+    runX (traceMsg 0 (show $ length (jr_Output res)))
+    
+    let os = decodeOccurrencesList $ jr_Output res
+
+    let os' = map (\t -> ((),t)) os
+
+    let ji2 = JobInfo
+             "indexer-job"
+             (encode ())
+             (Just "INDEX_BUILD")
+             (Nothing)
+             (Just "INDEX_BUILD")
+             (Just TOTFile)
+             (Nothing)
+             (Just TOTRawTuple)
+             1
+             1
+             1
+             (encodeInputList os')
+    
+    runX (traceMsg 0 (" run indexer phase 2: "))
+                      
+    res' <- doMapReduce ji2 mr
+    
     runX (traceMsg 0 (" result of the indexer: "))       
     
     runX (traceMsg 0 (" num of indexes: "))
-    runX (traceMsg 0 (show $ length (jr_Output res)))
+    runX (traceMsg 0 (show $ length (jr_Output res')))
     
-    let idx = decodeIndexList $ jr_Output res
+    let idx = decodeIndexList $ jr_Output res'                       
                                
-    return idx
+    let idx' = map (snd) idx
+                               
+    return idx'
 {-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
        -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 
