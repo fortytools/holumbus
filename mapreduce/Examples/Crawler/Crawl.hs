@@ -63,6 +63,7 @@ import           Text.XML.HXT.Arrow.XPathSimple
 -- import           System.Directory
 import           System.Time
 
+import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce
 
@@ -115,19 +116,20 @@ mapCrawl
   -> (Int, CrawlerState d a)             -- ^ state
   -> DocId -> String                     -- ^ key - value
   -> IO [((), (MD5Hash, Maybe (Document a), S.Set URI))]
-mapCrawl cc _ (traceLevel,_) docId theUri
+mapCrawl cc env (traceLevel,_) docId theUri
   = do
-    let cs        = cc_CrawlerState cc
-        attrs     = cs_readAttributes cs 
-        tmpPath   = cs_tempPath cs
-        getRefs   = cs_fGetReferences cs
-        getCustom = cs_fGetCustom cs 
+    let cs         = cc_CrawlerState cc
+        attrs      = cs_readAttributes cs 
+        tmpPath    = cs_tempPath cs
+        getRefs    = cs_fGetReferences cs
+        getCustom  = cs_fGetCustom cs
+        fileSystem = ae_FileSystem env
 
     runX (traceMsg 0 ("DocId: " ++ show docId ++ " - Uri: " ++ show theUri))
     -- putStrLn "################"
     -- putStrLn $ show attrs
     -- putStrLn "################"
-    res <- crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri
+    res <- crawlDoc traceLevel fileSystem attrs tmpPath getRefs getCustom docId theUri
     runX (traceMsg 0 ("Result: "))
     runX (traceMsg 0 (show res))
     return res
@@ -255,8 +257,8 @@ crawl traceLevel maxDocs cs mr =
        runX (traceMsg 0 (" next docs to be pulled:"))
        runX (traceMsg 0 (show d'))
        
-       saveCrawlerState ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "CrawlerState.bin") cs
-       writeToXmlFile   ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "Docs.xml") (cs_docs cs)
+       -- saveCrawlerState ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "CrawlerState.bin") cs
+       -- writeToXmlFile   ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "Docs.xml") (cs_docs cs)
                                     
        runX (traceMsg 0 ("          Status: already processed: " ++ show (S.size $ cs_wereProcessed cs) ++ 
                          ", to be processed: "   ++ show (S.size $ cs_toBeProcessed cs)))
@@ -361,6 +363,7 @@ processCrawlResults cc oldCs _ l =
 --   testing) and the crawlDoc'-arrow is run
 crawlDoc :: (Binary a, Show a) => 
             Int 
+         -> FS.FileSystem
          -> Attributes
          -> Maybe String
          -> IOSArrow XmlTree [URI]
@@ -368,14 +371,14 @@ crawlDoc :: (Binary a, Show a) =>
          -> DocId 
          -> String 
          -> IO [((), (MD5Hash, Maybe (Document a), S.Set URI))]
-crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri 
+crawlDoc traceLevel fileSystem attrs tmpPath getRefs getCustom docId theUri 
   = do
     clt <- getClockTime               -- get Clock Time for debugging
     cat <- toCalendarTime clt         -- and convert it to "real" date and time
     r <- runX (     setTraceLevel traceLevel
                >>> traceMsg 1 (calendarTimeToString cat)  
                >>> (     constA ()        -- this is needed to fit the MapReduce abstraction
-                     &&& crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) 
+                     &&& crawlDoc' traceLevel fileSystem attrs tmpPath getRefs getCustom (docId, theUri) 
                    )
                >>^ (\(i, (h, d, u)) -> (i, (h, d, S.fromList u)))       
               )
@@ -386,6 +389,7 @@ crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri
 --   other documents 
 crawlDoc' :: (Binary a) =>
      Int
+  -> FS.FileSystem
   -> Attributes    -- ^ options for readDocument
   -> Maybe String  -- ^ path for serialized tempfiles
   -> IOSArrow XmlTree [URI]
@@ -393,7 +397,7 @@ crawlDoc' :: (Binary a) =>
   -> Custom a
   -> (DocId, URI)   -- ^ DocId, URI
   -> IOSArrow c (String, Maybe (Document a), [URI])
-crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
+crawlDoc' traceLevel fileSystem attrs tmpPath getRefs getCustom (docId, theUri) =
         traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
     >>> withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
     >>> (
@@ -403,8 +407,25 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
           (     ( if isJust tmpPath
           then withTraceLevel (traceLevel - traceOffset) $
                         (replaceBaseElement $< computeDocBase)    -- make sure that there ist a <base> tag
-                        >>> writeDocument standardWriteTmpDocumentAttributes
-                                     (fromJust tmpPath ++ tmpFile docId theUri)
+                        -- a b c >>> a c d -> a b d
+                        >>> -- writeDocument :: Attributes -> String -> IOStateArrow s XmlTree XmlTree
+                            -- writeDocument standardWriteTmpDocumentAttributes
+                            --         (fromJust tmpPath ++ tmpFile docId theUri)
+                        
+                            -- writeDocumentToString :: Attributes -> IOStateArrow s XmlTree String      
+                            (writeDocumentToString standardWriteTmpDocumentAttributes
+                             >>> 
+                             --   arrIO :: (b -> IO c) -> a b c
+                             arrIO (\s -> FS.createFile 
+                                           ({- fromJust tmpPath ++ -} tmpFile docId theUri) 
+                                           (encode s)
+                                           fileSystem))
+                             &&& (returnA)
+                          >>> arr (\(_,t) -> t)
+                        --IOStateArrow s XmlTree XmlTree
+                        -- arr           b       c          arr          c      d      arr          b       d
+                        --IOStateArrow s XmlTree String >>> IOStateArrow String () >>> IOSTateArrow XmlTree () 
+                        --arr b c >>> arr c d >> arr b c
           else this
                 ) 
                 -- compute a pair of Document b (Holumbus datatype) and a list of contained links

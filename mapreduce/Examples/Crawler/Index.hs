@@ -57,7 +57,7 @@ import           System.Time
 
 import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
 
-
+import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce
 
@@ -94,14 +94,15 @@ mapIndex
   -> ActionEnvironment -> ()
   -> DocId -> String
   -> IO [((Context, Word), Occurrences)]
-mapIndex cc _ _ docId theUri
+mapIndex cc env _ docId theUri
   = do
     let idxConfig      = cc_IndexerConfig cc
-    let traceLevel     = cc_TraceLevel cc
-    let fromTmp        = (isJust $ ic_tempPath idxConfig)
-    let contextConfigs = (ic_contextConfigs idxConfig)
-    let attrs          = (ic_readAttributes idxConfig)
-    computeOccurrences traceLevel fromTmp contextConfigs attrs {- cache -} docId theUri
+        traceLevel     = cc_TraceLevel cc
+        fromTmp        = (isJust $ ic_tempPath idxConfig)
+        contextConfigs = (ic_contextConfigs idxConfig)
+        attrs          = (ic_readAttributes idxConfig)
+        fileSystem     = ae_FileSystem env
+    computeOccurrences traceLevel fileSystem fromTmp contextConfigs attrs {- cache -} docId theUri
 
 
 mapPartitionIndex
@@ -336,9 +337,9 @@ buildIndexM workerThreads traceLevel docs idxConfig emptyIndex cache
 --   context configurations are extracted.
 
 computeOccurrences :: -- HolCache c =>
-               Int -> Bool -> [ContextConfig] -> Attributes -- -> Maybe c  
+               Int -> FS.FileSystem -> Bool -> [ContextConfig] -> Attributes -- -> Maybe c  
             -> DocId -> String -> IO [((Context, Word), Occurrences)]
-computeOccurrences traceLevel fromTmp contextConfigs attrs {- cache -} docId theUri
+computeOccurrences traceLevel fileSystem fromTmp contextConfigs attrs {- cache -} docId theUri
     = do
       clt <- getClockTime
       cat <- toCalendarTime clt
@@ -346,7 +347,7 @@ computeOccurrences traceLevel fromTmp contextConfigs attrs {- cache -} docId the
                     >>> traceMsg 1 ((calendarTimeToString cat) ++ " - indexing document: " 
                                                                ++ show docId ++ " -> "
                                                                ++ show theUri)
-                    >>> processDocument traceLevel attrs' contextConfigs {- cache -} docId theUri
+                    >>> processDocument traceLevel fileSystem attrs' contextConfigs {- cache -} docId theUri
 --                    >>> arr (\ (c, w, d, p) -> (c, (w, d, p)))
                     >>> strictA
              )
@@ -364,14 +365,24 @@ computeOccurrences traceLevel fromTmp contextConfigs attrs {- cache -} docId the
 --   different contexts of the index
 processDocument :: -- HolCache c =>  
      Int
+  -> FS.FileSystem
   -> Attributes
   -> [ContextConfig]
 --  -> Maybe c
   -> DocId 
   -> URI
   -> IOSLA (XIOState s) b (Context, Word, DocId, Position)
-processDocument traceLevel attrs ccs {- cache -} docId theUri =
-        withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
+processDocument traceLevel fileSystem attrs ccs {- cache -} docId theUri =
+        withTraceLevel (traceLevel - traceOffset) 
+        -- (readDocument attrs theUri)        
+        (arrIO (\_ ->  do
+          c <- FS.getFileContent theUri fileSystem
+          case c of
+            (Just cs)   -> return $ decode cs
+            (Nothing) -> return "" -- TODO mark error here
+          )
+        )        
+    >>> (readFromString attrs)
     >>> (catA $ map (processContext {- cache -} docId) ccs )   -- process all context configurations  
     
 

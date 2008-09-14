@@ -52,7 +52,7 @@ main
     
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
     docs       <- crawl traceLevel docsPerCrawl crawlerState mr
-    localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tempPath idxConfig)) docs
+    localDocs <- return $ tmpDocs "" {- (fromMaybe "/tmp" (ic_tempPath idxConfig)) -} docs
 
     writeToBinFile ( (ic_indexPath idxConfig) ++ "-docs.bin") (docs)
  
