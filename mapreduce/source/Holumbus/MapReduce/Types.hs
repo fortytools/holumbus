@@ -447,10 +447,10 @@ instance Binary JobResult where
 --   or other stuff...
 data ActionEnvironment = ActionEnvironment {
     ae_TaskData   :: TaskData
-  , ae_FileSystem :: Maybe FS.FileSystem
+  , ae_FileSystem :: FS.FileSystem
   }
 
-mkActionEnvironment :: TaskData -> Maybe FS.FileSystem -> ActionEnvironment
+mkActionEnvironment :: TaskData -> FS.FileSystem -> ActionEnvironment
 mkActionEnvironment td fs = ActionEnvironment td fs
 
 
@@ -467,14 +467,12 @@ readConnector
 readConnector ic ae ls
   = do
     debugM localLogger $ "readConnector: " ++ show ls
-    os <- mapM (readInput mbfs) ls
+    os <- mapM (readInput (ae_FileSystem ae)) ls
     return $ concat $ catMaybes os
-    where
-    mbfs = ae_FileSystem ae
-    -- readInput :: Maybe FS.FileSystem -> FunctionData -> IO (Maybe [(k1,v1)])
-    readInput _         (TupleFunctionData t) = return $ Just $ [decode t] 
-    readInput (Nothing) (FileFunctionData _)  = return Nothing
-    readInput (Just fs) (FileFunctionData f)
+    where    
+    -- readInput :: FS.FileSystem -> FunctionData -> IO (Maybe [(k1,v1)])
+    readInput _  (TupleFunctionData t) = return $ Just $ [decode t] 
+    readInput fs (FileFunctionData f)
       = do        
         debugM localLogger $ "loadInputList: getting content for: " ++ f
         mbc <- FS.getFileContent f fs
@@ -497,20 +495,18 @@ writeConnector
 writeConnector oc ae ls
   = do
     debugM localLogger $ "writeConnector: "
-    os <- mapM (writeOutput mbfs tot) ls
+    os <- mapM (writeOutput (ae_FileSystem ae) tot) ls
     return $ catMaybes os
-    where
-    mbfs = ae_FileSystem ae
+    where 
     td   = ae_TaskData ae
     tot  = td_OutputType $ ae_TaskData ae
-    -- writeOutput :: Maybe FS.FileSystem -> TaskOutputType -> (Int,[(k2,v2)]) -> IO (Maybe (Int,[FunctionData]))
-    writeOutput _        TOTRawTuple (i,ts) 
+    -- writeOutput :: FS.FileSystem -> TaskOutputType -> (Int,[(k2,v2)]) -> IO (Maybe (Int,[FunctionData]))
+    writeOutput _  TOTRawTuple (i,ts) 
       = return $ Just $ (i,bs)
       where
       bs = map (\t -> TupleFunctionData $ encode t) ts
     -- TODO exception werfen 
-    writeOutput (Nothing) _     _      = return Nothing
-    writeOutput (Just fs) _     (i,ts)
+    writeOutput fs _ (i,ts)
       = do
         c <- oc ts
         FS.appendFile fn c fs

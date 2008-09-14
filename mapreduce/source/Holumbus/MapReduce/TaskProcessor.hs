@@ -104,7 +104,7 @@ data TaskProcessorData = TaskProcessorData {
   -- internal
     tpd_ServerThreadId    :: Maybe ThreadId
   , tpd_ServerDelay       :: Int
-  , tpd_FileSystem        :: Maybe FS.FileSystem
+  , tpd_FileSystem        :: FS.FileSystem
   -- configuration
   , tpd_MaxTasks          :: Int
   , tpd_Functions         :: TaskProcessorFunctions
@@ -139,7 +139,7 @@ defaultTaskProcessorData = tpd
     tpd = TaskProcessorData
       Nothing
       1000 -- one millisecond delay
-      Nothing
+      undefined
       1
       funs
       KMap.empty
@@ -170,7 +170,7 @@ closeTaskProcessor tp
 setFileSystemToTaskProcessor :: FS.FileSystem -> TaskProcessor -> IO ()
 setFileSystemToTaskProcessor fs tp
   = modifyMVar tp $
-    \tpd -> return $ (tpd { tpd_FileSystem = Just fs }, ())
+    \tpd -> return $ (tpd { tpd_FileSystem = fs }, ())
   
 
 -- | adds an ActionMap to the TaskProcessor
@@ -520,7 +520,7 @@ performTask td tp
     debugM taskLogger $ "input td: " ++ show td
     
     -- get all functions
-    (ad, parts, bin, mbfs, opt) <- withMVar tp $
+    (ad, parts, bin, fs, opt) <- withMVar tp $
       \tpd ->
       do
       let action     = KMap.lookup (td_Action td) (tpd_ActionMap tpd)
@@ -540,7 +540,7 @@ performTask td tp
           (Just a') -> return a'
           (Nothing) -> E.throwDyn (UnkownTaskException $ td_Action td)
         
-        let env = mkActionEnvironment td mbfs
+        let env = mkActionEnvironment td fs
         bout <- action env opt parts bin
         let td' = td { td_Output = bout }
         debugM taskLogger $ "output td: " ++ show td'
