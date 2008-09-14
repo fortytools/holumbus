@@ -295,6 +295,7 @@ containsFile f (FileSystem fs)
 createFile :: S.FileId -> S.FileContent -> FileSystem -> IO ()
 createFile f c fs
   = do
+    infoM localLogger $ "creating file: " ++ show f
     np <- getNearestNodePortForFile f (S.getContentLength c) fs
     case np of
       (Nothing) -> return ()
@@ -308,6 +309,7 @@ createFile f c fs
 appendFile :: S.FileId -> S.FileContent -> FileSystem -> IO ()
 appendFile f c fs
   = do
+    infoM localLogger $ "appending file: " ++ show f
     np <- getNearestNodePortForFile f (S.getContentLength c) fs
     case np of
       (Nothing) -> return ()
@@ -321,6 +323,7 @@ appendFile f c fs
 deleteFile :: S.FileId -> FileSystem -> IO ()
 deleteFile f fs
   = do
+    infoM localLogger $ "deleting file: " ++ show f
     np <- getNearestNodePortWithFile f fs
     case np of
       (Nothing) -> return ()
@@ -335,6 +338,7 @@ deleteFile f fs
 getFileContent :: S.FileId -> FileSystem -> IO (Maybe S.FileContent)
 getFileContent f fs
   = do
+    infoM localLogger $ "getting file: " ++ show f
     np <- getNearestNodePortWithFile f fs
     case np of
       (Nothing) -> return Nothing
