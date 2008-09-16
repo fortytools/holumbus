@@ -51,6 +51,8 @@ import Holumbus.Query.Result
 import Holumbus.Query.Ranking
 import Holumbus.Query.Fuzzy
 
+import Holumbus.Utility
+
 import Network.Server.Janus.Core
        ( JanusStateArrow
        , Shader
@@ -198,11 +200,12 @@ arrLogRequest = proc inTxn -> do
 
 -- | Customized Hayoo! ranking function. Preferres exact matches and matches in Prelude.
 hayooRanking :: [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
-hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 3.0 else 1.0) * (if isExactMatch then 3.0 else 1.0)
+hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 3.0 else 1.0) * (if isExactMatch then 3.0 else 1.0) * factModule
   where
   baseScore = M.foldWithKey calcWeightedScore 0.0 dch
   isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
   isInPrelude = maybe False (\fi -> (B.toString $ moduleName fi) == "Prelude") (custom $ document di)
+  factModule = maybe 1.0 (\fi -> 1.0 / (fromIntegral $ length $ split "." $ B.toString $ moduleName fi)) (custom $ document di)
   calcWeightedScore :: Context -> DocWordHits -> Score -> Score
   calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
     where
