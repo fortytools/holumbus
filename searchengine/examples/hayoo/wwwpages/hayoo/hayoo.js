@@ -12,6 +12,7 @@
 
 prevInput = "";
 lastLocation = window.location.hash;
+refreshRequired = false;
 
 Event.observe(window, 'load', checkForInitialQuery);
 
@@ -63,6 +64,7 @@ function processQuery (start) {
   var query = $("querytext").value;
   if (query.length > 0) {
     $("throbber").show();
+    refreshRequired = true;
     new Ajax.Request("results/hayoo.html?query=" + encodeURIComponent(query) + "&start=" + start,
       {
         method:'get',
@@ -85,8 +87,11 @@ function processQuery (start) {
 }
 
 function displayResult (result, query) {
-  $("result").replace(result);
-  $("querytext").defaultValue = query;
+  if (refreshRequired) {
+    refreshRequired = false;
+    $("result").replace(result);
+    $("querytext").defaultValue = query;
+  }
   $("throbber").hide();
 }
 

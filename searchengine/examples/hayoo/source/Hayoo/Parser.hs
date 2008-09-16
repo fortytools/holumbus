@@ -41,12 +41,12 @@ andQuery = do t <- orQuery
               try (andOp' t) <|> return t
   where
   andOp' r = do andOp
-                q <- andQuery
+                q <- (notQuery <|> andQuery)
                 return (BinQuery And r q)
 
 -- | Parse an or query.
 orQuery :: Parser Query
-orQuery = do t <- notQuery
+orQuery = do t <- contextQuery
              do orOp
                 q <- orQuery
                 return (BinQuery Or t q)
@@ -54,11 +54,9 @@ orQuery = do t <- notQuery
 
 -- | Parse a negation.
 notQuery :: Parser Query
-notQuery = do notQuery' <|> contextQuery
-  where
-  notQuery' = do notOp
-                 q <- contextQuery
-                 return (Negation q)
+notQuery = do notOp
+              q <- contextQuery
+              return (Negation q)
 
 -- | Parse a context query.
 contextQuery :: Parser Query
