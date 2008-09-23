@@ -247,20 +247,21 @@ addTaskToWorker tid wid wcd = wcd { wcd_TaskToWorkerMap = twm',  wcd_WorkerToTas
   twm' = MMap.insert tid wid (wcd_TaskToWorkerMap wcd)
   wtm' = MMap.insert wid tid (wcd_WorkerToTaskMap wcd)
   
-{-
+
+-- TODO use this
 deleteTaskFromWorker :: TaskId -> M.WorkerId -> WorkerControllerData -> WorkerControllerData
 deleteTaskFromWorker tid wid wcd = wcd { wcd_TaskToWorkerMap = twm',  wcd_WorkerToTaskMap = wtm'}
   where
   twm' = MMap.deleteElem tid wid (wcd_TaskToWorkerMap wcd)
   wtm' = MMap.deleteElem wid tid (wcd_WorkerToTaskMap wcd)
 
-
+-- TODO use this
 deleteTaskFromWorkers :: TaskId -> WorkerControllerData -> WorkerControllerData
 deleteTaskFromWorkers tid wcd = wcd''
   where
   wids = Set.toList $ MMap.lookup tid (wcd_TaskToWorkerMap wcd)
   wcd'' = foldl (\wcd' wid -> deleteTaskFromWorker tid wid wcd') wcd wids
--}
+
 
 sendStartTask :: Server -> WorkerController -> TaskData -> IO (TaskSendResult)
 sendStartTask s wc td
@@ -382,8 +383,10 @@ instance Debug MasterData where
       withMVar (md_WorkerController md) $
         \wcd -> 
         do
-        putStrLn $ prettyRecordLine gap "JobMapMap:" (wcd_JobMap wcd)
-        putStrLn $ prettyRecordLine gap "ActionMap:" (wcd_ActionToWorkerMap wcd)
+        putStrLn $ prettyRecordLine gap "JobMap:" (wcd_JobMap wcd)
+        putStrLn $ prettyRecordLine gap "TaskToWorkerMap: " (wcd_TaskToWorkerMap wcd)
+        putStrLn $ prettyRecordLine gap "WorkerToTaskMap" (wcd_WorkerToTaskMap wcd)
+        putStrLn $ prettyRecordLine gap "ActionToWorkerMap:" (wcd_ActionToWorkerMap wcd)        
         putStrLn $ "JobController:"
         jc <- printJobController (md_JobController md)
         putStrLn jc
