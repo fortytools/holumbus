@@ -658,7 +658,7 @@ defaultSplit _ _ n ls
   = return partedList
     where
     partedList = AMap.toList $ AMap.fromList ps
-    ns = [(x `mod` n) + 1 | x <- [1..]]
+    ns = [(x `mod` n) + 1 | x <- [0..]]
     is = map (\a -> [a]) ls 
     ps = zip ns is
 
@@ -676,7 +676,7 @@ defaultPartition _ _ n ls
     where
     -- calculate a hash-value, because we only have the Binary-Instance, we
     -- can only use the Bytestring of the Value
-    hash k = (fromIntegral $ Hash.hashString (show $ encode k)) `mod` n
+    hash k = ((fromIntegral $ Hash.hashString (show $ encode k)) `mod` n) + 1
 
 
 defaultMerge
