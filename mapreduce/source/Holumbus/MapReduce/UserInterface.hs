@@ -57,7 +57,7 @@ createConsole version =
   Console.addConsoleCommand "stopC" stopControlling "" $
   Console.addConsoleCommand "isC" isControlling "" $
   Console.addConsoleCommand "step" doSingleStep "" $
-  Console.addConsoleCommand "mr" doMapReduce "" $
+  Console.addConsoleCommand "mrJob" doMapReduceJob "" $
   Console.addConsoleCommand "parse" parseJob "" $
   Console.addConsoleCommand "debug" printDebug "" $ 
   Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
@@ -111,14 +111,14 @@ doSingleStep mr _
 
 
   
-doMapReduce :: (MR.MapReduce mr) => mr -> [String] -> IO ()
-doMapReduce mr opts
+doMapReduceJob :: (MR.MapReduce mr) => mr -> [String] -> IO ()
+doMapReduceJob mr opts
   = do
     handle (\e -> putStrLn $ show e) $
       do
       (mbName,_) <- Console.nextOption opts
       jobInfo <- (loadFromXmlFile (fromJust mbName))::IO T.JobInfo
-      r <- MR.doMapReduce jobInfo mr
+      r <- MR.doMapReduceJob jobInfo mr
       putStrLn "RESULT:" 
       putStrLn $ show r
       return ()

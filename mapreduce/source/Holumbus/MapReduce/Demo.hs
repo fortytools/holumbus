@@ -110,25 +110,32 @@ demoActions
 
   
 demoJob :: JobInfo
-demoJob = JobInfo 
+demoJob = 
+  createJobInfoFromConfiguration
+    wordFrequencyAction -- action config
+    ()                  -- options
+    [("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa dd dd")] -- input (Tuples)
+    []                  -- input (Files)
+    1                   -- number of splitters
+    2                   -- number of mappers
+    1                   -- number of reducers
+    1                   -- number of results
+    TOTRawTuple         -- type of the result (file of raw)
+{-  
+  JobInfo 
   "demo-Word-Frequency-Job"
   (encode ())
-  (Just $ "WORDFREQUENCY")
-  (Just $ "WORDFREQUENCY")
-  (Just $ "WORDFREQUENCY")
-  (Just TOTFile)
-  (Just TOTRawTuple)
-  Nothing
-  5
-  1
-  1
+  (Just $ JobAction "WORDFREQUENCY" TOTFile 5)
+  (Just $ JobAction "WORDFREQUENCY" TOTFile 5)
+  Nothing 
+  (Just $ JobAction "WORDFREQUENCY" TOTRawTuple 1)
+  (Just 1)
   ([TupleFunctionData (encodeTuple ("text1", "aaa bb c dd dd"))
    ,TupleFunctionData (encodeTuple ("text2", "aaa bb"))
    ,TupleFunctionData (encodeTuple ("text2", "aaa dd dd"))
    ,FileFunctionData "file1.txt"
    ])
-
-
+-}
 
 
 -- ----------------------------------------------------------------------------

@@ -21,6 +21,7 @@ module Holumbus.MapReduce.MapReduce
 where
 
 import           Holumbus.Common.Debug
+import           Holumbus.FileSystem.FileSystem
 import           Holumbus.MapReduce.Types
 import           Holumbus.Network.Site
 
@@ -52,4 +53,23 @@ class (Debug mr) => MapReduce mr where
   doSingleStep :: mr -> IO ()
   
   -- | starts a MapReduce-Job (blocking while finished)
-  doMapReduce :: JobInfo -> mr -> IO JobResult
+  doMapReduceJob :: JobInfo -> mr -> IO JobResult
+  
+  doMapReduce
+    :: ActionConfiguration a k1 v1 k2 v2 v3 v4
+    -> a               -- ^ options
+    -> [(k1,v1)]       -- ^ input (Tuples)
+    -> [FileId]        -- ^ input (Files)
+    -> Int             -- ^ number of splitters
+    -> Int             -- ^ number of mappers
+    -> Int             -- ^ number of reducers
+    -> Int             -- ^ number of results
+    -> TaskOutputType  -- ^ type of the result (file of raw)
+    -> mr -> IO ([(k2,v4)],[FileId])
+  doMapReduce c o ls1 ls2 sc mc rc nor rt mr
+    = do
+      let ji = createJobInfoFromConfiguration c o ls1 ls2 sc mc rc nor rt
+      jr <- doMapReduceJob ji mr
+      let res = createListsFromJobResult c jr
+      return res
+  

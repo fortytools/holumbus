@@ -3,7 +3,7 @@ where
 
 -- import qualified Data.IntMap as IM
 -- import qualified Data.Set    as S
-import           Data.Maybe
+-- import           Data.Maybe
 -- import           Data.Binary
 -- import           Data.List
 
@@ -51,10 +51,10 @@ main
     mr <- mkMapReduceClient defaultMRClientConfig 
     
     runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    docs       <- crawl traceLevel docsPerCrawl crawlerState mr
+    docs       <- crawl cc traceLevel docsPerCrawl crawlerState mr
     localDocs <- return $ tmpDocs "" {- (fromMaybe "/tmp" (ic_tempPath idxConfig)) -} docs
 
-    writeToBinFile ( (ic_indexPath idxConfig) ++ "-docs.bin") (docs)
+    -- writeToBinFile ( (ic_indexPath idxConfig) ++ "-docs.bin") (docs)
  
     runX (traceMsg 0 (" docs ----------------------------- " ))
     runX (traceMsg 0 (show docs))    
@@ -67,12 +67,12 @@ main
 
     -- c <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
 
-    idx <- buildIndex {- workerThreads traceLevel -} localDocs {- idxConfig emptyInverted (Just c) -} mr
+    idx <- buildIndex cc {- workerThreads traceLevel -} localDocs {- idxConfig emptyInverted (Just c) -} mr
 
     runX (traceMsg 0 (" writing index to file  ----------------------------- " ))
     
     writeToXmlFile ( (ic_indexPath idxConfig) ++ "-index.xml") idx
-    writeToBinFile ( (ic_indexPath idxConfig) ++ "-index.bin") idx
+    -- writeToBinFile ( (ic_indexPath idxConfig) ++ "-index.bin") idx
 
     return()
 {-    where

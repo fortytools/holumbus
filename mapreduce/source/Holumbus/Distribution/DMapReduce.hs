@@ -27,7 +27,7 @@ module Holumbus.Distribution.DMapReduce
 , defaultMRWorkerConfig
 , DMRClientConf(..)
 , defaultMRClientConfig
-  
+
 
 -- * Creation and Destruction
 , mkMapReduceMaster
@@ -228,5 +228,6 @@ instance MapReduce DMapReduce where
     = withMVar mr $ \(DMapReduceData _ _ m _) -> doSingleStep m
 
 
-  doMapReduce ji (DMapReduce mr)
-    = withMVar mr $ \(DMapReduceData _ _ m _) -> doMapReduce ji m
+  doMapReduceJob ji (DMapReduce mr)
+    = withMVar mr $ \(DMapReduceData _ _ m _) -> doMapReduceJob ji m
+  

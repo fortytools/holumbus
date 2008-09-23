@@ -82,17 +82,27 @@ newJobData jcd info
   = do
     t <- getCurrentTime
     mVar <- newEmptyMVar
-    let jrc = JobResultContainer mVar 
-    let jid = jcd_NextJobId jcd
-    let jcd' = jcd { jcd_NextJobId = (jid+1) }
-    let pairs = zip (iterate (+1) 1) (map (\i -> [i]) (ji_Input info))
-    let accuMap = AMap.fromList pairs 
-    let outputMap = Map.insert JSIdle accuMap Map.empty
-    return (jcd', JobData jid JSIdle outputMap info t t jrc, mVar)
+    let state = JSIdle
+        parts = maybe 1 id $ getCurrentTaskPartValue state info
+        jrc   = JobResultContainer mVar 
+        jid   = jcd_NextJobId jcd
+        jcd'  = jcd { jcd_NextJobId = (jid+1) }
+        pairs = initialSplit parts (ji_Input info) 
+        -- let pairs = zip (iterate (+1) 1) (map (\i -> [i]) (ji_Input info))
+        accuMap = AMap.fromList pairs 
+        outputMap = Map.insert JSIdle accuMap Map.empty
+    return (jcd', JobData jid state outputMap info t t jrc, mVar)
+    where
+    initialSplit n ls = ps
+      where
+      ns = [(x `mod` n) + 1 | x <- [1..]]
+      is = map (\a -> [a]) ls 
+      ps = zip ns is
+
 
 newTaskData 
   :: JobControllerData 
-  -> JobId -> TaskType -> TaskState -> B.ByteString -> Int -> [FunctionData] -> ActionName -> TaskOutputType 
+  -> JobId -> TaskType -> TaskState -> B.ByteString -> Maybe Int -> (Int,[FunctionData]) -> ActionName -> TaskOutputType 
   -> IO (JobControllerData, TaskData)
 newTaskData jcd jid tt ts opt n i a ot
   = do
@@ -423,6 +433,8 @@ startJob ji jc
       -- let (b, m) = testJobInfo ji (jcd_MapActionMap jcd) (jcd_ReduceActionMap jcd)
       -- if b 
       --   then do
+      debugM localLogger $ "startJob: " ++ show ji
+      
       (jcd',jd, jr) <- newJobData jcd ji
       return (addJob jd jcd', (jd_JobId jd, jr))
       --   else do
@@ -523,7 +535,7 @@ handleTasks jc
       do
       infoM cycleLogger "processing Tasks:"
       -- get all runnning jobs (not idle...)
-      let runningJobs = getJobIds [JSMap, JSCombine, JSReduce] jcd
+      let runningJobs = getJobIds [JSSplit, JSMap, JSCombine, JSReduce] jcd
       infoM cycleLogger $ "running Jobs:" ++ show runningJobs
       -- get all idle tasks
       let idleTasks = getTaskIds runningJobs [] [TSIdle] jcd
@@ -569,35 +581,40 @@ hasPhase jd = isJust $ getCurrentTaskAction jd
 getCurrentTaskAction :: JobData -> Maybe ActionName
 getCurrentTaskAction jd = getTaskAction' (jd_Info jd) (jd_State jd)
   where
-  getTaskAction' ji JSMap     = ji_MapAction ji
-  getTaskAction' ji JSCombine = ji_CombineAction ji
-  getTaskAction' ji JSReduce  = ji_ReduceAction ji 
+  getTaskAction' ji JSSplit   = maybe Nothing (Just . ja_Name) (ji_SplitAction ji)
+  getTaskAction' ji JSMap     = maybe Nothing (Just . ja_Name) (ji_MapAction ji)
+  getTaskAction' ji JSCombine = maybe Nothing (Just . ja_Name) (ji_CombineAction ji)
+  getTaskAction' ji JSReduce  = maybe Nothing (Just . ja_Name) (ji_ReduceAction ji) 
   getTaskAction' _  _         = Nothing
 
 
 getCurrentTaskOutputType :: JobData -> TaskOutputType
 getCurrentTaskOutputType jd = getTaskOutputType' (jd_Info jd) (jd_State jd)
   where
-  getTaskOutputType' ji JSMap     = maybe TOTFile id (ji_MapOutputType ji)
-  getTaskOutputType' ji JSCombine = maybe TOTFile id (ji_CombineOutputType ji)
-  getTaskOutputType' ji JSReduce  = maybe TOTRawTuple id (ji_ReduceOutputType ji)
+  getTaskOutputType' ji JSSplit   = maybe TOTFile (ja_Output) (ji_SplitAction ji)
+  getTaskOutputType' ji JSMap     = maybe TOTFile (ja_Output) (ji_MapAction ji)
+  getTaskOutputType' ji JSCombine = maybe TOTFile (ja_Output) (ji_CombineAction ji)
+  getTaskOutputType' ji JSReduce  = maybe TOTRawTuple (ja_Output) (ji_ReduceAction ji)
   getTaskOutputType' _  _         = TOTFile
 
 
-getCurrentTaskPartValue :: JobData -> Int
-getCurrentTaskPartValue jd = getTaskPartValue' (jd_Info jd) (jd_State jd)
+getCurrentTaskPartValue :: JobState -> JobInfo -> Maybe Int
+getCurrentTaskPartValue state ji = gTPV state
   where
-  getTaskPartValue' ji JSMap     = ji_MapPart ji
-  getTaskPartValue' ji JSCombine = ji_CombinePart ji
-  getTaskPartValue' ji JSReduce  = ji_ReducePart ji
-  getTaskPartValue' _  _         = 1
-
+  gTPV JSIdle    = maybe (gTPV JSSplit)   (Just . ja_Count) (ji_SplitAction ji)
+  gTPV JSSplit   = maybe (gTPV JSMap)     (Just . ja_Count) (ji_MapAction ji)
+  gTPV JSMap     = maybe (gTPV JSCombine) (\_ -> Nothing)   (ji_CombineAction ji)
+  gTPV JSCombine = maybe (gTPV JSReduce)  (Just . ja_Count) (ji_ReduceAction ji)
+  gTPV JSReduce  = ji_NumOfResults ji
+  gTPV _         = Nothing
+  
 
 createTasks :: JobControllerData -> JobData -> IO JobControllerData
 createTasks jcd jd
   = do
-    let state = jd_State jd
-    let outputMap = (jd_OutputMap jd)
+    let state     = jd_State jd
+        info      = jd_Info jd
+        outputMap = (jd_OutputMap jd)
     -- our input is the output of the previous state
     let inputAccu = maybe (AMap.empty) (id) $ Map.lookup (getPrevJobState state) outputMap
     if (hasPhase jd)
@@ -606,11 +623,11 @@ createTasks jcd jd
         let jid = jd_JobId jd
         let a = fromJust $ getCurrentTaskAction jd
         let ot = getCurrentTaskOutputType jd
-        let opts = ji_Option $ jd_Info jd
-        let n = getCurrentTaskPartValue jd
+        let opts = ji_Option info
+        let n = getCurrentTaskPartValue state info
         let tt  = fromJust $ fromJobStatetoTaskType state
         -- create new tasks
-        (jcd', taskDatas) <- mapAccumLM (\d (_,i) -> newTaskData d jid tt TSIdle opts n i a ot) jcd inputList
+        (jcd', taskDatas) <- mapAccumLM (\d i -> newTaskData d jid tt TSIdle opts n i a ot) jcd inputList
         -- add task to controller
         let jcd'' = foldl addTask jcd' taskDatas        
         return jcd''
@@ -639,7 +656,7 @@ handleJobs jc
       do
       -- get all working jobs (idle or running)
       infoM cycleLogger "processing Jobs"
-      let workingJobs = getJobIds [JSIdle, JSMap, JSCombine, JSReduce] jcd
+      let workingJobs = getJobIds [JSIdle, JSSplit, JSMap, JSCombine, JSReduce] jcd
       infoM cycleLogger $ "working jobs:" ++ show workingJobs
       -- process only jobs, whose current phase is done
       let jobsWithoutTasks = filter (allTasksFinished jcd) workingJobs

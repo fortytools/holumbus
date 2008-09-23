@@ -18,11 +18,13 @@
 module Holumbus.MapReduce.Types
 (
   FunctionData(..)
-
+  
+{-
 , encodeTuple
 , decodeTuple
 , decodeTupleList
 , encodeTupleList
+-}
 
 -- * TaskData
 , TaskId
@@ -39,6 +41,7 @@ module Holumbus.MapReduce.Types
 , getPrevJobState
 , fromJobStatetoTaskType
 , OutputMap
+, JobAction(..)
 , JobInfo(..)
 , JobData(..)
 , JobResultContainer(..)
@@ -58,12 +61,16 @@ module Holumbus.MapReduce.Types
 , OptionsDecoder
 
 , ActionConfiguration(..)
+, SplitConfiguration(..)
 , MapConfiguration(..)
 , ReduceConfiguration(..)
 , defaultActionConfiguration
+, defaultSplitConfiguration
 , defaultMapConfiguration
 , defaultReduceConfiguration
 , readActionConfiguration
+, createJobInfoFromConfiguration
+, createListsFromJobResult
 
 , ActionData(..)
 , getActionForTaskType
@@ -96,6 +103,7 @@ import           System.Log.Logger
 
 import           Text.XML.HXT.Arrow
 
+import qualified Holumbus.Data.AccuMap as AMap
 import           Holumbus.Common.FileHandling
 import           Holumbus.Common.Utils
 import qualified Holumbus.Data.AccuMap as AMap
@@ -113,7 +121,7 @@ localLogger = "Holumbus.MapReduce.Types"
 
 data FunctionData
   = TupleFunctionData B.ByteString
-  | FileFunctionData String
+  | FileFunctionData FS.FileId
   deriving (Show, Eq, Ord)
 
 instance Binary FunctionData where
@@ -156,12 +164,12 @@ decodeTuple :: (Binary k, Binary v) => B.ByteString -> (k, v)
 decodeTuple t = decode t
 
 
-encodeTupleList :: (Binary k, Binary v) => [(k, v)] -> [B.ByteString]
-encodeTupleList ls = map encodeTuple ls
+-- encodeTupleList :: (Binary k, Binary v) => [(k, v)] -> [B.ByteString]
+-- encodeTupleList ls = map encodeTuple ls
 
 
-decodeTupleList :: (Binary k, Binary v) => [B.ByteString] -> [(k, v)]
-decodeTupleList ls = map decodeTuple ls
+-- decodeTupleList :: (Binary k, Binary v) => [B.ByteString] -> [(k, v)]
+-- decodeTupleList ls = map decodeTuple ls
 
 
 
@@ -176,21 +184,23 @@ type TaskId = Integer
 
 
 -- | which type (map, combine, reduce)
-data TaskType = TTMap | TTCombine | TTReduce | TTError
+data TaskType = TTSplit | TTMap | TTCombine | TTReduce | TTError
   deriving (Show, Eq, Ord)
 
 instance Binary TaskType where
-  put (TTMap)     = putWord8 1
-  put (TTCombine) = putWord8 2
-  put (TTReduce)  = putWord8 3
+  put (TTSplit)   = putWord8 1
+  put (TTMap)     = putWord8 2
+  put (TTCombine) = putWord8 3
+  put (TTReduce)  = putWord8 4
   put (TTError)   = putWord8 0
   get
     = do
       t <- getWord8
       case t of
-       1 -> return (TTMap)
-       2 -> return (TTCombine)
-       3 -> return (TTReduce)
+       1 -> return (TTSplit)
+       2 -> return (TTMap)
+       3 -> return (TTCombine)
+       4 -> return (TTReduce)
        _ -> return (TTError)
 
 
@@ -239,21 +249,21 @@ instance XmlPickler TaskOutputType where
 
 -- | the TaskData, contains all information to do the task
 data TaskData = TaskData {
-    td_JobId      :: ! JobId
-  , td_TaskId     :: ! TaskId
-  , td_Type       :: ! TaskType
-  , td_State      :: ! TaskState
-  , td_Option     :: ! B.ByteString
-  , td_Parts      :: ! Int
-  , td_Input      :: ! [FunctionData]
-  , td_Output     :: ! [(Int,[FunctionData])]
-  , td_OutputType :: ! TaskOutputType
-  , td_Action     :: ! ActionName
+    td_JobId        :: ! JobId
+  , td_TaskId       :: ! TaskId
+  , td_Type         :: ! TaskType
+  , td_State        :: ! TaskState
+  , td_Option       :: ! B.ByteString
+  , td_PartValue    :: ! (Maybe Int) 
+  , td_Input        :: ! (Int, [FunctionData])
+  , td_Output       :: ! [(Int,[FunctionData])]
+  , td_OutputType   :: ! TaskOutputType
+  , td_Action       :: ! ActionName
   } deriving (Show, Eq, Ord)
 
 instance Binary TaskData where
-  put (TaskData jid tid tt ts opt n i o ot a)
-    = put jid >> put tid >> put tt >> put ts >> put opt >> put n >> put i >> put o >> put ot >> put a
+  put (TaskData jid tid tt ts opt pv i o ot a)
+    = put jid >> put tid >> put tt >> put ts >> put opt >> put pv >> put i >> put o >> put ot >> put a
   get
     = do
       jid <- get
@@ -261,12 +271,12 @@ instance Binary TaskData where
       tt  <- get
       ts  <- get
       opt <- get
-      n   <- get
+      pv  <- get
       i   <- get
       o   <- get
       ot  <- get
       a   <- get
-      return (TaskData jid tid tt ts opt n i o ot a)
+      return (TaskData jid tid tt ts opt pv i o ot a)
 
 
 
@@ -281,17 +291,18 @@ type JobId = Integer
 
 
 -- | the job state
-data JobState = JSPlanned | JSIdle | JSMap | JSCombine | JSReduce | JSCompleted | JSFinished | JSError
+data JobState = JSPlanned | JSIdle | JSSplit | JSMap | JSCombine | JSReduce | JSCompleted | JSFinished | JSError
   deriving(Show, Eq, Ord, Enum)
 
 instance Binary JobState where
   put (JSPlanned)    = putWord8 1
   put (JSIdle)       = putWord8 2
-  put (JSMap)        = putWord8 3
-  put (JSCombine)    = putWord8 4
-  put (JSReduce)     = putWord8 5
-  put (JSCompleted)  = putWord8 6
-  put (JSFinished)   = putWord8 7
+  put (JSSplit)      = putWord8 3
+  put (JSMap)        = putWord8 4
+  put (JSCombine)    = putWord8 5
+  put (JSReduce)     = putWord8 6
+  put (JSCompleted)  = putWord8 7
+  put (JSFinished)   = putWord8 8
   put (JSError)      = putWord8 0
   get
     = do
@@ -299,11 +310,12 @@ instance Binary JobState where
       case t of
         1 -> return (JSPlanned)
         2 -> return (JSIdle)
-        3 -> return (JSMap)
-        4 -> return (JSCombine)
-        5 -> return (JSReduce)
-        6 -> return (JSCompleted)
-        7 -> return (JSFinished)
+        3 -> return (JSSplit)
+        4 -> return (JSMap)
+        5 -> return (JSCombine)
+        6 -> return (JSReduce)
+        7 -> return (JSCompleted)
+        8 -> return (JSFinished)
         _ -> return (JSError)
 
 getNextJobState :: JobState -> JobState
@@ -317,6 +329,7 @@ getPrevJobState JSError = JSError
 getPrevJobState s       = pred s
 
 fromJobStatetoTaskType :: JobState -> Maybe TaskType
+fromJobStatetoTaskType JSSplit   = Just TTSplit
 fromJobStatetoTaskType JSMap     = Just TTMap
 fromJobStatetoTaskType JSCombine = Just TTCombine
 fromJobStatetoTaskType JSReduce  = Just TTReduce
@@ -326,47 +339,64 @@ fromJobStatetoTaskType _         = Nothing
 
 type OutputMap = Map.Map JobState (AMap.AccuMap Int FunctionData)
 
+data JobAction = JobAction {
+    ja_Name   :: ! ActionName
+  , ja_Output :: ! TaskOutputType
+  , ja_Count  :: ! Int
+  } deriving (Show, Eq)
+
+instance Binary JobAction where
+  put (JobAction n o c) = put n >> put o >> put c
+  get 
+    = do
+      n <- get
+      o <- get
+      c <- get
+      return (JobAction n o c)
+
+instance XmlPickler JobAction where
+  xpickle = xpJobAction
+  
+xpJobAction :: PU JobAction
+xpJobAction =
+  xpWrap
+    (\(n, o, c) -> JobAction n o c, 
+     \(JobAction n o c) -> (n, o, c)) xpAction
+  where
+  xpAction = xpTriple (xpFunction) (xpickle) (xpCount)
+  xpFunction = xpAttr "name" xpText
+  xpCount = xpWrap ((maybe 1 id), Just) $ xpOption $ xpAttr "count" xpickle
+      
+
 
 -- | defines a job, this is all data the user has to give to run a job
 data JobInfo = JobInfo {
     ji_Description       :: ! String
   , ji_Option            :: ! B.ByteString
-  , ji_MapAction         :: ! (Maybe ActionName)
-  , ji_CombineAction     :: ! (Maybe ActionName)
-  , ji_ReduceAction      :: ! (Maybe ActionName)
-  , ji_MapOutputType     :: ! (Maybe TaskOutputType)
-  , ji_CombineOutputType :: ! (Maybe TaskOutputType)
-  , ji_ReduceOutputType  :: ! (Maybe TaskOutputType)
-  , ji_MapPart           :: ! Int
-  , ji_CombinePart       :: ! Int
-  , ji_ReducePart        :: ! Int
+  , ji_SplitAction       :: ! (Maybe JobAction)
+  , ji_MapAction         :: ! (Maybe JobAction)
+  , ji_CombineAction     :: ! (Maybe JobAction)
+  , ji_ReduceAction      :: ! (Maybe JobAction)
+  , ji_NumOfResults      :: ! (Maybe Int)
   , ji_Input             :: ! [FunctionData]
   } deriving (Show, Eq)
 
 instance Binary JobInfo where
-  put (JobInfo d opt ma ca ra mo co ro mp cp rp i)
+  put (JobInfo d opt sa ma ca ra nor i)
     = put d >> put opt >> 
-      put ma >> put ca >> put ra >>
-      put mo >> put co >> put ro >>
-      put mp >> put cp >> put rp >>
-      put i
+      put sa >> put ma >> put ca >> put ra >> put nor >> put i
   get
     = do
       d   <- get
       opt <- get
+      sa  <- get
       ma  <- get
       ca  <- get
       ra  <- get
-      mo  <- get
-      co  <- get
-      ro  <- get
-      mp  <- get
-      cp  <- get
-      rp  <- get
+      nor  <- get
       i   <- get
-      return (JobInfo d opt ma ca ra mo co ro mp cp rp i)
-
-
+      return (JobInfo d opt sa ma ca ra nor i)
+   
 instance XmlPickler JobInfo where
   xpickle = xpJobInfo
   
@@ -374,27 +404,25 @@ xpJobInfo :: PU JobInfo
 xpJobInfo = 
     xpElem "jobInfo" $
     xpWrap
-      (\(n, (ma,mo,mp), (ca,co,cp), (ra,ro,rp), i) -> JobInfo n (encode ()) ma ca ra mo co ro mp cp rp i, 
-       \(JobInfo n _ ma ca ra mo co ro mp cp rp i) -> (n, (ma,mo,mp), (ca,co,cp), (ra,ro,rp), i)) xpJob
+      (\(n, (sa,ma,ca,ra), nor, i) -> JobInfo n (encode ()) sa ma ca ra nor i, 
+       \(JobInfo n _ sa ma ca ra nor i) -> (n, (sa,ma,ca,ra), nor, i)) xpJob
     where
     xpJob = 
-      xp5Tuple
+      xp4Tuple
         (xpAttr "name" xpText0)
-        (xpMapAction)
-        (xpCombineAction)
-        (xpReduceAction)
+        (xpActions)
+        (xpCount)
         (xpFunctionDataList)
-      where 
-      xpMapAction     = xpElem "map" $ xpTaskAction
-      xpCombineAction = xpElem "combine" $ xpTaskAction
-      xpReduceAction  = xpElem "reduce" $ xpTaskAction
-      xpFunctionDataList
-        = xpWrap (filterEmptyList,setEmptyList) $ xpOption $
-          xpElem "inputList" $ xpList xpFunctionData
-      xpFunction = xpOption $ xpAttr "name" xpText
-      xpParts    = xpWrap ((maybe 1 id), Just) $ xpOption $ xpAttr "parts" xpickle
-      xpTaskAction = xpTriple (xpFunction) (xpickle) (xpParts)
-      
+    xpActions = xp4Tuple (xpSplitAction) (xpMapAction) (xpCombineAction) (xpReduceAction)
+    xpSplitAction   = xpOption $ xpElem "split" $ xpJobAction
+    xpMapAction     = xpOption $ xpElem "map" $ xpJobAction
+    xpCombineAction = xpOption $ xpElem "combine" $ xpJobAction
+    xpReduceAction  = xpOption $ xpElem "reduce" $ xpJobAction
+    xpFunctionDataList
+      = xpWrap (filterEmptyList,setEmptyList) $ xpOption $
+        xpElem "inputList" $ xpList xpFunctionData
+    xpCount = xpOption $ xpAttr "numOfResults" xpickle
+    
 
 -- | the job data, include the user-input and some additional control-data
 data JobData = JobData {
@@ -487,7 +515,7 @@ readConnector ic ae ls
 
 
 writeConnector 
-  :: (Ord k2, Binary k2, Binary v2)
+  :: (Binary k2, Binary v2)
   => OutputWriter k2 v2
   -> ActionEnvironment
   -> [(Int,[(k2,v2)])] 
@@ -531,13 +559,25 @@ type ActionInfo = String
 
 data ActionConfiguration a k1 v1 k2 v2 v3 v4
   = ActionConfiguration {
-    ac_Name       :: ActionName
-  , ac_Info       :: ActionInfo
-  , ac_OptDecoder :: OptionsDecoder a
-  , ac_Map        :: Maybe (MapConfiguration a k1 v1 k2 v2)
-  , ac_Combine    :: Maybe (ReduceConfiguration a k2 v2 v3)
-  , ac_Reduce     :: Maybe (ReduceConfiguration a k2 v3 v4)
+    ac_Name          :: ActionName
+  , ac_Info          :: ActionInfo
+  , ac_OptEncoder    :: OptionsEncoder a
+  , ac_OptDecoder    :: OptionsDecoder a
+  , ac_InputEncoder  :: InputEncoder k1 v1
+  , ac_OutputDecoder :: OutputDecoder k2 v4
+  , ac_Split         :: Maybe (SplitConfiguration a k1 v1)
+  , ac_Map           :: Maybe (MapConfiguration a k1 v1 k2 v2)
+  , ac_Combine       :: Maybe (ReduceConfiguration a k2 v2 v3)
+  , ac_Reduce        :: Maybe (ReduceConfiguration a k2 v3 v4)
   }  
+
+
+data SplitConfiguration a k1 v1
+  = SplitConfiguration {
+    sc_Function :: SplitFunction a k1 v1
+  , sc_Reader   :: InputReader k1 v1
+  , sc_Writer   :: OutputWriter k1 v1
+  }
 
 
 data MapConfiguration a k1 v1 k2 v2
@@ -560,16 +600,31 @@ data ReduceConfiguration a k2 v2 v3
 
 
 defaultActionConfiguration
-  :: (Binary a) => ActionName
+  :: (Binary a, Binary k1, Binary v1, Binary k2, Binary v4)
+  => ActionName
   -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 defaultActionConfiguration name
   = ActionConfiguration
       name
       ""
+      defaultOptionsEncoder
       defaultOptionsDecoder
+      defaultInputEncoder
+      defaultOutputDecoder
+      (Just defaultSplitConfiguration)
       Nothing
       Nothing
       Nothing
+
+
+defaultSplitConfiguration
+  :: (Binary a, Binary k1, Binary v1)
+  => SplitConfiguration a k1 v1
+defaultSplitConfiguration 
+  = SplitConfiguration
+      defaultSplit
+      defaultInputReader
+      defaultOutputWriter 
 
 
 defaultMapConfiguration
@@ -595,6 +650,17 @@ defaultReduceConfiguration fct
       defaultPartition
       defaultInputReader
       defaultOutputWriter
+
+
+defaultSplit
+  :: SplitFunction a k1 v1
+defaultSplit _ _ n ls 
+  = return partedList
+    where
+    partedList = AMap.toList $ AMap.fromList ps
+    ns = [(x `mod` n) + 1 | x <- [1..]]
+    is = map (\a -> [a]) ls 
+    ps = zip ns is
 
 
 defaultPartition
@@ -625,6 +691,7 @@ data ActionData
   = ActionData {
     ad_Name    :: ActionName
   , ad_Info    :: ActionInfo
+  , ad_Split   :: Maybe BinarySplitAction
   , ad_Map     :: Maybe BinaryMapAction
   , ad_Combine :: Maybe BinaryReduceAction
   , ad_Reduce  :: Maybe BinaryReduceAction
@@ -634,18 +701,42 @@ instance KMap.Key ActionData where
   getKey = ad_Name
 
 instance Show ActionData where
-  show (ActionData n i _ _ _) = "{ActionData name:\"" ++ n ++ "\" info:\"" ++ i ++ "\"}"
+  show (ActionData n i _ _ _ _) = "{ActionData name:\"" ++ n ++ "\" info:\"" ++ i ++ "\"}"
 
 
 type ActionMap = KMap.KeyMap ActionData
 
-
+type OptionsEncoder a = a -> B.ByteString
 type OptionsDecoder a = B.ByteString -> a
+
+defaultOptionsEncoder :: (Binary a) => OptionsEncoder a
+defaultOptionsEncoder = encode
 
 defaultOptionsDecoder :: (Binary a) => OptionsDecoder a
 defaultOptionsDecoder = decode
 
+
+type InputEncoder k1 v1 = [(k1,v1)] -> [FS.FileId] -> [FunctionData]
+type OutputDecoder k2 v4 = [FunctionData] -> ([(k2,v4)],[FS.FileId])
+
+defaultInputEncoder :: (Binary k1, Binary v1) => InputEncoder k1 v1
+defaultInputEncoder ls1 ls2 = ls1' ++ ls2'
+  where
+  ls1' = map (\t -> TupleFunctionData (encode t)) ls1
+  ls2' = map (\f -> FileFunctionData f) ls2
+
+defaultOutputDecoder :: (Binary k2, Binary v4) => OutputDecoder k2 v4
+defaultOutputDecoder ls = (ls1, ls2)
+  where
+  ls1 = map (\t -> decode t) $ catMaybes ls1'
+  ls2 = catMaybes ls2'
+  (ls1',ls2') = unzip $ map (splitter) ls
+  splitter (TupleFunctionData t) = (Just t, Nothing)
+  splitter (FileFunctionData f)  = (Nothing, Just f)
+  
+
 getActionForTaskType :: TaskType -> ActionData -> Maybe BinaryReduceAction
+getActionForTaskType TTSplit   ad = ad_Split ad
 getActionForTaskType TTMap     ad = ad_Map ad
 getActionForTaskType TTCombine ad = ad_Combine ad
 getActionForTaskType TTReduce  ad = ad_Reduce ad
@@ -660,13 +751,85 @@ readActionConfiguration
      , Binary v3, Binary v4)
   => ActionConfiguration a k1 v1 k2 v2 v3 v4 
   -> ActionData
-readActionConfiguration
-  (ActionConfiguration n i d mc cc rc)
-  = ActionData n i mf cf rf
+readActionConfiguration (ActionConfiguration n i _ optDec _ _ sc mc cc rc)
+  = ActionData n i sf mf cf rf
   where
-  mf = maybe Nothing (\(MapConfiguration f p ir ow) -> Just $ performMapAction d f p ir ow) mc
-  cf = maybe Nothing (\(ReduceConfiguration m f p ir ow) -> Just $ performReduceAction d m f p ir ow) cc
-  rf = maybe Nothing (\(ReduceConfiguration m f p ir ow) -> Just $ performReduceAction d m f p ir ow) rc
+  sf = maybe Nothing (\(SplitConfiguration f ir ow) -> Just $ performSplitAction optDec f ir ow) sc 
+  mf = maybe Nothing (\(MapConfiguration f p ir ow) -> Just $ performMapAction optDec f p ir ow) mc
+  cf = maybe Nothing (\(ReduceConfiguration m f p ir ow) -> Just $ performReduceAction optDec m f p ir ow) cc
+  rf = maybe Nothing (\(ReduceConfiguration m f p ir ow) -> Just $ performReduceAction optDec m f p ir ow) rc
+
+
+
+createJobInfoFromConfiguration
+  :: ActionConfiguration a k1 v1 k2 v2 v3 v4
+  -> a              -- ^ options
+  -> [(k1,v1)]      -- ^ input (Tuples)
+  -> [FS.FileId]    -- ^ input (Files)
+  -> Int            -- ^ number of splitters
+  -> Int            -- ^ number of mappers
+  -> Int            -- ^ number of reducers
+  -> Int            -- ^ number of results
+  -> TaskOutputType -- ^ type of the result (file of raw)
+  -> JobInfo
+createJobInfoFromConfiguration (ActionConfiguration n _ optEnc _ inEnc _ sConf mConf cConf rConf) opts' ls1 ls2 sCnt mCnt rCnt nor' rt
+  = JobInfo n opts sa ma ca ra nor i
+  where
+  opts = optEnc opts'
+  sa   = maybe Nothing (\_ -> Just $ JobAction n TOTFile sCnt) sConf
+  ma   = maybe Nothing (\_ -> Just $ JobAction n TOTFile mCnt) mConf
+  ca   = maybe Nothing (\_ -> Just $ JobAction n TOTFile mCnt) cConf
+  ra   = maybe Nothing (\_ -> Just $ JobAction n rt      rCnt) rConf
+  nor  = Just nor'
+  i    = inEnc ls1 ls2
+  
+    
+createListsFromJobResult
+  :: ActionConfiguration a k1 v1 k2 v2 v3 v4
+  -> JobResult
+  -> ([(k2,v4)],[FS.FileId])
+createListsFromJobResult ac jr = (ac_OutputDecoder ac) (jr_Output jr)
+    
+-- ----------------------------------------------------------------------------
+-- SplitAction
+-- ----------------------------------------------------------------------------
+
+-- | general SplitAction
+type SplitAction a k1 v1 = ActionEnvironment -> a -> Int -> [(k1,v1)] -> IO [(Int, [(k1,v1)])]
+
+-- | SplitAction on ByteStrings
+type BinarySplitAction = ActionEnvironment -> B.ByteString -> Maybe Int -> (Int,[FunctionData]) -> IO [(Int, [FunctionData])] 
+
+type SplitFunction a k1 v1 = SplitAction a k1 v1
+
+performSplitAction
+  :: (Binary a, Binary k1, Binary v1)
+  => OptionsDecoder a
+  -> SplitFunction a k1 v1
+  -> InputReader k1 v1
+  -> OutputWriter k1 v1
+  -> ActionEnvironment
+  -> B.ByteString
+  -> Maybe Int
+  -> (Int,[FunctionData])
+  -> IO [(Int, [FunctionData])]
+performSplitAction optDec fct reader writer env opts n (i,ls)
+  = do
+    let a = optDec opts
+    
+    infoM localLogger "performSplitAction"
+    
+    infoM localLogger "reading inputList"
+    inputList <- readConnector reader env ls
+        
+    infoM localLogger "doing split"
+    partedList <- case n of
+      (Just n') -> fct env a n' inputList
+      (Nothing) -> return [(i,inputList)]
+    
+    infoM localLogger "writing outputlist"
+    outputList <- writeConnector writer env partedList
+    return outputList
 
 
 -- ----------------------------------------------------------------------------
@@ -678,7 +841,7 @@ readActionConfiguration
 type MapAction a k1 v1 k2 v2 = ActionEnvironment -> a -> Int -> [(k1,v1)] -> IO [(Int, [(k2,v2)])]
 
 -- | MapAction on ByteStrings
-type BinaryMapAction = ActionEnvironment -> B.ByteString -> Int -> [FunctionData] -> IO [(Int, [FunctionData])] 
+type BinaryMapAction = ActionEnvironment -> B.ByteString -> Maybe Int -> (Int,[FunctionData]) -> IO [(Int, [FunctionData])] 
 
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 
@@ -695,10 +858,10 @@ performMapAction
   -> OutputWriter k2 v2
   -> ActionEnvironment
   -> B.ByteString
-  -> Int
-  -> [FunctionData]
+  -> Maybe Int
+  -> (Int,[FunctionData])
   -> IO [(Int, [FunctionData])]
-performMapAction optDec fct part reader writer env opts n ls
+performMapAction optDec fct part reader writer env opts n (i,ls)
   = do
     -- decode the options
     let a = optDec opts
@@ -709,10 +872,13 @@ performMapAction optDec fct part reader writer env opts n ls
     inputList <- readConnector reader env ls
     
     infoM localLogger "doing map"
-    tupleList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
-    
+    mappedList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
+    let tupleList = concat mappedList
+     
     infoM localLogger "doing partition"
-    partedList <- part env a n $ concat tupleList
+    partedList <- case n of
+      (Just n') -> part env a n' tupleList
+      (Nothing) -> return [(i,tupleList)]
     
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList
@@ -730,7 +896,7 @@ performMapAction optDec fct part reader writer env opts n ls
 type ReduceAction a k2 v2 v3 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v3)])]
 
 -- | MapAction on ByteStrings
-type BinaryReduceAction = ActionEnvironment -> B.ByteString -> Int -> [FunctionData] -> IO [(Int, [FunctionData])] 
+type BinaryReduceAction = ActionEnvironment -> B.ByteString -> Maybe Int -> (Int,[FunctionData]) -> IO [(Int, [FunctionData])] 
 
 type ReduceMerge a k2 v2 = ActionEnvironment -> a -> [(k2,v2)] -> IO [(k2,[v2])]
 
@@ -750,10 +916,10 @@ performReduceAction
   -> OutputWriter k2 v3
   -> ActionEnvironment
   -> B.ByteString
-  -> Int
-  -> [FunctionData]
+  -> Maybe Int
+  -> (Int,[FunctionData])
   -> IO [(Int, [FunctionData])]
-performReduceAction optDec merge fct part reader writer env opts n ls
+performReduceAction optDec merge fct part reader writer env opts n (i,ls)
   = do
     -- decode the options
     let a = optDec opts
@@ -768,9 +934,12 @@ performReduceAction optDec merge fct part reader writer env opts n ls
     
     infoM localLogger "doing reduce"
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction a k2 v2s) mergedList
+    let tupleList = catMaybes maybesList
     
     infoM localLogger "doing partition" 
-    partedList <- part env a n $ catMaybes maybesList
+    partedList <- case n of
+      (Just n') -> part env a n' tupleList
+      (Nothing) -> return [(i,tupleList)] 
     
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList

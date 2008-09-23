@@ -196,7 +196,7 @@ reducePartitionBuildIndex
 reducePartitionBuildIndex _ _ _ ls = return [(1,ls)]
 
 -- -----------------------------------------------------------------------------
-
+{-
 encodeInputList :: (Binary k, Binary v) => [(k,v)] -> [FunctionData]
 encodeInputList ls = map (\t -> TupleFunctionData (encode t)) ls
 
@@ -205,7 +205,7 @@ decodeOccurrencesList ls = map (\(TupleFunctionData t) -> decode t) ls
 
 decodeIndexList :: [FunctionData] -> [((),Inverted)]
 decodeIndexList ls = map (\(TupleFunctionData t) -> decode t) ls
-
+-}
 {-
 decodeResult :: JobResult -> Inverted
 decodeResult (JobResult []) = error "no index found"
@@ -215,18 +215,20 @@ decodeResult (JobResult r) = decodeFunctionData $ head r
   decodeFunctionData _ = error "no index found" 
 -}
 
-buildIndex :: (HolDocuments d a, {- HolIndex i -} MapReduce mr {-, HolCache c -}) => 
+buildIndex :: (HolDocuments d a, {- HolIndex i -} MapReduce mr {-, HolCache c -}) 
+           => MRCrawlerConfig d a
            --   Int                -- ^ Number of parallel threads for MapReduce
            --   Int                -- ^ TraceLevel for Arrows
-              d a                -- ^ List of input Data
+           -> d a                -- ^ List of input Data
            -- -> IndexerConfig      -- ^ Configuration for the Indexing process
            -- -> Inverted           -- ^ An empty HolIndex. This is used to determine which kind of index to use.
            -> mr
            -> IO [Inverted]        -- ^ returns a HolIndex
-buildIndex {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -} mr
+buildIndex config {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -} mr
   = do
     let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
     
+    {-
     let ji = JobInfo
              "indexer-job"
              (encode ())
@@ -240,20 +242,27 @@ buildIndex {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -} mr
              1
              1
              (encodeInputList docs')
-       
+    -}   
     runX (traceMsg 0 (" run indexer phase 1: "))
-       
-    res <- doMapReduce ji mr 
+                     
+    (res,_) <- doMapReduce (indexerOccurrencesAction config)
+         ()
+         docs'
+         []
+         1
+         5
+         1
+         1
+         TOTRawTuple
+         mr 
        
     runX (traceMsg 0 (" result of phase 1: "))       
     
     runX (traceMsg 0 (" num of tuples: "))
-    runX (traceMsg 0 (show $ length (jr_Output res)))
-    
-    let os = decodeOccurrencesList $ jr_Output res
+    runX (traceMsg 0 (show $ length res))
 
-    let os' = map (\t -> ((),t)) os
-
+    let os' = map (\t -> ((),t)) res
+{-
     let ji2 = JobInfo
              "indexer-job"
              (encode ())
@@ -267,21 +276,29 @@ buildIndex {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -} mr
              1
              1
              (encodeInputList os')
-    
+-}    
     runX (traceMsg 0 (" run indexer phase 2: "))
                       
-    res' <- doMapReduce ji2 mr
+    (res',_) <- doMapReduce
+       (indexerBuildIndexAction)
+       ()
+       os'
+       []
+       1
+       1
+       1
+       1
+       TOTRawTuple
+       mr
     
     runX (traceMsg 0 (" result of the indexer: "))       
     
     runX (traceMsg 0 (" num of indexes: "))
-    runX (traceMsg 0 (show $ length (jr_Output res')))
+    runX (traceMsg 0 (show $ length res'))
     
-    let idx = decodeIndexList $ jr_Output res'                       
-                               
-    let idx' = map (snd) idx
-                               
-    return idx'
+    let idx = map (snd) res'
+    
+    return idx
 {-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
        -- assert ((sizeWords emptyIndex) == 0) 
                  (mapReduce 

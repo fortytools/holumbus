@@ -129,7 +129,7 @@ instance MapReduce MasterPort where
             _ -> return Nothing
 
   
-  doMapReduce ji (MasterPort p)
+  doMapReduceJob ji (MasterPort p)
     = do
       -- bad hack... we should build an extra client for the MapReduce-System
       -- which pings for the server and so on

@@ -101,12 +101,10 @@ crawlerAction cc
         }
     where
       mapAction 
-        = (defaultMapConfiguration (mapCrawl cc))
-            { mc_Partition = mapPartitionCrawl }
+        = (defaultMapConfiguration (mapCrawl cc))           
       reduceAction
         = (defaultReduceConfiguration (reduceCrawl cc))
-            { rc_Merge     = mergeCrawl
-            , rc_Partition = reducePartitionCrawl }
+            { rc_Merge     = mergeCrawl }
 
 
 mapCrawl
@@ -136,7 +134,7 @@ mapCrawl cc env (traceLevel,_) docId theUri
     
     
 
-
+{-
 mapPartitionCrawl
   :: (Binary a, Show a, HolDocuments d a) 
   -- => CrawlerState d a                    -- ^ type Whitness
@@ -145,7 +143,7 @@ mapPartitionCrawl
   -> Int -> [((), (MD5Hash, Maybe (Document b), S.Set URI))]
   -> IO [(Int, [((), (MD5Hash, Maybe (Document b), S.Set URI))])]
 mapPartitionCrawl _ _ _ ls = return [(1,ls)]
-
+-}
 
 
 -- ----------------------------------------------------------------------------
@@ -175,7 +173,7 @@ reduceCrawl cc _ (_,cs) k ls = processCrawlResults cs' cs k ls
   where
   cs' = cc_CrawlerState cc
 
-
+{-
 reducePartitionCrawl
   :: (Binary a, Show a, HolDocuments d a)
   -- => CrawlerState d a           -- ^ type Whitness
@@ -183,8 +181,8 @@ reducePartitionCrawl
   -> (Int, CrawlerState d a)    -- ^ state
   -> Int -> [((),CrawlerState d a)] -> IO [(Int,[((),CrawlerState d a)])]
 reducePartitionCrawl _ _ _ ls = return [(1,ls)]
-
-
+-}
+{-
 encodeDocList :: [(DocId, URI)] -> [FunctionData]
 encodeDocList ls = map (\t -> TupleFunctionData (encode t)) ls
 
@@ -197,7 +195,7 @@ decodeResult (JobResult r) = decodeFunctionData $ head r
   where
   decodeFunctionData (TupleFunctionData b) = decode b
   decodeFunctionData _ = error "no crawler state found" 
-
+-}
 
 {-
 instance (Binary a, HolDocuments d a) => MapReducible (CrawlerState d a) () (String, Maybe (Document a), S.Set URI)
@@ -237,11 +235,12 @@ crawlFileSystem' docFilter path
 crawl
  :: (Show a, HolDocuments d a, Binary a, Binary (d a), XmlPickler (d a)
     , MapReduce mr) 
- => Int -> Int
+ => MRCrawlerConfig d a                           -- whitness and configuration
+ -> Int -> Int
  -> CrawlerState d a
  -> mr
  -> IO (d a)
-crawl traceLevel maxDocs cs mr = 
+crawl config traceLevel maxDocs cs mr = 
   if S.null ( cs_toBeProcessed cs ) -- if no more documents have to be processed, 
     then do
       runX (traceMsg 0 (" no more documents to processed"))
@@ -268,7 +267,7 @@ crawl traceLevel maxDocs cs mr =
                            , cs_toBeProcessed = S.difference (cs_toBeProcessed cs) d
                            }
 
-       let ji = JobInfo
+{-       let ji = JobInfo
                  "crawler-job"
                  (encode (traceLevel,cs'))
                  (Just "CRAWL")
@@ -281,16 +280,26 @@ crawl traceLevel maxDocs cs mr =
                  1
                  1
                  (encodeDocList d')
-       
-       res <- doMapReduce ji mr 
+-}       
+       (res,_) <- doMapReduce 
+         (crawlerAction config)
+         (traceLevel,cs')
+         d'
+         []
+         1
+         5
+         1
+         1
+         TOTRawTuple
+         mr
        
        runX (traceMsg 0 (" result of this cycle: "))       
        
-       let csnew = decodeResult res
+       let (_,csnew) = head res
        
        runX (traceMsg 0 (show $ cs_toBeProcessed csnew))
                              
-       crawl traceLevel maxDocs csnew mr
+       crawl config traceLevel maxDocs csnew mr
 
 
 -- | The REDUCE function for the crawling MapReduce computation. The 'Documents' and their contained

@@ -238,6 +238,6 @@ instance MapReduce SMapReduce where
         \sad -> do singleStepJobControlling (sad_JobController sad)
 
   
-  doMapReduce ji (SMapReduce sa)
+  doMapReduceJob ji (SMapReduce sa)
     = withMVar sa $
         \sad -> do performJob ji (sad_JobController sad)

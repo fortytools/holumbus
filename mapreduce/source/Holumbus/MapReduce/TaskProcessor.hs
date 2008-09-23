@@ -524,7 +524,7 @@ performTask td tp
       \tpd ->
       do
       let action     = KMap.lookup (td_Action td) (tpd_ActionMap tpd)
-      let parts      = (td_Parts td)
+      let parts      = (td_PartValue td)
       let input      = (td_Input td)
       let option     = (td_Option td)
       let filesystem = (tpd_FileSystem tpd)

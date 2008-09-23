@@ -166,7 +166,7 @@ dispatch m msg
         return $ Just $ M.MRspSuccess
       (M.MReqPerformJob ji) ->
         do
-        r <- MR.doMapReduce ji md
+        r <- MR.doMapReduceJob ji md
         return $ Just $ M.MRspResult r
       _ -> return Nothing
 
@@ -337,9 +337,9 @@ instance MR.MapReduce MasterData where
       singleStepJobControlling (md_JobController md)
 
   
-  doMapReduce ji md
+  doMapReduceJob ji md
     = do
-      debugM localLogger "doMapReduce"
+      debugM localLogger "doMapReduceJob"
       performJob ji (md_JobController md)
 
 
