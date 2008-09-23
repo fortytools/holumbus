@@ -61,8 +61,8 @@ import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce
 
-
 import           Examples.Crawler.Config
+
 
 
 indexerOccurrencesAction
@@ -74,8 +74,7 @@ indexerOccurrencesAction
        Occurrences                -- v3 == v2
        Occurrences                -- v4
 indexerOccurrencesAction cc
-  = -- readActionConfiguration $
-      (defaultActionConfiguration "INDEX_OCCURRENCES")
+  = (defaultActionConfiguration "INDEX_OCCURRENCES")
         { ac_Map     = Just mapAction
         , ac_Combine = Nothing
         , ac_Reduce  = Just reduceAction
@@ -83,11 +82,9 @@ indexerOccurrencesAction cc
     where
       mapAction 
         = (defaultMapConfiguration (mapIndex cc))
-            { mc_Partition = mapPartitionIndex }
       reduceAction
         = (defaultReduceConfiguration (reduceOccurrences))
-            {{- rc_Merge     = mergeIndex -} 
-             rc_Partition = reducePartitionOccurrences }
+
 
 mapIndex 
   :: MRCrawlerConfig d a
@@ -105,26 +102,6 @@ mapIndex cc env _ docId theUri
     computeOccurrences traceLevel fileSystem fromTmp contextConfigs attrs {- cache -} docId theUri
 
 
-mapPartitionIndex
-  :: ActionEnvironment -> ()
-  -> Int -> [((Context, Word), Occurrences)]
-  -> IO [(Int, [((Context, Word), Occurrences)])]
-mapPartitionIndex _ _ _ ls = return [(1,ls)]
-
-{-
-class (Ord k2) => MapReducible mr k2 v2 | mr -> k2, mr -> v2 where
-  mergeMR  :: mr -> mr -> IO mr
-  reduceMR :: mr -> k2 -> [v2] -> IO (Maybe (mr)) 
-
-mergeMR i1 i2       = return $ mergeIndexes i1 i2 
--}
-{-
-mergeIndex
-  :: ActionEnvironment -> ()
-  -> [((Context, Word), Occurrences)] -> IO [((Context, Word), [Occurrences])]
-mergeIndex =
--}
-
 reduceOccurrences 
   :: ActionEnvironment -> ()
   -> (Context, Word) -> [Occurrences]
@@ -135,13 +112,6 @@ reduceOccurrences _ _ _ os
    return $ Just $ os'
 
 
-reducePartitionOccurrences
-  :: ActionEnvironment -> ()
-  -> Int -> [((Context, Word),Occurrences)] -> IO [(Int, [((Context, Word),Occurrences)])]
-reducePartitionOccurrences _ _ _ ls = return [(1,ls)]
-
-
-
 indexerBuildIndexAction
   :: ActionConfiguration 
        ()                                -- state
@@ -150,32 +120,15 @@ indexerBuildIndexAction
        ((Context, Word),Occurrences)     -- v3 == v2
        Inverted                          -- v4
 indexerBuildIndexAction
-  = -- readActionConfiguration $
-      (defaultActionConfiguration "INDEX_BUILD")
-        { ac_Map     = Just mapAction
+  = (defaultActionConfiguration "INDEX_BUILD")
+        { ac_Map     = Nothing
         , ac_Combine = Nothing
         , ac_Reduce  = Just reduceAction
         }
     where
-      mapAction 
-        = (defaultMapConfiguration (mapBuildIndex))
-            { mc_Partition = mapPartitionBuildIndex }
       reduceAction
         = (defaultReduceConfiguration (reduceBuildIndex))
-            {{- rc_Merge     = mergeIndex -} 
-             rc_Partition = reducePartitionBuildIndex }
 
-mapBuildIndex 
-  :: ActionEnvironment -> ()
-  -> () -> ((Context, Word), Occurrences)
-  -> IO [((),((Context, Word), Occurrences))]
-mapBuildIndex _ _ k v = return [(k,v)]
-
-mapPartitionBuildIndex
-  :: ActionEnvironment -> ()
-  -> Int -> [((),((Context, Word), Occurrences))]
-  -> IO [(Int, [((),((Context, Word), Occurrences))])]
-mapPartitionBuildIndex _ _ _ ls = return [(1,ls)]
 
 reduceBuildIndex 
   :: ActionEnvironment -> ()
@@ -189,31 +142,7 @@ reduceBuildIndex _ _ _ os
     return $ Just $ idx 
 
 
-
-reducePartitionBuildIndex
-  :: ActionEnvironment -> ()
-  -> Int -> [((),Inverted)] -> IO [(Int, [((),Inverted)])]
-reducePartitionBuildIndex _ _ _ ls = return [(1,ls)]
-
 -- -----------------------------------------------------------------------------
-{-
-encodeInputList :: (Binary k, Binary v) => [(k,v)] -> [FunctionData]
-encodeInputList ls = map (\t -> TupleFunctionData (encode t)) ls
-
-decodeOccurrencesList :: [FunctionData] -> [((Context, Word),Occurrences)]
-decodeOccurrencesList ls = map (\(TupleFunctionData t) -> decode t) ls
-
-decodeIndexList :: [FunctionData] -> [((),Inverted)]
-decodeIndexList ls = map (\(TupleFunctionData t) -> decode t) ls
--}
-{-
-decodeResult :: JobResult -> Inverted
-decodeResult (JobResult []) = error "no index found"
-decodeResult (JobResult r) = decodeFunctionData $ head r
-  where
-  decodeFunctionData (TupleFunctionData b) = decode b
-  decodeFunctionData _ = error "no index found" 
--}
 
 buildIndex :: (HolDocuments d a, {- HolIndex i -} MapReduce mr {-, HolCache c -}) 
            => MRCrawlerConfig d a
@@ -228,33 +157,9 @@ buildIndex config {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -}
   = do
     let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
     
-    {-
-    let ji = JobInfo
-             "indexer-job"
-             (encode ())
-             (Just "INDEX_OCCURRENCES")
-             (Nothing)
-             (Just "INDEX_OCCURRENCES")
-             (Just TOTFile)
-             (Nothing)
-             (Just TOTRawTuple)
-             1
-             1
-             1
-             (encodeInputList docs')
-    -}   
     runX (traceMsg 0 (" run indexer phase 1: "))
                      
-    (res,_) <- doMapReduce (indexerOccurrencesAction config)
-         ()
-         docs'
-         []
-         1
-         5
-         1
-         1
-         TOTRawTuple
-         mr 
+    (res,_) <- doMapReduce (indexerOccurrencesAction config) () docs' [] 1 5 1 1 TOTRawTuple mr 
        
     runX (traceMsg 0 (" result of phase 1: "))       
     
@@ -262,34 +167,10 @@ buildIndex config {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -}
     runX (traceMsg 0 (show $ length res))
 
     let os' = map (\t -> ((),t)) res
-{-
-    let ji2 = JobInfo
-             "indexer-job"
-             (encode ())
-             (Just "INDEX_BUILD")
-             (Nothing)
-             (Just "INDEX_BUILD")
-             (Just TOTFile)
-             (Nothing)
-             (Just TOTRawTuple)
-             1
-             1
-             1
-             (encodeInputList os')
--}    
+
     runX (traceMsg 0 (" run indexer phase 2: "))
                       
-    (res',_) <- doMapReduce
-       (indexerBuildIndexAction)
-       ()
-       os'
-       []
-       1
-       1
-       1
-       1
-       TOTRawTuple
-       mr
+    (res',_) <- doMapReduce (indexerBuildIndexAction) () os' [] 1 1 1 1 TOTRawTuple mr
     
     runX (traceMsg 0 (" result of the indexer: "))       
     
@@ -299,22 +180,8 @@ buildIndex config {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -}
     let idx = map (snd) res'
     
     return idx
-{-  = let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs)) in
-       -- assert ((sizeWords emptyIndex) == 0) 
-                 (mapReduce 
-                    workerThreads
---                    (ic_indexerTimeOut idxConfig)
---                    (( fromMaybe "/tmp/" (ic_tempPath idxConfig)) ++ "MapReduce.db")
-                    emptyIndex
-                    (computeOccurrences traceLevel 
-                              (isJust $ ic_tempPath idxConfig)
-                              (ic_contextConfigs idxConfig) 
-                              (ic_readAttributes idxConfig)
 
-                    )
-                    docs'
-                 )
--}
+
 {-
 buildIndexM :: (HolDocuments d a, HolIndexM m i, HolCache c) => 
               Int                -- ^ Number of parallel threads for MapReduce
@@ -471,25 +338,3 @@ getTexts                                                      -- select all text
     space = txt " "
             
             
-{-
- -- older and slower version. only for sentimentality
-processContext cache docId cc  = 
-        (cc_preFilter cc)                                     -- convert XmlTree
-    >>> listA (
-                    (cc_fExtract cc)               -- extract interesting parts
-                >>> deep isText                               -- Search deep for text nodes
-                >>> getText 
-              )
-    >>> arr concat                                            -- convert text nodes into strings
-    >>> arr (cc_fTokenize cc)                                 -- apply tokenizer function
-    >>> arr (filter (\w -> w /= ""))                          -- filter empty words
-    >>> perform ( (const $ (isJust cache) && (cc_addToCache cc)) -- write cache data if configured
-                  `guardsP` 
-                   ( arr unwords >>> arrIO ( putDocText (fromJust cache) (cc_name cc) docId)) 
-                )    
-    >>> arr (zip [1..])                                       -- number words
-    >>> arr (filter (\(_,s) -> not ((cc_fIsStopWord cc) s)))  -- remove stop words
-    >>> arrL (map (\(p, w) -> (cc_name cc, w, docId, p) ))    -- make a list of result tupels
-    >>> strictA                                               -- force strict evaluation
-               
- -}    

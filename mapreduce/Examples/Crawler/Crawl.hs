@@ -27,7 +27,6 @@ module Examples.Crawler.Crawl
 
   -- * Crawling
   , crawl
-  -- , crawlFileSystem
   
   -- * Initializing
   , initialCrawlerState
@@ -93,8 +92,7 @@ crawlerAction
        (MD5Hash, Maybe (Document a), S.Set URI)    -- v3 == v2
        (CrawlerState d a)                          -- v4
 crawlerAction cc
-  = -- readActionConfiguration $
-      (defaultActionConfiguration "CRAWL")
+  = (defaultActionConfiguration "CRAWL")
         { ac_Map     = Just mapAction
         , ac_Combine = Nothing
         , ac_Reduce  = Just reduceAction
@@ -131,19 +129,6 @@ mapCrawl cc env (traceLevel,_) docId theUri
     runX (traceMsg 0 ("Result: "))
     runX (traceMsg 0 (show res))
     return res
-    
-    
-
-{-
-mapPartitionCrawl
-  :: (Binary a, Show a, HolDocuments d a) 
-  -- => CrawlerState d a                    -- ^ type Whitness
-  => ActionEnvironment 
-  -> (Int, CrawlerState d a)             -- ^ state
-  -> Int -> [((), (MD5Hash, Maybe (Document b), S.Set URI))]
-  -> IO [(Int, [((), (MD5Hash, Maybe (Document b), S.Set URI))])]
-mapPartitionCrawl _ _ _ ls = return [(1,ls)]
--}
 
 
 -- ----------------------------------------------------------------------------
@@ -173,62 +158,7 @@ reduceCrawl cc _ (_,cs) k ls = processCrawlResults cs' cs k ls
   where
   cs' = cc_CrawlerState cc
 
-{-
-reducePartitionCrawl
-  :: (Binary a, Show a, HolDocuments d a)
-  -- => CrawlerState d a           -- ^ type Whitness
-  => ActionEnvironment
-  -> (Int, CrawlerState d a)    -- ^ state
-  -> Int -> [((),CrawlerState d a)] -> IO [(Int,[((),CrawlerState d a)])]
-reducePartitionCrawl _ _ _ ls = return [(1,ls)]
--}
-{-
-encodeDocList :: [(DocId, URI)] -> [FunctionData]
-encodeDocList ls = map (\t -> TupleFunctionData (encode t)) ls
 
-
-decodeResult 
-  :: (Binary a, HolDocuments d a)
-  => JobResult -> CrawlerState d a
-decodeResult (JobResult []) = error "no crawler state found"
-decodeResult (JobResult r) = decodeFunctionData $ head r
-  where
-  decodeFunctionData (TupleFunctionData b) = decode b
-  decodeFunctionData _ = error "no crawler state found" 
--}
-
-{-
-instance (Binary a, HolDocuments d a) => MapReducible (CrawlerState d a) () (String, Maybe (Document a), S.Set URI)
-  where 
-  reduceMR     = processCrawlResults
-  mergeMR _ cs = return cs
--}
-
-{-         
-crawlFileSystem :: HolDocuments d Int =>  [FilePath] -> (FilePath -> Bool) -> d Int -> IO (d Int)
-crawlFileSystem startPages docFilter emptyDocuments 
-  = do
-    docs <- mapM (crawlFileSystem' docFilter) startPages
-    foldM  (\ds s -> return $ snd $ insertDoc ds (Document "" s (Nothing :: Maybe Int))) emptyDocuments (concat docs)
-
-crawlFileSystem' :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
-crawlFileSystem' docFilter path
-  = do
-    dc     <- getDirectoryContents path
-    absdc  <- return $ map (\s -> path ++ "/" ++ s) (filter (\s ->  (s /= ".") && (s /= "..")) dc)
-    foldM process [] (filter (\s -> (docFilter s)) absdc)
-    where
-      process :: [FilePath] -> FilePath -> IO [FilePath]
-      process res s = do
-                      exists <- doesDirectoryExist s
-                      if exists 
-                        then do
-                             rec <- crawlFileSystem' docFilter s
-                             return $ res ++ rec
-                        else do
-                             print s
-                             return $ s : res
--}
 
 -- | The crawl function. MapReduce is used to scan the documents for references to other documents
 --   that have to be added to the 'Documents', too.
@@ -267,31 +197,7 @@ crawl config traceLevel maxDocs cs mr =
                            , cs_toBeProcessed = S.difference (cs_toBeProcessed cs) d
                            }
 
-{-       let ji = JobInfo
-                 "crawler-job"
-                 (encode (traceLevel,cs'))
-                 (Just "CRAWL")
-                 (Nothing)
-                 (Just "CRAWL")
-                 (Just TOTFile)
-                 (Nothing)
-                 (Just TOTRawTuple)
-                 1
-                 1
-                 1
-                 (encodeDocList d')
--}       
-       (res,_) <- doMapReduce 
-         (crawlerAction config)
-         (traceLevel,cs')
-         d'
-         []
-         1
-         5
-         1
-         1
-         TOTRawTuple
-         mr
+       (res,_) <- doMapReduce (crawlerAction config) (traceLevel,cs') d' [] 1 5 1 1 TOTRawTuple mr
        
        runX (traceMsg 0 (" result of this cycle: "))       
        
