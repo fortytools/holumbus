@@ -311,6 +311,7 @@ appendFile f c fs
   = do
     infoM localLogger $ "appending file: " ++ show f
     np <- getNearestNodePortForFile f (S.getContentLength c) fs
+    debugM localLogger $ "nearest port: " ++ show np
     case np of
       (Nothing) -> return ()
       (Just np') ->

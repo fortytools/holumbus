@@ -272,22 +272,17 @@ lookupNearestPortWithFileAndSpace f size sid s cm
     return mbnp 
 -}
 
+-- TODO add capacity
 lookupNearestPortWithSpace :: Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortWithSpace size sid s cm
   = do
-    dats <- getAllClientInfos s
-    case dats of
-      (ci:_) -> return $ Just $ ci_Port ci
-      []     -> return Nothing 
-{-    do
-    dats <- getClientInfoList s cm
-    -- TODO add capacity 
-    let sids  = map (\ci -> ci_Site ci) $ filter (...) dats
+    dats <- getAllClientInfos s 
+    let sids  = map (\ci -> ci_Site ci) dats
         mbns  = nearestId sid sids
-        mbdat = maybe Nothing (\ns -> List.find (\(s,_,_) -> s == ns) dats) mbns
-        mbnp  = maybe Nothing (\(_,np,_) -> Just np) mbdat
+        mbdat = maybe Nothing (\ns -> List.find (\ci -> (ci_Site ci) == ns) dats) mbns
+        mbnp  = maybe Nothing (\ci -> Just $ ci_Port ci) mbdat 
     return mbnp
--}
+
 
 lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortForFile f size sid s cm
@@ -296,7 +291,13 @@ lookupNearestPortForFile f size sid s cm
     nodeWithFile    <- lookupNearestPortWithFileAndSpace f size sid s cm
     nodeWithoutFile <- lookupNearestPortWithSpace size sid s cm 
     let mbnp = maybe nodeWithoutFile (\np -> Just np) nodeWithFile
-    return mbnp
+{-  debugM localLogger $ "lookupNearestPortForFile: file:            " ++ show f    
+    debugM localLogger $ "lookupNearestPortForFile: size:            " ++ show size
+    debugM localLogger $ "lookupNearestPortForFile: site:            " ++ show sid    
+    debugM localLogger $ "lookupNearestPortForFile: nodeWithFile:    " ++ show nodeWithFile
+    debugM localLogger $ "lookupNearestPortForFile: nodeWithoutFile: " ++ show nodeWithoutFile
+    debugM localLogger $ "lookupNearestPortForFile: result:          " ++ show mbnp
+-}  return mbnp
     
 
 getOtherFilePorts :: S.FileId -> IdType -> Server -> FileControllerData -> IO [ClientInfo]
