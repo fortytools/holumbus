@@ -96,7 +96,11 @@ function displayResult (result, query) {
 }
 
 function replaceInQuery (needle, substitute) {
-  $("querytext").value = $("querytext").value.gsub(needle, substitute);
+  if ($("querytext").value == "") {
+    $("querytext").value = substitute;
+  } else {
+    $("querytext").value = $("querytext").value.gsub(needle, substitute);
+  }
   processQuery(0);
 }
 
