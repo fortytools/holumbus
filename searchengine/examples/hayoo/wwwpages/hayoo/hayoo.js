@@ -1,6 +1,6 @@
 /*
 
-	The Hayoo! AJAX interface
+  The Hayoo! AJAX interface
 
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
