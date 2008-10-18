@@ -5,6 +5,7 @@
 
 # TEST_BASE	= test
 EXAMPLES_BASE	= Examples
+PROGRAMS_BASE	= Programs
 
 all : configure build doc
 	
@@ -27,13 +28,17 @@ prof	:
 # alltests :
 #	$(MAKE) -C $(TEST_BASE) all
 
-allexamples :
+examples :
 	$(MAKE) -C $(EXAMPLES_BASE) all
+
+programs :	
+	$(MAKE) -C $(PROGRAMS_BASE) all
 
 wc :
 	@wc -l `find ./source/Holumbus -wholename './_darcs/*' -prune -o -name "*.hs" -print`   
 	# $(MAKE) -C $(TEST_BASE) wc
 	$(MAKE) -C $(EXAMPLES_BASE) wc
+	$(MAKE) -C $(PROGRAMS_BASE) wc
 
 zip:	clean
 	@zip -r mrhaskell$$(date +%Y%m%d_%H%M).zip *
@@ -43,4 +48,5 @@ clean :
 	@rm -rf mrhaskell*.zip
 	# $(MAKE) -C $(TEST_BASE) clean
 	$(MAKE) -C $(EXAMPLES_BASE) clean
+	$(MAKE) -C $(PROGRAMS_BASE) clean
 				 
