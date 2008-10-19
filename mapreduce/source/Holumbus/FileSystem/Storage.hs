@@ -20,7 +20,6 @@ module Holumbus.FileSystem.Storage
 (
 -- * file datatypes
   FileId
--- , FileType(..)
 , FileContent
 --, getFileContentType
 

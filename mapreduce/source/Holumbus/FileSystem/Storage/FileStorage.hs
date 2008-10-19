@@ -182,9 +182,6 @@ instance S.Storage FileStorage where
     = do
       if isMember (fs_Directory stor) i
         then do
-          -- metaData <- S.getFileData stor i
-          -- if ((S.fd_Type $ fromJust metaData) == (S.getFileContentType c)) 
-          --  then do
           appendToBinFile path c
               -- case c of
               --  (S.TextFile t) -> appendToTextFile path t
@@ -192,9 +189,6 @@ instance S.Storage FileStorage where
               --  (S.BinFile  b) -> appendToBinFile path b
           dat <- S.createFileData i c
           writeDirectory $ stor { fs_Directory = newdir dat }
-          --  else do
-              -- TODO throw exception...
-          --    return stor
         else do
           S.createFile stor i c      
       where
