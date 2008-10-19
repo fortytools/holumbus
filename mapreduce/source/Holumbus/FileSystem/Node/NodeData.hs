@@ -161,8 +161,8 @@ instance NodeClass Node where
       case nid of
         (Nothing) ->
           do
-          --TODO besser exception-handling
-          putStrLn "ERROR: Node.createFile - no nid"
+          --TODO better exception-handling
+          errorM localLogger $ "createFile \"" ++ i ++ "\" - no nid"
           return ()
         (Just nid') ->
           do
@@ -181,8 +181,8 @@ instance NodeClass Node where
       case nid of
         (Nothing) ->
           do
-          --TODO besser exception-handling
-          putStrLn "ERROR: Node.createFile - no nid"
+          --TODO better exception-handling          
+          errorM localLogger $ "appendFile \"" ++ i ++ "\" - no nid"
           return ()
         (Just nid') ->
           do
@@ -201,8 +201,8 @@ instance NodeClass Node where
       case nid of
         (Nothing) ->
           do
-          --TODO besser exception-handling
-          putStrLn "ERROR: Node.createFile - no nid"
+          --TODO better exception-handling
+          errorM localLogger $ "deleteFile \"" ++ i ++ "\" - no nid"
           return ()
         (Just nid') ->
           do
