@@ -55,7 +55,6 @@ library
                 , Holumbus.MapReduce.JobController
                 , Holumbus.MapReduce.TaskProcessor
                 , Holumbus.MapReduce.Types
-                , Holumbus.MapReduce.Demo
                 , Holumbus.MapReduce.UserInterface
                 , Holumbus.FileSystem.UserInterface
                 , Holumbus.FileSystem.FileSystem
