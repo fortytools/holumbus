@@ -666,11 +666,16 @@ defaultSplit _ _ n ls
 defaultPartition
   :: (Binary k2, Binary v2)
   => MapPartition a k2 v2
+defaultPartition _ _ 1 ls
+  -- To make it faster, wenn no partition is used
+  = return [(1,ls)]
 defaultPartition _ _ n ls
   = do
     -- calculate partition-Values
     let markedList = map (\t@(k,_) -> (hash k,t)) ls
     -- merge them
+    
+    -- TODO this might change (revert) the order of the Elements...
     let resultList = AMap.toList $ AMap.fromTupleList markedList
     return resultList
     where
