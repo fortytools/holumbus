@@ -41,11 +41,11 @@ wc :
 	$(MAKE) -C $(PROGRAMS_BASE) wc
 
 zip:	clean
-	@zip -r mrhaskell$$(date +%Y%m%d_%H%M).zip *
+	@zip -r holumbus_mapreduce$$(date +%Y%m%d_%H%M).zip *
 
 clean :
 	@runhaskell Setup.hs clean
-	@rm -rf mrhaskell*.zip
+	@rm -rf holumbus_mapreduce*.zip
 	# $(MAKE) -C $(TEST_BASE) clean
 	$(MAKE) -C $(EXAMPLES_BASE) clean
 	$(MAKE) -C $(PROGRAMS_BASE) clean
