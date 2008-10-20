@@ -1,6 +1,6 @@
 # Making all examples
 
-ALLEXAMPLES       = Crawler WordFrequency
+ALLEXAMPLES       = Crawler Grep Sort WordFrequency
 STANDALONE        = Standalone
 
 

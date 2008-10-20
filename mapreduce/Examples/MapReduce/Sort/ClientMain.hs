@@ -19,11 +19,12 @@ import           Control.Exception
 
 import           Holumbus.Common.Logging
 import           Holumbus.Network.PortRegistry.PortRegistryPort
-import qualified Holumbus.Distribution.DMapReduce as MR
+import qualified Holumbus.Distribution.DMapReduce as MR 
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce 
 
-import           Examples.MapReduce.WordFrequency.WordFrequency
+import           Examples.MapReduce.Sort.Sort
+
     
 version :: String
 version = "Holumbus-Distribution Standalone-Client 0.1"
@@ -39,8 +40,8 @@ main
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
       mr <- initializeData
-
-      (ls,_) <- doMapReduce (wordFrequencyAction) () textList [] 1 5 1 1 TOTRawTuple mr
+      
+      (ls,_) <- doMapReduce (sortAction) () namesList [] 1 5 1 1 TOTRawTuple mr
       
       putStrLn "Result: "
       putStrLn $ show ls

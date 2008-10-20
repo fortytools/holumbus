@@ -19,10 +19,10 @@ import Control.Exception
 
 import qualified Holumbus.Common.Logging as LOG
 import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.MapReduce.Demo as DEMO
 import qualified Holumbus.Standalone.SMapReduce as MR
 import qualified Holumbus.MapReduce.UserInterface as UI
 
+import           Examples.MapReduce.WordFrequency.WordFrequency
 
 version :: String
 version = "Holumbus-Standalone MapReducer 0.1"
@@ -44,9 +44,8 @@ initializeData :: IO MR.SMapReduce
 initializeData
   = do
     fs <- FS.mkStandaloneFileSystem FS.defaultFSStandaloneConfig
-    DEMO.createDemoFiles fs
-  
-    let actions = DEMO.demoActions
+    createWordFrequencyDemoFiles fs
+    let actions = wordFrequencyActionMap
     let config  = MR.defaultStandaloneConfig
     MR.newSMapReduce fs actions config
 

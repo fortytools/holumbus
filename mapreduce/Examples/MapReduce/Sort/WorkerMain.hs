@@ -19,14 +19,14 @@ import           Control.Exception
 
 import           Holumbus.Common.Logging
 import           Holumbus.Network.PortRegistry.PortRegistryPort
+import qualified Holumbus.FileSystem.FileSystem as FS
 import qualified Holumbus.Distribution.DMapReduce as MR
-import           Holumbus.MapReduce.Types
-import           Holumbus.MapReduce.MapReduce 
+import qualified Holumbus.MapReduce.UserInterface as UI
 
-import           Examples.MapReduce.WordFrequency.WordFrequency
-    
+import           Examples.MapReduce.Sort.Sort
+
 version :: String
-version = "Holumbus-Distribution Standalone-Client 0.1"
+version = "Holumbus-Distribution Standalone-Worker 0.1"
 
 
 main :: IO ()
@@ -37,26 +37,27 @@ main
       do
       initializeLogging
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
-      setPortRegistry p      
-      mr <- initializeData
-
-      (ls,_) <- doMapReduce (wordFrequencyAction) () textList [] 1 5 1 1 TOTRawTuple mr
-      
-      putStrLn "Result: "
-      putStrLn $ show ls
-            
-      deinitializeData mr
+      setPortRegistry p
+      (mr,fs) <- initializeData
+      UI.runUI mr version      
+      deinitializeData (mr,fs)
 
 
-initializeData :: IO (MR.DMapReduce)
+initializeData :: IO (MR.DMapReduce, FS.FileSystem)
 initializeData 
   = do
-    let config = MR.defaultMRClientConfig
-    MR.mkMapReduceClient config
+    fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+    
+    let actions = sortActionMap
+    let config  = MR.defaultMRWorkerConfig
+    
+    mr <- MR.mkMapReduceWorker fs actions config
+    return (mr,fs)
 
 
-deinitializeData :: MR.DMapReduce -> IO ()
-deinitializeData mr
+deinitializeData :: (MR.DMapReduce, FS.FileSystem) -> IO ()
+deinitializeData (mr,fs)
   = do
     MR.closeMapReduce mr
+    FS.closeFileSystem fs
     

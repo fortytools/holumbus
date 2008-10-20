@@ -16,8 +16,9 @@
 module Main(main) where
 
 import           Holumbus.Common.FileHandling
-import           Holumbus.MapReduce.Demo
 import           Holumbus.MapReduce.Types
+
+import           Examples.MapReduce.WordFrequency.WordFrequency
 
 version :: String
 version = "Pickle-Test 0.1"
@@ -27,8 +28,8 @@ main
   = do
     putStrLn version
     putStrLn "writing: job.xml"
-    saveToXmlFile "job.xml" demoJob
+    saveToXmlFile "job.xml" wordFrequencyDemoJob
     putStrLn "reading: job.xml"
     ji <- (loadFromXmlFile "job.xml")::IO JobInfo
     putStrLn $ show ji
-    putStrLn $ "comparing: " ++ show (ji == demoJob)
+    putStrLn $ "comparing: " ++ show (ji == wordFrequencyDemoJob)
