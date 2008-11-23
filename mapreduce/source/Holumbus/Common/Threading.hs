@@ -12,7 +12,11 @@
 
   Operations to start and stop threads which will not be killed when a regular
   exception occurs. In this case, the thread will continue working. Such a 
-  thread can only be killed by the stop-method.
+  thread can only be killed by the stop-method. This whole thing is a wrapper
+  around the normal lightweight thread functions.
+  
+  The created threads execute a function in an infinite loop. This is the
+  normal usecase for message dispatcher threads.
   
 -}
 
@@ -47,10 +51,13 @@ localLogger = "Holumbus.Common.Threading"
 -- Thread-Control
 -- ----------------------------------------------------------------------------
 
+-- | Exception to stop a thread, so we can distinguish this request from
+--   "real" exceptions.
 data KillThreadException = KillThreadException ThreadId
   deriving (Typeable)
 
 
+-- | The data needed to access and control the thread. 
 data ThreadData = ThreadData {
     thd_Id      :: Maybe ThreadId
   , thd_Running :: Bool
@@ -59,9 +66,12 @@ data ThreadData = ThreadData {
   , thd_Error   :: (IO ())
   }
   
+  
+-- | The thread datatype
 type Thread = MVar ThreadData 
 
 
+-- | Creates a new thread object. The thread will not be running.
 newThread :: IO Thread
 newThread
   = do 
@@ -71,37 +81,45 @@ newThread
     defaultDelay = Nothing
 
 
+-- | Sets the delay between two loop cycles. Default value: no delay.
 setThreadDelay :: Int -> Thread -> IO ()
 setThreadDelay d thread
   = do
     modifyMVar thread $ \thd -> return (thd {thd_Delay = Just d},())
     
     
+-- | Sets the action function, which will be executed in each cycle
 setThreadAction :: (IO ()) -> Thread -> IO ()
 setThreadAction f thread
   = do
     modifyMVar thread $ \thd -> return (thd {thd_Action = f},())
 
 
+-- | Sets the error handler. It is activated, when the action function
+--   will raise an exception.
 setThreadErrorHandler :: (IO ()) -> Thread -> IO ()
 setThreadErrorHandler e thread
   = do
     modifyMVar thread $ \thd -> return (thd {thd_Error = e},())
 
 
+-- | Starts the thread.
 startThread :: Thread -> IO ()
 startThread th
   = modifyMVar th $
       \thd ->
       do
+      -- check, if thread is running (it has a threadId)
       servId' <- case (thd_Id thd) of
         i@(Just _) -> return i
         (Nothing) ->
           do
+          -- if not running, start the loop
           i <- forkIO $ doAction th
           return (Just i)
       return (thd {thd_Id = servId', thd_Running = True},())
     where    
+    -- the action loop
     doAction thread
       = do
         thd <- readMVar thread
@@ -143,6 +161,9 @@ startThread th
           = modifyMVar t $ \thd -> return (thd {thd_Id = Nothing, thd_Running = False},())
 
 
+-- | Stops the thread. If the thread itself wants to stop from within the action
+--   function, the current cycle will be executed till the end. So statements
+--   after this function will still be executed.
 stopThread :: Thread -> IO ()
 stopThread thread
   = do

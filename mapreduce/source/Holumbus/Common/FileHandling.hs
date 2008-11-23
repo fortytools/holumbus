@@ -11,7 +11,31 @@
 
 
   Some nice helper functions for strict file writing, appending and
-  reading.
+  reading. All read-functions are strict, in the sense that
+  the whole file is read at once and the content is stored into memory.
+  So you won't have any semi-closed handles which might bring you in trouble
+  from time to time. The files are immedialty closed after the reading.
+  This Module can handle four filetypes: XML-Files, List-Files,
+  Binary-Files and Text-Files.
+  
+  XML-Files:
+  Normal textfiles, but the content is stored as a xml-representation. For
+  the pickling, we use the HXT-Library 
+  (see http:\/\/www.fh-wedel.de\/~si\/HXmlToolbox\/)
+  
+  List-Files:
+  Binary-Files, which store a list of data-objects. The main difference
+  between Binary-Files and List-Files is, that you can append data to a
+  List-File which will be automatically concatenated to the existing list.
+  If you try this with a normal Binary-File, you'll get only the original
+  list and the appended data will be lost.
+  
+  Binary-Files:
+  Normal binary files, for the encoding and decoding, we use the Haskell
+  binary-package.
+  
+  Text-Files:
+  Normal text files.
 
 -}
 -- ----------------------------------------------------------------------------
@@ -59,6 +83,7 @@ import           Text.XML.HXT.Arrow
 -- ----------------------------------------------------------------------------
 
 
+-- | Loads an XML-File and parses the content to a specified datatype.
 loadFromXmlFile :: (XmlPickler a) => FilePath -> IO a
 loadFromXmlFile f
   = do
@@ -68,6 +93,7 @@ loadFromXmlFile f
     options = [ (a_validate,v_0), (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]
 
 
+-- | Converts a dataset to XML and saves the XML-string into a file.
 saveToXmlFile :: (XmlPickler a) => FilePath -> a -> IO ()
 saveToXmlFile f i 
   = do
@@ -83,14 +109,16 @@ saveToXmlFile f i
 -- ----------------------------------------------------------------------------
 
 
+-- | Writes data to a list file.
 writeToListFile :: (Binary a) => FilePath -> [a] -> IO ()
 writeToListFile fp bs = writeToBinFile fp $ B.concat $ map encode bs
 
 
+-- | Appends data to a list file.
 appendToListFile :: (Binary a) => FilePath -> [a] -> IO ()
 appendToListFile fp bs = appendToBinFile fp $ B.concat $ map encode bs
 
-    
+-- | reads from a list file.
 readFromListFile :: (Binary a) => FilePath -> IO [a]
 readFromListFile f
    = do
@@ -98,6 +126,9 @@ readFromListFile f
      return $ parseByteStringToList b
 
 
+-- | You'll need this function, if you read the files a a normal binary file,
+--   but the content itself is a list. This function encodes the bytestring
+--   into a list of the specified datatype.
 parseByteStringToList :: (Binary a) => B.ByteString -> [a]
 parseByteStringToList b = reverse $ parse b []
   where
@@ -115,15 +146,18 @@ parseByteStringToList b = reverse $ parse b []
 -- strict functions, bytestrings only     
 -- ----------------------------------------------------------------------------
 
-
+-- | Write data to a binary file.
 writeToBinFile :: FilePath -> B.ByteString -> IO ()
 writeToBinFile = B.writeFile
 
-    
+
+-- | Append data to a binary file, this doesn't mean, that the contents
+--   are really concatenated when you read the file.    
 appendToBinFile :: FilePath -> B.ByteString -> IO ()
 appendToBinFile = B.appendFile
 
-    
+
+-- | Reads the data from a binary file as a bytestring.
 readFromBinFile :: FilePath -> IO B.ByteString
 readFromBinFile f  
    = bracket (openBinaryFile f ReadMode) hClose $ 
@@ -138,14 +172,16 @@ readFromBinFile f
 -- ----------------------------------------------------------------------------
 
      
+-- | Writes a sting to a text file.
 writeToTextFile :: FilePath -> String -> IO ()
 writeToTextFile = writeFile
 
-
+-- | Appends a string to a text file.
 appendToTextFile :: FilePath -> String -> IO ()
 appendToTextFile = appendFile
 
--- strict file reading by Simon Marlow
+
+-- | Strict file reading by Simon Marlow.
 -- found on
 -- http:\/\/users.aber.ac.uk\/afc\/stricthaskell.html
 readFromTextFile :: FilePath -> IO String
@@ -158,8 +194,10 @@ readFromTextFile f
       len <- withForeignPtr fp $ \buf -> hGetBuf h buf (fromIntegral s)
       lazySlurp fp 0 len
 
+
 buf_size :: Int
 buf_size = 4096
+
 
 lazySlurp :: ForeignPtr Word8 -> Int -> Int -> IO String
 lazySlurp fp ix len
