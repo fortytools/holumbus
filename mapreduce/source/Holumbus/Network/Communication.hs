@@ -486,7 +486,7 @@ instance ServerClass ServerPort where
 -- Client-Messages
 -- ----------------------------------------------------------------------------
   
-  -- | Requests datatype, which is send to a filesystem node.
+-- | Requests datatype, which is send to a filesystem node.
 data ClientRequestMessage
   = CReqPing IdType
   | CReqClientAction B.ByteString
@@ -591,7 +591,7 @@ data Client = Client (MVar ClientData)
 newClient
   :: (Binary a, Binary b)
   => StreamName -> Maybe SocketId
-  -> (a -> IO (Maybe b))  -- | the individual request dispatcher for the client
+  -> (a -> IO (Maybe b))  -- ^ the individual request dispatcher for the client
   -> IO Client
 newClient sn soid action
   = do  
