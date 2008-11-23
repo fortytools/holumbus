@@ -31,7 +31,7 @@ version = "Ports-Demo Sender 0.1"
 main :: IO ()
 main
   = do
-    initializeLogging
+    initializeLogging []
     putStrLn version
     putStrLn "Begin"
     printStreamController 

@@ -32,7 +32,7 @@ version = "Holumbus-PortRegistry 0.1"
 main :: IO ()
 main
   = do
-    initializeLogging
+    initializeLogging []
     let sn = "portregistry"
     let po = (Just 9000)
     r <- newPortRegistryData sn po

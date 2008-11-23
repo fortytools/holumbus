@@ -43,7 +43,7 @@ decodeStringPort = decodeMaybe
 main :: IO ()
 main
   = do
-    initializeLogging
+    initializeLogging []
     putStrLn version
     
     putStrLn ""

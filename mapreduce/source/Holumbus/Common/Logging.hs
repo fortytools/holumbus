@@ -40,22 +40,27 @@ import System.Log.Handler.Simple
 
 
 -- | configures the logging-parameters for the Holumbus-Framework
-initializeLogging :: IO ()
-initializeLogging = do
+initializeLogging :: [(String, Priority)] -> IO ()
+initializeLogging ls = do
 
     -- log all verbose	
     v <- verboseStreamHandler stderr DEBUG
     updateGlobalLogger rootLoggerName (setLevel DEBUG . setHandlers [v])
 
-    updateGlobalLogger "Holumbus" (setLevel DEBUG)
-    updateGlobalLogger "Holumbus.Network" (setLevel WARNING)
-    updateGlobalLogger "Holumbus.MapReduce.TaskProcessor.task" (setLevel WARNING)
-    updateGlobalLogger "Holumbus.FileSystem.Storage.FileStorage" (setLevel WARNING)
-    updateGlobalLogger "Holumbus.FileSystem.Node.NodeData" (setLevel INFO)
-    updateGlobalLogger "Holumbus.MapReduce.Types" (setLevel INFO)
-    -- updateGlobalLogger "Holumbus.Network.Communication" (setLevel DEBUG)
-    updateGlobalLogger "Holumbus.MapReduce.JobController.cycle" (setLevel WARNING)
+    -- set all logLevels for all loggers
+    mapM_ (\(s,p) -> updateGlobalLogger s (setLevel p)) ls
 
     -- log all to syslog
     -- s <- openlog "SyslogStuff" [PID] USER DEBUG
     -- updateGlobalLogger rootLoggerName (addHandler s)
+    
+    -- this will be removed in next versions
+    -- updateGlobalLogger "Holumbus" (setLevel DEBUG)
+    -- updateGlobalLogger "Holumbus.Network" (setLevel WARNING)
+    -- updateGlobalLogger "Holumbus.MapReduce.TaskProcessor.task" (setLevel WARNING)
+    -- updateGlobalLogger "Holumbus.FileSystem.Storage.FileStorage" (setLevel WARNING)
+    -- updateGlobalLogger "Holumbus.FileSystem.Node.NodeData" (setLevel INFO)
+    -- updateGlobalLogger "Holumbus.MapReduce.Types" (setLevel INFO)
+    -- updateGlobalLogger "Holumbus.Network.Communication" (setLevel DEBUG)
+    -- updateGlobalLogger "Holumbus.MapReduce.JobController.cycle" (setLevel WARNING)
+    

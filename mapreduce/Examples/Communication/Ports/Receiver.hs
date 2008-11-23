@@ -44,7 +44,7 @@ version = "Ports-Demo Receiver 0.1"
 main :: IO ()
 main
   = do
-    initializeLogging
+    initializeLogging []
     putStrLn version    
     putStrLn "Begin"
     reg <- newPortRegistryFromXmlFile "/tmp/registry.xml"

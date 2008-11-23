@@ -34,7 +34,7 @@ main
     putStrLn version
     handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
-      LOG.initializeLogging      
+      LOG.initializeLogging []
       sa <- initializeData
       UI.runUI sa version
       deinitializeData sa

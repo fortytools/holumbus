@@ -35,7 +35,7 @@ import           Examples.MapReduce.Crawler.Config
 main :: IO ()
 main 
   = do
-    initializeLogging
+    initializeLogging []
     p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
     setPortRegistry p
   

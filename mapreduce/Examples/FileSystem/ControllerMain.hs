@@ -34,7 +34,7 @@ main
     putStrLn version
     handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
-      initializeLogging
+      initializeLogging []
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p
       fs <- initializeData
