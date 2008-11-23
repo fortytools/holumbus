@@ -24,16 +24,9 @@ import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.Console.Console as Console
 
 
--- type StringStream = Stream String
-type StringPort   = Port String
-
-
--- newStringStream :: IO StringStream
--- newStringStream = newLocalStream Nothing
-
-
 version :: String
 version = "Ports-Demo Sender 0.1"
+
 
 main :: IO ()
 main
@@ -48,7 +41,7 @@ main
     Console.handleUserInput createConsole p
 
         
-createConsole :: Console.ConsoleData StringPort
+createConsole :: Console.ConsoleData (Port String)
 createConsole =
   -- Console.addConsoleCommand "send" sendMsg "sends a message" $
   -- Console.addConsoleCommand "sendP" sendPMsg "sends a message to the private port of the receiver" $
@@ -90,15 +83,15 @@ sendNMsg _ line
     send namedPort msg
 -}
 
-sendGMsg :: StringPort -> [String] -> IO ()
+sendGMsg :: (Port String) -> [String] -> IO ()
 sendGMsg _ line
   = do
-    globalPort <- (newGlobalPort "global")::IO StringPort
+    globalPort <- (newGlobalPort "global")::IO (Port String)
     let msg = intercalate " " line
     send globalPort msg
 
 
-printDebug :: StringPort -> [String] -> IO ()
+printDebug :: (Port String) -> [String] -> IO ()
 printDebug _ _
   = do
     printStreamController
@@ -106,7 +99,7 @@ printDebug _ _
 
 
 
-printVersion :: StringPort -> [String] -> IO ()
+printVersion :: (Port String) -> [String] -> IO ()
 printVersion _ _
   = do
     putStrLn version
