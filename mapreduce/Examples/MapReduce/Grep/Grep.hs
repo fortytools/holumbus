@@ -44,7 +44,7 @@ localLogger = "Examples.MapReduce.Grep.Grep"
 -- Distributed Grep
 -- ----------------------------------------------------------------------------
 
-{-
+-- grep for the namelist example
 mapGrep :: ActionEnvironment -> String -> () -> String -> IO [((), String)]
 mapGrep _ a _ v
   = do 
@@ -57,8 +57,9 @@ mapGrep _ a _ v
     return res
     where
     matches e n = isJust $ matchRegex (mkRegex e) n
--}
 
+{-
+-- grep for (Filename,Text)
 mapGrep :: ActionEnvironment -> String -> String -> String -> IO [((),(String,String))]
 mapGrep _ e k v
   = do
@@ -68,16 +69,18 @@ mapGrep _ e k v
       = if (isJust $ matchRegex (mkRegex e) l)
         then Just ((),(k,l))
         else Nothing    
-    
-{-
+-}  
+
+-- reduce for the namelist example
 reduceGrep :: ActionEnvironment -> String -> () -> [String] -> IO (Maybe [String])
 reduceGrep _ _ _ vs 
   = do
     infoM localLogger "reduce/combine Grep"
     debugM localLogger $ "input: " ++ show vs
     return (Just vs)
--}
 
+{-
+-- reduce for (Filename,Text)
 reduceGrep
   :: ActionEnvironment -> String -> () -> [(String,String)] -> IO (Maybe [(String,String)])
 reduceGrep _ _ _ vs 
@@ -85,10 +88,13 @@ reduceGrep _ _ _ vs
     infoM localLogger "reduce/combine Grep"
     debugM localLogger $ "input: " ++ show vs
     return (Just vs)
+-}
+
 -- ----------------------------------------------------------------------------
 -- Actions
 -- ----------------------------------------------------------------------------
-{-
+
+-- Action for the namelist example
 grepAction
   :: ActionConfiguration 
        String                                      -- state
@@ -107,8 +113,9 @@ grepAction
         = (defaultMapConfiguration mapGrep)
       reduceAction
         = (defaultReduceConfiguration reduceGrep)
--}        
 
+{-
+-- Action for (Filename,Text)
 grepAction
   :: ActionConfiguration 
        String                                      -- state
@@ -127,6 +134,7 @@ grepAction
         = (defaultMapConfiguration mapGrep)
       reduceAction
         = (defaultReduceConfiguration reduceGrep)
+-}
 
 
 grepActionMap :: ActionMap
