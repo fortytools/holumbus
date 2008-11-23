@@ -44,7 +44,7 @@ localLogger = "Examples.MapReduce.Grep.Grep"
 -- Distributed Grep
 -- ----------------------------------------------------------------------------
 
-
+{-
 mapGrep :: ActionEnvironment -> String -> () -> String -> IO [((), String)]
 mapGrep _ a _ v
   = do 
@@ -56,21 +56,39 @@ mapGrep _ a _ v
     debugM localLogger $ "output: " ++ show res
     return res
     where
-      matches e n = isJust $ matchRegex (mkRegex e) n
+    matches e n = isJust $ matchRegex (mkRegex e) n
+-}
 
-
+mapGrep :: ActionEnvironment -> String -> String -> String -> IO [((),(String,String))]
+mapGrep _ e k v
+  = do
+    return $ mapMaybe (getMatch) $ lines v
+    where
+    getMatch l 
+      = if (isJust $ matchRegex (mkRegex e) l)
+        then Just ((),(k,l))
+        else Nothing    
+    
+{-
 reduceGrep :: ActionEnvironment -> String -> () -> [String] -> IO (Maybe [String])
 reduceGrep _ _ _ vs 
   = do
     infoM localLogger "reduce/combine Grep"
     debugM localLogger $ "input: " ++ show vs
     return (Just vs)
+-}
 
-
+reduceGrep
+  :: ActionEnvironment -> String -> () -> [(String,String)] -> IO (Maybe [(String,String)])
+reduceGrep _ _ _ vs 
+  = do
+    infoM localLogger "reduce/combine Grep"
+    debugM localLogger $ "input: " ++ show vs
+    return (Just vs)
 -- ----------------------------------------------------------------------------
 -- Actions
 -- ----------------------------------------------------------------------------
-
+{-
 grepAction
   :: ActionConfiguration 
        String                                      -- state
@@ -89,7 +107,27 @@ grepAction
         = (defaultMapConfiguration mapGrep)
       reduceAction
         = (defaultReduceConfiguration reduceGrep)
-        
+-}        
+
+grepAction
+  :: ActionConfiguration 
+       String                                      -- state
+       String String                               -- k1, v1
+       () (String,String)                          -- k2, v2
+       (String, String)                            -- v3 == v2
+       [(String, String)]                          -- v4
+grepAction
+  = (defaultActionConfiguration "GREP")
+        { ac_Map     = Just mapAction
+        , ac_Combine = Nothing
+        , ac_Reduce  = Just reduceAction
+        }
+    where
+      mapAction 
+        = (defaultMapConfiguration mapGrep)
+      reduceAction
+        = (defaultReduceConfiguration reduceGrep)
+
 
 grepActionMap :: ActionMap
 grepActionMap
