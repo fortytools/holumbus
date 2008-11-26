@@ -10,6 +10,8 @@
   Version    : 0.1
 
 
+  This modules defines the messages from and to the PortRegistry.
+
 -}
 -- ----------------------------------------------------------------------------
 
@@ -37,11 +39,16 @@ import           Holumbus.Network.Messages
 -- Ports
 -- ----------------------------------------------------------------------------
 
-
+-- | The Stream for the messages TO the PortRegistry.
 type PortRegistryRequestStream  = Stream PortRegistryRequestMessage
+
+-- | The Port for the messages TO the PortRegistry.
 type PortRegistryRequestPort    = Port PortRegistryRequestMessage
 
+-- | The Stream for the messages FROM the PortRegistry.
 type PortRegistryResponseStream = Stream PortRegistryResponseMessage
+
+-- | The Port for the messages FROM the PortRegistry.
 type PortRegistryResponsePort   = Port PortRegistryResponseMessage
 
 
@@ -50,6 +57,7 @@ type PortRegistryResponsePort   = Port PortRegistryResponseMessage
 -- Messages
 -- ----------------------------------------------------------------------------
 
+-- | The messages TO the PortRegistry.
 data PortRegistryRequestMessage
   = PRReqRegister StreamName SocketId
   | PRReqUnregister StreamName
@@ -75,7 +83,7 @@ instance Binary PortRegistryRequestMessage where
         _ -> return (PRReqUnknown)
 
 
-
+-- | The messages FROM the PortRegistry.
 data PortRegistryResponseMessage
   = PRRspSuccess
   | PRRspLookup (Maybe SocketId)

@@ -10,6 +10,8 @@
   Version    : 0.1
 
 
+  This module contains the main datatype for the PortRegistry.
+  
 -}
 -- ----------------------------------------------------------------------------
 
@@ -51,10 +53,11 @@ localLogger = "Holumbus.Network.PortRegistry.PortRegistryData"
 -- Datatypes
 -- ----------------------------------------------------------------------------
 
+-- | The data needed by the PortRegistry
 data PortRegistryData = PortRegistryData {
-    prd_ServerThreadId :: Thread
-  , prd_OwnStream      :: PortRegistryRequestStream
-  , prd_SocketMap      :: MVar (Map.Map StreamName SocketId)
+    prd_ServerThreadId :: Thread                             -- ^ The thread-data of the message-dispatcher thread.
+  , prd_OwnStream      :: PortRegistryRequestStream          -- ^ The Stream for all incomming messages.
+  , prd_SocketMap      :: MVar (Map.Map StreamName SocketId) -- ^ The map storing the port-data (the real registry).
   }
 
 
@@ -63,6 +66,7 @@ data PortRegistryData = PortRegistryData {
 -- ----------------------------------------------------------------------------
 
 
+-- | Creates a new PortRegistry.
 newPortRegistryData :: StreamName -> Maybe PortNumber -> IO PortRegistryData
 newPortRegistryData sn pn
   = do
@@ -74,6 +78,7 @@ newPortRegistryData sn pn
     return prd
 
 
+-- | Closes the PortRegistry with its streams and threads.
 closePortRegistryData :: PortRegistryData -> IO ()
 closePortRegistryData prd
   = do
@@ -82,10 +87,15 @@ closePortRegistryData prd
     return ()
 
 
+-- | Get the RequestPort of the PortRegistry.
+--   It can be used to give access to the PortRegistry, eg. you can serialize
+--   this information and transfer it over the network to grant access to the
+--   clients.
 getPortRegistryRequestPort :: PortRegistryData -> IO PortRegistryRequestPort
 getPortRegistryRequestPort prd = newPortFromStream (prd_OwnStream prd)
 
 
+-- | The main dispatch-function. It handles the incomming messages and reacts.
 dispatch 
   :: PortRegistryData 
   -> PortRegistryRequestMessage 
@@ -122,6 +132,7 @@ dispatch prd msg replyPort
 -- ----------------------------------------------------------------------------
 
 
+-- The PortRegistry-typeclass instanciation for the PortRegistryData.
 instance PortRegistry PortRegistryData where
   
   registerPort sn soid prd

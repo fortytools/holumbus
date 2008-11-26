@@ -10,6 +10,18 @@
   Portability: portable
   Version    : 0.1
 
+
+  This module implements an abstract client server model. The clients register
+  at the server and check from time to time if the server still exists. If not,
+  the client searches for a new server.
+  The server on the other hand, keeps a list with all clients and checks, if
+  each client is reachable. If not, the client is deleted from the list.
+  
+  This abstract network model helps us to implement a basic distrubuted system
+  with a central server and many attached clients which get little tasks from
+  the server. Because this model alone would be very unfunctional, the user is
+  able to define his own functions which will be handled by the server or the
+  client. 
 -}
 
 -- ----------------------------------------------------------------------------
@@ -17,12 +29,13 @@
 
 module Holumbus.Network.Communication
 (
-  StreamName
-, SocketId
-, PortNumber
+  StreamName       -- (reexport)
+, SocketId         -- (reexport)
+, PortNumber       -- (reexport)
+
 -- time constants
-, time30
-, timeIndefinitely
+, time30           -- (reexport)
+, timeIndefinitely -- (reexport)
 
 , IdType
 
@@ -74,7 +87,7 @@ localLogger = "Holumbus.Network.Communication"
 -- General Datatypes
 -- ----------------------------------------------------------------------------
 
--- | the type of the client id
+-- | The type of the client id.
 type IdType = Int
 
 
@@ -83,7 +96,7 @@ type IdType = Int
 -- Server-Messages
 -- ----------------------------------------------------------------------------
 
--- | the requests, the server can handle
+-- | The requests, the server can handle.
 data ServerRequestMessage
   = SReqRegisterClient SiteId (Port ClientRequestMessage)
   | SReqUnregisterClient IdType
@@ -109,7 +122,7 @@ instance Binary (ServerRequestMessage) where
         _ -> return (SReqUnknown)
 
 
--- | the responses the server gives
+-- | The responses the server gives.
 data ServerResponseMessage
   = SRspSuccess
   | SRspRegisterClient IdType
@@ -159,10 +172,16 @@ instance RspMsg (ServerResponseMessage) where
 -- Server-TypeClass
 -- ----------------------------------------------------------------------------
 
--- | the request-functions a server has to implement
+-- | The request-functions a server has to implement.
 class ServerClass s where
+
+  -- | Register a new client in the server database.
   registerClient :: SiteId -> Port ClientRequestMessage -> s -> IO IdType
+  
+  -- | Delete a client from the server database.
   unregisterClient :: IdType -> s -> IO ()
+  
+  -- | Check, if server is responding.
   pingServer :: IdType-> s -> IO Bool
 
 
@@ -171,9 +190,12 @@ class ServerClass s where
 -- Server-Data
 -- ----------------------------------------------------------------------------
   
+-- | The type of the functions which will be executed by registration and
+--   unregistration.
 type RegistrationAction = (IdType -> ClientPort -> IO ())
   
--- the information of the client known by the server
+  
+-- The information of the client known by the server.
 data ClientInfo = ClientInfo {
     ci_Site         :: SiteId                -- ^ SiteId (Hostname,PID) of the client process
   , ci_Port         :: ClientPort            -- ^ the port of the client
@@ -184,7 +206,7 @@ instance Show ClientInfo where
   show (ClientInfo s p _) = "{Site: " ++ show s ++ " - Port: " ++ show p ++ "}"
 
 
--- | the data of the server needed to organise the clients
+-- | The data of the server needed to organise the clients.
 data ServerData = ServerData {
     sd_ServerThreadId  :: Thread                        -- ^ threadId of the streamDispatcher
   , sd_OwnStream       :: Stream (ServerRequestMessage) -- ^ the stream the requestDispatcher reads from
@@ -197,11 +219,12 @@ data ServerData = ServerData {
   , sd_NextId          :: IdType
   }
   
--- | the server
+  
+-- | The server.
 data Server = Server (MVar ServerData)
   
 
--- | creates a new server
+-- | Creates a new server.
 newServer
   :: (Binary a, Binary b)
   => StreamName -> Maybe PortNumber
@@ -225,7 +248,7 @@ newServer sn pn dispatch register unregister
     return server
 
 
--- | closes the server
+-- | Closes the server.
 closeServer :: Server -> IO ()
 closeServer s@(Server server)
   = do
@@ -248,7 +271,7 @@ closeServer s@(Server server)
     return ()
 
 
--- | handles the requests from the client
+-- | Handles the requests from the client.
 dispatchServerRequest
   :: (Binary a, Binary b)
   => Server
@@ -281,7 +304,7 @@ dispatchServerRequest server action msg replyPort
         handleRequest replyPort (return ()) (\_ -> SRspUnknown)
 
 
--- | creates a new client id and updates the serverdata
+-- | Creates a new client id and updates the serverdata.
 getNextId :: ServerData -> (IdType, ServerData)
 getNextId sd 
   = (i, sd { sd_NextId = nid })
@@ -290,8 +313,8 @@ getNextId sd
     nid = i + 1
 
 
--- | adds a new client to the server datastructures
---   the ping-thread will not be started
+-- | Adds a new client to the server datastructures,
+--   the ping-thread will not be started.
 addClientToServer
   :: IdType -> SiteId -> ClientPort -> Thread
   -> ServerData -> ServerData
@@ -309,8 +332,8 @@ addClientToServer i sid cp tid sd
     sm' = addIdToMap sid sm
     
 
--- | deletes a new client from the server datastructures
---   the ping-thread will not be closed 
+-- | Deletes a new client from the server datastructures,
+--   the ping-thread will not be closed.
 deleteClientFromServer :: IdType -> ServerData -> ServerData
 deleteClientFromServer i sd 
   = sd { sd_ClientMap = nsm', sd_SiteToClientMap = snm', sd_SiteMap = sm' }
@@ -329,20 +352,23 @@ deleteClientFromServer i sd
       sid = ci_Site info'
 
 
--- gets the ClientPort from a ClientId
+-- | Gets the ClientPort from a ClientId (on the ServerData).
 lookupClientInfo :: IdType -> ServerData -> Maybe ClientInfo
 lookupClientInfo i sd = Map.lookup i (sd_ClientMap sd)
 
 
+-- | Gets a list with all registered clients (on the ServerData).
 lookupAllClientInfos :: ServerData -> [ClientInfo]
 lookupAllClientInfos sd = Map.elems (sd_ClientMap sd)
 
 
+-- | Gets the ClientPort from a ClientId (on the Server).
 getClientInfo :: IdType -> Server -> IO (Maybe ClientInfo)
 getClientInfo i (Server server)
   = withMVar server $ \sd -> return $ lookupClientInfo i sd 
 
 
+-- | Gets a list with all registered clients (on the Server).
 getAllClientInfos :: Server -> IO [ClientInfo]
 getAllClientInfos (Server server)
   = withMVar server $ \sd -> return $ lookupAllClientInfos sd
@@ -425,7 +451,7 @@ instance Debug Server where
 -- Server-Port
 -- ----------------------------------------------------------------------------
 
--- | the ServerPort is only a wrapper for a Port-Datatype  
+-- | The ServerPort is only a wrapper for a Port-Datatype.  
 data ServerPort = ServerPort (Port ServerRequestMessage)
   deriving (Show)
 
@@ -437,17 +463,14 @@ instance Binary ServerPort where
       return (ServerPort p)
       
 
--- | creates a new ServerPort
--- newServerPort :: Port ServerRequestMessage -> ServerPort
--- newServerPort p = ServerPort p
-
+-- | Creates a new ServerPort.
 newServerPort :: StreamName -> Maybe SocketId -> IO ServerPort
 newServerPort sn soid
   = do
     p <- newPort sn soid
     return (ServerPort p)
 
--- | the instanciation of the 
+ 
 instance ServerClass ServerPort where
   registerClient sid po (ServerPort p) 
     = do
@@ -558,10 +581,16 @@ instance RspMsg ClientResponseMessage where
 -- Client-TypeClass
 -- ----------------------------------------------------------------------------
 
-
+-- | The request-functions a client has to implement.
 class ClientClass c where
+
+  -- | Check, if the client is responding.
   pingClient :: IdType-> c -> IO Bool
+  
+  -- | Get the ID of the client.
   getClientId :: c -> IO (Maybe IdType)
+  
+  -- | Gets the server port the client wants to connect to.
   getServerPort :: c -> IO (ServerPort)
         
 
@@ -572,7 +601,7 @@ class ClientClass c where
 -- ----------------------------------------------------------------------------
 
   
--- | client datatype.
+-- | Client datatype.
 data ClientData = ClientData {
     cd_ServerThreadId  :: Thread
   , cd_PingThreadId    :: Thread
@@ -582,12 +611,14 @@ data ClientData = ClientData {
   , cd_OwnPort         :: Port ClientRequestMessage
   , cd_ServerPort      :: ServerPort
   }
+
   
--- | only a wrapper around an MVar
+-- | Only a wrapper around an MVar.
 data Client = Client (MVar ClientData)
 
 
--- | creates a new client, it needs the StreamName and optional the SocketId of the server
+-- | Creates a new client, it needs the StreamName and optional 
+--   the SocketId of the server.
 newClient
   :: (Binary a, Binary b)
   => StreamName -> Maybe SocketId
@@ -615,7 +646,7 @@ newClient sn soid action
     return client
 
 
--- | closes the client
+-- | Closes the client.
 closeClient :: Client -> IO ()
 closeClient (Client client)
   = modifyMVar client $
@@ -630,7 +661,7 @@ closeClient (Client client)
       return (cd, ())
 
 
--- | handles the requests from the server
+-- | Handles the requests from the server.
 dispatchClientRequest
   :: (Binary a, Binary b)
   => Client
@@ -656,16 +687,20 @@ dispatchClientRequest client action msg replyPort
         handleRequest replyPort (return ()) (\_ -> CRspUnknown)
 
 
+-- | Test, if the client is registered by a server. 
 isClientRegistered :: Client -> IO (Bool, Maybe IdType)
 isClientRegistered (Client client)
   = withMVar client $ \cd -> return $ (isJust (cd_Id cd), (cd_Id cd))
 
 
+-- | Deletes the internal clientId, the client will then be in an 
+--   unregisterd state.
 unsetClientId :: Client -> IO ()
 unsetClientId (Client client)
   = modifyMVar client $ \cd -> return ( cd {cd_Id = Nothing}, ())
 
 
+-- | Assigns a new clientId to the client.
 setClientId :: IdType -> Client -> IO ()
 setClientId i (Client client)
       = modifyMVar client $ \cd -> return ( cd {cd_Id = Just i}, ())  
@@ -704,7 +739,7 @@ instance Debug Client where
 -- Client-Port
 -- ----------------------------------------------------------------------------
 
--- | just a wrapper around a port
+-- | Just a wrapper around a port.
 data ClientPort = ClientPort (Port ClientRequestMessage)
   deriving (Show)
 
@@ -716,7 +751,7 @@ instance Binary ClientPort where
       return (ClientPort p)
 
 
--- | creates a new ClientPort
+-- | Creates a new ClientPort.
 newClientPort :: Port ClientRequestMessage -> ClientPort
 newClientPort po = ClientPort po
 
@@ -755,6 +790,13 @@ instance ClientClass ClientPort where
 
 
 
+
+-- ----------------------------------------------------------------------------
+-- Communication-Functions
+-- ----------------------------------------------------------------------------
+
+-- | Sends a request from the server to the client an handles the response or
+--   invokes a user-defined handler.
 sendRequestToClient 
   :: (Show a, Binary a, Binary b)
   => ClientPort -> Int
@@ -775,6 +817,8 @@ sendRequestToClient (ClientPort p) timeout a handler
           _ -> return Nothing
 
 
+-- | Sends a request from the client to the server an handles the response or
+--   invokes a user-defined handler.
 sendRequestToServer 
   :: (Show a, Binary a, Binary b)
   => ServerPort -> Int
@@ -799,7 +843,8 @@ sendRequestToServer (ServerPort p) timeout a handler
 -- Ping-Functions
 -- ----------------------------------------------------------------------------
 
--- | checks, if a client is still reachable, otherwise it will be deleted from the server
+-- | Checks, if a client is still reachable, otherwise it will be deleted
+--   from the server.
 checkClient :: IdType -> ClientPort -> Server -> Thread -> IO ()
 checkClient i po server thread
   = do
@@ -815,7 +860,9 @@ checkClient i po server thread
         debugM localLogger "pingCient: client is ok"
         return ()
     
-    
+
+-- | If a client does not respond to a ping, this function is invoked.
+--   It deleted the client from the server and stops the ping thread.
 handleCheckClientError :: IdType -> Server -> Thread -> IO ()
 handleCheckClientError i server thread
    = do
@@ -824,7 +871,8 @@ handleCheckClientError i server thread
      return ()     
 
 
--- | checks, if a server is still reachable, otherwise it will be deleted from the client
+-- | Checks, if a server is still reachable, otherwise it will be 
+--  deleted from the client.
 checkServer :: ServerPort -> SiteId -> Port ClientRequestMessage -> Client -> IO ()
 checkServer sepo sid clpo c
   = do
@@ -847,6 +895,8 @@ checkServer sepo sid clpo c
         setClientId i' c    
 
 
+-- | If the server does not respond to a ping, this function is invoked.
+--   It sets the server to an unregistered state, so it will reconnect again.
 handleCheckServerError :: Client -> IO ()
 handleCheckServerError c
   = do

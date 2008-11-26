@@ -61,9 +61,9 @@ import qualified Data.Set as Set
 -- ----------------------------------------------------------------------------
 
 
--- | the datatype of the SiteId, it contains the hostname and a processid,
+-- | The datatype of the SiteId, it contains the hostname and a processid,
 --   so it is possible to decide if two site ids belong to the same process
---   or the the same computer or are on distinct computers
+--   or the the same computer or are on distinct computers.
 data SiteId = SiteId HostName ProcessID deriving (Show, Eq, Ord)
 
 instance Binary SiteId where
@@ -87,7 +87,8 @@ xpSiteId =
           (xpElem "hostname" xpText)
           (xpElem "pid" xpickle)
 
--- | Just a little Map to hold the SiteIds an to get the neighbout Ids
+
+-- | Just a little Map to hold the SiteIds an to get the neighbout Ids.
 type SiteMap = Map.Map HostName (Set.Set SiteId)
 
 
@@ -98,7 +99,7 @@ type SiteMap = Map.Map HostName (Set.Set SiteId)
 -- ----------------------------------------------------------------------------
 
 
--- | little helper function
+-- | Little helper function.
 getHostName :: IO (HostName)
 getHostName
   = do
@@ -106,7 +107,7 @@ getHostName
     return (maybe "localhost" id hn)
     
 
--- | gets the SiteId for the calling program 
+-- | Gets the SiteId for the calling program. 
 getSiteId :: IO (SiteId)
 getSiteId
   = do
@@ -115,12 +116,12 @@ getSiteId
     return (SiteId hn pid)
 
        
--- | extracts the Hostname from the SiteId
+-- | Extracts the Hostname from the SiteId.
 getSiteHost :: SiteId -> HostName
 getSiteHost (SiteId hn _) = hn
 
 
--- | extracts the ProcessID from the SiteId
+-- | Extracts the ProcessID from the SiteId.
 getSiteProcess :: SiteId -> ProcessID
 getSiteProcess (SiteId _ pid) = pid
 
@@ -135,6 +136,13 @@ isSameProcess :: SiteId -> SiteId -> Bool
 isSameProcess = (==)
 
 
+-- | The filtering function.
+--   Splits the given Id-list into three sublists:
+--   the Ids from the same process,
+--   the Ids from the same computer,
+--   all other Ids.
+--   This is some sort of distance function, a simple one, but for now it
+--   should do its work.
 filterSiteIds :: SiteId -> [SiteId] -> ([SiteId],[SiteId],[SiteId])
 filterSiteIds _ [] = ([],[],[])
 filterSiteIds i ls
@@ -144,6 +152,7 @@ filterSiteIds i ls
     (local, other) = List.partition (\s -> isSameHost i s) temp
 
 
+-- | Gets the nearest item from an Id-list compared to a given Id.
 nearestId :: SiteId -> [SiteId] -> Maybe SiteId
 nearestId s l = nearestId' $ filterSiteIds s l
   where
@@ -159,12 +168,12 @@ nearestId s l = nearestId' $ filterSiteIds s l
 -- Operations on the SiteMap
 -- ----------------------------------------------------------------------------
 
--- | empty SiteId-Map
+-- | Empty SiteId-Map.
 emptySiteMap :: SiteMap
 emptySiteMap = Map.empty
 
 
--- | adds an id to the map
+-- | Adds an id to the map.
 addIdToMap :: SiteId -> SiteMap -> SiteMap
 addIdToMap i m 
   = Map.alter f hn m
@@ -174,7 +183,7 @@ addIdToMap i m
       f (Just s) = (Just $ Set.insert i s)
 
 
--- | deletes an id from the map
+-- | Deletes an id from the map.
 deleteIdFromMap :: SiteId -> SiteMap -> SiteMap
 deleteIdFromMap i m
   = Map.alter f hn m
@@ -187,7 +196,7 @@ deleteIdFromMap i m
         | otherwise = Just s
 
 
--- | delete a hostname an all its ids from the map
+-- | Delete a hostname an all its ids from the map.
 deleteHostFromMap :: HostName -> SiteMap -> SiteMap
 deleteHostFromMap hn m
   = Map.alter f hn m
@@ -195,7 +204,7 @@ deleteHostFromMap hn m
       f _ = Nothing
 
 
--- | test, if the site id is already in the list
+-- | Test, if the site id is already in the list.
 isSiteIdMember :: SiteId -> SiteMap -> Bool 
 isSiteIdMember i m
   = maybe False (\s -> Set.member i s) (Map.lookup hn m) 
@@ -203,8 +212,8 @@ isSiteIdMember i m
       hn = getSiteHost i
 
 
--- | gets all ids which are on the same host, but not
---   the original siteid itself
+-- | Gets all ids which are on the same host, but not
+--   the original siteid itself.
 getNeighbourSiteIds :: SiteId -> SiteMap -> Set.Set SiteId
 getNeighbourSiteIds i m
   = maybe (Set.empty) (\s -> Set.delete i s) (Map.lookup hn m) 

@@ -10,6 +10,16 @@
   Portability: portable
   Version    : 0.1
 
+  
+  General functions for the transmission of messages over the Holumbus-Ports.
+  You don't need these functions, but they make your life much easier.
+  
+  The mailbox concept doesn't deal with the request and response scheme
+  very well, but with this module, all the boring stuff is solved. The function
+  performPortAction will do everything for you. If you find it boring to write
+  a seperate listener-thread for every mailbox you want to read from, you
+  might look at the startRequestDispatcher and stopRequestDispatcher functions. 
+
 -}
 
 -- ----------------------------------------------------------------------------
@@ -52,6 +62,10 @@ localLogger = "Holumbus.Network.Messages"
 -- Message-Class
 -- ----------------------------------------------------------------------------
 
+-- | The typeclass for the response messages. We want to react if an error
+--   message is received an this interface helps us to detect and create such
+--   a message. The unknown message will be send back, if the server doesn't
+--   understand our request.
 class RspMsg m where
   isError :: m -> Bool  
   getErrorMsg :: m -> String
@@ -64,15 +78,20 @@ class RspMsg m where
 -- Port-Handling
 -- ----------------------------------------------------------------------------
 
+-- | Every request might raise an exception
 data MessageException
-  = TimeoutException
-  | UnknownRequest
-  | FalseResponse String
-  | ErrorResponse String
+  = TimeoutException     -- ^ if the server takes too long to respond
+  | UnknownRequest       -- ^ if the server doesn't understand our request
+  | FalseResponse String -- ^ when the server response doesn't match our definition
+  | ErrorResponse String -- ^ if an error in the server occurred and he informs us about the error
   deriving (Show, Typeable)
 
-    
-talkWithNode 
+
+-- | Sends a repest to the server  (stream) and waits for a response.
+--   If the response can't be received in a certain time, a TimeoutException
+--   will be raised. If a response is received, an individual response handler
+--   is executed.
+talkWithServer
   :: (Show a, Binary a, Show b, Binary b, RspMsg b)
   => P.Port a          -- ^ port to which the message will be send
   -> P.Stream b        -- ^ the stream from which the response is read
@@ -80,7 +99,7 @@ talkWithNode
   -> a                 -- ^ message to be send
   -> (b -> IO c)       -- ^ handler function for the response 
   -> IO c
-talkWithNode p respStream timeout m hdlFct
+talkWithServer p respStream timeout m hdlFct
   = do
     respPort <- P.newPortFromStream respStream
     -- send the request to the node
@@ -96,7 +115,7 @@ talkWithNode p respStream timeout m hdlFct
     res <- case response of
       -- if no response
       Nothing -> do
-        warningM localLogger "talkWithNode: timeout"
+        warningM localLogger "talkWithServer: timeout"
         E.throwDyn TimeoutException          
       -- handle the response
       (Just r) ->
@@ -104,6 +123,10 @@ talkWithNode p respStream timeout m hdlFct
     return res
        
 
+-- | A wrapper around the user defined response handler.
+--   All error and unkown response will be catched, so you don't have to
+--   deal with them. But you can't also throw an error in your response 
+--   function, if you want.
 basicResponseHandler
   :: (Show b, Binary b, RspMsg b) 
   => (b -> IO (Maybe c)) 
@@ -133,6 +156,9 @@ basicResponseHandler hdlFct rsp
           E.throwDyn $ FalseResponse $ show rsp
         
                     
+-- | Sends a request to the server (stream) and handles the response and all
+--   error cases. Very helpful when simulating a request response scheme
+--   with the mailboxes.                    
 performPortAction
   :: (Show a, Binary a, Show b, Binary b, RspMsg b) 
   => P.Port a             -- ^ request port
@@ -143,7 +169,7 @@ performPortAction
   -> IO c
 performPortAction reqPo resStr timeout reqMsg rspHdl
   = do
-    talkWithNode reqPo resStr timeout reqMsg $
+    talkWithServer reqPo resStr timeout reqMsg $
       basicResponseHandler rspHdl
   
   
@@ -153,6 +179,9 @@ performPortAction reqPo resStr timeout reqMsg rspHdl
 -- Stream-Handling
 -- ----------------------------------------------------------------------------
 
+-- | The server-side request dispatcher handles all incomming responses.
+--   The dispatcher runs in its own thread and should not be killed by
+--   any exceptions which will be raised in the handling process.
 startRequestDispatcher
   :: (Binary a, Show a, Show b, Binary b, RspMsg b) 
   => Thread                                     -- ^ threadId, to be filled
@@ -163,38 +192,17 @@ startRequestDispatcher thread reqS dispatcher
   = do
     setThreadAction (requestDispatcher reqS dispatcher) thread
     startThread thread
-    {-
-    modifyMVar mVarTid $
-      \servId ->
-      do
-      servId' <- case servId of
-        i@(Just _) -> return i
-        (Nothing) ->
-          do
-          i <- forkIO $ requestDispatcher reqS dispatcher
-          return (Just i)
-      return (servId',())
--}
 
+
+-- | Stops the request dispatcher.
 stopRequestDispatcher :: Thread -> IO ()
 stopRequestDispatcher thread
   = do
     stopThread thread 
-  {-
-  modifyMVar mVarTid $
-      \servId ->
-      do
-      servId' <- case servId of
-        (Nothing) -> return Nothing
-        (Just i) -> 
-          do
-          me <- myThreadId
-          E.throwDynTo i me
-          yield
-          return Nothing
-      return (servId',())
-  -}
 
+
+-- | Wrapper around the user-defined dispatching function. For every incomming
+--   request a new thread will be created to be able to handle the next request. 
 requestDispatcher 
   :: (Binary a, Show a, Show b, Binary b, RspMsg b)
   => P.Stream a 
@@ -219,44 +227,8 @@ requestDispatcher reqS dispatcher
         _ <- forkIO $ dispatcher dat $ (fromJust responsePort)
         return ()
 
-  {- = do
-    E.handle (\e -> 
-      do
-      -- if a normal exception occurs, the dispatcher should not be killed
-      errorM localLogger $ show e
-      yield
-      requestDispatcher reqS dispatcher
-     ) $
-      do
-      -- catch the exception which tells us to kill the dispatcher and kill it
-      E.catchDyn (requestDispatcher') (handler)
-    where
-    handler :: ThreadId -> IO ()
-    handler i 
-      = do
-        debugM localLogger $ "requestDispatcher normally closed by thread " ++ show i    
-    requestDispatcher'    
-      = do
-        -- read the next message from the stream (block, if no message arrived)
-        msg <- P.readStreamMsg reqS
-        -- extract the data
-        let dat = P.getMessageData msg
-        debugM localLogger "dispatching new Message... "
-        debugM localLogger $ show dat
-        -- extract the (possible replyport)
-        let responsePort = decodeMaybe $ P.getGenericData msg
-        if (isNothing responsePort)
-          then do
-            warningM localLogger "no reply port in message"
-            yield
-          else do
-            -- do the dispatching in a new process...
-            _ <- forkIO $ dispatcher dat $ (fromJust responsePort)
-            return ()
-        --threadDelay 10
-        requestDispatcher reqS dispatcher 
--}
 
+-- | Execute a function and send its result to the specified port.
 handleRequest
   :: (Show b, Binary b, RspMsg b)
   => P.Port b    -- ^ the reply port (where the messages will be send to)

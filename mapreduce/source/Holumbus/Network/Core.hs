@@ -11,7 +11,10 @@
   Version    : 0.1
 
   The Server-Module for the Holumbus framework.
-
+  
+  It contains the lowlevel functions, like the socket handling (opening, 
+  reading, writing, ...).
+  
 -}
 
 -- ----------------------------------------------------------------------------
@@ -53,7 +56,7 @@ import           Text.XML.HXT.Arrow
 
 
 
--- | logger
+-- | Logger
 localLogger :: String
 localLogger = "Holumbus.Network.Core"
 
@@ -67,7 +70,7 @@ type ServerDispatcher = SocketId -> Handle -> HostName -> PortNumber -> IO ()
 -- ----------------------------------------------------------------------------
 
 -- | All data, that is needed to address a socket.
---   Contains the hostname and the portNumber
+--   Contains the hostname and the portNumber.
 data SocketId = SocketId HostName PortNumber 
   deriving (Show, Eq)
 
@@ -96,8 +99,15 @@ xpSocketId
 -- Server-Operations
 -- ----------------------------------------------------------------------------
 
-
-startSocket :: ServerDispatcher -> PortNumber -> PortNumber -> IO (Maybe (ThreadId, HostName, PortNumber))
+-- | Creates a new (unix-)socket and starts the listener in its own thread.
+--   You'll get the threadId of the listener Thread, so you can kill it.
+--   It is also possible to give a range of PortNumber on which the socket
+--   will be opened. The first portnumber available will be taken.
+startSocket 
+  :: ServerDispatcher -- ^ dispatcher function
+  -> PortNumber       -- ^ start port number
+  -> PortNumber       -- ^ end port number
+  -> IO (Maybe (ThreadId, HostName, PortNumber))
 startSocket f actPo maxPo
   = do
     s <- (getFirstSocket actPo maxPo)
@@ -126,6 +136,7 @@ startSocket f actPo maxPo
           putStrLn $ "socket normally closed by thread " ++ show i 
 
 
+-- | Gets the hostname of the computer of just "localhost".
 getHostName :: IO (HostName)
 getHostName
   = do
@@ -133,6 +144,7 @@ getHostName
     return (maybe "localhost" id hn)
 
 
+-- | Gets the first free port number and creates of new socket on it.
 getFirstSocket :: PortNumber -> PortNumber -> IO (Maybe (Socket, PortNumber))
 getFirstSocket actPo maxPo
   | actPo > maxPo = return Nothing
@@ -144,6 +156,7 @@ getFirstSocket actPo maxPo
         return (Just (socket, actPo))     
 
 
+-- | Opens a socket on a port number.
 getSocket :: PortID -> IO (Socket)
 getSocket po =
   -- for MS-Windows Systems
@@ -154,6 +167,8 @@ getSocket po =
   return socket
 
 
+-- | Listens to a socket and opens a new dispatcher thread for every incomming
+--   data.
 waitForRequests :: ServerDispatcher -> Socket -> SocketId -> IO ()
 waitForRequests f socket soid = 
   do
@@ -162,6 +177,8 @@ waitForRequests f socket soid =
   waitForRequests f socket soid       -- Wait for more requests.
 
 
+-- | A wrapper around the user defined dispatcher function.
+--   Mesures the time and catches unhandled exceptions.
 processRequest :: ServerDispatcher -> SocketId -> (Handle, HostName, PortNumber) -> IO ()
 processRequest f soid client = 
   bracket (return client) (\(hdl, _, _) -> hClose hdl) (\cl -> processRequest' cl)
@@ -208,7 +225,8 @@ sendRequest f n p =
 -- Handle-Operations
 -- ----------------------------------------------------------------------------
 
-
+-- | Puts a bytestring to a handle. But to make the reading easier, we write
+--   the length of the data as a message-header to the handle, too. 
 putMessage :: B.ByteString -> Handle -> IO ()
 putMessage msg hdl
   = do
@@ -220,6 +238,8 @@ putMessage msg hdl
       B.hPut hdl msg
 
 
+-- | Reads data from a stream. We define, that the first line of the message
+--   is the message header which tells us how much bytes we have to read.
 getMessage :: Handle -> IO (B.ByteString)
 getMessage hdl
   = do

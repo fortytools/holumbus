@@ -137,11 +137,12 @@ time120 :: Int
 time120 = 120000000
 
 
--- | wait so long it takes
+-- | wait how long it takes
 timeIndefinitely :: Int
 timeIndefinitely = -1
 
 
+-- | the default 
 defaultPort :: PortNumber
 defaultPort = 9000
 

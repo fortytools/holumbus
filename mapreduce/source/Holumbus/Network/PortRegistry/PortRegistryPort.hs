@@ -9,7 +9,9 @@
   Portability: portable
   Version    : 0.1
 
-
+  
+  This module contains the Interface for external access to the PortRegistry.
+  
 -}
 -- ----------------------------------------------------------------------------
 
@@ -44,7 +46,8 @@ localLogger = "Holumbus.Network.PortRegistry.PortRegistryPort"
 -- ----------------------------------------------------------------------------
 -- Datatypes
 -- ----------------------------------------------------------------------------
-  
+ 
+-- | The datatype for the PortRegistry remote interface. 
 data PortRegistryPort = PortRegistryPort PortRegistryRequestPort
   deriving (Show)
 
@@ -55,11 +58,13 @@ data PortRegistryPort = PortRegistryPort PortRegistryRequestPort
 --  Creation
 -- ----------------------------------------------------------------------------
 
--- | Creates a new NodePort.
+
+-- | Creates a new PortRegistryPort from a port-object.
 newPortRegistryPort :: PortRegistryRequestPort -> PortRegistryPort
 newPortRegistryPort p = PortRegistryPort p
 
 
+-- | Creates a new PortRegistryPort from the StreamName and SocketId.
 newPortRegistryFromData :: StreamName -> SocketId -> IO PortRegistryPort
 newPortRegistryFromData sn soid
   = do
@@ -67,6 +72,7 @@ newPortRegistryFromData sn soid
     return $ newPortRegistryPort p
 
 
+-- | Creates a new PortRegistryPort from a XML-File.
 newPortRegistryFromXmlFile :: FilePath -> IO PortRegistryPort
 newPortRegistryFromXmlFile fp
   = do
@@ -79,6 +85,7 @@ newPortRegistryFromXmlFile fp
 -- Typeclass instanciation for PortRegistryPort
 -- ----------------------------------------------------------------------------
 
+-- PortRegistry-typeclass instanciation for the PortRegistryPort.
 instance PortRegistry PortRegistryPort where
     
   registerPort sn soid (PortRegistryPort p)
