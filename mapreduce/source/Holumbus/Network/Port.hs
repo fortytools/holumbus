@@ -114,7 +114,7 @@ localLogger = "Holumbus.Network.Port"
 -- -----------------------------------------------------------------------------
 
 
--- | one second
+-- | One second
 time1 :: Int
 time1 = 1000000
 
@@ -137,16 +137,17 @@ time120 :: Int
 time120 = 120000000
 
 
--- | wait how long it takes
+-- | Wait how long it takes
 timeIndefinitely :: Int
 timeIndefinitely = -1
 
 
--- | the default 
+-- | The default starting port number 
 defaultPort :: PortNumber
 defaultPort = 9000
 
 
+-- | The default maximal port number
 maxPort :: PortNumber
 maxPort = 40000
 
@@ -177,7 +178,7 @@ instance Binary MessageType where
 --   We are sending additional information, to do debugging
 data (Show a, Binary a) => Message a = Message {
     msg_Type           :: ! MessageType          -- ^ the message-type
-  , msg_Receiver       :: ! StreamName
+  , msg_Receiver       :: ! StreamName           -- ^ the name of the destination stream
   , msg_Data           :: ! a                    -- ^ the data  
   , msg_Generic        :: ! (Maybe B.ByteString) -- ^ some generic data -- could be another port
   , msg_ReceiverSocket :: ! (Maybe SocketId)     -- ^ socket to which the message is send (DEBUG)
@@ -216,8 +217,9 @@ instance (Show a, Binary a) => Binary (Message a) where
 -- Port-Datatype
 -- ----------------------------------------------------------------------------
 
+-- | The port datatype.
 data Port a = Port {
-    p_StreamName :: StreamName
+    p_StreamName :: StreamName      -- ^ the name of the destination stream
   , p_SocketId   :: Maybe SocketId
   } deriving (Show)
 
@@ -245,8 +247,11 @@ xpPort =
 -- Stream-Datatype
 -- ----------------------------------------------------------------------------
 
+-- | The name of a stream.
 type StreamName = String
 
+
+-- | The stream type, determines the accessibility of a stream
 data StreamType = STGlobal | STLocal | STPrivate
   deriving (Show, Eq, Ord)
 
@@ -273,8 +278,16 @@ instance (Show a, Binary a) => Show (Stream a) where
 -- StreamController-Datatype
 -- ----------------------------------------------------------------------------
 
+-- | A chan datatype for binary messages
 type BinaryChannel = (Chan (Message B.ByteString))
 
+
+-- | The stream controller datatype.
+--   We need this to keep a log of all used streams in the program and to
+--   use multiple streams per unix-socket. The access information for the
+--   PortRegistry is also placed here. There should only be one stream
+--   controller per program. To ensure this, we use a global reference to this
+--   data object.
 data StreamControllerData = StreamControllerData
     (Maybe SocketId)
     (Maybe GenericRegistry)
@@ -283,7 +296,6 @@ data StreamControllerData = StreamControllerData
     (Map.Map PortNumber (ThreadId, HostName))
     (MMap.MultiMap PortNumber StreamName) 
   
-
 instance Show StreamControllerData where
   show (StreamControllerData ds _ si stm sem pom)
     =  "StreamControllerData:\n"
@@ -293,6 +305,8 @@ instance Show StreamControllerData where
     ++ "  ServerMap:\t" ++ show sem
     ++ "  PortMap:\t" ++ show pom
 
+
+-- | The stream controller.
 type StreamController = MVar StreamControllerData
 
 
@@ -302,6 +316,7 @@ type StreamController = MVar StreamControllerData
 -- StreamController-Operations
 -- ----------------------------------------------------------------------------
 
+-- | A direct access to the program stream controller.
 {-# NOINLINE streamController #-}
 streamController :: StreamController
 streamController
@@ -318,6 +333,7 @@ streamController
             MMap.empty 
 
 
+-- | Sets the link to the PortRegistry in the stream controller 
 setPortRegistry :: (PortRegistry r) => r -> IO ()
 setPortRegistry r
   = modifyMVar streamController $
@@ -325,6 +341,7 @@ setPortRegistry r
       return ((StreamControllerData s (Just $ mkGenericRegistry r) i sm pm pmm),())
 
 
+-- | Gets the next generated and program unique stream name.
 getNextStreamName :: IO (StreamName)
 getNextStreamName 
   = modifyMVar streamController $
@@ -336,6 +353,8 @@ getNextStreamName
       return (scd',n)
       
 
+-- | Test, if a user defined stream name is valid.
+--   A stream name may only contain numbers and characters.
 isValidStreamName :: StreamName -> Bool
 isValidStreamName [] = False
 isValidStreamName sn = null $ filter isForbiddenChar sn 
@@ -343,6 +362,8 @@ isValidStreamName sn = null $ filter isForbiddenChar sn
   isForbiddenChar c = not $ isAlphaNum c
 
 
+-- | Test, if the stream name is valid and if it is not already used in the
+--   program.
 validateStreamName :: Maybe StreamName -> IO (StreamName)
 validateStreamName (Nothing) = getNextStreamName
 validateStreamName (Just sn)
@@ -358,6 +379,10 @@ validateStreamName (Just sn)
       = error "invalid stream name"
 
 
+-- | Opens a unix-socket on the given port number. If no port number is 
+--   specified, the default port number will be used. It is not problem that 
+--   two ports share the same unix-socket. The stream controller will handle
+--   the incomming messages to the right stream.
 openSocket :: Maybe PortNumber -> IO (SocketId)
 -- get/start the default socket
 openSocket (Nothing)
@@ -401,6 +426,8 @@ openSocket (Just pn)
           return (scd,SocketId hn pn)
          
 
+-- | Closes a socket, only possible, if the unix-socket was used by only one
+--   stream.
 closeSocket :: SocketId -> IO ()
 closeSocket soid@(SocketId _ pn)
   = modifyMVar streamController $
@@ -424,6 +451,7 @@ closeSocket soid@(SocketId _ pn)
               return (scd',())
       
 
+-- | Registers a stream at the stream controller.
 registerStream :: Stream a ->  IO ()
 registerStream st
   = modifyMVar streamController $
@@ -439,6 +467,7 @@ registerStream st
     ty = s_Type st
 
 
+-- | Deletes a stream from the stream controller. 
 unregisterStream :: Stream a -> IO ()
 unregisterStream st
   = modifyMVar streamController $
@@ -452,6 +481,7 @@ unregisterStream st
     sn = s_StreamName st
 
 
+-- | Registers a stream at the global PortRegistry.
 registerGlobalPort :: Stream a -> IO ()
 registerGlobalPort (Stream sn soid STGlobal _)
   = do
@@ -463,6 +493,7 @@ registerGlobalPort (Stream sn soid STGlobal _)
 registerGlobalPort _ = return ()
 
 
+-- | Deletes a stream from the global PortRegistry.
 unregisterGlobalPort :: Stream a -> IO ()
 unregisterGlobalPort (Stream sn _ STGlobal _)
   = do
@@ -474,6 +505,7 @@ unregisterGlobalPort (Stream sn _ STGlobal _)
 unregisterGlobalPort _ = return ()
 
 
+-- | Get the unix-socket of a stream to create a global port.
 getGlobalPort :: StreamName -> IO (Maybe SocketId)
 getGlobalPort sn
   = do
@@ -491,6 +523,8 @@ getGlobalPort sn
         errorM localLogger $ "getGlobalPort: no portregistry found while getting port: " ++ sn
         return Nothing
 
+
+-- | Gets the names of all stream from a specified port number.
 getStreamNamesForPort :: PortNumber -> IO (Set.Set StreamName)
 getStreamNamesForPort pn
   = withMVar streamController $
@@ -498,6 +532,7 @@ getStreamNamesForPort pn
       return $ MMap.lookup pn pmm
 
 
+-- | Gets the data of a stream from the stream controller.
 getStreamData :: StreamName -> IO (Maybe (BinaryChannel, PortNumber, StreamType))
 getStreamData sn
   = withMVar streamController $
@@ -510,14 +545,17 @@ getStreamData sn
 -- Message-Operations
 -- -----------------------------------------------------------------------------
 
+-- | Encodes a message into a bytestring.
 encodeMessage :: (Show a, Binary a) => Message a -> Message B.ByteString
 encodeMessage (Message t n d g r s t1 t2) = (Message t n (encode d) g r s t1 t2)
 
 
+-- | Decodes a message from a bytestring.
 decodeMessage :: (Show a, Binary a) => Message B.ByteString -> Message a
 decodeMessage (Message t n d g r s t1 t2) = (Message t n (decode d) g r s t1 t2)
 
-        
+
+-- | Creates a new message with the current time.
 newMessage :: (Show a, Binary a) => MessageType -> StreamName -> a -> Maybe B.ByteString -> IO (Message a)
 newMessage t n d g
   = do
@@ -525,33 +563,40 @@ newMessage t n d g
     return (Message t n d g Nothing Nothing time time)
 
 
+-- | Gets the type of a message.
 getMessageType :: (Show a, Binary a) => Message a -> MessageType
 getMessageType = msg_Type
 
 
+-- | Gets the data of a message.
 getMessageData :: (Show a, Binary a) => Message a -> a
 getMessageData = msg_Data
 
 
+-- | Gets the generic data (usually the return port) of a message.
 getGenericData :: (Show a, Binary a) => Message a -> (Maybe B.ByteString)
 getGenericData = msg_Generic
 
 
+-- | Gets the distination stream name of the message.
 getMessageReceiver :: (Show a, Binary a) => Message a -> StreamName
 getMessageReceiver = msg_Receiver
 
 
+-- | Sets the receive time of a message.
 updateReceiveTime :: (Show a, Binary a) => Message a -> IO (Message a)
 updateReceiveTime msg 
   = do
     time <- getCurrentTime
     return (msg {msg_Receive_time = time})
 
-    
+
+-- | Sets the receiver unix-socket of the message.
 updateReceiverSocket :: (Show a, Binary a) => Message a -> SocketId -> Message a
 updateReceiverSocket msg soId = msg { msg_ReceiverSocket = Just soId }
 
 
+-- | Sets the sender unix-socket of the message.
 updateSenderSocket :: (Show a, Binary a) => Message a -> SocketId -> Message a
 updateSenderSocket msg soId = msg { msg_SenderSocket = Just soId } 
 
@@ -563,18 +608,22 @@ updateSenderSocket msg soId = msg { msg_SenderSocket = Just soId }
 -- ----------------------------------------------------------------------------
 
 
+-- | Creates a new global stream.
 newGlobalStream :: (Show a, Binary a) => StreamName -> IO (Stream a)
 newGlobalStream n = newStream STGlobal (Just n) Nothing
 
 
+-- | Creates a new local stream.
 newLocalStream :: (Show a, Binary a) => Maybe StreamName -> IO (Stream a)
 newLocalStream sn = newStream STLocal sn Nothing
 
 
+-- | Creates a new private stream.
 newPrivateStream :: (Show a, Binary a) => Maybe StreamName -> IO (Stream a)
 newPrivateStream sn = newStream STPrivate sn Nothing
 
 
+-- | General function for creating a new stream.
 newStream 
   :: (Show a, Binary a) 
   => StreamType -> Maybe StreamName -> Maybe PortNumber 
@@ -594,6 +643,7 @@ newStream st n pn
     return s
 
 
+-- | Closes a stream.
 closeStream :: (Show a, Binary a) => Stream a -> IO ()
 closeStream s
   = do
@@ -617,12 +667,15 @@ writeChannel ch msg
     writeChan ch newMsg
 
 
+-- | Test, if the stream contains new messages.
 isEmptyStream :: Stream a -> IO Bool
 isEmptyStream s
   = do
     isEmptyChan (s_Channel s)
 
 
+-- | Reads the data packet of the next message from a stream.
+--   If stream is empty, this function will block until a new message arrives.
 readStream :: (Show a, Binary a) => Stream a -> IO a
 readStream s
   = do
@@ -630,6 +683,8 @@ readStream s
     return (msg_Data msg)
 
 
+-- | Reads the next message from a stream (data packet + message header).
+--   If stream is empty, this function will block until a new message arrives.
 readStreamMsg :: (Show a, Binary a) => Stream a -> IO (Message a)
 readStreamMsg s
   = do
@@ -640,6 +695,7 @@ readStreamMsg s
 
 
 --TODO is there a better way for non-blocking?
+-- | Helper function for doing a non blocking stream action.
 tryStreamAction :: Stream a -> (Stream a -> IO (b)) -> IO (Maybe b)
 tryStreamAction s f
   = do
@@ -649,6 +705,7 @@ tryStreamAction s f
       else do return Nothing
 
 
+-- | Helper function for doing a timed stream action.
 tryWaitStreamAction :: Stream a -> (Stream a -> IO (b)) -> Int -> IO (Maybe b)
 tryWaitStreamAction s f t
   = do
@@ -659,25 +716,35 @@ tryWaitStreamAction s f t
     debugM localLogger $ "tryWaitStreamAction: " ++ debugResult
     return r
     
-    
+
+-- | Reads the data packet of the next message from a stream.
+--   If stream is empty, this function will immediately return with Nothing.
 tryReadStream :: (Show a, Binary a) => Stream a -> IO (Maybe a)
 tryReadStream s
   = do
     tryStreamAction s readStream
 
-    
+
+-- | Reads the next message from a stream (data packet + message header).
+--   If stream is empty, this function will immediately return with Nothing.
 tryReadStreamMsg :: (Show a, Binary a) => Stream a -> IO (Maybe (Message a))
 tryReadStreamMsg s
   = do
     tryStreamAction s readStreamMsg
 
 
+-- | Reads the data packet of the next message from a stream.
+--   If stream is empty, this function will wait for new messages until the 
+--   time is up and if no message has arrived, return with Nothing.
 tryWaitReadStream :: (Show a, Binary a) => Stream a -> Int -> IO (Maybe a)
 tryWaitReadStream s t 
   = do
     tryWaitStreamAction s readStream t
 
-    
+
+-- | Reads the next message from a stream (data packet + message header).
+--   If stream is empty, this function will wait for new messages until the 
+--   time is up and if no message has arrived, return with Nothing.
 tryWaitReadStreamMsg :: (Show a, Binary a) => Stream a -> Int -> IO (Maybe (Message a))
 tryWaitReadStreamMsg s t
   = do
@@ -704,6 +771,8 @@ withStream f
 -- StreamServer-Operations
 -- ----------------------------------------------------------------------------
 
+-- | Starts a new thread which will listen on a unix-socket for new messages
+--   and delegate them to their streams.
 startStreamServer :: PortNumber -> PortNumber -> IO (Maybe (SocketId, ThreadId))
 startStreamServer actPo maxPo
   = do
@@ -715,6 +784,7 @@ startStreamServer actPo maxPo
         return (Just (SocketId hn po, tid))
     
 
+-- | Stops a thread listening to a unix-socket.
 stopStreamServer :: ThreadId -> IO ()
 stopStreamServer sId 
   = do
@@ -724,6 +794,7 @@ stopStreamServer sId
     yield
 
 
+-- | Delegates new incomming messages on a unix-socket to their streams.
 streamDispatcher :: SocketId -> Handle -> HostName -> PortNumber -> IO ()
 streamDispatcher (SocketId _ ownPo) hdl hn po
   = do
@@ -751,25 +822,6 @@ streamDispatcher (SocketId _ ownPo) hdl hn po
       -- if the stream is unknown, log this as error
       else do
         warningM localLogger $ "streamDispatcher: received msg for unknown stream " ++ sn
-    
-{-
-putMessage :: Message B.ByteString -> Handle -> IO ()
-putMessage msg hdl
-  = do
-    handle (\e -> errorM localLogger $ "putMessage: " ++ show e) $ do
-      enc <- return (encode msg)
-      hPutStrLn hdl ((show $ B.length enc) ++ " ")
-      B.hPut hdl enc
-
-
-getMessage :: Handle -> IO (Message B.ByteString)
-getMessage hdl
-  = do
-    line <- hGetLine hdl
-    let pkg = words line
-    raw <- B.hGet hdl (read $ head pkg)
-    return (decode raw)
--}
 
 
 
@@ -780,8 +832,6 @@ getMessage hdl
 
 
 -- | Creates a new Port, which is bound to a stream.
---   This port is internal, you automatically get an external port, if you
---   seriablize the port via the Binary-Class
 newPortFromStream :: Stream a -> IO (Port a)
 newPortFromStream s
   = do
@@ -790,14 +840,17 @@ newPortFromStream s
     return $ Port sn (Just soid)
 
 
+-- | Creates a new port from a streamname and its socketId.
 newPort :: StreamName -> Maybe SocketId -> IO (Port a)
 newPort sn soid = return $ Port sn soid
 
 
+-- | Creates a new port to a global stream, only its name is needed.
 newGlobalPort :: StreamName -> IO (Port a)
 newGlobalPort sn = return $ Port sn Nothing
 
 
+-- | Test, if a port is local.
 isPortLocal :: Port a -> IO Bool
 isPortLocal (Port sn mbSoid)
   = do
@@ -917,7 +970,8 @@ readPortFromFile fp
 -- Debugging
 -- ----------------------------------------------------------------------------
 
-
+-- | Prints the internal data of the stream controller to stdout,
+--   useful for debugging.
 printStreamController :: IO ()
 printStreamController
   = withMVar streamController $
