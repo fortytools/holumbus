@@ -1,0 +1,52 @@
+name:          Holumbus-Distribution
+version:       0.1.0
+license:       OtherLicense
+license-file:  LICENSE
+author:        Uwe Schmidt, Stefan Schmidt
+copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
+maintainer:    Stefan Schmidt <sts@holumbus.org>
+stability:     experimental
+category:      Distributed Computing, Data, Network
+synopsis:      A framework for intra- and inter-programm communication
+homepage:      http://holumbus.fh-wedel.de
+description:   This package contains Erlang-Style mailboxes for an easy implementation of distributed systems in Haskell.
+cabal-version: >=1.2
+
+flag splitBase
+  description: Choose the new smaller, split-up base package.
+
+library
+  Build-Depends:  base >= 3
+                , haskell98
+                , containers
+                , hslogger
+                , network
+                , unix
+                , time
+                , bytestring
+                , binary
+                , readline
+                , hxt
+
+  hs-source-dirs: 
+                  source
+  exposed-modules:  
+                  Holumbus.Data.AccuMap
+                , Holumbus.Data.KeyMap
+                , Holumbus.Data.MultiMap
+                , Holumbus.Network.Communication
+                , Holumbus.Network.Core
+                , Holumbus.Network.Messages
+                , Holumbus.Network.Port
+                , Holumbus.Network.Site
+                , Holumbus.Network.PortRegistry
+                , Holumbus.Network.PortRegistry.Messages
+                , Holumbus.Network.PortRegistry.PortRegistryData
+                , Holumbus.Network.PortRegistry.PortRegistryPort
+                , Holumbus.Console.Console
+                , Holumbus.Common.Debug
+                , Holumbus.Common.FileHandling
+                , Holumbus.Common.Logging
+                , Holumbus.Common.Threading
+                , Holumbus.Common.Utils
+  ghc-options: -Wall -threaded -O

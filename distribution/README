@@ -1,0 +1,183 @@
+This is the Holumbus-Distribution Library
+
+Version 0.1.0
+
+Stefan Schmidt sts@holumbus.org
+
+http://www.holumbus.org
+
+
+
+
+About
+-----
+
+Holumbus is a set of Haskell libraries. This package contains the 
+Holumbus-Distribution library for building and running a distributed MapReduce
+system. One of the core elements of this library is an Erlang-like mailbox 
+system for interchanging messages between different threads or applications. 
+
+This library itself is independent from other Holumbus libraries, such as the
+Searchengine or MapReduce library.
+
+
+
+
+Documentation:
+------------------------------------------
+
+The "chan" data-type is pretty useful in Haskell. You can easily use it as a 
+queue for the consumer-producer-problem. One thread writes in the channel, the
+other reads the data from it. But this doesn't work, if the two threads don't 
+run in the same address space, that means in distinct applications or even on 
+different machines which are only connected over a network. But this scenario is
+a normal use-case in this world.
+
+When implementing the Holumbus-MapReduce library, I thought by myself it would
+be nice to have a simple communication framework like that one in the Erlang 
+language.  It should not be a big difference for the programmer to exchange 
+messages between to thread or two programs. This allows you to be flexible,
+you can easily split one application into two applications without a big
+change on the communication layer.
+
+One thread can create a mailbox and other threads can send messages to it, 
+though it makes no difference, if the threads are in the same address space or 
+not.
+
+I've found an old library called "Distributed Haskell" [1], but the code-base
+seemed to be abandoned for many years. While writing a new system, I was
+inspired by the Stream-Ports in the Mozart/Oz Language [2] and the simple
+communication concept of Erlang [3].
+
+A stream in this context is like a mailbox or a receiver. Other threads can send
+messages to it via a port. A port in this context has nothing to do with the
+port number of a unix-socket. Think of it as a sender.
+
+To address a stream over the network easily, you can give him a unique name.
+Then you can create a port, give him that stream name and the messages will
+be send directly to the stream. This requires you to start the PortRegistry.
+
+The PortRegistry keeps a log for all global communication streams in the
+network. It MUST be started BEFORE all other programs. In future versions this
+explicit execution sequence might not be necessary any more, but for now the
+FIRST thing you have to start is the PortRegistry. There is ONLY ONE one
+instance allowed in the whole communication network (this might also change).
+
+You find the main parts for the communication in the module
+"Holumbus.Network.Port"
+
+This library also contains some parts which might be useful, e.g. some
+specialized maps (Holumbus.Data) and a commandline user interface
+(Holumbus.Console).
+
+
+[1] http://www.iist.unu.edu/~vs/haskell/dhs/ 
+[2] http://www.mozart-oz.org/
+[3] http://www.erlang.org
+
+
+
+
+Contents
+--------
+
+Examples  Some example applications
+Programs  The applications you need to run a distributed system.
+source    Source code of the Holumbus-Distribution library.
+
+
+
+
+Requirements
+------------
+
+So far, this library is only tested under Linux, please tell me, if you have 
+problems under Windows or other OS.
+The Holumbus-Distribution library requires at least GHC 6.8.2 and the 
+following packages (available via Hackage).
+
+  containers
+  hslogger
+  network 
+  unix
+  time
+  bytestring
+  binary
+  readline
+  hxt
+
+
+
+
+Installation
+------------
+
+A Cabal file is provided, therefore Holumbus-Distribution can be installed using
+the standard Cabal way:
+
+$ runhaskell Setup.hs configure
+$ runhaskell Setup.hs build
+$ runhaskell Setup.hs install # with root privileges
+
+I prefer to do it the old Makefile way:
+
+$ make build
+$ make install # with root privileges
+
+
+If you want to run your own distributed system, you'll need to compile the
+PortRegistry, too. This can be done with
+
+$ make programs 
+
+
+
+
+Steps to make a distributed system running
+--------------------------------
+
+Before you can use the mailboxes in your own programs, you need to start the
+PortRegistry BEFORE running any of you programs. If you have compiled the
+PortRegistry, you can start it with: 
+
+$ cd Programs/PortRegistry
+$ ./PortRegistry
+
+This will create a file "registry.xml" in your "/tmp" directory. This file
+contains all information for your programs to access the PortRegistry.
+It is wise to copy this file to every computer, on which you want to run a 
+program of your system.
+
+The before you can send/receive messages in your programs, you'll need to
+load the "registry.xml" file. This can be done by two simple lines in the
+IO-monad:
+
+p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
+setPortRegistry p
+
+
+To create a simple Mailbox for receiving messages, you can look a the following
+demo-program:
+      
+main :: IO ()
+main
+  = do
+    reg <- newPortRegistryFromXmlFile "/tmp/registry.xml"
+    setPortRegistry reg
+    gS <- (newGlobalStream "global"):: IO (Stream String)
+    msg <- readStreamMsg gS
+    putStrLn msg
+
+This program will set up a mailbox and wait till the first message is received
+and print it out. Then is will terminate.
+And the following program will send a message to your mailbox:      
+      
+main :: IO ()
+main
+  = do
+    reg <- newPortRegistryFromXmlFile "/tmp/registry.xml"
+    setPortRegistry reg
+    gP <- (newGlobalPort "global")::IO (Port String)
+    send gP "Hello World"
+      
+This program just sends one message to your mailbox.      
