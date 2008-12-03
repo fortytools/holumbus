@@ -1,10 +1,12 @@
 This is the Holumbus-MapReduce Framework
 
-Version 0.1
+Version 0.1.0
 
 Stefan Schmidt sts@holumbus.org
 
 http://www.holumbus.org
+
+
 
 
 About
@@ -12,57 +14,23 @@ About
 
 Holumbus is a set of Haskell libraries. This package contains the 
 Holumbus-MapReduce library for building and running a distributed MapReduce
-system. One of the core elements of the communication layer is a Erlang-like 
-system for interchanging messages between different threads or applications. 
-So even, if you are not interested in MapReduce, you might want to take a closer
-look at it. In the future we think to extract this a library on its own.
+system.
 
-This library itself is independent from other Holumbus libraries, such as the
-Searchengine library. Although, if you want to run some of the examples, e.g.
-the distributed Web-Crawler and Indexer, you have to install the
-Holumbus-Searchegine library.
+This library depends on the Holumbus-Distribution library. If you want to run 
+some of the examples, e.g. the distributed Web-Crawler and Indexer, you have
+to install the Holumbus-Searchegine library, too.
 
 
-Documentation for the communication layer:
-------------------------------------------
-
-The "chan" datatype is pretty usefull in Haskell. You can easily use it as a 
-queue for the consumer-producer-problem. One thread writes in the channel, the
-other reads the data from it. But this doesn't work, if the two threads don't 
-run in the same address space, that means in distinct applications or even on 
-different machines which are only connected over a network. But this senario is
-a normal usecase in this world.
-
-When implementing the Holumbus-MapReduce, I thought myself it would be nice to
-have a simple communication framework like that one in the Erlang language. One
-thread can create a mailbox and other threads can send messages to it, though it
-makes no difference, if the threads are in the same address space or not. I've
-found some thing called "Distributed Haskell" [1], but the codebase seemed to
-be abandoned for many years. While writing a new system, I was inspired by
-the Stream-Ports in the Mozart/Oz Language [2].
-A Stream is like a Mailbox or a Receiver, other threads can send Messages to it
-via a Port. To address a Stream over the network easily, you can give him a
-unique name. Then you can create a port, give him that name an the messages will
-be send directly to the stream. This requires you to start the PortRegistry.
-The PortRegistry keeps a log for all global communication streams in the
-network. It MUST be startet BEFORE all other programs. 
-In future versions this explicit execution sequence might not be necessary any
-more, but for now the FIRST thing you have to start is the PortRegistry.
-There is only one instance allowed in the whole communication network (this
-might also change).
-
-You find the main parts in the module "Holumbus.Network.Port"
-
-[1] http://www.iist.unu.edu/~vs/haskell/dhs/ 
-[2] http://www.mozart-oz.org/
 
 
 Contents
 --------
 
 Examples  Some example applications and utilities.
-Programs  The Applications you need to run a distributed MapReduce system.
+Programs  The applications you need to run a distributed MapReduce system.
 source    Source code of the Holumbus-MapReduce library.
+
+
 
 
 Requirements
@@ -73,14 +41,17 @@ problems under Windows or other OS.
 The Holumbus-MapReduce library requires at least GHC 6.8.2 and the 
 following packages (available via Hackage).
 
-- binary 0.4.1
-- bzlib 0.4.0.1
-- HDBC 1.1.4
-- HDBC-sqlite3 1.1.4.0
-- hxt 7.5
-- regex-compat 0.71.0.1
-- utf8-string 0.2
-- hslogger 1.0.5
+  containers
+  hslogger
+  directory
+  network
+  time
+  bytestring
+  binary
+  hxt
+  Holumbus-Distribution >= 0.1.0
+
+
 
 
 Installation
@@ -99,29 +70,31 @@ $ make build
 $ make install # with root privileges
 
 
+
+
 Steps to make the system running
 --------------------------------
 
-1. Compile and install the Holumbus-MapReduce framework.
+1. Compile and install the Holumbus-Distribution library.
+
+
+2. Compile and install the Holumbus-MapReduce framework.
 
 $ make build
 $ make install       # this with root privileges
 
 
-2. Compile the Main-Programs (PortRegistry and Master).
-   The programs will be located in Programs/
+3. Compile the Master-Program.
+   It is located in Programs/
 
 $ make programs
 
 
-3. Start the PortRegistry.
-
-$ cd Programs/PortRegistry
-$ ./PortRegistry
+4. Start the PortRegistry from the Holumbus-Distribution library.
 
 
-4. Start the Master.
-   If you want to start the master on another maschine than the portregistry,
+5. Start the Master.
+   If you want to start the master on another machine than the PortRegistry,
    you have to copy the file "registry.xml" from the tmp directory to the
    the tmp directory on the machine the master should run on.
 
@@ -132,12 +105,14 @@ $ ./Master
 
 Now, the system itself is running, but as you might wonder, you only have 
 started the registry for communication and the master for the MapReduce system.
-To 
+To run your own system, you have to create a MapReduce Client and a MapReduce
+Worker. Here, we'll show you to run the examples, they'll show you how to
+create you own system.
 
 
-5. Compile the Examples. 
+6. Compile the Examples. 
    For some examples (e.g. the Crawler), this requires that you have installed 
-   the Holumbus-Searcheingine framework. You can get it from the Holumbus 
+   the Holumbus-Searchengine framework. You can get it from the Holumbus 
    homepage (http://www.holumbus.org), please read its documentation for further
    instructions and details. You'll only need the Searchegine library installed
    for the MapReduce examples, not the library itself.
@@ -145,7 +120,7 @@ To
 $ make examples # some examples might not compile without the Searchengine lib
 
 
-6. Start the Workers.
+7. Start the Workers.
    At this time every worker has to run in its own directory, so create for
    each worker, you want to run, its own subdirectory and copy the executeable
    to it. If you want to run the workers on different machines, you have to
@@ -153,7 +128,7 @@ $ make examples # some examples might not compile without the Searchengine lib
    of the machine the worker will work on.
 
 
-7. Start the Client.
+8. Start the Client.
    Now you can start the client and wait the things to come. If you want to run
-   the client on another machine than the portregistry, you have to copy the
+   the client on another machine than the PortRegistry, you have to copy the
    registry.xml file from the tmp directory, too.

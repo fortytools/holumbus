@@ -5,7 +5,8 @@
 
 # TEST_BASE	= test
 EXAMPLES_BASE	= Examples
-PROGRAMS_BASE	= Programs
+PROGRAMS_BASE   = Programs
+
 
 all : configure build doc
 	
@@ -31,7 +32,7 @@ prof	:
 examples :
 	$(MAKE) -C $(EXAMPLES_BASE) all
 
-programs :	
+programs :
 	$(MAKE) -C $(PROGRAMS_BASE) all
 
 wc :

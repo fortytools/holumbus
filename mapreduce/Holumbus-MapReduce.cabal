@@ -1,5 +1,5 @@
 name:          Holumbus-MapReduce
-version:       0.1
+version:       0.1.0
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Stefan Schmidt
@@ -18,23 +18,15 @@ flag splitBase
 library
   Build-Depends:  base >= 3
                 , haskell98
+                , containers
                 , hslogger
                 , directory
-                , containers
-                , old-time
-                , time
-                , parallel
-                , parsec
                 , network
+                , time
                 , bytestring
-                , unix
-                , utf8-string
-                , hxt
                 , binary
-                , bzlib
-                , regex-compat
-                , readline
-                , pureMD5 >= 0.1.2 && < 0.2
+                , hxt
+                , Holumbus-Distribution >= 0.1.0
 
   hs-source-dirs: 
                   source
@@ -48,9 +40,6 @@ library
                 , Holumbus.Distribution.Master.MasterData
                 , Holumbus.Distribution.Master.MasterPort
                 , Holumbus.Standalone.SMapReduce
-                , Holumbus.Data.AccuMap
-                , Holumbus.Data.KeyMap
-                , Holumbus.Data.MultiMap
                 , Holumbus.MapReduce.MapReduce
                 , Holumbus.MapReduce.JobController
                 , Holumbus.MapReduce.TaskProcessor
@@ -67,19 +56,4 @@ library
                 , Holumbus.FileSystem.Controller
                 , Holumbus.FileSystem.Controller.ControllerData
                 , Holumbus.FileSystem.Controller.ControllerPort
-                , Holumbus.Network.Communication
-                , Holumbus.Network.Core
-                , Holumbus.Network.Messages
-                , Holumbus.Network.Port
-                , Holumbus.Network.Site
-                , Holumbus.Network.PortRegistry
-                , Holumbus.Network.PortRegistry.Messages
-                , Holumbus.Network.PortRegistry.PortRegistryData
-                , Holumbus.Network.PortRegistry.PortRegistryPort
-                , Holumbus.Console.Console
-                , Holumbus.Common.Debug
-                , Holumbus.Common.FileHandling
-                , Holumbus.Common.Logging
-                , Holumbus.Common.Threading
-                , Holumbus.Common.Utils
   ghc-options: -Wall -threaded -O

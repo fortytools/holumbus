@@ -1,10 +1,9 @@
 # Making all examples
 
-COMMUNICATION     = Communication/ClientServer Communication/Ports
 FILESYSTEM        = FileSystem
 MAPREDUCE         = MapReduce
 UTILS             = Utils/Filehandling Utils/PickleTest
-ALLEXAMPLES       = $(COMMUNICATION) $(FILESYSTEM) $(MAPREDUCE) $(UTILS)
+ALLEXAMPLES       = $(FILESYSTEM) $(MAPREDUCE) $(UTILS)
 
 
 all :

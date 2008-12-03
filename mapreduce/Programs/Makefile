@@ -1,9 +1,7 @@
 # Making all examples
 
-# COMMUNICATION     = Communication/ClientServer Communication/Ports
 MASTER            = MapReduceMaster
-PORTREGISTRY      = PortRegistry
-ALLPROGRAMS       = $(MASTER) $(PORTREGISTRY)
+ALLPROGRAMS       = $(MASTER)
 
 
 all :
@@ -11,9 +9,6 @@ all :
 
 master :
 	$(foreach i,$(MASTER),$(MAKE) -C $i all ;)
-
-registry :
-	$(foreach i,$(PORTREGISTRY),$(MAKE) -C $i all ;)
 
 wc :
 	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`
