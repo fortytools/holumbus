@@ -108,7 +108,7 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     where
     modLink = takeWhile ((/=) '#')
     pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
-    pkgLink "base" = "http://hackage.haskell.org/packages/archive/base/latest/doc/html/"
+    pkgLink "base" = "http://hackage.haskell.org/packages/archive/base/4.0.0.0/doc/html/"
     pkgLink p' = "http://hackage.haskell.org/cgi-bin/hackage-scripts/package/" ++ p'
     getDesc = unsafePerformIO . getDocText c "description" 
   xpQualified = xpElem "tr" $ xpClass "function" $ xpTriple xpModule xpFunction xpSignature
