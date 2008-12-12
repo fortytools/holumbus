@@ -19,7 +19,7 @@ build	: configure
 	@runhaskell Setup.hs build
 
 install :
-	@runhaskell Setup.hs install
+	@runhaskell Setup.hs install --global
 
 dist	:
 	@runhaskell Setup.hs sdist

@@ -1,15 +1,16 @@
-name:          Holumbus-Distribution
+name:          Holumbus-Distributed
 version:       0.1.0
 license:       OtherLicense
 license-file:  LICENSE
-author:        Uwe Schmidt, Stefan Schmidt
-copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
+author:        Stefan Schmidt, Uwe Schmidt
+copyright:     Copyright (c) 2008 Stefan Schmidt, Uwe Schmidt
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
 category:      Distributed Computing, Data, Network
 synopsis:      A framework for intra- and inter-programm communication
 homepage:      http://holumbus.fh-wedel.de
-description:   This package contains Erlang-Style mailboxes for an easy implementation of distributed systems in Haskell.
+description:   This package contains Erlang-Style mailboxes for an easy implementation
+               of distributed systems in Haskell.
 build-type:    Simple
 cabal-version: >=1.6
 
@@ -18,9 +19,15 @@ extra-source-files:
     Makefile
     Programs/Makefile
     Programs/PortRegistry/Makefile
+    Programs/PortRegistry/PortRegistry.hs
     Examples/Makefile
+    Examples/ClientServer/Client.hs
     Examples/ClientServer/Makefile
+    Examples/ClientServer/Server.hs
     Examples/Ports/Makefile
+    Examples/Ports/Receiver.hs
+    Examples/Ports/Sender.hs
+    Examples/Ports/Single.hs
 
 library
   build-depends:  base       >= 4
