@@ -41,7 +41,13 @@ module Holumbus.Network.Messages
 where
 
 import           Control.Concurrent
+import		 Control.Exception	( Exception
+					, throw
+					)
+{- 6.8
 import qualified Control.Exception as E
+-}
+
 import           Data.Binary
 import           Data.Maybe
 import           Data.Typeable
@@ -80,12 +86,13 @@ class RspMsg m where
 
 -- | Every request might raise an exception
 data MessageException
-  = TimeoutException     -- ^ if the server takes too long to respond
-  | UnknownRequest       -- ^ if the server doesn't understand our request
-  | FalseResponse String -- ^ when the server response doesn't match our definition
-  | ErrorResponse String -- ^ if an error in the server occurred and he informs us about the error
-  deriving (Show, Typeable)
+    = TimeoutException     	-- ^ if the server takes too long to respond
+    | UnknownRequest       	-- ^ if the server doesn't understand our request
+    | FalseResponse String 	-- ^ when the server response doesn't match our definition
+    | ErrorResponse String	-- ^ if an error in the server occurred and he informs us about the error
+      deriving (Show, Typeable)
 
+instance Exception MessageException
 
 -- | Sends a repest to the server  (stream) and waits for a response.
 --   If the response can't be received in a certain time, a TimeoutException
@@ -116,7 +123,8 @@ talkWithServer p respStream timeout m hdlFct
       -- if no response
       Nothing -> do
         warningM localLogger "talkWithServer: timeout"
-        E.throwDyn TimeoutException          
+        {- E.throwDyn TimeoutException -}
+	throw TimeoutException
       -- handle the response
       (Just r) ->
         hdlFct r
@@ -146,14 +154,17 @@ basicResponseHandler hdlFct rsp
     where
       handleError
         | (isError rsp)   = do
-          warningM localLogger $ "basicResponseHandler: error: " ++ show rsp
-          E.throwDyn $ ErrorResponse $ getErrorMsg rsp
+			    warningM localLogger $ "basicResponseHandler: error: " ++ show rsp
+			    {- 6.8 E.throwDyn $ ErrorResponse $ getErrorMsg rsp -}
+			    throw $ ErrorResponse $ getErrorMsg rsp
         | (isUnknown rsp) = do
-          warningM localLogger $ "basicResponseHandler: unknown: " ++ show rsp
-          E.throwDyn UnknownRequest
+			    warningM localLogger $ "basicResponseHandler: unknown: " ++ show rsp
+			    {- 6.8 E.throwDyn UnknownRequest -}
+			    throw UnknownRequest
         | otherwise       = do
-          warningM localLogger $ "basicResponseHandler: false: " ++ show rsp
-          E.throwDyn $ FalseResponse $ show rsp
+			    warningM localLogger $ "basicResponseHandler: false: " ++ show rsp
+			    {- E.throwDyn $ FalseResponse $ show rsp -}
+			    throw $ FalseResponse $ show rsp
         
                     
 -- | Sends a request to the server (stream) and handles the response and all
@@ -172,9 +183,7 @@ performPortAction reqPo resStr timeout reqMsg rspHdl
     talkWithServer reqPo resStr timeout reqMsg $
       basicResponseHandler rspHdl
   
-  
-  
-  
+
 -- ----------------------------------------------------------------------------
 -- Stream-Handling
 -- ----------------------------------------------------------------------------
@@ -238,17 +247,18 @@ handleRequest
 handleRequest po fhdl fres
   = do
     -- in case, we can't send the error...
-    E.handle (\e -> do
+    handleAll (\e -> do
         errorM localLogger $ "handleRequest: exeption raised and could not be send to controller" 
         errorM localLogger $ show e) $ do
       do
       -- in case our operation fails, we send a failure-response
-      E.handle (\e -> do
-          errorM localLogger $ "handleRequest: exeption raised and reporting to controller" 
-          errorM localLogger $ show e
-          P.send po (mkErrorMsg $ show e)) $
-        do
-        -- our action, might raise an exception
-        r <- fhdl
-        -- send the response
-        P.send po $ fres r
+      handleAll ( \e -> do
+		        errorM localLogger $ "handleRequest: exeption raised and reporting to controller" 
+		        errorM localLogger $ show e
+                        P.send po (mkErrorMsg $ show e)
+		) $
+                do
+		-- our action, might raise an exception
+		r <- fhdl
+		-- send the response
+		P.send po $ fres r

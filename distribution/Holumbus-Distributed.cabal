@@ -10,23 +10,21 @@ category:      Distributed Computing, Data, Network
 synopsis:      A framework for intra- and inter-programm communication
 homepage:      http://holumbus.fh-wedel.de
 description:   This package contains Erlang-Style mailboxes for an easy implementation of distributed systems in Haskell.
-cabal-version: >=1.2
-
-flag splitBase
-  description: Choose the new smaller, split-up base package.
+build-type:    Simple
+cabal-version: >=1.6
 
 library
-  Build-Depends:  base >= 3
-                , haskell98
-                , containers
-                , hslogger
-                , network
-                , unix
-                , time
-                , bytestring
-                , binary
-                , readline
-                , hxt
+  build-Depends:  base       >= 4
+                , binary     >= 0.4
+                , bytestring >= 0.9
+                , containers >= 0.1
+                , editline   >= 0.2
+                , haskell98  >= 1
+                , hslogger   >= 1.0
+                , hxt        >= 8.3
+                , network    >= 2.1
+                , time       >= 1.1
+                , unix       >= 2.3
 
   hs-source-dirs: 
                   source
@@ -49,4 +47,6 @@ library
                 , Holumbus.Common.Logging
                 , Holumbus.Common.Threading
                 , Holumbus.Common.Utils
-  ghc-options: -Wall -threaded -O
+
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification

@@ -26,30 +26,28 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Data.KeyMap
-(
-  KeyMap
-, Key(..)
-, empty
-, null
-, insert
-, lookup
-, keys
-, elems
-, memberKey
-, memberElem
-, deleteKey
-, deleteElem
-, fromList
-, toList
-, toAscList
- 
-)
+    (
+      KeyMap
+    , Key(..)
+    , empty
+    , null
+    , insert
+    , lookup
+    , keys
+    , elems
+    , memberKey
+    , memberElem
+    , deleteKey
+    , deleteElem
+    , fromList
+    , toList
+    , toAscList
+    )
 where
 
 import           Prelude hiding (null, lookup)
-
+import           Data.Maybe
 import qualified Data.Map as Map
-
 
 -- | Every element of this map has to implement a key-function. which
 --   gives us the key of the element
@@ -79,8 +77,10 @@ insert a (NM m) = NM $ Map.insert (getKey a) a m
 
 -- | Gets all different elements for one key or an empty set.
 lookup :: (Key a, Monad m) => String -> KeyMap a -> m a
-lookup k (NM m) = Map.lookup k m
-
+lookup k (NM mm)
+    = do
+      let Just r = Map.lookup k mm
+      return r
 
 -- | Get all different keys from the map.
 keys :: (Key a) => KeyMap a -> [String]

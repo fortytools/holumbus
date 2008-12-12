@@ -17,32 +17,52 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Common.Utils
-( 
+    ( 
+      decodeMaybe
 
-  decodeMaybe
+      -- , lookupList
+      -- , lookupMaybe
 
--- , lookupList
--- , lookupMaybe
+      -- , cutMaybePair
+    , filterEmptyList
+    , setEmptyList
+      -- , filterBlanks
 
--- , cutMaybePair
-, filterEmptyList
-, setEmptyList
--- , filterBlanks
+    , prettyRecordLine
+      -- , prettyResultLine
+      -- , handleExitError
 
-, prettyRecordLine
--- , prettyResultLine
--- , handleExitError
-)
+    , handleAll		-- exception handling for all exceptions
+    )
 where
 
+import           Control.Exception	( SomeException
+					, handle
+					)
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
+
 -- import qualified Data.Map as Map
+
 import           Data.Maybe
 import           Data.Char
 
 -- import           System.Exit
 
+-- ------------------------------------------------------------
+--
+-- handle with type sinature
+
+{- 6.8
+handleAll	:: (Exception -> IO a) -> IO a -> IO a
+-}
+
+-- ghc 6.10 requires a type signature for handle
+
+handleAll	:: (SomeException -> IO a) -> IO a -> IO a
+handleAll	= handle
+
+-- ------------------------------------------------------------
 
 -- | parses something from a maybe bytestring, if Nothing, then Nothing
 decodeMaybe :: (Binary a) => Maybe B.ByteString -> Maybe a
@@ -110,3 +130,5 @@ handleExitError res
         exitFailure
       (Right a) -> return a
 -}   
+
+-- ----------------------------------------------------------------------------

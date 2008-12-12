@@ -22,7 +22,6 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Common.Threading
 (
   Thread
@@ -37,11 +36,18 @@ module Holumbus.Common.Threading
 where
 
 import           Control.Concurrent
-import qualified Control.Exception as E
-import           Data.Maybe
+{- 6.8
+import qualified Control.Exception      as E
 import           Data.Typeable
+-}
+import           Control.Exception      ( AsyncException(..)
+                                        , catchJust
+                                        )
+import           Data.Maybe
+
 import           System.Log.Logger
 
+import           Holumbus.Common.Utils  ( handleAll )
 
 localLogger :: String
 localLogger = "Holumbus.Common.Threading"
@@ -53,9 +59,11 @@ localLogger = "Holumbus.Common.Threading"
 
 -- | Exception to stop a thread, so we can distinguish this request from
 --   "real" exceptions.
-data KillThreadException = KillThreadException ThreadId
-  deriving (Typeable)
 
+{- 6.8
+data KillThreadException = KillThreadException ThreadId
+  deriving (Typeable, Show)
+-}
 
 -- | The data needed to access and control the thread. 
 data ThreadData = ThreadData {
@@ -126,36 +134,49 @@ startThread th
         if (thd_Running thd)
           -- if thread is still running 
           then do
-            E.handle 
-             (\e -> do
-              -- if a normal exception occurs, the error handler should be excuted
-              warningM localLogger $ show e
-              (thd_Error thd)
-              doAction thread
+            {- 6.8 E.handle -}
+            handleAll
+             ( \ e -> do
+                      -- if a normal exception occurs, the error handler should be excuted
+                      warningM localLogger $ show e
+                      thd_Error thd
+                      doAction thread
              ) $
               do
               -- catch the exception which tells us to kill the dispatcher and kill it
-              E.catchDyn
-               (do
-                -- wait for next watch-cycle
-                if (isJust (thd_Delay thd)) 
-                  then do threadDelay $ fromJust (thd_Delay thd)
-                  else do return ()
-                -- do the action
-                (thd_Action thd)
-                -- and again
-                doAction thread
+              {- 6.8 E.catchDyn -}
+              catchJust isThreadKilledException
+               ( do
+                 -- wait for next watch-cycle
+                 if (isJust (thd_Delay thd)) 
+                    then do threadDelay $ fromJust (thd_Delay thd)
+                    else do return ()
+                 -- do the action
+                 thd_Action thd
+                 -- and again
+                 doAction thread
                )
-               (killHandler) 
+               killHandler
           else do
             debugM localLogger $ "thread normally closed by himself"
             deleteThreadId thread
-        where
+	where
+        isThreadKilledException      :: AsyncException -> Maybe ()
+        isThreadKilledException ThreadKilled    = Just ()
+        isThreadKilledException _               = Nothing
+
+        killHandler :: () -> IO ()
+        killHandler _
+          = do
+            debugM localLogger $ "thread normally closed by other thread "
+            deleteThreadId thread
+{- 6.8
         killHandler :: KillThreadException -> IO ()
         killHandler (KillThreadException i)
           = do
             debugM localLogger $ "thread normally closed by other thread " ++ show i
             deleteThreadId thread
+-}
         deleteThreadId :: Thread -> IO ()
         deleteThreadId t
           = modifyMVar t $ \thd -> return (thd {thd_Id = Nothing, thd_Running = False},())
@@ -176,8 +197,9 @@ stopThread thread
           -- if stop is called from the thread, we want to finish our work
           then do 
             modifyMVar thread $ \thd -> return (thd {thd_Running = False},())
-          -- else we kill it the unfriendly way...
+            -- else we kill it the unfriendly way...
           else do
-            E.throwDynTo he (KillThreadException me)
+            {- 6.8: E.throwDynTo he (KillThreadException me) -}
+            killThread he
       else do
         return ()

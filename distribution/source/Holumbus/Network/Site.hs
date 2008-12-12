@@ -17,8 +17,6 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
-{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.Network.Site
 (
 -- * Datatypes

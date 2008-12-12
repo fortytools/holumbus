@@ -17,8 +17,8 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
-{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}	-- for unused record field selectors
+
 module Holumbus.Network.Port
 (
 -- * Constants
@@ -83,6 +83,7 @@ where
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
+
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
@@ -91,6 +92,7 @@ import           Data.Maybe
 import qualified Data.Set as Set
 import           Data.Time
 import           Network
+
 import           System.IO
 import           System.IO.Unsafe
 import           System.Log.Logger
@@ -98,6 +100,7 @@ import           System.Timeout
 
 import           Text.XML.HXT.Arrow
 
+import           Holumbus.Common.Utils		( handleAll )
 import           Holumbus.Network.Site
 import           Holumbus.Network.Core
 import           Holumbus.Network.PortRegistry
@@ -211,25 +214,22 @@ instance (Show a, Binary a) => Binary (Message a) where
       return $ (Message t r d g rs ss (read t1Str) (read t2Str))
 
 
-
-
 -- ----------------------------------------------------------------------------
 -- Port-Datatype
 -- ----------------------------------------------------------------------------
 
 -- | The port datatype.
-data Port a = Port {
-    p_StreamName :: StreamName      -- ^ the name of the destination stream
-  , p_SocketId   :: Maybe SocketId
-  } deriving (Show)
+data Port a = Port { p_StreamName :: StreamName      -- ^ the name of the destination stream
+		   , p_SocketId   :: Maybe SocketId
+		   }
+	      deriving (Show)
 
 instance (Show a, Binary a) => Binary (Port a) where
-  put (Port sn soid) = put sn >> put soid
-  get
-    = do
-      sn   <- get
-      soid <- get
-      return (Port sn soid)
+  put (Port sn soid)	= put sn >> put soid
+  get			= do
+			  sn   <- get
+			  soid <- get
+			  return (Port sn soid)
 
 instance (Show a, Binary a) => XmlPickler (Port a) where
   xpickle = xpPort
@@ -514,7 +514,7 @@ getGlobalPort sn
     case r of
       (Just rp) -> 
         do
-        handle (\e -> do
+        handleAll (\e -> do
           errorM localLogger $ "getGlobalPort: error while getting port: " ++ sn ++ " exception: " ++ show e
           return Nothing
          ) $ do
@@ -589,7 +589,6 @@ updateReceiveTime msg
   = do
     time <- getCurrentTime
     return (msg {msg_Receive_time = time})
-
 
 -- | Sets the receiver unix-socket of the message.
 updateReceiverSocket :: (Show a, Binary a) => Message a -> SocketId -> Message a
@@ -790,7 +789,8 @@ stopStreamServer sId
   = do
     me <- myThreadId
     debugM localLogger $ "stopping server... with threadId: " ++ show sId ++ " - form threadId: " ++ show me
-    throwDynTo sId me
+    {- 6.8 throwDynTo sId me -}
+    throwTo sId (ThreadIdException me)
     yield
 
 

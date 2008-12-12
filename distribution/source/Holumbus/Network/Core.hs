@@ -19,42 +19,45 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
-{-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.Network.Core
-(
--- * Socket-Descriptor
-  SocketId(..)
+    (
+      -- * Socket-Descriptor
+      SocketId(..)
 
--- * Server-Operations
-, startSocket
+      -- * Server-Operations
+    , startSocket
 
--- * Client-Operations
-, sendRequest
+      -- * Client-Operations
+    , sendRequest
 
+      -- * Handle-Operations
+    , putMessage
+    , getMessage
 
--- * Handle-Operations
-, putMessage
-, getMessage
-)
+    , ThreadIdException(..)
+    )
 where
 
 import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
+
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
+import           Data.Typeable
+
 import           Network
 import qualified Network.Socket as Socket
+
 import           System.Log.Logger
 import           System.CPUTime
 import           System.IO
 import           System.Posix
-import           Text.Printf
 
+import           Text.Printf
 import           Text.XML.HXT.Arrow
 
-
+import           Holumbus.Common.Utils		( handleAll )
 
 -- | Logger
 localLogger :: String
@@ -63,7 +66,14 @@ localLogger = "Holumbus.Network.Core"
 
 type ServerDispatcher = SocketId -> Handle -> HostName -> PortNumber -> IO ()
 
+-- ------------------------------------------------------------
+--
+-- exception stuff
 
+data ThreadIdException	= ThreadIdException ThreadId
+			  deriving (Typeable, Show)
+
+instance Exception ThreadIdException where
 
 -- ----------------------------------------------------------------------------
 -- Socket Descriptor
@@ -93,15 +103,13 @@ xpSocketId
     xpPair (xpAttr "hostname" xpText) (xpAttr "port" xpickle)
 
 
-
-
 -- ----------------------------------------------------------------------------
 -- Server-Operations
 -- ----------------------------------------------------------------------------
 
 -- | Creates a new (unix-)socket and starts the listener in its own thread.
 --   You'll get the threadId of the listener Thread, so you can kill it.
---   It is also possible to give a range of PortNumber on which the socket
+--   It is also possible to give a range of PortNumbers on which the socket
 --   will be opened. The first portnumber available will be taken.
 startSocket 
   :: ServerDispatcher -- ^ dispatcher function
@@ -119,16 +127,24 @@ startSocket f actPo maxPo
         hn <- getHostName
         tid <- forkIO $ 
           do
-          handle
+          handleAll
             (\e ->
               do
               putStrLn $ "ERROR - socket closed with exception: " ++ show e 
               sClose so
             ) $
             do
+	    {- 6.8
             catchDyn (waitForRequests f so (SocketId hn po)) (handler so)
+	    -}
+	    catchJust isThreadIdException
+	      (waitForRequests f so (SocketId hn po))
+	      (handler so)
         return (Just (tid, hn, po))
     where
+      isThreadIdException	:: ThreadIdException -> Maybe ThreadId
+      isThreadIdException (ThreadIdException i)	= Just i
+
       handler :: Socket -> ThreadId -> IO ()
       handler so i 
         = do
@@ -150,7 +166,7 @@ getFirstSocket actPo maxPo
   | actPo > maxPo = return Nothing
   | otherwise 
     = do
-      handle (return (getFirstSocket (actPo+1) maxPo)) $
+      handleAll (return (getFirstSocket (actPo+1) maxPo)) $
         do
         socket <- getSocket (PortNumber actPo)
         return (Just (socket, actPo))     
@@ -189,15 +205,13 @@ processRequest f soid client =
       -- Dispatch the request and measure the processing time.
       t1 <- getCPUTime
       debugM localLogger "starting to dispatch request"
-      handle (\e -> errorM localLogger $ "UnknownError: " ++ show e) $ do
+      handleAll (\e -> errorM localLogger $ "UnknownError: " ++ show e) $ do
         f soid hdl hst prt
       t2 <- getCPUTime
       d <- return ((fromIntegral (t2 - t1) / 1000000000000) :: Float)
       ds <- return (printf "%.4f" d)
       infoM localLogger ("request processed in " ++ ds ++ " sec")
 
-      
-      
 
 -- ----------------------------------------------------------------------------
 -- Client-Operations
@@ -220,7 +234,6 @@ sendRequest f n p =
         f hdl
 
 
-
 -- ----------------------------------------------------------------------------
 -- Handle-Operations
 -- ----------------------------------------------------------------------------
@@ -230,7 +243,7 @@ sendRequest f n p =
 putMessage :: B.ByteString -> Handle -> IO ()
 putMessage msg hdl
   = do
-    handle (\e -> do
+    handleAll (\e -> do
       errorM localLogger $ "putMessage: " ++ show e
       errorM localLogger $ "message: " ++ show msg 
      ) $ do

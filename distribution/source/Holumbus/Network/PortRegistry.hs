@@ -16,16 +16,15 @@
 -}
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Network.PortRegistry
-(
--- * Type-Classes
-  PortRegistry(..)
+    (
+      -- * Type-Classes
+      PortRegistry(..)
 
--- * GenericRegistry
-, GenericRegistry
-, mkGenericRegistry
-)
+      -- * GenericRegistry
+    , GenericRegistry
+    , mkGenericRegistry
+    )
 where
 
 import Holumbus.Network.Core
@@ -65,6 +64,7 @@ class PortRegistry pr where
 --   This might be a good example of hiding network-access. To the caller it
 --   makes no difference, if the PortRegistry is in the same address space of
 --   on another computer in the network.
+
 data GenericRegistry = forall r. (PortRegistry r) => GenericRegistry r
 
 

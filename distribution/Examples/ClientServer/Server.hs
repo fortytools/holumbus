@@ -1,10 +1,9 @@
 
 module Main(main) where
 
-import           Control.Exception
-
 import           Holumbus.Common.Debug
 import           Holumbus.Common.Logging
+import           Holumbus.Common.Utils
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.Network.Communication
 
@@ -17,7 +16,7 @@ main :: IO ()
 main
   = do
     putStrLn version
-    handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
+    handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging []
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"

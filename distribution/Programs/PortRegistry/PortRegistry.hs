@@ -15,10 +15,9 @@
 
 module Main(main) where
 
-import           Control.Exception
-
 import           Holumbus.Common.Logging
 import           Holumbus.Common.FileHandling
+import           Holumbus.Common.Utils
 import           Holumbus.Network.Port
 import           Holumbus.Network.PortRegistry
 import           Holumbus.Network.PortRegistry.PortRegistryData
@@ -45,18 +44,18 @@ main
     
 createConsole :: Console.ConsoleData PortRegistryData
 createConsole =
-  Console.addConsoleCommand "register" hdlRegister "registers a port manually" $
+  Console.addConsoleCommand "register" 	 hdlRegister   "registers a port manually" $
   Console.addConsoleCommand "unregister" hdlUnregister "unregisters a port manually" $
-  Console.addConsoleCommand "lookup" hdlLookup "gets the socket id for a port" $
-  Console.addConsoleCommand "ports" hdlGetPorts "lists all ports" $ 
-  Console.addConsoleCommand "version" hdlVersion "prints the version" $ 
+  Console.addConsoleCommand "lookup" 	 hdlLookup     "gets the socket id for a port" $
+  Console.addConsoleCommand "ports" 	 hdlGetPorts   "lists all ports" $ 
+  Console.addConsoleCommand "version"    hdlVersion    "prints the version" $
   Console.initializeConsole
 
 
 hdlRegister :: PortRegistryData -> [String] -> IO ()
 hdlRegister prd opts
   = do
-    handle (\_ -> putStrLn "usage: register <streamname> <hostname> <socketId>") $
+    handleAll (\_ -> putStrLn "usage: register <streamname> <hostname> <socketId>") $
       do
       let sn = head opts
       let hn = head $ tail opts
@@ -66,7 +65,7 @@ hdlRegister prd opts
 
 hdlUnregister :: PortRegistryData -> [String] -> IO ()
 hdlUnregister prd opts
-  = handle (\_ -> putStrLn "usage: unregister <streamname>") $
+  = handleAll (\_ -> putStrLn "usage: unregister <streamname>") $
       do
       let sn = head opts
       unregisterPort sn prd
@@ -74,7 +73,7 @@ hdlUnregister prd opts
 
 hdlLookup :: PortRegistryData -> [String] -> IO ()
 hdlLookup prd opts
-  = handle (\_ -> putStrLn "usage: lookup <streamname>") $
+  = handleAll (\_ -> putStrLn "usage: lookup <streamname>") $
       do
       let sn = head opts
       soid <- lookupPort sn prd
@@ -92,4 +91,5 @@ hdlVersion :: PortRegistryData -> [String] -> IO ()
 hdlVersion _ _
   = do
     putStrLn version
-    
+
+-- ------------------------------------------------------------

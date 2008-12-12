@@ -37,30 +37,29 @@
 
 
 module Holumbus.Console.Console
-(
--- * Console datatype
-  ConsoleData
+    (
+     -- * Console datatype
+     ConsoleData
     
--- * Operations
-, nextOption
-, parseOption
-, initializeConsole
-, addConsoleCommand
-, handleUserInput
-)
+     -- * Operations
+    , nextOption
+    , parseOption
+    , initializeConsole
+    , addConsoleCommand
+    , handleUserInput
+    )
 where
 
 import           Control.Concurrent
-import           Control.Exception
 import           Control.Monad
 
 import           Data.Char
 import qualified Data.Map as Map
 
 import           System.IO
-import           System.Console.Readline
+import           System.Console.Editline.Readline
 
-
+import           Holumbus.Common.Utils	( handleAll )
 
 -- ----------------------------------------------------------------------------
 -- datatypes
@@ -78,9 +77,6 @@ type ConsoleCommand a = ( Maybe (ConsoleFunction a), String )
 
 -- | A console function. The string list represents the arguments
 type ConsoleFunction a = (a -> [String] -> IO())
-
-
-
 
 -- ----------------------------------------------------------------------------
 -- operations 
@@ -127,24 +123,22 @@ helpCommand = (Nothing, "print this help")
 
 -- | The command-line prompt string.
 shellString :: String
-shellString = "command>"
-
+shellString = "command> "
 
 -- | gets the next option from the command line as string
 nextOption :: [String] -> IO (Maybe String, [String])
 nextOption o
-  = handle (\_ -> return (Nothing, o)) $
+  = handleAll (\_ -> return (Nothing, o)) $
       do
       if ( null o ) then
           return (Nothing, o)
         else 
           return (Just $ head o, tail o) 
 
-
 -- | Simple "parser" for the commandline...
 parseOption :: Read a => [String] -> IO (Maybe a, [String])
 parseOption o
-  = handle (\_ -> return (Nothing, o)) $
+  = handleAll (\_ -> return (Nothing, o)) $
       do
       if ( null o ) then
           return (Nothing, o)
@@ -220,7 +214,7 @@ printNoHandler
 printError :: IO ()
 printError
   = do
-    putStrLn "unknown command"
+    putStrLn "unknown command, try help for a list of available commands"
 
 
 -- | Prints the help text.

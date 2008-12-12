@@ -1,13 +1,11 @@
 
 module Main(main) where
 
-import           Control.Exception
-
 import           Holumbus.Common.Debug
 import           Holumbus.Common.Logging
+import           Holumbus.Common.Utils
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.Network.Communication
-
 
 version :: String
 version = "Holumbus-Communication Client 0.1"
@@ -17,7 +15,7 @@ main :: IO ()
 main
   = do
     putStrLn version
-    handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
+    handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging []
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
@@ -25,7 +23,6 @@ main
       client <- initializeData
       waitForInput client
       deinitializeData client
-
 
 waitForInput :: Client -> IO ()
 waitForInput client
