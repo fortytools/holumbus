@@ -103,7 +103,13 @@ $ runhaskell Setup.hs configure
 $ runhaskell Setup.hs build
 $ runhaskell Setup.hs install # with root privileges
 
-I prefer to do it the old Makefile way:
+This will generate the library, the PortRegestry program
+and the example programs from Examples/Ports and Examples/ClientServer.
+When building the examples with cabal, the executables are located
+in subdirectories under dist/build. E.g. the example executable "Simple"
+can be found under dist/build/Simple/Simple
+
+For those who prefer to build it the old way with make:
 
 $ make build
 $ make install # with root privileges
@@ -111,7 +117,8 @@ $ make install # with root privileges
 If you want to run your own distributed system, you'll need to compile the
 PortRegistry, too. This can be done with
 
-$ make programs 
+$ make programs
+
 
 Steps to make a distributed system running
 --------------------------------

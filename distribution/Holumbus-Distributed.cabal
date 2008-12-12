@@ -13,8 +13,17 @@ description:   This package contains Erlang-Style mailboxes for an easy implemen
 build-type:    Simple
 cabal-version: >=1.6
 
+extra-source-files:
+    README
+    Makefile
+    Programs/Makefile
+    Programs/PortRegistry/Makefile
+    Examples/Makefile
+    Examples/ClientServer/Makefile
+    Examples/Ports/Makefile
+
 library
-  build-Depends:  base       >= 4
+  build-depends:  base       >= 4
                 , binary     >= 0.4
                 , bytestring >= 0.9
                 , containers >= 0.1
@@ -28,25 +37,60 @@ library
 
   hs-source-dirs: 
                   source
-  exposed-modules:  
-                  Holumbus.Data.AccuMap
-                , Holumbus.Data.KeyMap
-                , Holumbus.Data.MultiMap
-                , Holumbus.Network.Communication
-                , Holumbus.Network.Core
-                , Holumbus.Network.Messages
-                , Holumbus.Network.Port
-                , Holumbus.Network.Site
-                , Holumbus.Network.PortRegistry
-                , Holumbus.Network.PortRegistry.Messages
-                , Holumbus.Network.PortRegistry.PortRegistryData
-                , Holumbus.Network.PortRegistry.PortRegistryPort
-                , Holumbus.Console.Console
-                , Holumbus.Common.Debug
-                , Holumbus.Common.FileHandling
-                , Holumbus.Common.Logging
-                , Holumbus.Common.Threading
-                , Holumbus.Common.Utils
+  exposed-modules: Holumbus.Data.AccuMap
+                 , Holumbus.Data.KeyMap
+                 , Holumbus.Data.MultiMap
+                 , Holumbus.Network.Communication
+                 , Holumbus.Network.Core
+                 , Holumbus.Network.Messages
+                 , Holumbus.Network.Port
+                 , Holumbus.Network.Site
+                 , Holumbus.Network.PortRegistry
+                 , Holumbus.Network.PortRegistry.Messages
+                 , Holumbus.Network.PortRegistry.PortRegistryData
+                 , Holumbus.Network.PortRegistry.PortRegistryPort
+                 , Holumbus.Console.Console
+                 , Holumbus.Common.Debug
+                 , Holumbus.Common.FileHandling
+                 , Holumbus.Common.Logging
+                 , Holumbus.Common.Threading
+                 , Holumbus.Common.Utils
 
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable PortRegistry
+  main-is: PortRegistry.hs
+  hs-source-dirs: Programs/PortRegistry source
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable Single
+  main-is: Single.hs
+  hs-source-dirs: Examples/Ports source
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable Sender
+  main-is: Sender.hs
+  hs-source-dirs: Examples/Ports source
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable Receiver
+  main-is: Receiver.hs
+  hs-source-dirs: Examples/Ports source
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable Client
+  main-is: Client.hs
+  hs-source-dirs: Examples/ClientServer source
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable Server
+  main-is: Server.hs
+  hs-source-dirs: Examples/ClientServer source
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification

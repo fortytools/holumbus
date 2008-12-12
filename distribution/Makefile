@@ -7,8 +7,8 @@
 EXAMPLES_BASE	= Examples
 PROGRAMS_BASE	= Programs
 
-all : configure build doc
-	
+all : configure build doc dist
+
 configure :
 	@runhaskell Setup.hs configure
 
@@ -20,6 +20,9 @@ build	: configure
 
 install :
 	@runhaskell Setup.hs install
+
+dist	:
+	@runhaskell Setup.hs sdist
 
 prof	:
 	@runhaskell Setup.hs configure -p
@@ -49,4 +52,5 @@ clean :
 	# $(MAKE) -C $(TEST_BASE) clean
 	$(MAKE) -C $(EXAMPLES_BASE) clean
 	$(MAKE) -C $(PROGRAMS_BASE) clean
-				 
+
+.PHONY	: configure build doc dist clean zip wc examples programs
