@@ -37,7 +37,7 @@ library
                 , editline   >= 0.2
                 , haskell98  >= 1
                 , hslogger   >= 1.0
-                , hxt        >= 8.3
+                , hxt        >= 8.2
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
@@ -69,35 +69,5 @@ library
 executable PortRegistry
   main-is: PortRegistry.hs
   hs-source-dirs: Programs/PortRegistry source
-  ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
-
-executable Single
-  main-is: Single.hs
-  hs-source-dirs: Examples/Ports source
-  ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
-
-executable Sender
-  main-is: Sender.hs
-  hs-source-dirs: Examples/Ports source
-  ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
-
-executable Receiver
-  main-is: Receiver.hs
-  hs-source-dirs: Examples/Ports source
-  ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
-
-executable Client
-  main-is: Client.hs
-  hs-source-dirs: Examples/ClientServer source
-  ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
-
-executable Server
-  main-is: Server.hs
-  hs-source-dirs: Examples/ClientServer source
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification

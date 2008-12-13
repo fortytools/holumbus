@@ -101,13 +101,9 @@ the standard Cabal way:
 
 $ runhaskell Setup.hs configure
 $ runhaskell Setup.hs build
-$ runhaskell Setup.hs install # with root privileges
+$ runhaskell Setup.hs install --global # with root privileges
 
-This will generate the library, the PortRegestry program
-and the example programs from Examples/Ports and Examples/ClientServer.
-When building the examples with cabal, the executables are located
-in subdirectories under dist/build. E.g. the example executable "Simple"
-can be found under dist/build/Simple/Simple
+This will generate the library and the PortRegestry program.
 
 For those who prefer to build it the old way with make:
 

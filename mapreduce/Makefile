@@ -9,7 +9,7 @@ PROGRAMS_BASE   = Programs
 
 
 all : configure build doc
-	
+
 configure :
 	@runhaskell Setup.hs configure
 
@@ -20,11 +20,14 @@ build	: configure
 	@runhaskell Setup.hs build
 
 install :
-	@runhaskell Setup.hs install
+	@runhaskell Setup.hs install --global
 
 prof	:
 	@runhaskell Setup.hs configure -p
 	@runhaskell Setup.hs build
+
+dist	:
+	@runhaskell Setup.hs sdist
 
 # alltests :
 #	$(MAKE) -C $(TEST_BASE) all
@@ -50,4 +53,6 @@ clean :
 	# $(MAKE) -C $(TEST_BASE) clean
 	$(MAKE) -C $(EXAMPLES_BASE) clean
 	$(MAKE) -C $(PROGRAMS_BASE) clean
-				 
+
+.PHONY	: all configure doc build install prof dist examples programs wc zip clean
+

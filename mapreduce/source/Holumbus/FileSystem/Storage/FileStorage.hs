@@ -19,14 +19,13 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.FileSystem.Storage.FileStorage
-(
--- * datatypes
-  FileStorage
+    (
+      -- * datatypes
+      FileStorage
 
--- * storage initialisation
-, newFileStorage 
-
-)
+      -- * storage initialisation
+    , newFileStorage 
+    )
 where
 
 import           Control.Monad
@@ -39,8 +38,9 @@ import           System.Directory
 import           System.Log.Logger
 import qualified Data.Map as Map
 
+import           Holumbus.Common.Utils		 ( handleAll )
 import           Holumbus.Common.FileHandling
-import qualified Holumbus.FileSystem.Storage as S
+import qualified Holumbus.FileSystem.Storage	 as S
 
 localLogger :: String
 localLogger = "Holumbus.FileSystem.Storage.FileStorage"
@@ -105,7 +105,7 @@ newFileStorage path name
 readDirectory :: FileStorage -> IO (FileStorage)
 readDirectory stor
   = do
-    handle (\_ -> writeDirectory stor) $
+    handleAll (\_ -> writeDirectory stor) $
       bracket
         (do
          infoM localLogger ("opening filestorage directory: " ++ (fs_DirfilePath stor))
@@ -206,7 +206,7 @@ instance S.Storage FileStorage where
       infoM localLogger $ "getFileContent: reading " ++ show i
       if (isMember (fs_Directory stor) i) 
         then do
-          handle (\e -> do
+          handleAll (\e -> do
               errorM localLogger $ "getFileContent: " ++ show e
               return Nothing
             ) $ 

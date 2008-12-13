@@ -41,27 +41,27 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Common.FileHandling
-(
--- * xml files
-  loadFromXmlFile
-, saveToXmlFile
+    (
+      -- * xml files
+      loadFromXmlFile
+    , saveToXmlFile
 
--- * lists in binary files
-, writeToListFile
-, appendToListFile
-, readFromListFile
-, parseByteStringToList
+      -- * lists in binary files
+    , writeToListFile
+    , appendToListFile
+    , readFromListFile
+    , parseByteStringToList
 
--- * bytestring file handling
-, writeToBinFile
-, appendToBinFile
-, readFromBinFile
+      -- * bytestring file handling
+    , writeToBinFile
+    , appendToBinFile
+    , readFromBinFile
 
--- * string file handling
-, writeToTextFile
-, appendToTextFile
-, readFromTextFile
-)
+      -- * string file handling
+    , writeToTextFile
+    , appendToTextFile
+    , readFromTextFile
+    )
 where
 
 
@@ -74,9 +74,6 @@ import           System.IO
 import           System.IO.Unsafe
 
 import           Text.XML.HXT.Arrow
-
-
-
 
 -- ----------------------------------------------------------------------------
 -- xml files
@@ -100,9 +97,7 @@ saveToXmlFile f i
     runX (constA i >>> xpickleDocument xpickle options f)
     return ()
     where
-    options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]  
-
-
+    options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]
 
 -- ----------------------------------------------------------------------------
 -- generic lists

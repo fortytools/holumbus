@@ -38,16 +38,21 @@ module Holumbus.Network.Core
     )
 where
 
+import           Prelude hiding         ( catch )
+
 import           Control.Concurrent
-import           Control.Exception
+import           Control.Exception      ( Exception
+					, bracket
+					, catch
+					)
 import           Control.Monad
 
 import           Data.Binary
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy   as B
 import           Data.Typeable
 
 import           Network
-import qualified Network.Socket as Socket
+import qualified Network.Socket         as Socket
 
 import           System.Log.Logger
 import           System.CPUTime
@@ -57,7 +62,7 @@ import           System.Posix
 import           Text.Printf
 import           Text.XML.HXT.Arrow
 
-import           Holumbus.Common.Utils		( handleAll )
+import           Holumbus.Common.Utils  ( handleAll )
 
 -- | Logger
 localLogger :: String
@@ -70,8 +75,8 @@ type ServerDispatcher = SocketId -> Handle -> HostName -> PortNumber -> IO ()
 --
 -- exception stuff
 
-data ThreadIdException	= ThreadIdException ThreadId
-			  deriving (Typeable, Show)
+data ThreadIdException  = ThreadIdException ThreadId
+                          deriving (Typeable, Show)
 
 instance Exception ThreadIdException where
 
@@ -134,19 +139,16 @@ startSocket f actPo maxPo
               sClose so
             ) $
             do
-	    {- 6.8
+            {- 6.8
             catchDyn (waitForRequests f so (SocketId hn po)) (handler so)
-	    -}
-	    catchJust isThreadIdException
-	      (waitForRequests f so (SocketId hn po))
-	      (handler so)
+            -}
+            catch
+              (waitForRequests f so (SocketId hn po))
+              (handler so)
         return (Just (tid, hn, po))
     where
-      isThreadIdException	:: ThreadIdException -> Maybe ThreadId
-      isThreadIdException (ThreadIdException i)	= Just i
-
-      handler :: Socket -> ThreadId -> IO ()
-      handler so i 
+    handler :: Socket -> ThreadIdException -> IO ()
+    handler so (ThreadIdException i)
         = do
           sClose so
           putStrLn $ "socket normally closed by thread " ++ show i 

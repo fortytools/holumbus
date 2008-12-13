@@ -14,37 +14,37 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Distribution.Worker.WorkerData
-(
--- * Datatypes
-  WorkerData
+    (
+      -- * Datatypes
+      WorkerData
   
--- * creation and destruction
-, newWorker
-)
+      -- * creation and destruction
+    , newWorker
+    )
 where
 
 
 import           Control.Concurrent
-import qualified Control.Exception as E
 
 import           Data.Maybe
 
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
-import qualified Holumbus.FileSystem.FileSystem as FS
+import           Holumbus.Common.Utils                         ( handleAll )
+
+import qualified Holumbus.FileSystem.FileSystem                 as FS
 import           Holumbus.Network.Communication
 import           Holumbus.MapReduce.Types
-import qualified Holumbus.MapReduce.TaskProcessor as TP
-import qualified Holumbus.Distribution.Messages as M
-import qualified Holumbus.Distribution.Master.MasterPort as MP
-import qualified Holumbus.Distribution.Master as MC
+import qualified Holumbus.MapReduce.TaskProcessor               as TP
+
+import qualified Holumbus.Distribution.Messages                 as M
+import qualified Holumbus.Distribution.Master.MasterPort        as MP
+import qualified Holumbus.Distribution.Master                   as MC
 import           Holumbus.Distribution.Worker
--- import           Holumbus.Common.Utils
 
 localLogger :: String
 localLogger = "Holumbus.Distribution.Worker.WorkerData"
-
 
 
 data WorkerData = WorkerData {
@@ -115,7 +115,7 @@ dispatch w msg
 
 sendTaskCompleted :: MVar MP.MasterPort -> TaskData -> IO Bool
 sendTaskCompleted mvmp td
-  = E.handle (\_ -> return False) $
+  = handleAll (\_ -> return False) $
       modifyMVar mvmp $
         \mp ->
         do
@@ -126,7 +126,7 @@ sendTaskCompleted mvmp td
 
 sendTaskError :: MVar MP.MasterPort -> TaskData -> IO Bool
 sendTaskError mvmp td
-  = E.handle (\_ -> return False) $
+  = handleAll (\_ -> return False) $
       modifyMVar mvmp $
         \mp ->
         do

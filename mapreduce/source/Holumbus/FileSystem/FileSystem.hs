@@ -61,20 +61,27 @@ module Holumbus.FileSystem.FileSystem
 where
 
 import           Prelude hiding (appendFile)
+
 import           Control.Concurrent
 import           Control.Monad
+
 import qualified Data.Set as Set
+
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
-import qualified Holumbus.FileSystem.Controller as C
+
+import qualified Holumbus.FileSystem.Controller                as C
 import qualified Holumbus.FileSystem.Controller.ControllerData as CD
 import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
-import qualified Holumbus.FileSystem.Node as N
-import qualified Holumbus.FileSystem.Node.NodeData as ND
-import qualified Holumbus.FileSystem.Node.NodePort as NP
-import qualified Holumbus.FileSystem.Storage as S
-import qualified Holumbus.FileSystem.Storage.FileStorage as FST
+
+import qualified Holumbus.FileSystem.Node                      as N
+import qualified Holumbus.FileSystem.Node.NodeData             as ND
+import qualified Holumbus.FileSystem.Node.NodePort             as NP
+
+import qualified Holumbus.FileSystem.Storage                   as S
+import qualified Holumbus.FileSystem.Storage.FileStorage       as FST
+
 import           Holumbus.Network.Site
 import           Holumbus.Network.Communication
 

@@ -9,24 +9,63 @@ stability:     experimental
 category:      Text, Data
 synopsis:      A distributed map-reduce framework
 homepage:      http://holumbus.fh-wedel.de
-description:   this package contains Erlang-Style Mailboxes, a distributed filesystem and a distributed mapreduce framework
-cabal-version: >=1.2
+description:   this package contains a distributed filesystem
+               and a distributed mapreduce framework
+build-type:    Simple
+cabal-version: >=1.6
 
-flag splitBase
-  description: Choose the new smaller, split-up base package.
+extra-source-files:
+    README
+    Makefile
+    Programs/Makefile
+    Programs/MapReduceMaster/Makefile
+    Programs/MapReduceMaster/Master.hs
+    Examples/FileSystem/ClientMain.hs
+    Examples/FileSystem/Makefile
+    Examples/FileSystem/ControllerMain.hs
+    Examples/FileSystem/NodeMain.hs
+    Examples/MapReduce/Crawler/Config.hs
+    Examples/MapReduce/Crawler/Crawl.hs
+    Examples/MapReduce/Crawler/Index.hs
+    Examples/MapReduce/Crawler/CrawlerClient.hs
+    Examples/MapReduce/Crawler/CrawlerWorker.hs
+    Examples/MapReduce/Crawler/Makefile
+    Examples/MapReduce/DummyFiles/ClientMain.hs
+    Examples/MapReduce/DummyFiles/WorkerMain.hs
+    Examples/MapReduce/Standalone/Makefile
+    Examples/MapReduce/Standalone/StandaloneMain.hs
+    Examples/MapReduce/Makefile
+    Examples/MapReduce/WordFrequency/WordFrequency.hs
+    Examples/MapReduce/WordFrequency/ClientMain.hs
+    Examples/MapReduce/WordFrequency/Makefile
+    Examples/MapReduce/WordFrequency/WorkerMain.hs
+    Examples/MapReduce/Grep/ClientMain.hs
+    Examples/MapReduce/Grep/Grep.hs
+    Examples/MapReduce/Grep/Makefile
+    Examples/MapReduce/Grep/WorkerMain.hs
+    Examples/MapReduce/Sort/ClientMain.hs
+    Examples/MapReduce/Sort/Makefile
+    Examples/MapReduce/Sort/Sort.hs
+    Examples/MapReduce/Sort/WorkerMain.hs
+    Examples/Makefile
+    Examples/Utils/Filehandling/FileHandlingTest.hs
+    Examples/Utils/Filehandling/Makefile
+    Examples/Utils/PickleTest/Makefile
+    Examples/Utils/PickleTest/PickleTest.hs
 
 library
-  Build-Depends:  base >= 3
-                , haskell98
-                , containers
-                , hslogger
-                , directory
-                , network
-                , time
-                , bytestring
-                , binary
-                , hxt
-                , Holumbus-Distribution >= 0.1.0
+  build-depends:  base >= 3
+                , binary     >= 0.4
+                , bytestring >= 0.9
+                , containers >= 0.1
+                , directory  >= 1.0
+                , haskell98  >= 1
+                , hslogger   >= 1.0
+                , hxt        >= 8.2
+                , network    >= 2.1
+                , time       >= 1.1
+                , unix       >= 2.3
+                , Holumbus-Distributed >= 0.1.0
 
   hs-source-dirs: 
                   source
@@ -56,4 +95,11 @@ library
                 , Holumbus.FileSystem.Controller
                 , Holumbus.FileSystem.Controller.ControllerData
                 , Holumbus.FileSystem.Controller.ControllerPort
-  ghc-options: -Wall -threaded -O
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable Master
+  main-is: Master.hs
+  hs-source-dirs: Programs/MapReduceMaster source
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification

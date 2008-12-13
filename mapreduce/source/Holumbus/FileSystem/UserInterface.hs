@@ -17,21 +17,21 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.FileSystem.UserInterface
-(
--- * operations
-  runUI
-)
+    (
+      -- * operations
+      runUI
+    )
 where
 
-import           Control.Exception
 import           Data.Binary
 import           Data.List
 
-import qualified Holumbus.Common.Debug as DEBUG
-import qualified Holumbus.Console.Console as Console
-import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.FileSystem.Storage as S
+import qualified Holumbus.Common.Debug                  as DEBUG
+import           Holumbus.Common.Utils                  ( handleAll )
 
+import qualified Holumbus.Console.Console               as Console
+import qualified Holumbus.FileSystem.FileSystem         as FS
+import qualified Holumbus.FileSystem.Storage            as S
 
 
 -- ----------------------------------------------------------------------------
@@ -54,19 +54,19 @@ runUI fs version
 
 createConsole :: String -> Console.ConsoleData (FS.FileSystem)
 createConsole version =
-  Console.addConsoleCommand "id" getMySiteId "get my siteId" $
-  Console.addConsoleCommand "sites" getFileSites "get all sites with the given file name" $
-  Console.addConsoleCommand "with" getNearestNodePortWithFile "gets the nearest node-port with a file (DEBUG)" $
-  Console.addConsoleCommand "for" getNearestNodePortForFile "gets the nearest node-port for a (new) file (DEBUG)" $  
-  Console.addConsoleCommand "contains" containsFile "is file in filesystem or not" $
-  Console.addConsoleCommand "create" createFile "adds a file" $
-  Console.addConsoleCommand "append" append "appends to a file" $
-  Console.addConsoleCommand "delete" deleteFile "deletes a file" $
-  Console.addConsoleCommand "content" getFileContent "gets the content of a file" $
-  Console.addConsoleCommand "data" getFileData "gets the metadata of a file" $
-  Console.addConsoleCommand "local" isFileLocal "test, if the file is on the local node" $
-  Console.addConsoleCommand "debug" printDebug "prints internal state of the filesystem (DEBUG)" $ 
-  Console.addConsoleCommand "version" (printVersion version) "prints the version" $ 
+  Console.addConsoleCommand "id"        getMySiteId     "get my siteId" $
+  Console.addConsoleCommand "sites"     getFileSites    "get all sites with the given file name" $
+  Console.addConsoleCommand "with"      getNearestNodePortWithFile      "gets the nearest node-port with a file (DEBUG)" $
+  Console.addConsoleCommand "for"       getNearestNodePortForFile       "gets the nearest node-port for a (new) file (DEBUG)" $  
+  Console.addConsoleCommand "contains"  containsFile    "is file in filesystem or not" $
+  Console.addConsoleCommand "create"    createFile      "adds a file" $
+  Console.addConsoleCommand "append"    append          "appends to a file" $
+  Console.addConsoleCommand "delete"    deleteFile      "deletes a file" $
+  Console.addConsoleCommand "content"   getFileContent  "gets the content of a file" $
+  Console.addConsoleCommand "data"      getFileData     "gets the metadata of a file" $
+  Console.addConsoleCommand "local"     isFileLocal     "test, if the file is on the local node" $
+  Console.addConsoleCommand "debug"     printDebug      "prints internal state of the filesystem (DEBUG)" $ 
+  Console.addConsoleCommand "version"   (printVersion version)          "prints the version" $ 
   Console.initializeConsole
   
 
@@ -85,7 +85,7 @@ getFileNameAndContentSize (x1:x2:_) = (x1, read x2)
 getMySiteId :: FS.FileSystem -> [String] -> IO ()
 getMySiteId fs _
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       i <- FS.getMySiteId fs
       putStrLn $ show i
@@ -94,7 +94,7 @@ getMySiteId fs _
 getFileSites :: FS.FileSystem -> [String] -> IO ()
 getFileSites fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       s <- FS.getFileSites n fs
@@ -104,7 +104,7 @@ getFileSites fs opts
 getNearestNodePortWithFile :: FS.FileSystem -> [String] -> IO ()
 getNearestNodePortWithFile fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       p <- FS.getNearestNodePortWithFile n fs
@@ -114,7 +114,7 @@ getNearestNodePortWithFile fs opts
 getNearestNodePortForFile :: FS.FileSystem -> [String] -> IO ()
 getNearestNodePortForFile fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, s) = getFileNameAndContentSize opts
       p <- FS.getNearestNodePortForFile n s fs
@@ -124,7 +124,7 @@ getNearestNodePortForFile fs opts
 containsFile :: FS.FileSystem -> [String] -> IO ()
 containsFile fs opts 
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       b <- FS.containsFile n fs
@@ -134,7 +134,7 @@ containsFile fs opts
 createFile :: FS.FileSystem -> [String] -> IO ()
 createFile fs opts 
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, c) = getFileNameAndContent opts
       FS.createFile n c fs 
@@ -143,7 +143,7 @@ createFile fs opts
 append :: FS.FileSystem -> [String] -> IO ()
 append fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, c) = getFileNameAndContent opts
       FS.appendFile n c fs
@@ -152,7 +152,7 @@ append fs opts
 deleteFile :: FS.FileSystem -> [String] -> IO ()
 deleteFile fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       FS.deleteFile n fs
@@ -161,7 +161,7 @@ deleteFile fs opts
 getFileContent :: FS.FileSystem -> [String] -> IO ()
 getFileContent fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       c <- FS.getFileContent n fs
@@ -171,7 +171,7 @@ getFileContent fs opts
 getFileData :: FS.FileSystem -> [String] -> IO ()
 getFileData fs opts
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       d <- FS.getFileData n fs
@@ -181,7 +181,7 @@ getFileData fs opts
 isFileLocal :: FS.FileSystem -> [String] -> IO ()
 isFileLocal fs opts 
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       let (n, _) = getFileNameAndContent opts
       b <- FS.isFileLocal n fs
@@ -191,7 +191,7 @@ isFileLocal fs opts
 printDebug :: FS.FileSystem -> [String] -> IO ()
 printDebug fs _
   = do
-    handle (\e -> putStrLn $ show e) $
+    handleAll (\e -> putStrLn $ show e) $
       do
       DEBUG.printDebug fs
   

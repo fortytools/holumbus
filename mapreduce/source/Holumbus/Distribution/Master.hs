@@ -35,3 +35,5 @@ class (MR.MapReduce m) => MasterClass m where
   receiveTaskCompleted :: T.TaskData -> m -> IO m
 
   receiveTaskError :: T.TaskData -> m -> IO m
+
+-- ----------------------------------------------------------------------------

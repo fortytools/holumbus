@@ -35,7 +35,6 @@ module Holumbus.Common.Threading
 )
 where
 
-import           Control.Concurrent
 {- 6.8
 import qualified Control.Exception      as E
 import           Data.Typeable
@@ -43,6 +42,8 @@ import           Data.Typeable
 import           Control.Exception      ( AsyncException(..)
                                         , catchJust
                                         )
+import           Control.Concurrent
+
 import           Data.Maybe
 
 import           System.Log.Logger
@@ -161,7 +162,7 @@ startThread th
             debugM localLogger $ "thread normally closed by himself"
             deleteThreadId thread
 	where
-        isThreadKilledException      :: AsyncException -> Maybe ()
+        isThreadKilledException      		:: AsyncException -> Maybe ()
         isThreadKilledException ThreadKilled    = Just ()
         isThreadKilledException _               = Nothing
 

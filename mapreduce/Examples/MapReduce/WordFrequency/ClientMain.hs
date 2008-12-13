@@ -15,11 +15,11 @@
 
 module Main(main) where
 
-import           Control.Exception
-
 import           Holumbus.Common.Logging
+import           Holumbus.Common.Utils                          ( handleAll )
+
 import           Holumbus.Network.PortRegistry.PortRegistryPort
-import qualified Holumbus.Distribution.DMapReduce as MR
+import qualified Holumbus.Distribution.DMapReduce               as MR
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce 
 
@@ -33,7 +33,7 @@ main :: IO ()
 main
   = do
     putStrLn version
-    handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
+    handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging []
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
@@ -60,3 +60,4 @@ deinitializeData mr
   = do
     MR.closeMapReduce mr
     
+-- ----------------------------------------------------------------------------

@@ -15,26 +15,24 @@
 
 module Main(main) where
 
-import           Control.Exception
-
 import           Holumbus.Common.Logging
+import           Holumbus.Common.Utils                          ( handleAll )
+
 import           Holumbus.Network.PortRegistry.PortRegistryPort
-import qualified Holumbus.Distribution.DMapReduce as MR 
+import qualified Holumbus.Distribution.DMapReduce               as MR 
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce 
 
 import           Examples.MapReduce.Sort.Sort
 
-    
 version :: String
 version = "Holumbus-Distribution Standalone-Client 0.1"
-
 
 main :: IO ()
 main
   = do
     putStrLn version
-    handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
+    handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging []
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
@@ -61,3 +59,4 @@ deinitializeData mr
   = do
     MR.closeMapReduce mr
     
+-- ----------------------------------------------------------------------------

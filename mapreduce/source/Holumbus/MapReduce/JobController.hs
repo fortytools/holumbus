@@ -15,53 +15,58 @@
 
 {-# OPTIONS -fglasgow-exts #-}
 module Holumbus.MapReduce.JobController
-(
+    ( TaskSendResult(..)
+    , TaskSendFunction
 
-  TaskSendResult(..)
-, TaskSendFunction
+    , JobController
 
-, JobController
+    , printJobController
 
-, printJobController
+      -- * Creation and Destruction
+    , newJobController
+    , closeJobController
+    , setFileSystemToJobController
+    , setTaskSendHook
 
--- * Creation and Destruction
-, newJobController
-, closeJobController
-, setFileSystemToJobController
-, setTaskSendHook
+      -- * Job Controller 
+    , startJobController
+    , stopJobController
+    , isJobControllerRunning
+    , singleStepJobControlling
 
--- * Job Controller 
-, startJobController
-, stopJobController
-, isJobControllerRunning
-, singleStepJobControlling
+      -- * performing MapReduce-Jobs
+      -- , startJob
+      -- , stopJob
+    , performJob
 
--- * performing MapReduce-Jobs
--- , startJob
--- , stopJob
-, performJob
-
--- * handling Task-Responses
-, setTaskCompleted
-, setTaskError
-)
+      -- * handling Task-Responses
+    , setTaskCompleted
+    , setTaskError
+    )
 where
 
-import qualified Control.Exception as E
+import           Prelude hiding                 ( catch )
+
+import           Control.Exception              ( Exception
+                                                , throwTo
+                                                , catch
+                                                )
+
 import           Control.Concurrent
 import           Control.Monad
-import qualified Data.ByteString.Lazy as B
+
+import qualified Data.ByteString.Lazy           as B
 import           Data.Maybe
 import           Data.Time
 import           Data.Typeable
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import qualified Data.Map                       as Map
+import qualified Data.Set                       as Set
 import           System.Log.Logger
 
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.Data.AccuMap as AMap
-import qualified Holumbus.Data.MultiMap as MMap
+import qualified Holumbus.Data.AccuMap          as AMap
+import qualified Holumbus.Data.MultiMap         as MMap
 
 
 localLogger :: String
@@ -182,8 +187,6 @@ data JobControllerData = JobControllerData {
   } deriving (Show)
 
 
-
-
 type JobController = MVar JobControllerData
 
 printJobController :: JobController -> IO String
@@ -192,8 +195,10 @@ printJobController jc
 
 
 data JobControllerException
-  = KillServerException
-  deriving (Show, Typeable)
+    = KillServerException
+      deriving (Show, Typeable)
+
+instance Exception JobControllerException where
 
 -- ----------------------------------------------------------------------------
 -- Contruction / Destruction 
@@ -278,7 +283,7 @@ stopJobController jc
         (Nothing) -> return ()
         (Just i) -> 
           do
-          E.throwDynTo i KillServerException
+          throwTo i KillServerException
           yield
           return ()
       return (jcd {jcd_ServerThreadId = Nothing}, ())
@@ -463,7 +468,7 @@ performJob ji jc
 doProcessing :: JobController -> Bool -> IO ()
 doProcessing jc loop
   = do
-    E.catchDyn (doProcessing' jc loop)
+    catch (doProcessing' jc loop)
       handler
     where
       handler :: JobControllerException -> IO ()

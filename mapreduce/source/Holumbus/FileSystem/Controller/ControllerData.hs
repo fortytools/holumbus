@@ -28,20 +28,23 @@ where
 import           Prelude hiding (appendFile)
 
 import           Control.Concurrent
-import qualified Control.Exception as E
+
 import           Data.Maybe
-import qualified Data.List as List
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import qualified Data.List                              as List
+import qualified Data.Map                               as Map
+import qualified Data.Set                               as Set
 
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
-import qualified Holumbus.FileSystem.Controller as C
-import qualified Holumbus.FileSystem.Node as N
-import qualified Holumbus.FileSystem.Node.NodePort as NP
-import qualified Holumbus.FileSystem.Messages as M
-import qualified Holumbus.FileSystem.Storage as S
+import           Holumbus.Common.Utils                  ( handleAll )
+
+import qualified Holumbus.FileSystem.Controller         as C
+import qualified Holumbus.FileSystem.Node               as N
+import qualified Holumbus.FileSystem.Node.NodePort      as NP
+import qualified Holumbus.FileSystem.Messages           as M
+import qualified Holumbus.FileSystem.Storage            as S
+
 import           Holumbus.Network.Site
 import           Holumbus.Network.Communication
 
@@ -261,7 +264,7 @@ lookupNearestPortWithFile f sid s cm
 
 
 lookupNearestPortWithFileAndSpace :: S.FileId -> Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
-lookupNearestPortWithFileAndSpace f size sid s cm
+lookupNearestPortWithFileAndSpace f _size sid s cm
   = lookupNearestPortWithFile f sid s cm
 {-    dats <- getFileClientInfoList f s cm
     -- TODO add Capacity
@@ -274,7 +277,7 @@ lookupNearestPortWithFileAndSpace f size sid s cm
 
 -- TODO add capacity
 lookupNearestPortWithSpace :: Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
-lookupNearestPortWithSpace size sid s cm
+lookupNearestPortWithSpace _size sid s _cm
   = do
     dats <- getAllClientInfos s 
     let sids  = map (\ci -> ci_Site ci) dats
@@ -315,7 +318,7 @@ deleteFileFromNodes fid nps = sequence_ $ map deleteFileFromNode nps
   where
     deleteFileFromNode np 
       = do
-        E.handle (\e -> putStrLn $ show e) $
+        handleAll (\e -> putStrLn $ show e) $
           do 
           -- send a delete-request to the node 
           -- but don't inform the controller again (False)

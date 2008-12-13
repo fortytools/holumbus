@@ -4,10 +4,7 @@ Version 0.1.0
 
 Stefan Schmidt sts@holumbus.org
 
-http://www.holumbus.org
-
-
-
+http://holumbus.fh-wedel.de
 
 About
 -----
@@ -16,12 +13,9 @@ Holumbus is a set of Haskell libraries. This package contains the
 Holumbus-MapReduce library for building and running a distributed MapReduce
 system.
 
-This library depends on the Holumbus-Distribution library. If you want to run 
-some of the examples, e.g. the distributed Web-Crawler and Indexer, you have
-to install the Holumbus-Searchegine library, too.
-
-
-
+This library depends on the Holumbus-Distributed library. If you want to run 
+some of the examples, e.g. the distributed Web-Crawler and Indexer, the
+the Holumbus-Searchengine library must also be installed.
 
 Contents
 --------
@@ -30,15 +24,12 @@ Examples  Some example applications and utilities.
 Programs  The applications you need to run a distributed MapReduce system.
 source    Source code of the Holumbus-MapReduce library.
 
-
-
-
 Requirements
 ------------
 
-So far, this library is only tested under Linux, please tell me, if you have 
-problems under Windows or other OS.
-The Holumbus-MapReduce library requires at least GHC 6.8.2 and the 
+So far, this library is only tested under Linux, please let us know, if there are 
+any problems under Windows or other OSes.
+The Holumbus-MapReduce library requires at least GHC 6.10 and the 
 following packages (available via Hackage).
 
   containers
@@ -49,10 +40,7 @@ following packages (available via Hackage).
   bytestring
   binary
   hxt
-  Holumbus-Distribution >= 0.1.0
-
-
-
+  Holumbus-Distribution
 
 Installation
 ------------
@@ -64,12 +52,10 @@ $ runhaskell Setup.hs configure
 $ runhaskell Setup.hs build
 $ runhaskell Setup.hs install # with root privileges
 
-I prefer to do it the old Makefile way:
+If you prefer to do it the old way there with make:
 
 $ make build
 $ make install # with root privileges
-
-
 
 
 Steps to make the system running
@@ -77,31 +63,29 @@ Steps to make the system running
 
 1. Compile and install the Holumbus-Distribution library.
 
-
 2. Compile and install the Holumbus-MapReduce framework.
+   If this is done with cabal, step 3. can be skipped, the
+   master will be build and installed with cabal
 
 $ make build
 $ make install       # this with root privileges
-
 
 3. Compile the Master-Program.
    It is located in Programs/
 
 $ make programs
 
-
 4. Start the PortRegistry from the Holumbus-Distribution library.
-
 
 5. Start the Master.
    If you want to start the master on another machine than the PortRegistry,
-   you have to copy the file "registry.xml" from the tmp directory to the
+   then you have to copy the file "registry.xml" from the tmp directory to the
    the tmp directory on the machine the master should run on.
 
 $ cd Programs/Master
 $ ./Master
 
-
+   Alternatively start the Master program, installed with cabal
 
 Now, the system itself is running, but as you might wonder, you only have 
 started the registry for communication and the master for the MapReduce system.
@@ -109,16 +93,14 @@ To run your own system, you have to create a MapReduce Client and a MapReduce
 Worker. Here, we'll show you to run the examples, they'll show you how to
 create you own system.
 
-
 6. Compile the Examples. 
    For some examples (e.g. the Crawler), this requires that you have installed 
    the Holumbus-Searchengine framework. You can get it from the Holumbus 
-   homepage (http://www.holumbus.org), please read its documentation for further
+   homepage (http://holumbus.fh-wedel.de), please read its documentation for further
    instructions and details. You'll only need the Searchegine library installed
    for the MapReduce examples, not the library itself.
 
-$ make examples # some examples might not compile without the Searchengine lib
-
+$ make examples    # some examples require the Searchengine lib
 
 7. Start the Workers.
    At this time every worker has to run in its own directory, so create for
@@ -126,7 +108,6 @@ $ make examples # some examples might not compile without the Searchengine lib
    to it. If you want to run the workers on different machines, you have to
    copy the file "registry.xml" from your tmp directory to the tmp directory
    of the machine the worker will work on.
-
 
 8. Start the Client.
    Now you can start the client and wait the things to come. If you want to run

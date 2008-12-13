@@ -13,48 +13,50 @@
 -}
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS_GHC -fno-warn-unused-binds #-} -- for unused record field selectors
+
 module Holumbus.Distribution.Master.MasterData
-(
--- * Datatypes
-  MasterData
+    (
+      -- * Datatypes
+      MasterData
   
--- * creation and destruction
-, newMaster
-)
+      -- * creation and destruction
+    , newMaster
+    )
 where
 
-
 import           Control.Concurrent
-import qualified Control.Exception as E
+
 import           Data.List
 import           Data.Maybe
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import qualified Data.Map                                       as Map
+import qualified Data.Set                                       as Set
 
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
+import           Holumbus.Common.Utils
+
 import           Holumbus.Network.Site
 -- import           Holumbus.Network.Port
 -- import           Holumbus.Network.Messages
 import           Holumbus.Network.Communication
-import qualified Holumbus.MapReduce.MapReduce as MR
+
+import qualified Holumbus.MapReduce.MapReduce                   as MR
 import           Holumbus.MapReduce.JobController
 import           Holumbus.MapReduce.Types
-import qualified Holumbus.Data.MultiMap as MMap
-import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.Distribution.Messages as M
-import qualified Holumbus.Distribution.Master as MC
-import qualified Holumbus.Distribution.Worker as WC
-import qualified Holumbus.Distribution.Worker.WorkerPort as WP
-import           Holumbus.Distribution.Master
-import           Holumbus.Common.Utils
 
+import qualified Holumbus.Data.MultiMap                         as MMap
+import qualified Holumbus.FileSystem.FileSystem                 as FS
+
+import qualified Holumbus.Distribution.Messages                 as M
+import qualified Holumbus.Distribution.Master                   as MC
+import qualified Holumbus.Distribution.Worker                   as WC
+import qualified Holumbus.Distribution.Worker.WorkerPort        as WP
+import           Holumbus.Distribution.Master
 
 localLogger :: String
 localLogger = "Holumbus.Distribution.Master.MasterData"
-
-
 
 -- ----------------------------------------------------------------------------
 --
@@ -265,10 +267,10 @@ deleteTaskFromWorkers tid wcd = wcd''
 
 sendStartTask :: Server -> WorkerController -> TaskData -> IO (TaskSendResult)
 sendStartTask s wc td
-  = E.handle (\e -> 
-              do 
-              errorM localLogger $ "sendStartTask: " ++ show e
-              return TSRError) $
+  = handleAll ( \ e -> do 
+		       errorM localLogger $ "sendStartTask: " ++ show e
+		       return TSRError
+	      ) $
       do
       debugM localLogger $ "sendStartTask: waiting for wc"
       modifyMVar wc $
@@ -294,8 +296,6 @@ sendStartTask s wc td
                 return (wcd', TSRSend)                
               (Nothing) ->
                 return (wcd, TSRNotSend)
-
-
 
 -- ----------------------------------------------------------------------------
 -- typeclass instanciation

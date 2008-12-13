@@ -15,13 +15,13 @@
 
 module Main(main) where
 
-import           Control.Exception
-
 import           Holumbus.Common.Logging
+import           Holumbus.Common.Utils                         	( handleAll )
+
 import           Holumbus.Network.PortRegistry.PortRegistryPort
-import qualified Holumbus.FileSystem.FileSystem as FS
-import qualified Holumbus.Distribution.DMapReduce as MR
-import qualified Holumbus.MapReduce.UserInterface as UI
+import qualified Holumbus.FileSystem.FileSystem 		as FS
+import qualified Holumbus.Distribution.DMapReduce		as MR
+import qualified Holumbus.MapReduce.UserInterface		as UI
 
 import           Examples.MapReduce.WordFrequency.WordFrequency
 
@@ -29,12 +29,11 @@ import           Examples.MapReduce.WordFrequency.WordFrequency
 version :: String
 version = "Holumbus-Distribution Standalone-Worker 0.1"
 
-
 main :: IO ()
 main
   = do
     putStrLn version
-    handle (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
+    handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
       initializeLogging []
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
@@ -60,3 +59,4 @@ deinitializeData (mr,fs)
     MR.closeMapReduce mr
     FS.closeFileSystem fs
     
+-- ----------------------------------------------------------------------------

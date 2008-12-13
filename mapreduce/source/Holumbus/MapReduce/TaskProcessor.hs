@@ -15,49 +15,58 @@
 
 {-# OPTIONS -fglasgow-exts #-}
 module Holumbus.MapReduce.TaskProcessor
-(
--- * Datatypes
-  TaskResultFunction
-, TaskProcessor
+    (
+      -- * Datatypes
+      TaskResultFunction
+    , TaskProcessor
 
-, printTaskProcessor
+    , printTaskProcessor
 
--- * Creation and Destruction
-, newTaskProcessor
-, closeTaskProcessor
-, setFileSystemToTaskProcessor
-, setActionMap
-, setTaskCompletedHook  
-, setTaskErrorHook
+      -- * Creation and Destruction
+    , newTaskProcessor
+    , closeTaskProcessor
+    , setFileSystemToTaskProcessor
+    , setActionMap
+    , setTaskCompletedHook  
+    , setTaskErrorHook
 
--- * TaskProcessor 
-, startTaskProcessor
-, stopTaskProcessor
+      -- * TaskProcessor 
+    , startTaskProcessor
+    , stopTaskProcessor
 
--- * Info an Debug
-, listTaskIds 
-, getActions
-, getActionNames
+      -- * Info an Debug
+    , listTaskIds 
+    , getActions
+    , getActionNames
 
-
--- * Task Creation and Destruction
-, startTask
-, stopTask
-, stopAllTasks 
-)
+      -- * Task Creation and Destruction
+    , startTask
+    , stopTask
+    , stopAllTasks 
+    )
 where
 
-import qualified Control.Exception as E
+import           Prelude hiding                 ( catch )
+
+import		 Control.Exception		( Exception
+						, throw
+						, throwTo
+						, catch
+						)
 import           Control.Concurrent
+
 -- import           Data.Binary
 -- import qualified Data.ByteString.Lazy as B
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+
+import qualified Data.Map 			as Map
+import qualified Data.Set 			as Set
 import           Data.Maybe
 import           Data.Typeable
+
 import           System.Log.Logger
 
-import qualified Holumbus.Data.KeyMap as KMap
+import           Holumbus.Common.Utils			       ( handleAll )
+import qualified Holumbus.Data.KeyMap 		as KMap
 import           Holumbus.MapReduce.Types
 import qualified Holumbus.FileSystem.FileSystem as FS
 
@@ -80,24 +89,26 @@ type TaskResultFunction = TaskData -> IO Bool
 dummyTaskResultFunction :: TaskData -> IO Bool
 dummyTaskResultFunction _ = return True 
 
-data TaskProcessorFunctions = TaskProcessorFunctions {
-    tpf_TaskCompleted :: TaskResultFunction
-  , tpf_TaskError     :: TaskResultFunction
-  }
+data TaskProcessorFunctions
+    = TaskProcessorFunctions { tpf_TaskCompleted :: TaskResultFunction
+			     , tpf_TaskError     :: TaskResultFunction
+			     }
 
 instance Show TaskProcessorFunctions where
   show _ = "{TaskProcessorFunctions}"
 
-
 data TaskProcessorException 
-  = KillServerException
-  deriving (Show, Typeable)
+    = KillServerException
+      deriving (Show, Typeable)
+
+instance Exception TaskProcessorException where
 
 data TaskException
-   = KillTaskException
-   | UnkownTaskException ActionName
-   deriving (Show, Typeable)
+    = KillTaskException
+    | UnkownTaskException ActionName
+      deriving (Show, Typeable)
 
+instance Exception TaskException where
 
 -- | data, needed by the MapReduce-System to run the tasks
 data TaskProcessorData = TaskProcessorData {
@@ -229,7 +240,7 @@ stopTaskProcessor tp
         (Nothing) -> return ()
         (Just i) -> 
           do
-          E.throwDynTo i KillServerException
+          throwTo i KillServerException
           yield
           return ()
       return (tpd {tpd_ServerThreadId = Nothing}, ())
@@ -339,7 +350,7 @@ stopTask tid tp
       let thd = getTaskThreadId tid tpd 
       return (deleteTask tid tpd, thd)
     debugM localLogger $ "stopping Task " ++ show tid
-    maybe (return ()) (\thd -> E.throwDynTo thd KillTaskException) mthd
+    maybe (return ()) (\thd -> throwTo thd KillTaskException) mthd
 
 
 stopAllTasks :: TaskProcessor -> IO () 
@@ -409,8 +420,6 @@ getNextQueuedTask tpd = (td , tpd { tpd_TaskQueue = q' })
   q' = if null q then q else tail q
   td = if null q then Nothing else Just $ head q
 
-
-
 -- ----------------------------------------------------------------------------
 --
 -- ----------------------------------------------------------------------------
@@ -419,7 +428,7 @@ getNextQueuedTask tpd = (td , tpd { tpd_TaskQueue = q' })
 doProcessing :: TaskProcessor -> IO ()
 doProcessing tp
   = do
-    E.catchDyn (doProcessing' tp)
+    catch (doProcessing' tp)
       handler
     where
       handler :: TaskProcessorException -> IO ()
@@ -468,21 +477,14 @@ runTask td tp
   = do
     -- spawn a new thread for each tasks
     forkIO $ 
-      E.handle (\e -> do
+      handleAll ( \ e -> do
           errorM taskLogger $ "Exception: " ++ show e
           reportErrorTask td tp
         ) $ 
-        do
-        E.catchDyn 
-         (do
-          yield
-          td' <- performTask td tp
-          reportCompletedTask td' tp)
-         (\(e :: TaskException) -> do
-           errorM taskLogger $ show e
-           reportErrorTask td tp) 
+        do yield
+           td' <- performTask td tp
+           reportCompletedTask td' tp
 
-      
 -- not used, because we are doi    
 handleFinishedTasks :: TaskProcessor -> IO ()
 handleFinishedTasks tp
@@ -503,10 +505,6 @@ sendTasksResults set fun
     sendResults <- mapM fun ls 
     let (failures,_) = unzip $ filter (\(_,b) -> not b) $ zip ls sendResults
     return $ Set.fromList failures
-
-
-
-
 
 -- ----------------------------------------------------------------------------
 -- Performing a Task
@@ -538,7 +536,7 @@ performTask td tp
         do
         action <- case (getActionForTaskType (td_Type td) a) of
           (Just a') -> return a'
-          (Nothing) -> E.throwDyn (UnkownTaskException $ td_Action td)
+          (Nothing) -> throw (UnkownTaskException $ td_Action td)
         
         let env = mkActionEnvironment td fs
         bout <- action env opt parts bin
