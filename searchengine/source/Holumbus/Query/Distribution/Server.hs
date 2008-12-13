@@ -130,19 +130,20 @@ processRequest i client h =
 -- | Dispatches a request depending on the command to the appropriate function.
 dispatchRequest :: HolIndex i => MVar i -> Handle -> IO SpecificLogData
 dispatchRequest i hdl =
-  -- Try to handle all errors.
-  handle (\_ -> processFailure hdl "UNKNOWN" "processing failure") $ do   
-    -- Read the header and extract the command.
-    hdr <- liftM words $ hGetLine hdl
-    -- Redirect processing depending on the command.
-    res <- dispatch (head hdr) (tail hdr)
+  handle allErrors $
+    do   
+    hdr <- liftM words $ hGetLine hdl		-- Read the header and extract the command.
+    res <- dispatch (head hdr) (tail hdr)	-- Redirect processing depending on the command.
     return res
-      where
-      dispatch cmd hdr | cmd == queryCmd   = processQuery i hdl hdr
-                       | cmd == addCmd     = processAdd i hdl hdr
-                       | cmd == removeCmd  = processRemove i hdl hdr
-                       | cmd == replaceCmd = processReplace i hdl hdr
-                       | otherwise         = processFailure hdl cmd "unknown command"   
+  where
+  dispatch cmd hdr | cmd == queryCmd   = processQuery   i hdl hdr
+                   | cmd == addCmd     = processAdd     i hdl hdr
+                   | cmd == removeCmd  = processRemove  i hdl hdr
+                   | cmd == replaceCmd = processReplace i hdl hdr
+                   | otherwise         = processFailure   hdl cmd "unknown command"   
+
+  allErrors	:: SomeException -> IO SpecificLogData
+  allErrors	= const $ processFailure hdl "UNKNOWN" "processing failure"
 
 -- | Send a failure response.
 processFailure :: Handle -> String -> String -> IO SpecificLogData

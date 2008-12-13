@@ -15,8 +15,6 @@
 -}
 
 -- ----------------------------------------------------------------------------
-{-# OPTIONS -fscoped-type-variables -farrows #-}
--- ----------------------------------------------------------------------------
 
 module Holumbus.Control.MapReduce.ParallelWithClassPersistent 
   (
@@ -149,7 +147,7 @@ runMapTask logChan chan mapTimeout mapFunction (k1, v1)                         
 
 showLogs :: Chan (String) -> IO ()
 showLogs logChan = do
-                   s <- readChan logChan
+                   _s <- readChan logChan
 --                   putStrLn s
                    showLogs logChan
                    
@@ -240,13 +238,15 @@ storeValue :: Binary v2 => Connection -> Int -> v2 -> IO ()
 storeValue conn di v2 =
   quickQuery conn insertQuery [toSql (di), toSql (B.concat . BL.toChunks $ encode v2)] 
   >> commit conn
-  
+
+{-  not in use  
 retrieveValues :: (Binary v2) => Connection -> Int -> IO [v2]
 retrieveValues conn di = 
   do
   r <- quickQuery conn lookupQuery [toSql di] 
   mapM (\v -> return $ decode $ BL.fromChunks [fromSql $ head v]) r
-  
+-}
+
 retrieveValues' :: Connection -> Int -> IO [[SqlValue]]
 retrieveValues' conn di =
   do

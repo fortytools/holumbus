@@ -18,8 +18,6 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts -fbang-patterns #-}
-
 module Holumbus.Index.SmallDocuments 
 (
   -- * Documents type
@@ -58,7 +56,7 @@ data SmallDocuments a = SmallDocuments
 instance Binary a => HolDocuments SmallDocuments a where
   sizeDocs d = IM.size (idToDoc d)
 
-  lookupById ds k = (liftM toDocument) $ IM.lookup k $ idToDoc ds
+  lookupById ds k = (liftM toDocument) $ maybe (fail "") return $ IM.lookup k $ idToDoc ds
 
   lookupByURI = error "Not yet implemented"
 

@@ -1,23 +1,72 @@
 name:          Holumbus-Searchengine
-version:       0.0.5
+version:       0.0.6
 license:       OtherLicense
 license-file:  LICENSE
-author:        Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
-copyright:     Copyright (c) 2007, 2008 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Hübel
-maintainer:    Timo B. Hübel <tbh@holumbus.org>
+author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
+copyright:     Copyright (c) 2007, 2008 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Huebel
+maintainer:    Timo B. Huebel <tbh@holumbus.org>
 stability:     experimental
 category:      Text, Data
 synopsis:      A distributed search and indexing engine.
 homepage:      http://holumbus.fh-wedel.de
-description:   The Holumbus-Searchengine library provides a document indexer and crawler to build indexes over document collections as well as a sophisticated query interface for these indexes.
-cabal-version: >=1.2
+description:   The Holumbus-Searchengine library provides a document indexer
+               and crawler to build indexes over document collections
+               as well as a sophisticated query interface for these indexes.
+cabal-version: >=1.6
 build-type:    Simple
 
-flag splitBase
-  description: Choose the new smaller, split-up base package.
+extra-source-files:
+    README
+    Makefile
+    examples/simplesearch/SimpleSearch.hs
+    examples/simplesearch/Makefile
+    examples/fh-wedel/Makefile
+    examples/fh-wedel/source/FHW/Indexer.hs
+    examples/fh-wedel/source/FHW/Search.hs
+    examples/Makefile
+    examples/benchmark/Benchmark.hs
+    examples/benchmark/Makefile
+    examples/utilities/Makefile
+    examples/utilities/Words.hs
+    examples/utilities/Stats.hs
+    examples/utilities/Convert.hs
+    examples/utilities/Split.hs
+    examples/utilities/Update.hs
+    examples/utilities/Merge.hs
+    examples/utilities/Info.hs
+    examples/sitemap/Makefile
+    examples/sitemap/Sitemap.hs
+    examples/queryserver/Makefile
+    examples/queryserver/Server.hs
+    examples/hayoo/source/Hayoo/Hebalizer.hs
+    examples/hayoo/source/Hayoo/Common.hs
+    examples/hayoo/source/Hayoo/Indexer.hs
+    examples/hayoo/source/Hayoo/Parser.hs
+    examples/hayoo/source/Hayoo/Search.hs
+    examples/hayoo/source/Hayoo/HTML.hs
+    examples/hayoo/Makefile
+    examples/hayoo/Janus.hs
+    examples/pagerank/PageRank.hs
+    examples/pagerank/Makefile
+    examples/cgicomplete/source/Client.hs
+    examples/cgicomplete/source/Server.hs
+    examples/cgicomplete/Makefile
+    test/AllTests.hs
+    test/ParserTest.hs
+    test/Makefile
+    test/StrMapTest.hs
+    test/FuzzyTest.hs
+    test/PickleTest.hs
+    test/DiffListTest.hs
+    test/BinaryTest.hs
+    test/InvertedTest.hs
+    test/SampleData.hs
+    test/DocumentsTest.hs
+    test/CrunchTest.hs
+    test/data/pickle.xml
 
 library
-  build-depends: base           >= 3
+  build-depends: base           >= 4
                , haskell98      >= 1.0
                , containers     >= 0.1
                , directory      >= 1.0
@@ -28,13 +77,13 @@ library
                , bytestring     >= 0.9
                , unix           >= 2.3
                , utf8-string    >= 0.3
-               , hxt            >= 8.0
+               , hxt            >= 8.2
                , binary         >= 0.4
                , bzlib          >= 0.4
                , regex-compat   >= 0.71
                , HDBC           >= 1.1
                , HDBC-sqlite3   >= 1.1
-               , pureMD5        >= 0.1.2 && < 0.2
+               , pureMD5        >= 0.2
 
   exposed-modules:
     Holumbus.Utility,
@@ -71,4 +120,5 @@ library
     Holumbus.Query.Ranking,
     Holumbus.Query.Result
   hs-source-dirs: source
-  ghc-options: -Wall -O -funbox-strict-fields
+  ghc-options: -Wall -funbox-strict-fields
+  extensions: Arrows BangPatterns FlexibleInstances MultiParamTypeClasses ScopedTypeVariables

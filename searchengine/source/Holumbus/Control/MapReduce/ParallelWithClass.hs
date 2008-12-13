@@ -16,8 +16,6 @@
 -- TODO the map function should be a monadic io function, no arrow
 
 -- ----------------------------------------------------------------------------
-{-# OPTIONS -fscoped-type-variables -farrows #-}
--- ----------------------------------------------------------------------------
 
 module Holumbus.Control.MapReduce.ParallelWithClass 
   (
@@ -38,7 +36,7 @@ import           Control.Monad
 import           Holumbus.Utility
 import           Holumbus.Control.MapReduce.MapReducible
 
-import           System.Time
+-- import           System.Time
 
 type Dict   = Map
 
@@ -117,6 +115,8 @@ groupByKey = foldl insert empty
 
 -- ----------------------------------------------------------------------------
 
+{- not in use
+
 -- | Reads debugging information from Chan and display it. Makes debug information readable even
 --   when multiple threads have something to say
 showLogs :: Chan (String) -> IO ()
@@ -124,7 +124,7 @@ showLogs logChan = do
                    s <- readChan logChan
 --                   putStrLn s
                    showLogs logChan
-
+-}
 
 -- | Parallel key-wise reduction
 reducePerKey :: (MapReducible mr k2 v2, Show k2) => Int -> mr -> Map k2 [v2] -> IO (mr)
@@ -137,7 +137,7 @@ reducePerKey maxWorkers initialMR m =
   logChan <- newChan                                 -- channel for log messages
 --  forkIO (showLogs logChan)                          -- start log output thread
   spawnThreads logChan resChan (zip [1..] input)     -- spawn worker threads
-  foldM (\mr (c,a) -> do                             -- get all results from result channel
+  foldM (\mr (_c,_a) -> do                             -- get all results from result channel
                       res <- readChan resChan        
 --                      clt <- getClockTime            
 --                      cat <- toCalendarTime clt      -- get and trace time for debugging

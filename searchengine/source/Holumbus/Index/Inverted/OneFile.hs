@@ -155,12 +155,18 @@ rawHelperM f (w,o) = do; occ <- retrieveOcc f o; return (w, occ)
 
 -- | Read occurrences from disk through unsafe IO.
 retrieveOcc :: FilePath -> (Integer, Int) -> IO Occurrences
-retrieveOcc f o = handle (\_ -> return emptyOccurrences) (readOccurrences o f)
+retrieveOcc f o = handle handler (readOccurrences o f)
+		  where
+		  handler :: SomeException -> IO Occurrences
+		  handler = const $ return emptyOccurrences
 
 -- | Write occurrences to disk through unsafe IO.
 storeOcc :: FilePath -> Occurrences -> (Integer, Int)
-storeOcc f o = unsafePerformIO (handle (\_ -> return (0,0)) (writeOccurrences o f))
-
+storeOcc f o = unsafePerformIO $ handle handler (writeOccurrences o f)
+	       where
+	       handler :: SomeException -> IO (Integer, Int)
+	       handler = const $ return (0,0)
+	       
 readOccurrences :: (Integer, Int) -> FilePath -> IO Occurrences
 readOccurrences (pos, len) f = 
   do

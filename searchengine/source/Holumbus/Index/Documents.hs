@@ -34,21 +34,20 @@ module Holumbus.Index.Documents
 )
 where
 
-import Data.Maybe
+import           Control.Parallel.Strategies
 
-import Text.XML.HXT.Arrow
-
-import Data.Map (Map)
+import           Data.Binary
+import           Data.Maybe
+import           Data.Map (Map)
 import qualified Data.Map as M
-
-import Data.IntMap (IntMap)
+import           Data.IntMap (IntMap)
 import qualified Data.IntMap as IM
 
-import Data.Binary
+import           Holumbus.Index.Common
 
-import Control.Parallel.Strategies
+import           Text.XML.HXT.Arrow
 
-import Holumbus.Index.Common
+-- ----------------------------------------------------------------------------
 
 -- | The table which is used to map a document to an artificial id and vice versa.
 data Documents a = Documents
@@ -61,8 +60,14 @@ data Documents a = Documents
 instance Binary a => HolDocuments Documents a where
   sizeDocs d = IM.size (idToDoc d)
   
-  lookupById = (flip IM.lookup) . idToDoc
-  lookupByURI = (flip M.lookup) . docToId
+  -- since ghc 6.10: lookup :: a -> Map a b -> Maybe b
+  -- and not         lookup :: a -> Map a b -> m b
+  -- old
+  -- lookupById = (flip IM.lookup) . idToDoc
+  -- lookupByURI = (flip M.lookup) . docToId
+
+  lookupById  d i = maybe (fail "") return . IM.lookup i $ idToDoc d
+  lookupByURI d u = maybe (fail "") return . M.lookup  u $ docToId d
 
   mergeDocs d1 d2 = (conflicts, Documents merged (idToDoc2docToId merged) lid)
     where

@@ -1,4 +1,4 @@
-{-# OPTIONS -fglasgow-exts -fno-warn-type-defaults -fbang-patterns #-}  -- Moving these to the top due to a bug in GHC.
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}  -- Moving these to the top due to a bug in GHC.
 
 -- ----------------------------------------------------------------------------
 

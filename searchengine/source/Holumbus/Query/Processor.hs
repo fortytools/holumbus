@@ -19,8 +19,6 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -farrows #-}
-
 module Holumbus.Query.Processor 
   (
   -- * Processor types

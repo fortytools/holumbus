@@ -46,7 +46,7 @@ import           Data.Maybe
 import qualified Data.Map    as M
 import qualified Data.Set    as S
 -- import qualified Data.IntMap as IM
-import           Data.Digest.MD5
+import           Data.Digest.Pure.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
 import           Holumbus.Build.Config
@@ -89,8 +89,8 @@ crawlFileSystem' docFilter path
                       exists <- doesDirectoryExist s
                       if exists 
                         then do
-                             rec <- crawlFileSystem' docFilter s
-                             return $ res ++ rec
+                             recRes <- crawlFileSystem' docFilter s
+                             return $ res ++ recRes
                         else do
                              print s
                              return $ s : res
@@ -157,8 +157,8 @@ processCrawlResults oldCs _ l =
                if isJust (cs_docHashes cs) && M.member theMD5 (fromJust $ cs_docHashes cs)
                  then do
                       let hashes = fromJust $ cs_docHashes cs
-                      old  <- M.lookup theMD5 hashes
-                      new  <- return $ uri $ fromJust mdoc
+                      let old    = fromJust $ M.lookup theMD5 hashes
+                      let new    = uri $ fromJust mdoc
                       (newDocs, newHashes) <- update (cs_docs cs) hashes theMD5 old new
                       return cs { cs_docs = newDocs 
                                 , cs_toBeProcessed = S.union 

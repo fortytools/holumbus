@@ -16,8 +16,6 @@
 -- TODO the map function should be a monadic io function, no arrow
 
 -- ----------------------------------------------------------------------------
-{-# OPTIONS -fscoped-type-variables -farrows #-}
--- ----------------------------------------------------------------------------
 
 module Holumbus.Control.MapReduce.Parallel 
   (

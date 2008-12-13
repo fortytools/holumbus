@@ -152,17 +152,25 @@ sendQuery i r@(_, c, _, _) hdl =
 -- specific command to send.
 sendUpdate :: HolIndex i => MVar [(Server, Maybe String)] -> String -> (i, Server) -> Handle -> IO ()
 sendUpdate r c (i, s) hdl =
-  do
-  enc <- return (compress . encode $ i)
-  -- Tell the server the type of the request and the length of the ByteString to expect.
-  hPutStrLn hdl (c ++ " " ++ (show $ B.length enc))
-  handle (\_ -> return ()) (B.hPut hdl enc)
-  -- Get the response
-  rsp <- getResponse hdl
-  either (\m -> processResponse (Just $ "FAIL " ++ m)) (\_ -> processResponse Nothing) rsp
+    do
+    let enc = compress . encode $ i
+    -- Tell the server the type of the request and the length of the ByteString to expect.
+    hPutStrLn hdl (c ++ " " ++ (show $ B.length enc))
+    handle
+      ignoreExc
+      (B.hPut hdl enc)
+    -- Get the response
+    rsp <- getResponse hdl
+    either
+      (\m -> processResponse (Just $ "FAIL " ++ m))
+      (\_ -> processResponse  Nothing             )
+      rsp
     where
     processResponse rm = modifyMVar_ r (return . ((s, rm):))
- 
+
+    ignoreExc	:: SomeException -> IO ()
+    ignoreExc	= const $ return ()
+
 -- | Read the header from the handle and figure out if the request was successful. The left value
 -- represents failure and contains the error message while the right value contains the length of
 -- the returned data.

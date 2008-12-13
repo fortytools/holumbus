@@ -38,7 +38,7 @@ import qualified Data.List as L
 
 import           Text.XML.HXT.Arrow
 
-import           Data.Digest.MD5
+import           Data.Digest.Pure.MD5
 import           Data.ByteString.Lazy.Char8(pack)
 
 
