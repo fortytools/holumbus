@@ -116,6 +116,14 @@
 				<span class="query">map AND NOT fold</span>. Operator precedence can be influenced using round parentheses. 
 				Phrases can be searched using double quotes, e.g. <span class="query">"this is a phrase"</span>.
 			</p>
+			<p>
+				It is possible to restrict a search to certain packages or modules. The most simple way would be to just include
+				the package name in the search, e.g. <span class="query">map base</span> will prefer hits from the base package.
+				But the restriction can also be more explicit, like <span class="query">map package:base</span> or like
+				<span class="query">map module:data.list</span>. It is also possible to specify several different modules or packages,
+				like this: <span class="query">fold module:(data.list OR data.map)</span>. This will return all hits for fold in
+				the module hierarchies below Data.List and Data.Map.
+			</p>
 			</p>
 				Hayoo! always performs fuzzy queries. This means, it tries to find something even if the query contains
 				spelling	errors. For example, Hayoo! will still find "fold" if "fodl" is searched. If Hayoo!
