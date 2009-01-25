@@ -59,15 +59,8 @@ span.query {
 }
 
 .text {
-	background-color: transparent;
-	height: 100%;
-	width: 100%;
-	left: 0pt;
-	top: 0pt;
-	position: fixed;
-	text-align: center;
-	z-index: 1002;
-	opacity:1.0;
+	color:gray;
+	padding:20px;
 }
 
 .box {

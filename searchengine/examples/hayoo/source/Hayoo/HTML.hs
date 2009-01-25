@@ -45,11 +45,18 @@ import Holumbus.Query.Result
 
 import Hayoo.Common
 
+type Template = XmlTree
 
 data PickleState = PickleState
-  { psStart :: Int
-  , psCache :: Cache
+  { psQuery    :: String
+  , psStart    :: Int
+  , psStatic   :: Bool
+  , psCache    :: Cache
+  , psTemplate :: Template
   }
+
+staticRoot :: String
+staticRoot = "hayoo.html"
 
 -- | The combined pickler for the status response and the result.
 xpStatusResult :: PickleState -> PU StatusResult
@@ -62,7 +69,7 @@ xpStatus = xpDivId "status" xpText
 -- | The HTML Result pickler. Extracts the maximum word score for proper scaling in the cloud.
 xpResultHtml :: PickleState -> PU (Result FunctionInfo)
 xpResultHtml s = xpWrap (\((_, wh), (_, dh)) -> Result dh wh, \r -> ((maxScoreWordHits r, wordHits r), (sizeDocHits r, docHits r))) 
-                 (xpPair xpWordHitsHtml (xpDocHitsHtml s))
+                 (xpPair (xpWordHitsHtml s) (xpDocHitsHtml s))
 
 -- | Wrapping something in a <div> element with id attribute.
 xpDivId :: String -> PU a -> PU a
@@ -90,13 +97,13 @@ xpPrepend t p = xpWrap (\(_, v) -> v, \v -> (t, v)) (xpPair xpText p)
 
 -- | The HTML pickler for the document hits. Will be sorted by score. Also generates the navigation.
 xpDocHitsHtml :: PickleState -> PU (Int, DocHits FunctionInfo)
-xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs (psCache s)) (xpPager (psStart s)))
+xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs (psCache s)) (xpPager s (psStart s)))
   where
   xpDocs c = xpDivId "documents" $ xpElem "table" $ xpId "functions" (xpWrap (IM.fromList, toListSorted) (xpList $ xpDocInfoHtml c))
   toListSorted = take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
-xpPager :: Int -> PU Int
-xpPager s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) (xpOption xpickle)))
+xpPager :: PickleState -> Int -> PU Int
+xpPager ps s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, makePager s pageLimit) (xpOption $ xpQueryPager ps)))
   where
   wrapper = (undefined, \v -> if v > 0 then Just v else Nothing)
 
@@ -104,7 +111,8 @@ xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContext
 xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
   docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
-  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
+  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = 
+    (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
     where
     modLink = takeWhile ((/=) '#')
     pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
@@ -141,8 +149,8 @@ xpSigDecl = xpWrap (undefined, makeSignature) (xpAlt tag [xpSig, xpDecl])
 xpCell :: String -> PU a -> PU a
 xpCell c p = xpElem "td" $ xpClass c $ p
 
-xpWordHitsHtml :: PU (Score, WordHits)
-xpWordHitsHtml = xpDivId "words" $ xpElemClass "p" "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)
+xpWordHitsHtml :: PickleState -> PU (Score, WordHits)
+xpWordHitsHtml ps = xpDivId "words" $ xpElemClass "p" "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)
   where
   fromListSorted _ = (0.0, M.empty)
   toListSorted (s, wh) = map (\a -> (s, a)) $ L.sortBy (compare `on` fst) $ M.toList wh -- Sort by word
@@ -150,10 +158,14 @@ xpWordHitsHtml = xpDivId "words" $ xpElemClass "p" "cloud" $ xpWrap (fromListSor
     where
     wordToHtml (m, (w, (WordInfo ts s, _))) = ((head ts, w), ((s, m), w))
     wordFromHtml ((t, _), ((s, m), w)) = (m, (w, (WordInfo [t] s, M.empty)))
-    xpWordHtml = xpAppend " " $ xpElemClass "a" "cloud" $ xpPair xpCloudLink xpScore
+    xpWordHtml = xpAppend " " $ xpElemClass "a" "cloud" $ xpPair (xpCloudLink (psQuery ps) (psStart ps)) xpScore
 
-xpCloudLink :: PU (String, Word)
-xpCloudLink = xpAttr "href" $ xpPair (xpPrepend "javascript:replaceInQuery(\"" $ xpAppend "\",\"" xpEscape) (xpAppend "\")" $ xpEscape)
+xpCloudLink :: String -> Int -> PU (String, Word)
+xpCloudLink q s = xpDuplicate $ xpPair xpStaticLink xpReplace
+  where
+  xpReplace = xpAttr "onclick" $ xpPair (xpPrepend "replaceInQuery(\"" $ xpAppend "\",\"" xpEscape) (xpAppend "\"); return false;" $ xpEscape)
+  xpStaticLink = xpAttr "href" $ xpWrap (\v -> (v, v), makeQueryString) $ xpText
+  makeQueryString (needle, subst) = staticRoot ++ "?query=" ++ (replace needle subst q) ++ "&start=" ++ (show s)
 
 xpEscape :: PU String
 xpEscape = xpWrap (unescape, escape) xpText
@@ -180,15 +192,16 @@ data Pager = Pager
   , nextPage  :: Maybe Int -- == head succPages
   }
 
-instance XmlPickler Pager where
-  xpickle = xpWrap convert (xp5Tuple xpPrevPage xpPages xpCurrPage xpPages xpNextPage)
+xpQueryPager :: PickleState -> PU Pager
+xpQueryPager ps = xpWrap convert (xp5Tuple (xpNav "previous" "<") xpPages xpCurrPage xpPages (xpNav "next" ">"))
     where
     convert = (\(pv, pd, c, sc, nt) -> Pager pv pd c sc nt, \(Pager pv pd c sc nt) -> (pv, pd, c, sc, nt))
-    xpPrevPage = xpOption $ xpElem "a" $ xpClass "previous" $ xpAppend "<" $ xpAttr "href" xpShowPage
+    xpNav c s = xpOption $ xpDuplicate $ xpElem "a" $ xpClass c $ xpAppend s $ xpPair xpShowPage xpStaticLink
     xpCurrPage = xpElem "span" $ xpClass "current" $ xpPrim
-    xpNextPage = xpOption $ xpElem "a" $ xpClass "next" $ xpAppend ">" $ xpAttr "href" xpShowPage
-    xpPages = xpList $ xpElem "a" $ xpClass "page" $ xpPair (xpAttr "href" $ xpPrepend "javascript:showPage(" $ xpAppend ")" $ xpPrim) xpPrim
-    xpShowPage = xpPrepend "javascript:showPage(" $ xpAppend ")" $ xpPrim
+    xpPages =
+      xpList $ xpElem "a" $ xpClass "page" $ xpPair (xpDuplicate $ xpPair xpShowPage xpStaticLink) xpPrim
+    xpShowPage = xpAttr "onclick" $ xpPrepend "showPage(" $ xpAppend "); return false;" $ xpPrim
+    xpStaticLink = xpAttr "href" $ xpPrepend (staticRoot ++ "?query=" ++ (psQuery ps) ++ "&start=") $ xpPrim
 
 -- Start element (counting from zero), elements per page, total number of elements.
 makePager :: Int -> Int -> Int -> Maybe Pager
@@ -202,3 +215,6 @@ makePager s p n = if n > p then Just $ Pager pv (drop (length pd - 10) pd) (leng
   sc = map (\x -> (x, x `div` p + 1)) $ genSucc s []
     where
     genSucc rs ts = let ns = rs + p in if ns >= n then ts else genSucc ns (ts ++ [ns])
+
+xpDuplicate :: PU (a, a) -> PU a
+xpDuplicate = xpWrap (\(v, _) -> v, \v -> (v, v))

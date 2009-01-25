@@ -17,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts -fbang-patterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Hayoo.Common where
 
@@ -77,9 +77,9 @@ normalizeSignature :: String -> String
 normalizeSignature = join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" . filter (not . isSpace)
   where
   replaceTypes _ _ [] = []
-  replaceTypes v t (x:xs) = let (nv, ut, rx) = replace in rx:(replaceTypes nv ut xs)
+  replaceTypes v t (x:xs) = let (nv, ut, rx) = replace' in rx:(replaceTypes nv ut xs)
     where
-    replace = let ut = [head t] in maybe (M.insert r ut v, tail t, ut) (\n -> (v, t, n)) (M.lookup r v)
+    replace' = let ut = [head t] in maybe (M.insert r ut v, tail t, ut) (\n -> (v, t, n)) (M.lookup r v)
       where r = stripWith (\c -> (c == '(') || (c == ')')) x
 
 -- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
@@ -90,3 +90,8 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
   sep s = join s . map strip . split s
   lsep s = join s . map stripl . split s
   rsep s = join s . map stripr . split s
+
+
+-- | Replace a given list with another list in a list.
+replace :: Eq a => [a] -> [a] -> [a] -> [a]
+replace old new l = join new . split old $ l

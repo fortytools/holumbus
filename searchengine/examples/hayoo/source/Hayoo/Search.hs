@@ -16,7 +16,7 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts -farrows -fno-warn-type-defaults #-}
+{-# LANGUAGE Arrows #-}
 
 module Hayoo.Search where
 
@@ -31,7 +31,7 @@ import qualified Data.IntSet as IS
 
 import qualified Data.ByteString.UTF8 as B
 
-import Network.HTTP (urlDecode)
+import Network.URI (unEscapeString)
 
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
@@ -60,7 +60,8 @@ import Network.Server.Janus.Core
        , mkDynamicCreator
        )
 import Network.Server.Janus.XmlHelper
-       ( getValDef
+       ( XmlSource
+       , getValDef
        , setVal
        )
 import Network.Server.Janus.JanusPaths
@@ -71,16 +72,19 @@ import System.Log.Logger
 import System.Log.Handler.Simple
 
 import Control.Concurrent  -- For the global MVar
-import Control.Monad
+import Control.Monad hiding (when)
 
 import Hayoo.Common
 import Hayoo.Parser
 import Hayoo.HTML
 
+type Template = XmlTree
+
 data Core = Core
   { index :: Persistent
   , documents :: SmallDocuments FunctionInfo
   , cache :: Cache
+  , template :: Template
   }
 
 -- | Weights for context weighted ranking.
@@ -94,6 +98,22 @@ contextWeights = [ ("name", 0.9)
                  , ("description", 0.2)
                  , ("normalized", 0.1)
                  ]
+
+-- | Mutliplier for score when result is from "base" package.
+factBase :: Score
+factBase = 1.5
+
+-- | Mutliplier for score when result is from "Prelude" module.
+factPrelude :: Score
+factPrelude = 2.0
+
+-- | Multiplier for score when result is an exact match.
+factExact :: Score
+factExact = 3.0
+
+-- | The place where the filename of the template file is stored in the server configuration XML file.
+_shader_config_template :: JanusPath
+_shader_config_template = jp "/shader/config/@template"
 
 -- | The place where the filename of the index file is stored in the server configuration XML file.
 _shader_config_index :: JanusPath
@@ -119,9 +139,18 @@ loadIndex = loadFromFile
 loadDocuments :: FilePath -> IO (SmallDocuments FunctionInfo)
 loadDocuments = loadFromFile
 
+-- | Load the template.
+loadTemplate :: XmlSource s String
+loadTemplate = runInLocalURIContext $
+  readFromDocument [ (a_parse_html,v_1)
+                   , (a_indent,v_1)
+                   , (a_trace,v_1)
+                   ]
+
 hayooShader :: ShaderCreator
 hayooShader = mkDynamicCreator $ proc (conf, _) -> do
   -- Load the files and create the indexes.
+  tpl <- (loadTemplate >>> strictA) <<< (getValDef _shader_config_template "hayoo.html") -< conf
   inv <- (arrIO $ loadIndex) <<< (getValDef _shader_config_index "hayoo-index.bin") -< conf
   doc <- (arrIO $ loadDocuments) <<< (getValDef _shader_config_documents "hayoo-docs.bin") -< conf
   cac <- (arrIO $ createCache) <<< (getValDef _shader_config_cache "hayoo-cache.db") -< conf
@@ -129,34 +158,61 @@ hayooShader = mkDynamicCreator $ proc (conf, _) -> do
   arrIO $ (\h -> updateGlobalLogger rootLoggerName (setHandlers [h])) -< hdl
   arrIO $ (\_ -> updateGlobalLogger rootLoggerName (setLevel INFO)) -< ()
   -- Store the data in MVar's to allow shared access.
-  midc <- arrIO $ newMVar -< Core inv doc cac
-  returnA -< hayooService midc
+  midct <- arrIO $ newMVar -< Core inv doc cac tpl
+  returnA -< hayooService midct
 
 hayooService :: MVar Core -> Shader
-hayooService midc = proc inTxn -> do
-  -- Because index access is read only, the MVar's are just read to make them avaliable again.
-  idc      <- arrIO $ readMVar                                                     -< midc
+hayooService midct = proc inTxn -> do
   -- Extract the query from the incoming transaction and log it to stdout.
-  request  <- getValDef (_transaction_http_request_cgi_ "@query") ""               -< inTxn
-  start    <- readDef 0 <<< getValDef (_transaction_http_request_cgi_ "@start") "" -< inTxn
+  request  <- getValDef (_transaction_http_request_cgi_ "@query") ""                    -< inTxn
+  start    <- readDef 0 <<< getValDef (_transaction_http_request_cgi_ "@start") ""      -< inTxn
+  static   <- readDef True <<< getValDef (_transaction_http_request_cgi_ "@static") "" -< inTxn
   -- Output some information about the request.
-  arrLogRequest                                                                    -< inTxn
-  state    <- arr $ PickleState start                                              -<< (cache idc)
-  -- Parse the query and generate a result or an error depending on the parse result.
-  response <- writeString state <<< (genError ||| genResult) <<< arrParseQuery     -<< (request, idc)
+  arrLogRequest                                                                         -< inTxn
+  -- Because index access is read only, the MVar's are just read to make them avaliable again.
+  idct     <- arrIO $ readMVar                                                          -< midct
+  -- Construct the global state for rendering HTML
+  state    <- arr $ (\(c, t) -> PickleState request start static c t)                   -<< (cache idct, template idct)
+  -- If the query is empty, just render an empty page
+  response <- ifP (\(r, _) -> L.null r) renderEmpty (renderResult state)                -<< (request, idct)
   -- Put the response value into the transaction.
-  setVal _transaction_http_response_body response                                  -<< inTxn    
+  setVal _transaction_http_response_body response                                       -<< inTxn
     where
+    -- Just render an empty page
+    renderEmpty =
+      arr (\(_, c) -> template c) >>> writeDocumentToString [(a_output_encoding, utf8), (a_indent,v_1), (a_output_html, v_1)]
+    -- Parse the query and generate a result or an error depending on the parse result.
+    renderResult s =
+      arrParseQuery >>> (genError ||| genResult) >>> writeString s
     -- Transforms the result and the status information to HTML by pickling it using the XML picklers.
-    writeString s = pickleStatusResult s >>> (writeDocumentToString [(a_no_xml_pi, v_1), (a_output_encoding, utf8)])
-    pickleStatusResult s = arrFilterStatusResult >>> xpickleVal (xpStatusResult s)
+    writeString ps =
+      pickleStatusResult ps >>> applyTemplate ps >>> (writeDocumentToString [(a_no_xml_pi, if psStatic ps then v_0 else v_1), (a_output_encoding, utf8), (a_indent,v_1), (a_output_html, v_1)])
+    -- Apply the template if necessary
+    applyTemplate ps =
+      if psStatic ps then insertTreeTemplate (constA $ psTemplate ps) [ hasAttrValue "id" (== "result") :-> this ] >>> staticSubstitutions ps >>> addXHtmlDoctypeStrict else arr id
+    -- Do the real pickle work
+    pickleStatusResult ps =
+      arrFilterStatusResult >>> xpickleVal (xpStatusResult ps)
+    -- Read or use default value
     readDef d = arr $ fromMaybe d . readM
+
+staticSubstitutions :: ArrowXml a => PickleState -> a XmlTree XmlTree
+staticSubstitutions ps = processTopDown setQuery
+  where
+  setQuery = processAttrl (changeAttrValue (\_ -> urlDecode $ psQuery ps) `when` hasName "value") `when` (isElem >>> hasAttrValue "id" (== "querytext"))
 
 -- | Enable handling of parse errors from 'read'.
 readM :: (Read a, Monad m) => String -> m a
 readM s = case reads s of
             [(x, "")] -> return x
             _         -> fail "No parse"
+
+-- | Proper URL decoding including substitution of "the annoying +" (tm)
+urlDecode :: String -> String
+urlDecode = unEscapeString . replaceElem '+' ' '
+
+replaceElem :: Eq a => a -> a -> [a] -> [a]
+replaceElem x y = map (\z -> if z == x then y else z)
 
 -- | Perform some postprocessing on the status and the result.
 arrFilterStatusResult :: ArrowXml a => a StatusResult StatusResult
@@ -200,11 +256,16 @@ arrLogRequest = proc inTxn -> do
 
 -- | Customized Hayoo! ranking function. Preferres exact matches and matches in Prelude.
 hayooRanking :: [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
-hayooRanking ws ts _ di dch = baseScore * (if isInPrelude then 3.0 else 1.0) * (if isExactMatch then 3.0 else 1.0) * factModule
+hayooRanking ws ts _ di dch = baseScore
+                            * factModule
+                            * (if isInPrelude then factPrelude else 1.0)
+                            * (if isExactMatch then factExact else 1.0)
+                            * (if isInBase then factBase else 1.0)
   where
   baseScore = M.foldWithKey calcWeightedScore 0.0 dch
   isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
   isInPrelude = maybe False (\fi -> (B.toString $ moduleName fi) == "Prelude") (custom $ document di)
+  isInBase = maybe False (\fi -> (B.toString $ package fi) == "base") (custom $ document di)
   factModule = maybe 1.0 (\fi -> 1.0 / (fromIntegral $ length $ split "." $ B.toString $ moduleName fi)) (custom $ document di)
   calcWeightedScore :: Context -> DocWordHits -> Score -> Score
   calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
@@ -245,7 +306,7 @@ msgSuccess r = if sd == 0 then "Nothing found yet."
 -- | This is where the magic happens! This helper function really calls the 
 -- processing function which executes the query.
 makeQuery :: (Query, Core) -> Result FunctionInfo
-makeQuery (q, Core i d _) = processQuery cfg i d q
+makeQuery (q, Core i d _ _) = processQuery cfg i d q
                            where
                            cfg = ProcessConfig (FuzzyConfig False True 1.0 []) True 50
 

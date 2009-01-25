@@ -14,6 +14,7 @@ prevInput = "";
 lastLocation = window.location.hash;
 refreshRequired = false;
 
+/*
 Event.observe(window, 'load', checkForInitialQuery);
 
 function checkForInitialQuery() {
@@ -24,6 +25,7 @@ function checkForInitialQuery() {
     processQuery(0);
   }
 }
+*/
 
 function checkForQuery () {
   if (lastLocation != window.location.hash) {
@@ -65,7 +67,7 @@ function processQuery (start) {
   if (query.length > 0) {
     $("throbber").show();
     refreshRequired = true;
-    new Ajax.Request("results/hayoo.html?query=" + encodeURIComponent(query) + "&start=" + start,
+    new Ajax.Request("hayoo.html?query=" + encodeURIComponent(query) + "&start=" + start + "&static=False",
       {
         method:'get',
         onSuccess: function(transport) {

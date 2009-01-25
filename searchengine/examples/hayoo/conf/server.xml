@@ -117,9 +117,12 @@
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
 
           <!-- Hayoo! special, was disabled during testing due to lack of missing index -->
-      	  <case match="^/results/hayoo.html$" >
+      	  <case match="^/hayoo.html$" >
       	    <shader type="hayoo">
-      	    	<config index="indexes/hayoo-index.bin" documents="indexes/hayoo-docs.bin" cache="indexes/hayoo-cache.db"/>
+      	    	<config index="indexes/hayoo-index.bin"
+                        documents="indexes/hayoo-docs.bin"
+                        cache="indexes/hayoo-cache.db"
+                        template="wwwpages/hayoo.html"/>
       	    </shader>
       	  </case>
           <!-- -->

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <meta content="noindex,nofollow" name="robots"/>
+
+	<link href="hayoo/favicon.ico" type="image/ico" rel="Shortcut icon"/>
+	<link rel="stylesheet" type="text/css" href="hayoo/hayoo.css"/>	  
+  <link rel="search" type="application/opensearchdescription+xml" title="Hayoo!" href="hayoo/opensearch.xml"/>
+
+  <title>Hayoo!</title>
+
+  <script src="hayoo/prototype.js" type="text/javascript"> </script>
+  <script src="hayoo/hayoo.js" type="text/javascript"> </script>
+  <script src="hayoo/content.js" type="text/javascript"> </script>
+
+</head>
+
+<body>
+  <div id="container">	
+    <div id="info">
+      <a href="help.html" onclick="showHelp(); return false;">Help</a> |
+      <a href="about.html" onclick="showAbout(); return false;">About</a> |
+      <a href="http://www.haskell.org">Haskell</a>
+    </div>
+
+    <div id="query">
+      <div id="logo">
+        <a href="http://holumbus.fh-wedel.de/hayoo"><img class="logo" src="hayoo/hayoo.png" alt="Hayoo logo"/></a>
+      </div>
+
+      <form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="hayoo.html">
+        <div id="queryinterface">
+          <input id="querytext" type="text" onkeyup="tryProcessQuery()" name="query" autocomplete="off" value=""/>
+          <input id="querybutton" type="submit" value="Search"/>
+          <img id="throbber" src="hayoo/loader.gif" alt="Throbber" style="display:none;"/>
+        </div>
+      </form>
+    </div>
+
+    <div id="result">
+      <div id="status">Enter some search terms above to start a search.</div>
+  
+      <div id="helptext" class="text">
+  
+        <h2>Basic Usage</h2>
+        <p>
+          By default, Hayoo! searches for function names, module names, signatures and function descriptions.
+          With every letter typed, Hayoo! will show the results it thinks are best matching the query as
+          well as some suggestions on how the words from the query could be completed. Clicking one of these
+          suggestions will replace the according word in the query.
+        </p>
+        <p>
+          Hayoo! displays results as a list of functions, including full qualified module name and the function
+          signature. Clicking the function name will lead directly to the corresponding documentation while
+          clicking the module name will lead to the documentation of the module. Additionally, Hayoo! shows
+          a little bit of the function description (if available) and provides a link leading directly to
+          the source of the function (if available).
+        </p>
+  
+        <h2>Advanced Queries</h2>
+        <p>
+          If words are seperated by whitespace, Hayoo! will search for results containing both words. Instead of
+          using whitespace, the explicit <span class="query">AND</span> operator can be used. Hayoo! also 
+          supports <span class="query">OR</span> and <span class="query">NOT</span> operators,
+          although the <span class="query">NOT</span> operator may only be used together with
+          <span class="query">AND</span>, e.g. <span class="query">map NOT fold</span> or
+          <span class="query">map AND NOT fold</span>. Operator precedence can be influenced using round parentheses.
+          Phrases can be searched using double quotes, e.g. <span class="query">"this is a phrase"</span>.
+        </p>
+        <p>
+          It is possible to restrict a search to certain packages or modules. The most simple way would be to just include
+          the package name in the search, e.g. <span class="query">map base</span> will prefer hits from the base package.
+          But the restriction can also be more explicit, like <span class="query">map package:base</span> or like
+          <span class="query">map module:data.list</span>. It is also possible to specify several different modules or packages,
+          like this: <span class="query">fold module:(data.list OR data.map)</span>. This will return all hits for fold in
+          the module hierarchies below Data.List and Data.Map.
+        </p>
+        <p>
+          Hayoo! always performs fuzzy queries. This means, it tries to find something even if the query contains
+          spelling	errors. For example, Hayoo! will still find "fold" if "fodl" is searched. If Hayoo!
+          detects "-&gt;" in the query string, it will only search for signatures. A signature query may consist
+          of explicit type names as well as type variables. For example, searching for "a -&gt; b" will find
+          signatures like "Int -&gt; Bool".
+        </p>
+  
+        <h2>Scope</h2>
+        <p>
+          Currently, Hayoo! searches all packages available on <a href="http://hackage.haskell.org">Hackage</a>
+          and <a href="http://www.haskell.org/gtk2hs/">Gtk2Hs</a>. Additionally, any Haskell documentation generated
+          by Haddock can be included in Hayoo!.
+          Just send a message including an URI where the documentation can be found to
+          <a href="mailto:hayoo@holumbus.org">hayoo@holumbus.org</a>.
+        </p>
+      </div>
+    </div>
+    <div id="credits">
+      <div id="powered">
+        <div id="libs">Powered by <a class="credits" href="http://www.haskell.org">Haskell</a>, 
+          <a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
+          <a class="credits" href="http://darcs2.fh-wedel.de/repos/janus/">Janus</a> and
+        </div>
+        <a href="http://holumbus.fh-wedel.de"><img class="logo" src="hayoo/holumbus.png" alt="Holumbus logo"/></a>
+      </div>
+
+      <div id="authors">
+        <div id="feedback">Please send any feedback to <a href="mailto:hayoo@holumbus.org">hayoo@holumbus.org</a></div>
+        <div id="copyright">Hayoo! beta 0.3 © 2008 <span class="author">Timo B. Hübel</span> &amp;
+        <span class="author">Sebastian M. Schlatt</span></div>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>
