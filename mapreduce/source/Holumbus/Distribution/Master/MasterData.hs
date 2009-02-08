@@ -29,7 +29,6 @@ import           Control.Concurrent
 
 import           Data.List
 import           Data.Maybe
-import qualified Data.Map                                       as Map
 import qualified Data.Set                                       as Set
 
 import           System.Log.Logger
