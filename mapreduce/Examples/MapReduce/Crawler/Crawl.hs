@@ -173,23 +173,23 @@ crawl
 crawl config traceLevel maxDocs cs mr = 
   if S.null ( cs_toBeProcessed cs ) -- if no more documents have to be processed, 
     then do
-      runX (traceMsg 0 (" no more documents to processed"))
+      runX (traceMsg 1 (" no more documents to processed"))
       return (cs_docs cs)        -- the Documents are returned
     else do                         -- otherwise, the crawling is continued
-       runX (traceMsg 0 (" new crawler-cycle"))
+       runX (traceMsg 1 (" new crawler-cycle"))
        -- get the Docs that have to be processed and add docIds
        -- for the MapReduce Computation
        d    <- return $ if maxDocs == 0 
                           then cs_toBeProcessed cs
                           else (S.fromList . (take maxDocs) . S.toList) (cs_toBeProcessed cs)
        d'   <- return $ zip [(cs_nextDocId cs)..] (S.toList d) -- (S.toList $ cs_toBeProcessed cs)
-       runX (traceMsg 0 (" next docs to be pulled:"))
-       runX (traceMsg 0 (show d'))
+       runX (traceMsg 1 (" next docs to be pulled:"))
+       runX (traceMsg 1 (show d'))
        
        -- saveCrawlerState ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "CrawlerState.bin") cs
        -- writeToXmlFile   ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "Docs.xml") (cs_docs cs)
                                     
-       runX (traceMsg 0 ("          Status: already processed: " ++ show (S.size $ cs_wereProcessed cs) ++ 
+       runX (traceMsg 1 ("          Status: already processed: " ++ show (S.size $ cs_wereProcessed cs) ++ 
                          ", to be processed: "   ++ show (S.size $ cs_toBeProcessed cs)))
        
        cs'  <- return $ cs { cs_nextDocId = cs_nextDocId cs + length d'
@@ -199,11 +199,11 @@ crawl config traceLevel maxDocs cs mr =
 
        (res,_) <- doMapReduce (crawlerAction config) (traceLevel,cs') d' [] 1 5 1 1 TOTRawTuple mr
        
-       runX (traceMsg 0 (" result of this cycle: "))       
+       runX (traceMsg 1 (" result of this cycle: "))       
        
        let (_,csnew) = head res
        
-       runX (traceMsg 0 (show $ cs_toBeProcessed csnew))
+       runX (traceMsg 1 (show $ cs_toBeProcessed csnew))
                              
        crawl config traceLevel maxDocs csnew mr
 
@@ -220,12 +220,12 @@ processCrawlResults :: (HolDocuments d a, Binary a) =>
 processCrawlResults cc oldCs _ l = 
   do 
   cs' <- foldM process oldCs l
-  runX (traceMsg 0 (" ----------------------"))
-  runX (traceMsg 0 (" old cs: "))
-  runX (traceMsg 0 (show $ cs_toBeProcessed oldCs))
-  runX (traceMsg 0 (" ----------------------"))
-  runX (traceMsg 0 (" new cs: "))
-  runX (traceMsg 0 (show $ cs_toBeProcessed cs'))
+  runX (traceMsg 1 (" ----------------------"))
+  runX (traceMsg 1 (" old cs: "))
+  runX (traceMsg 1 (show $ cs_toBeProcessed oldCs))
+  runX (traceMsg 1 (" ----------------------"))
+  runX (traceMsg 1 (" new cs: "))
+  runX (traceMsg 1 (show $ cs_toBeProcessed cs'))
   return $ Just cs'
   where 
     process :: (HolDocuments d a, Binary a) => 

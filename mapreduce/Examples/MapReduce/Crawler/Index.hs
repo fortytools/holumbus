@@ -157,25 +157,25 @@ buildIndex config {- workerThreads traceLevel -} docs {- idxConfig emptyIndex -}
   = do
     let docs' =  (map (\(i,d) -> (i, uri d)) (IM.toList $ toMap docs))
     
-    runX (traceMsg 0 (" run indexer phase 1: "))
+    runX (traceMsg 1 (" run indexer phase 1: "))
                      
     (res,_) <- doMapReduce (indexerOccurrencesAction config) () docs' [] 1 5 1 1 TOTRawTuple mr 
        
-    runX (traceMsg 0 (" result of phase 1: "))       
+    runX (traceMsg 1 (" result of phase 1: "))       
     
-    runX (traceMsg 0 (" num of tuples: "))
-    runX (traceMsg 0 (show $ length res))
+    runX (traceMsg 1 (" num of tuples: "))
+    runX (traceMsg 1 (show $ length res))
 
     let os' = map (\t -> ((),t)) res
 
-    runX (traceMsg 0 (" run indexer phase 2: "))
+    runX (traceMsg 1 (" run indexer phase 2: "))
                       
     (res',_) <- doMapReduce (indexerBuildIndexAction) () os' [] 1 1 1 1 TOTRawTuple mr
     
-    runX (traceMsg 0 (" result of the indexer: "))       
+    runX (traceMsg 1 (" result of the indexer: "))       
     
-    runX (traceMsg 0 (" num of indexes: "))
-    runX (traceMsg 0 (show $ length res'))
+    runX (traceMsg 1 (" num of indexes: "))
+    runX (traceMsg 1 (show $ length res'))
     
     let idx = map (snd) res'
     

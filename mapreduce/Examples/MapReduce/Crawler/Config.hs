@@ -33,8 +33,8 @@ getConfig = MRCrawlerConfig
   ic_test
   where
   idxConfig      = ic_test
-  traceLevel     = 1
-  docsPerCrawl   = 5
+  traceLevel     = 0
+  docsPerCrawl   = 10
 
 
 customFunction :: ArrowXml a => a XmlTree (Maybe Int)
@@ -250,7 +250,7 @@ ccs_fhw = []
       ++ [cc_title]
       ++ [cc_meta]
       ++ [cc_content]
---      ++ [cc_raw]
+      ++ [cc_raw]
   
 
   -- | Context for title-tags
