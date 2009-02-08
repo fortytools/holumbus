@@ -1,0 +1,56 @@
+name:          Holumbus-Storage
+version:       0.1.0
+license:       OtherLicense
+license-file:  LICENSE
+author:        Uwe Schmidt, Stefan Schmidt
+copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
+maintainer:    Stefan Schmidt <sts@holumbus.org>
+stability:     experimental
+category:      Text, Data
+synopsis:      A distributed storage system
+homepage:      http://holumbus.fh-wedel.de
+description:   this package contains a distributed storage system
+build-type:    Simple
+cabal-version: >=1.6
+
+extra-source-files:
+    README
+    Makefile
+    Examples/FileSystem/ClientMain.hs
+    Examples/FileSystem/Makefile
+    Examples/FileSystem/ControllerMain.hs
+    Examples/FileSystem/NodeMain.hs
+    Examples/Makefile
+    Examples/Utils/Filehandling/FileHandlingTest.hs
+    Examples/Utils/Filehandling/Makefile
+
+library
+  build-depends:  base >= 3
+                , binary     >= 0.4
+                , bytestring >= 0.9
+                , containers >= 0.1
+                , directory  >= 1.0
+                , haskell98  >= 1
+                , hslogger   >= 1.0
+                , hxt        >= 8.2
+                , network    >= 2.1
+                , time       >= 1.1
+                , unix       >= 2.3
+                , Holumbus-Distributed >= 0.1.0
+
+  hs-source-dirs: 
+                  source
+  exposed-modules:  
+                  Holumbus.FileSystem.UserInterface
+                , Holumbus.FileSystem.FileSystem
+                , Holumbus.FileSystem.Storage
+                , Holumbus.FileSystem.Storage.FileStorage
+                , Holumbus.FileSystem.Messages
+                , Holumbus.FileSystem.Node
+                , Holumbus.FileSystem.Node.NodeData
+                , Holumbus.FileSystem.Node.NodePort
+                , Holumbus.FileSystem.Controller
+                , Holumbus.FileSystem.Controller.ControllerData
+                , Holumbus.FileSystem.Controller.ControllerPort
+  ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification
