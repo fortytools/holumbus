@@ -205,23 +205,25 @@ instance Binary TaskType where
 
 
 -- | the task state
-data TaskState = TSIdle | TSInProgress | TSCompleted | TSFinished | TSError
+data TaskState = TSIdle | TSSending | TSInProgress | TSCompleted | TSFinished | TSError
   deriving (Show, Eq, Ord, Enum)
 
 instance Binary TaskState where
   put (TSIdle)       = putWord8 1
-  put (TSInProgress) = putWord8 2
-  put (TSCompleted)  = putWord8 3
-  put (TSFinished)   = putWord8 4
+  put (TSSending)    = putWord8 2
+  put (TSInProgress) = putWord8 3
+  put (TSCompleted)  = putWord8 4
+  put (TSFinished)   = putWord8 5
   put (TSError)      = putWord8 0
   get
     = do
       t <- getWord8
       case t of
         1 -> return (TSIdle)
-        2 -> return (TSInProgress)
-        3 -> return (TSCompleted)
-        4 -> return (TSFinished)
+        2 -> return (TSSending)
+        3 -> return (TSInProgress)
+        4 -> return (TSCompleted)
+        5 -> return (TSFinished)
         _ -> return (TSError)
 
 getNextTaskState :: TaskState -> TaskState

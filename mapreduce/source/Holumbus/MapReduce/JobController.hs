@@ -209,7 +209,7 @@ defaultJobControllerData = jcd
   where
   jcd = JobControllerData
     Nothing
-    1000000
+    10000 -- 10 milliseconds delay
     Nothing
     1
     1
@@ -326,7 +326,7 @@ getTaskIds jobs types states jcd = Set.toList $ intersections sets
 allTasksFinished :: JobControllerData -> JobId -> Bool
 allTasksFinished jcd jid = null notFinishedTasks
   where
-    notFinishedTasks = getTaskIds [jid] [] [TSIdle, TSInProgress, TSCompleted] jcd
+    notFinishedTasks = getTaskIds [jid] [] [TSIdle, TSSending, TSInProgress, TSCompleted] jcd
 
 
 
@@ -393,14 +393,16 @@ changeTaskState tid ts jcd = changeTaskState' (Map.lookup tid (jcd_TaskMap jcd))
 
 -- | newState oldState
 isChangeTaskStateAllowed :: TaskState -> TaskState -> Bool
--- only Error-Tasks can be reset to idle
-isChangeTaskStateAllowed TSIdle       t = Set.member t $ Set.fromList [TSError]
--- inProgress only from an idle Tasks
-isChangeTaskStateAllowed TSInProgress t = Set.member t $ Set.fromList [TSIdle]
--- completed only idle and inprogress
-isChangeTaskStateAllowed TSCompleted  t = Set.member t $ Set.fromList [TSIdle, TSInProgress]
+-- only Error-Tasks and Sending-Tasks can be reset to idle
+isChangeTaskStateAllowed TSIdle       t = Set.member t $ Set.fromList [TSSending, TSError]
+-- sending only from idle
+isChangeTaskStateAllowed TSSending    t = Set.member t $ Set.fromList [TSIdle]
+-- inProgress only from an idle Tasks or sending Task
+isChangeTaskStateAllowed TSInProgress t = Set.member t $ Set.fromList [TSSending, TSIdle]
+-- completed only sending, idle and inprogress
+isChangeTaskStateAllowed TSCompleted  t = Set.member t $ Set.fromList [TSSending, TSIdle, TSInProgress]
 -- finished all but not error
-isChangeTaskStateAllowed TSFinished   t = Set.member t $ Set.fromList [TSIdle, TSInProgress, TSCompleted]
+isChangeTaskStateAllowed TSFinished   t = Set.member t $ Set.fromList [TSSending, TSIdle, TSInProgress, TSCompleted]
 -- we can always set a task to error
 isChangeTaskStateAllowed TSError      _ = True
 -- otherwise false (there are no other cases)
@@ -491,8 +493,6 @@ doProcessing jc loop
 -- Process Tasks
 -- ----------------------------------------------------------------------------
 
-toNextTaskState :: JobControllerData -> TaskData -> JobControllerData
-toNextTaskState jcd td = changeTaskState (td_TaskId td) (getNextTaskState (td_State td)) jcd 
 
 -- | the send task doesn't block, because a timeout causes the whole job
 --   controller to pause, we don't want this
@@ -515,21 +515,28 @@ sendTask jc td
           setTaskInProgress jc td
         (TSRNotSend) ->
           do
-          -- TODO can this function be called twice before it is not finished?
-          -- TODO and is this bad?
-          -- Task already in idle
-          return ()
+          -- this function can be called twice before it is finished
+          -- and therefore, we introduced the "sending" state for tasks
+          -- and if the sending is not ok, we have to set the task to idle again
+          setTaskIdle jc td
         (TSRError) ->
           do
           setTaskError jc td
     return ()
 
 
+-- toNextTaskState :: JobControllerData -> TaskData -> JobControllerData
+-- toNextTaskState jcd td = changeTaskState (td_TaskId td) (getNextTaskState (td_State td)) jcd 
+
+toSendingTaskState :: JobControllerData -> TaskData -> JobControllerData
+toSendingTaskState jcd td = changeTaskState (td_TaskId td) TSSending jcd
+
 finishTask :: JobControllerData -> TaskData -> JobControllerData
-finishTask jcd td = toNextTaskState jcd' td
+finishTask jcd td = changeTaskState (td_TaskId td) (getNextTaskState (td_State td)) jcd'  
+-- toNextTaskState jcd' td
   where
-    jd  = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
-    jd' = addOutputToJob (td_Output td) jd  
+    jd   = fromJust $ Map.lookup (td_JobId td) (jcd_JobMap jcd)
+    jd'  = addOutputToJob (td_Output td) jd  
     jcd' = updateJob jd' jcd 
 
 
@@ -546,14 +553,20 @@ handleTasks jc
       let idleTasks = getTaskIds runningJobs [] [TSIdle] jcd
       infoM cycleLogger $ "idle Tasks:" ++ show idleTasks
       let idleTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd)) idleTasks
+      
+      -- set these tasks to sending, so they won't be called again while the sending process
+      let jcd1 = foldl toSendingTaskState jcd idleTaskDatas      
+      -- get all sending taskdatas                  
+      let sendingTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd1)) idleTasks
       -- send all idle Tasks (non-blocking)
-      mapM (sendTask jc) idleTaskDatas
+      mapM (sendTask jc) sendingTaskDatas
+      
       -- get all completed Tasks
-      let completedTasks = getTaskIds runningJobs [] [TSCompleted] jcd
-      let completedTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd)) completedTasks
+      let completedTasks = getTaskIds runningJobs [] [TSCompleted] jcd1
+      let completedTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd1)) completedTasks
       -- inProgressTasks = getTaskIds runningJobs [] [TSInProgress] jcd
-      let jcd' = foldl finishTask jcd completedTaskDatas
-      return (jcd',())
+      let jcd2 = foldl finishTask jcd1 completedTaskDatas
+      return (jcd2,())
 
 
 -- ----------------------------------------------------------------------------
@@ -563,8 +576,8 @@ handleTasks jc
 toNextJobState :: JobControllerData -> JobData -> JobControllerData
 toNextJobState jcd jd = changeJobState (jd_JobId jd) (getNextJobState (jd_State jd)) jcd
 
--- toIdleTaskState :: JobControllerData -> TaskData -> JobControllerData
--- toIdleTaskState jcd td = changeTaskState (td_TaskId td) TSIdle jcd
+toIdleTaskState :: JobControllerData -> TaskData -> JobControllerData
+toIdleTaskState jcd td = changeTaskState (td_TaskId td) TSIdle jcd
 
 toInProgressTaskState :: JobControllerData -> TaskData -> JobControllerData
 toInProgressTaskState jcd td = changeTaskState (td_TaskId td) TSInProgress jcd
@@ -698,7 +711,7 @@ handleJobs jc
 -- handling Task-Responses
 -- ----------------------------------------------------------------------------
 
-{-
+
 setTaskIdle :: JobController -> TaskData -> IO ()
 setTaskIdle jc td
   = do
@@ -709,7 +722,7 @@ setTaskIdle jc td
       debugM localLogger $ "setTaskIdle: setting... TaskId: " ++ show (td_TaskId td)
       let jcd' = toIdleTaskState jcd td
       return (jcd', ())
--}
+
 
 setTaskInProgress :: JobController -> TaskData -> IO ()
 setTaskInProgress jc td
