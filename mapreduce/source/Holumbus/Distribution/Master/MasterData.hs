@@ -62,8 +62,6 @@ localLogger = "Holumbus.Distribution.Master.MasterData"
 --
 -- ----------------------------------------------------------------------------
 
-type JobMap = Map.Map JobId JobData
-
 type TaskToWorkerMap = MMap.MultiMap TaskId M.WorkerId
 type WorkerToTaskMap = MMap.MultiMap M.WorkerId TaskId
 
@@ -71,8 +69,7 @@ type ActionToWorkerMap = MMap.MultiMap ActionName M.WorkerId
 
 
 data WorkerControllerData = WorkerControllerData {
-    wcd_JobMap            :: ! JobMap
-  , wcd_TaskToWorkerMap   :: ! TaskToWorkerMap
+    wcd_TaskToWorkerMap   :: ! TaskToWorkerMap
   , wcd_WorkerToTaskMap   :: ! WorkerToTaskMap
   , wcd_ActionToWorkerMap :: ! ActionToWorkerMap
   }
@@ -97,7 +94,6 @@ newWorkerController :: IO WorkerController
 newWorkerController
   = do
     let wcd = WorkerControllerData
-                Map.empty
                 MMap.empty
                 MMap.empty
                 MMap.empty
@@ -360,6 +356,7 @@ instance MasterClass MasterData where
       debugM localLogger $ "completed Task: " ++ show (td_TaskId td)
       setTaskCompleted (md_JobController md) td
       -- TODO inform other workers
+      -- TODO delete from workerController
       return md
 
 
@@ -368,6 +365,7 @@ instance MasterClass MasterData where
       debugM localLogger $ "error Task: " ++ show (td_TaskId td)
       setTaskError (md_JobController md) td
       -- TODO inform other workers
+      -- TODO delete from workerController
       return md
       
       
@@ -383,7 +381,6 @@ instance Debug MasterData where
       withMVar (md_WorkerController md) $
         \wcd -> 
         do
-        putStrLn $ prettyRecordLine gap "JobMap:" (wcd_JobMap wcd)
         putStrLn $ prettyRecordLine gap "TaskToWorkerMap: " (wcd_TaskToWorkerMap wcd)
         putStrLn $ prettyRecordLine gap "WorkerToTaskMap" (wcd_WorkerToTaskMap wcd)
         putStrLn $ prettyRecordLine gap "ActionToWorkerMap:" (wcd_ActionToWorkerMap wcd)        
