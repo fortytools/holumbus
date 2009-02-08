@@ -153,6 +153,7 @@ data NodeRequestMessage
   = NReqCreate          S.FileId S.FileContent
   | NReqAppend          S.FileId S.FileContent
   | NReqDelete          S.FileId Bool
+  | NReqCopy            S.FileId ClientPort
   | NReqContains        S.FileId
   | NReqGetFileContent  S.FileId
   | NReqGetFileData     S.FileId
@@ -165,10 +166,11 @@ instance Binary NodeRequestMessage where
   put (NReqCreate i c)       = putWord8 1 >> put i >> put c
   put (NReqAppend i c)       = putWord8 2 >> put i >> put c
   put (NReqDelete i b)       = putWord8 3 >> put i >> put b
-  put (NReqContains i)       = putWord8 4 >> put i
-  put (NReqGetFileContent i) = putWord8 5 >> put i
-  put (NReqGetFileData i)    = putWord8 6 >> put i
-  put (NReqGetFileIds)       = putWord8 7
+  put (NReqCopy i cp)        = putWord8 4 >> put i >> put cp
+  put (NReqContains i)       = putWord8 5 >> put i
+  put (NReqGetFileContent i) = putWord8 6 >> put i
+  put (NReqGetFileData i)    = putWord8 7 >> put i
+  put (NReqGetFileIds)       = putWord8 8
   put (NReqUnknown)          = putWord8 0
   get
     = do
@@ -177,10 +179,11 @@ instance Binary NodeRequestMessage where
         1 -> get >>= \i -> get >>= \c -> return (NReqCreate i c) 
         2 -> get >>= \i -> get >>= \c -> return (NReqAppend i c) 
         3 -> get >>= \i -> get >>= \b -> return (NReqDelete i b)
-        4 -> get >>= \i -> return (NReqContains i)
-        5 -> get >>= \i -> return (NReqGetFileContent i)
-        6 -> get >>= \i -> return (NReqGetFileData i)
-        7 -> return (NReqGetFileIds)
+        4 -> get >>= \i -> get >>= \cp -> return (NReqCopy i cp)
+        5 -> get >>= \i -> return (NReqContains i)
+        6 -> get >>= \i -> return (NReqGetFileContent i)
+        7 -> get >>= \i -> return (NReqGetFileData i)
+        8 -> return (NReqGetFileIds)
         _ -> return (NReqUnknown)
 
 

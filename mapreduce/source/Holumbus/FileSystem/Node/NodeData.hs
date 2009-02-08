@@ -36,6 +36,7 @@ import           System.Log.Logger
 import           Holumbus.Common.Debug
 import           Holumbus.Common.Utils
 import           Holumbus.FileSystem.Node
+import           Holumbus.FileSystem.Node.NodePort
 import qualified Holumbus.FileSystem.Controller as C
 import qualified Holumbus.FileSystem.Controller.ControllerPort as CP
 import qualified Holumbus.FileSystem.Messages as M
@@ -95,7 +96,11 @@ dispatch nd msg
       (M.NReqDelete i b) ->
         do
         deleteFile i b nd
-        return $ Just M.NRspSuccess 
+        return $ Just M.NRspSuccess
+      (M.NReqCopy i cp) ->
+        do
+        copyFile i cp nd
+        return $ Just M.NRspSuccess
       (M.NReqContains i)-> 
         do
         b <- containsFile i nd
@@ -214,6 +219,21 @@ instance NodeClass Node where
               C.deleteFile i nid' cp
               return ()
             else return ()
+
+
+  copyFile i cp n
+    = do
+      let np = newNodePort cp
+      c <- getFileContent i np
+      -- TODO do not create new file data 
+      --d <- getFileData i np
+      if (isJust c) 
+        then do
+          createFile i (fromJust c) n
+          return ()
+        else do
+          errorM localLogger $ "copyFile: no content for \"" ++ i ++ "\" found"
+          return ()
 
 
   --containsFile :: S.FileId -> Node -> IO Bool

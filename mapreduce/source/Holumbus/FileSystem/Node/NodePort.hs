@@ -84,7 +84,17 @@ instance NodeClass NodePort where
         do
         case rsp of
           (NRspSuccess) -> return (Just ())
-          _ -> return Nothing         
+          _ -> return Nothing
+
+
+  copyFile i cp (NodePort p)
+    = do
+      sendRequestToClient p time30 (NReqCopy i cp) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspSuccess) -> return (Just ())
+          _ -> return Nothing
 
 
   containsFile i (NodePort p)

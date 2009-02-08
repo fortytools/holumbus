@@ -24,7 +24,7 @@ module Holumbus.FileSystem.Node
 where
 
 import qualified Holumbus.FileSystem.Storage as S
-
+import           Holumbus.Network.Communication
 
 
 -- ----------------------------------------------------------------------------
@@ -40,6 +40,8 @@ class NodeClass n where
   appendFile :: S.FileId -> S.FileContent -> n -> IO ()
 
   deleteFile :: S.FileId -> Bool -> n -> IO ()
+
+  copyFile :: S.FileId -> ClientPort -> n -> IO ()
 
   containsFile :: S.FileId -> n -> IO Bool
 
