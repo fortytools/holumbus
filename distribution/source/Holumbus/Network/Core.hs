@@ -19,6 +19,7 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Network.Core
     (
       -- * Socket-Descriptor

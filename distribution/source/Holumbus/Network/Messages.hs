@@ -174,7 +174,7 @@ performPortAction
   :: (Show a, Binary a, Show b, Binary b, RspMsg b) 
   => P.Port a             -- ^ request port
   -> P.Stream b           -- ^ response Stream 
-  -> Int                  -- ^ timeout for the response in nanoseconds (1000000 = 1 sec) (0 = wait for ever)
+  -> Int                  -- ^ timeout for the response in mikroseconds (1000000 = 1 sec) (0 = wait for ever)
   -> a                    -- ^ request message
   -> (b -> IO (Maybe c))  -- ^ response handler
   -> IO c

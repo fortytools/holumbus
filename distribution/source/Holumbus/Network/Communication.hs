@@ -26,7 +26,7 @@
 
 -- ----------------------------------------------------------------------------
 
-
+{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Network.Communication
 (
   StreamName       -- (reexport)
@@ -200,10 +200,11 @@ data ClientInfo = ClientInfo {
     ci_Site         :: SiteId                -- ^ SiteId (Hostname,PID) of the client process
   , ci_Port         :: ClientPort            -- ^ the port of the client
   , ci_PingThreadId :: Thread                -- ^ the threadId of the ping-Process (needed to stop it)
+  , ci_LifeValue    :: Int
   }
   
 instance Show ClientInfo where
-  show (ClientInfo s p _) = "{Site: " ++ show s ++ " - Port: " ++ show p ++ "}"
+  show (ClientInfo s p _ i) = "{Site: " ++ show s ++ " - Port: " ++ show p ++ "LifeValue: " ++ show i ++ "}"
 
 
 -- | The data of the server needed to organise the clients.
@@ -223,6 +224,10 @@ data ServerData = ServerData {
 -- | The server.
 data Server = Server (MVar ServerData)
   
+  
+maxLifeValue :: Int
+maxLifeValue = 3
+
 
 -- | Creates a new server.
 newServer
@@ -323,7 +328,7 @@ addClientToServer i sid cp tid sd
   where
     --update the ClientMap
     nsm = sd_ClientMap sd
-    nsm' = Map.insert i (ClientInfo sid cp tid) nsm
+    nsm' = Map.insert i (ClientInfo sid cp tid maxLifeValue) nsm
     --update the SiteToClientMap
     snm = sd_SiteToClientMap sd
     snm' = MMap.insert sid i snm
@@ -372,6 +377,32 @@ getClientInfo i (Server server)
 getAllClientInfos :: Server -> IO [ClientInfo]
 getAllClientInfos (Server server)
   = withMVar server $ \sd -> return $ lookupAllClientInfos sd
+
+-- | Sets the life value of a specific client.
+setClientLife :: Int -> IdType -> Server -> IO ()
+setClientLife v i (Server server)
+  = modifyMVar server $
+      \sd -> do
+        let mbCi = lookupClientInfo i sd
+        sd' <- case mbCi of
+          (Just ci) -> do
+            let ci'  = ci {ci_LifeValue = v}
+                nsm  = sd_ClientMap sd
+                nsm' = Map.insert i ci' nsm
+                sd'  = sd {sd_ClientMap = nsm'}
+            return sd'
+          (Nothing) -> return sd
+        return (sd', ())
+
+-- | Gets the life value of a specific client.
+getClientLife :: IdType -> Server -> IO (Int)
+getClientLife i (Server server)
+  = withMVar server $
+      \sd -> do
+        let mbCi = lookupClientInfo i sd
+        case mbCi of
+          (Just ci) -> return $ ci_LifeValue ci
+          (Nothing) -> return 0
 
 
 instance ServerClass Server where
@@ -515,7 +546,7 @@ data ClientRequestMessage
   | CReqClientAction B.ByteString
   | CReqClientId
   | CReqServerPort
-  | CReqUnknown         
+  | CReqUnknown
   deriving (Show)
 
 instance Binary ClientRequestMessage where
@@ -606,6 +637,7 @@ data ClientData = ClientData {
     cd_ServerThreadId  :: Thread
   , cd_PingThreadId    :: Thread
   , cd_Id              :: Maybe IdType
+  , cd_LifeValue       :: Int
   , cd_SiteId          :: SiteId
   , cd_OwnStream       :: Stream ClientRequestMessage
   , cd_OwnPort         :: Port ClientRequestMessage
@@ -633,7 +665,7 @@ newClient sn soid action
     st      <- (newLocalStream Nothing::IO (Stream ClientRequestMessage))
     po      <- newPortFromStream st
     ptid    <- newThread
-    let cd = (ClientData stid ptid Nothing sid st po sp)
+    let cd = (ClientData stid ptid Nothing maxLifeValue sid st po sp)
     c <- newMVar cd
     let client = Client c 
     -- first, we start the server, because we can't handle requests without it
@@ -699,6 +731,15 @@ unsetClientId :: Client -> IO ()
 unsetClientId (Client client)
   = modifyMVar client $ \cd -> return ( cd {cd_Id = Nothing}, ())
 
+-- | Sets the life value of the server port.
+setLifeValue :: Int -> Client -> IO ()
+setLifeValue v (Client client)
+  = modifyMVar client $ \cd -> return (cd {cd_LifeValue = v}, ())
+
+-- | Gets the life value of the server port.
+getLifeValue :: Client -> IO (Int)
+getLifeValue (Client client)
+  = withMVar client $ \cd -> return (cd_LifeValue cd)
 
 -- | Assigns a new clientId to the client.
 setClientId :: IdType -> Client -> IO ()
@@ -727,6 +768,7 @@ instance Debug Client where
         do
         putStrLn "printClient"
         putStrLn $ "Id:         " ++ show (cd_Id cd)
+        putStrLn $ "LifeValue   " ++ show (cd_LifeValue cd)
         putStrLn $ "Site:       " ++ show (cd_SiteId cd)
         putStrLn $ "OwnStream:  " ++ show (cd_OwnStream cd)
         putStrLn $ "OwnPort:    " ++ show (cd_OwnPort cd)
@@ -858,6 +900,7 @@ checkClient i po server thread
       True  -> 
         do
         debugM localLogger "pingCient: client is ok"
+        setClientLife maxLifeValue i server
         return ()
     
 
@@ -866,9 +909,14 @@ checkClient i po server thread
 handleCheckClientError :: IdType -> Server -> Thread -> IO ()
 handleCheckClientError i server thread
    = do
-     unregisterClient i server
-     stopThread thread
-     return ()     
+     v <- getClientLife i server
+     if (v > 0)
+       then do
+         setClientLife (v-1) i server
+       else do
+         unregisterClient i server
+         stopThread thread
+     return ()
 
 
 -- | Checks, if a server is still reachable, otherwise it will be 
@@ -884,7 +932,8 @@ checkServer sepo sid clpo c
         b <- pingServer (fromJust i) sepo
         if (b)
           then do
-            debugM localLogger "pingServer: server is ok"  
+            debugM localLogger "pingServer: server is ok"
+            setLifeValue maxLifeValue c
             return ()              
           else do
             warningM localLogger "pingServer: server is down" 
@@ -900,4 +949,7 @@ checkServer sepo sid clpo c
 handleCheckServerError :: Client -> IO ()
 handleCheckServerError c
   = do
-    unsetClientId c
+    v <- getLifeValue c
+    if (v > 0)
+      then do setLifeValue (v-1) c
+      else do unsetClientId c

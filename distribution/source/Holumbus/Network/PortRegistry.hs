@@ -16,6 +16,7 @@
 -}
 -- ----------------------------------------------------------------------------
 
+{-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Network.PortRegistry
     (
       -- * Type-Classes
