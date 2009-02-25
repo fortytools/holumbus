@@ -39,7 +39,7 @@ main
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p
       (mr,fs) <- initializeData
-      UI.runUI mr version      
+      UI.runUI mr version
       deinitializeData (mr,fs)
 
 

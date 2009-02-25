@@ -18,6 +18,8 @@ STORAGE		= storage
 
 all : $(PROG)
 
+standalone : WFStandalone
+
 #prof : $(PROG).hs
 #	[ -d $(OUTPUT) ] || mkdir -p $(OUTPUT)
 #	$(RM) $(OUTPUT)/*
