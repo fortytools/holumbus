@@ -1,5 +1,5 @@
 name:          Holumbus-Storage
-version:       0.1.0
+version:       0.0.1
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Stefan Schmidt
@@ -9,7 +9,7 @@ stability:     experimental
 category:      Text, Data
 synopsis:      A distributed storage system
 homepage:      http://holumbus.fh-wedel.de
-description:   this package contains a distributed storage system
+description:   This package contains a library for building distributed storage systems
 build-type:    Simple
 cabal-version: >=1.6
 
@@ -36,7 +36,7 @@ library
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
-                , Holumbus-Distributed >= 0.1.0
+                , Holumbus-Distributed >= 0.0.1
 
   hs-source-dirs: 
                   source

@@ -1,21 +1,23 @@
 This is the Holumbus-MapReduce Framework
 
-Version 0.1.0
+Version 0.0.1
 
 Stefan Schmidt sts@holumbus.org
 
 http://holumbus.fh-wedel.de
 
+
 About
 -----
 
 Holumbus is a set of Haskell libraries. This package contains the 
-Holumbus-MapReduce library for building and running a distributed MapReduce
-system.
+Holumbus-MapReduce library for building and running distributed MapReduce
+systems.
 
-This library depends on the Holumbus-Distributed library. If you want to run 
-some of the examples, e.g. the distributed Web-Crawler and Indexer, the
-the Holumbus-Searchengine library must also be installed.
+This library depends on the Holumbus-Distributed and Holumbus-Storage libraries. 
+If you want to run some of the examples, e.g. the distributed Web-Crawler 
+and Indexer, the the Holumbus-Searchengine library must also be installed.
+
 
 Contents
 --------
@@ -23,6 +25,7 @@ Contents
 Examples  Some example applications and utilities.
 Programs  The applications you need to run a distributed MapReduce system.
 source    Source code of the Holumbus-MapReduce library.
+
 
 Requirements
 ------------
@@ -41,6 +44,7 @@ following packages (available via Hackage).
   binary
   hxt
   Holumbus-Distribution
+
 
 Installation
 ------------

@@ -1,48 +1,40 @@
 This is the Holumbus-Distribution Library
 
-Version 0.1.0
+Version 0.0.1
 
 Stefan Schmidt sts@holumbus.org
 
 http://holumbus.fh-wedel.de
 
+
 About
 -----
 
 Holumbus is a set of Haskell libraries. This package contains the 
-Holumbus-Distribution library for building and running a distributed MapReduce
-system. One of the core elements of this library is an Erlang-like mailbox 
+Holumbus-Distribution library for building and running a distributed systems.
+One of the core elements of this library is an Erlang-like mailbox 
 system for interchanging messages between different threads or applications. 
 
-This library itself is independent from other Holumbus libraries, such as the
-Searchengine or MapReduce library.
+This library itself is independent from other Holumbus libraries.
+
 
 Documentation:
 ------------------------------------------
 
-The "Chan" data-type form Control.Concurrent.Chan is pretty useful.
+The "Chan" data type form Control.Concurrent.Chan is pretty useful.
 You can easily use it as a queue for the consumer-producer-problem. One
 thread writes into the channel, the other reads the data from it. But this
-doesn't work, if the two threads don't run in the same address space,
-that means in distinct applications or even on different machines which
-are only connected over a network. But this scenario is a normal use-case
-in this world. 
+only works, if the two threads are running in the same address space.
+That means the Chan data type cannot be used for the communication of
+distinct applications, but this scenario is a normal use case.
 
-When implementing the Holumbus-MapReduce library, it would be very useful
-to have a simple communication framework like that one in the Erlang 
-language.  It should not be a big difference for the programmer to exchange 
-messages between two threads or two processes. This allows to be flexible,
-and to easily split an application into two applications without a big
-change on the communication layer.
+Therefore it would be very useful to have a single framework for inter- 
+and intra-process communication. One thread can create a mailbox and other 
+threads can send messages to it, though it should make no difference, 
+if the threads are in the same address space or not.
 
-One thread can create a mailbox and other threads can send messages to it, 
-though it makes no difference, if the threads are in the same address space or 
-not.
-
-There was an old library called "Distributed Haskell" [1], but the code base
-seemed to be abandoned for many years. While writing a new system, I was
-inspired by the Stream-Ports in the Mozart/Oz Language [2] and the simple
-communication concept of Erlang [3].
+This libary offers a "Stream-Port" implementation, borrowed from the
+multi-paradigm programming language Mozart/Oz.
 
 A stream in this context is like a mailbox or a receiver. Other threads can send
 messages to it via a port. A port in this context has nothing to do with the
@@ -63,11 +55,8 @@ You can find the main parts for the communication in the module
 
 This library also contains some parts which might be useful, e.g. some
 specialized maps (Holumbus.Data) and a commandline user interface
-(Holumbus.Console).
+(Holumbus.Console). They are used in other Holumbus libraries.
 
-[1] http://www.iist.unu.edu/~vs/haskell/dhs/ 
-[2] http://www.mozart-oz.org/
-[3] http://www.erlang.org
 
 Contents
 --------
@@ -75,6 +64,7 @@ Contents
 Examples  Some example applications
 Programs  The applications you need to run a distributed system.
 source    Source code of the Holumbus-Distribution library.
+
 
 Requirements
 ------------
@@ -92,6 +82,7 @@ following packages (available via Hackage).
   bytestring
   binary
   hxt
+
 
 Installation
 ------------
@@ -147,7 +138,7 @@ main
     reg <- newPortRegistryFromXmlFile "/tmp/registry.xml"
     setPortRegistry reg
     gS <- (newGlobalStream "global"):: IO (Stream String)
-    msg <- readStreamMsg gS
+    msg <- readStream gS
     putStrLn msg
 
 This program will set up a mailbox and wait till the first message is received

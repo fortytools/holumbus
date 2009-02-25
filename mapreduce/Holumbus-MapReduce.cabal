@@ -1,5 +1,5 @@
 name:          Holumbus-MapReduce
-version:       0.1.0
+version:       0.0.1
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Stefan Schmidt
@@ -7,10 +7,10 @@ copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
 category:      Text, Data
-synopsis:      A distributed map-reduce framework
+synopsis:      A distributed MapReduce framework
 homepage:      http://holumbus.fh-wedel.de
-description:   this package contains a distributed filesystem
-               and a distributed mapreduce framework
+description:   This package contains a library and tools for the
+               creation of distributed MapReduce applications.
 build-type:    Simple
 cabal-version: >=1.6
 
@@ -59,8 +59,8 @@ library
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
-                , Holumbus-Distributed >= 0.1.0
-                , Holumbus-Storage >= 0.1.0
+                , Holumbus-Distributed >= 0.0.1
+                , Holumbus-Storage >= 0.0.1
 
   hs-source-dirs: 
                   source
