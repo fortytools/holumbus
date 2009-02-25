@@ -197,14 +197,18 @@ type RegistrationAction = (IdType -> ClientPort -> IO ())
   
 -- The information of the client known by the server.
 data ClientInfo = ClientInfo {
-    ci_Site         :: SiteId                -- ^ SiteId (Hostname,PID) of the client process
+    ci_Id           :: Int
+  , ci_Site         :: SiteId                -- ^ SiteId (Hostname,PID) of the client process
   , ci_Port         :: ClientPort            -- ^ the port of the client
   , ci_PingThreadId :: Thread                -- ^ the threadId of the ping-Process (needed to stop it)
   , ci_LifeValue    :: Int
   }
   
 instance Show ClientInfo where
-  show (ClientInfo s p _ i) = "{Site: " ++ show s ++ " - Port: " ++ show p ++ "LifeValue: " ++ show i ++ "}"
+  show (ClientInfo n s p _ i) = "{Id: " ++ show n ++ 
+                                 " - Site: " ++ show s ++ 
+                                 " - Port: " ++ show p ++ 
+                                 " - LifeValue: " ++ show i ++ "}"
 
 
 -- | The data of the server needed to organise the clients.
@@ -328,7 +332,7 @@ addClientToServer i sid cp tid sd
   where
     --update the ClientMap
     nsm = sd_ClientMap sd
-    nsm' = Map.insert i (ClientInfo sid cp tid maxLifeValue) nsm
+    nsm' = Map.insert i (ClientInfo i sid cp tid maxLifeValue) nsm
     --update the SiteToClientMap
     snm = sd_SiteToClientMap sd
     snm' = MMap.insert sid i snm

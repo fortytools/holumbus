@@ -189,8 +189,6 @@ getOtherFileNodes f nid (ControllerMaps fnm _ _ _ _)
   where
     allNids = Map.findWithDefault (Set.empty) f fnm   
 
-
-
 -- | the minimal occurrence of a file on the nodes
 copyingLimit :: Int
 copyingLimit = 2
@@ -199,9 +197,10 @@ copyingLimit = 2
 -- | Get a list of all fileIds that should be copied.
 --   That means that the file has not enough copies
 -- TODO we only compare the nodeid... we should look for sites or hosts
-getFilesForCopying :: FileToNodeMap -> [S.FileId]
-getFilesForCopying fnm = (fst . unzip) filteredList 
+getFilesForCopying :: FileControllerData -> [S.FileId]
+getFilesForCopying cm = (fst . unzip) filteredList 
   where
+    fnm = cm_FileToNodeMap cm
     filteredList = filter setSelector (Map.toList fnm)
     setSelector (_,s) = Set.size s < copyingLimit
 -}
@@ -285,6 +284,26 @@ lookupNearestPortWithSpace _size sid s _cm
         mbdat = maybe Nothing (\ns -> List.find (\ci -> (ci_Site ci) == ns) dats) mbns
         mbnp  = maybe Nothing (\ci -> Just $ ci_Port ci) mbdat 
     return mbnp
+
+
+lookupPortWithoutFile :: S.FileId -> Server -> FileControllerData -> IO (Maybe ClientPort)
+lookupPortWithoutFile f s cm
+  = do
+    -- get all sites with the files
+    fileCis <- getFileClientInfoList f s cm
+    -- get all sites
+    allCis  <- getAllClientInfos s
+    let fileNids = map ci_Id fileCis
+        allNids  = map ci_Id allCis
+        nonNids  = Set.toList $ Set.difference (Set.fromList allNids) (Set.fromList fileNids)
+    if (null nonNids)
+      then return Nothing
+      else do
+        let i = head nonNids
+        mbCi <- getClientInfo i s
+        case mbCi of
+          (Just ci) -> return $ Just $ ci_Port ci
+          (Nothing) -> return Nothing 
 
 
 lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
@@ -377,14 +396,42 @@ instance C.ControllerClass ControllerData where
     = modifyMVar (cd_FileController cd) $
         \fc ->
         do
-        let fc' = addFileToController f nid fc
-        --TODO copy file
-        return (fc', ())
+        mbCi <- getClientInfo nid (cd_Server cd)
+        case mbCi of
+          (Just ci) ->
+            do
+            let fc' = addFileToController f nid fc
+            -- copy file to one other node
+            mpCp <- lookupPortWithoutFile f (cd_Server cd) fc
+            case mpCp of
+              (Just cp) -> 
+                do 
+                return ()
+                -- let np = NP.newNodePort cp
+                -- N.copyFile f (ci_Port ci) np
+              (Nothing) -> return ()                  
+            return (fc', ())
+          (Nothing) -> return (fc,())
 
 
 --appendFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData
---TODO
-  appendFile f nid cd = C.createFile f nid cd
+  appendFile f nid cd
+    = modifyMVar (cd_FileController cd) $
+        \fc ->
+        do
+        mbCi <- getClientInfo nid (cd_Server cd)
+        case mbCi of
+          (Just ci) ->
+            do
+            -- renew file entry
+            let fc' = addFileToController f nid fc
+            -- get other nodes with this file
+            cps <- getOtherFilePorts f nid (cd_Server cd) fc
+            let nps = map (\i -> NP.newNodePort (ci_Port i)) cps
+            -- order them to copy the file from the first node
+            mapM (N.copyFile f (ci_Port ci)) nps
+            return (fc', ())
+          (Nothing) -> return (fc,())
 
 
 --deleteFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData

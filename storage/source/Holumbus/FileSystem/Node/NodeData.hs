@@ -194,6 +194,7 @@ instance NodeClass Node where
           changeStorage (\stor -> S.appendFile stor i c) n
           server <- getServerPort client
           let cp = CP.newControllerPortFromServerPort server
+          -- Inform Controller that file has changed.
           C.appendFile i nid' cp          
           return ()
 
