@@ -6,7 +6,7 @@ author:        Uwe Schmidt, Stefan Schmidt
 copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
-category:      Text, Data
+category:      Distributed Computing, Network
 synopsis:      A distributed MapReduce framework
 homepage:      http://holumbus.fh-wedel.de
 description:   This package contains a library and tools for the
@@ -59,7 +59,7 @@ library
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
-                , Holumbus-Distributed >= 0.0.1
+                , Holumbus-Distribution >= 0.0.1
                 , Holumbus-Storage >= 0.0.1
 
   hs-source-dirs: 
