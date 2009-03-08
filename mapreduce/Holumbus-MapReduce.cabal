@@ -7,7 +7,7 @@ copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
 category:      Distributed Computing
-synopsis:      A distributed MapReduce framework
+synopsis:      a distributed MapReduce framework
 homepage:      http://holumbus.fh-wedel.de
 description:   This package contains a library and tools for the
                creation of distributed MapReduce applications.

@@ -7,10 +7,11 @@ copyright:     Copyright (c) 2008 Stefan Schmidt, Uwe Schmidt
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
 category:      Distributed Computing, Network
-synopsis:      A framework for intra- and inter-programm communication
+synopsis:      intra- and inter-program communication
 homepage:      http://holumbus.fh-wedel.de
-description:   This package contains Erlang-Style mailboxes for an easy implementation
-               of distributed systems in Haskell.
+description:   Holumbus-Distribution offers Erlang-Style mailboxes for an easy implementation
+               of distributed systems in Haskell. The mailboxes can be used to exchange messages
+               between threads inside a single program or between programs over the network.
 build-type:    Simple
 cabal-version: >=1.6
 
