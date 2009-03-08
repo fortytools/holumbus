@@ -6,7 +6,7 @@ author:        Stefan Schmidt, Uwe Schmidt
 copyright:     Copyright (c) 2008 Stefan Schmidt, Uwe Schmidt
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
-category:      Distributed Computing, Data, Network
+category:      Distributed Computing, Network
 synopsis:      A framework for intra- and inter-programm communication
 homepage:      http://holumbus.fh-wedel.de
 description:   This package contains Erlang-Style mailboxes for an easy implementation
