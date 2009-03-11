@@ -43,7 +43,8 @@ module Holumbus.Query.Result
   , sizeWordHits
   , maxScoreDocHits
   , maxScoreWordHits
-  
+  , getDocuments
+
   -- * Transform
   , setDocScore
   , setWordScore
@@ -221,4 +222,6 @@ setDocScore s (DocInfo d _) = DocInfo d s
 setWordScore :: Score -> WordInfo -> WordInfo
 setWordScore s (WordInfo t _) = WordInfo t s
 
-  
+-- | Extract all documents from a result
+getDocuments :: Result a -> [Document a]
+getDocuments r = map (document . fst . snd) $ IM.toList (docHits r)
