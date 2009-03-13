@@ -166,13 +166,19 @@ getHostName
 -- | Gets the first free port number and creates of new socket on it.
 getFirstSocket :: PortNumber -> PortNumber -> IO (Maybe (Socket, PortNumber))
 getFirstSocket actPo maxPo
-  | actPo > maxPo = return Nothing
-  | otherwise 
-    = do
-      handleAll (return (getFirstSocket (actPo+1) maxPo)) $
-        do
-        socket <- getSocket (PortNumber actPo)
-        return (Just (socket, actPo))     
+  = do
+    -- due to a bug in Network.Socket, we cannot use the (>) directly for PortNumbers
+    let actI = toInteger actPo
+        maxI = toInteger maxPo
+    if (actI > maxI)
+      then do
+        return Nothing 
+      else do
+        handleAll (return (getFirstSocket (actPo+1) maxPo)) $
+          do
+          debugM localLogger $ "getFirstSocket: getting Socket for: " ++ show actPo
+          socket <- getSocket (PortNumber actPo)
+          return (Just (socket, actPo))     
 
 
 -- | Opens a socket on a port number.
