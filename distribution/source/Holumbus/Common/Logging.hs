@@ -55,7 +55,7 @@ initializeLogging ls = do
     -- updateGlobalLogger rootLoggerName (addHandler s)
     
     -- this will be removed in next versions
-    -- updateGlobalLogger "Holumbus" (setLevel DEBUG)
+    updateGlobalLogger "Holumbus" (setLevel WARNING)
     -- updateGlobalLogger "Holumbus.Network" (setLevel WARNING)
     -- updateGlobalLogger "Holumbus.MapReduce.TaskProcessor.task" (setLevel WARNING)
     -- updateGlobalLogger "Holumbus.FileSystem.Storage.FileStorage" (setLevel WARNING)
