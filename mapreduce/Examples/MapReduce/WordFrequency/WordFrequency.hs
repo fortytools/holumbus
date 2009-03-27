@@ -127,7 +127,7 @@ wordFrequencyDemoJob =
     
 textList :: [(String,String)]
 textList
-  = [("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text2", "aaa dd dd")]
+  = [("text1", "aaa bb c dd dd"),("text2", "aaa bb"),("text3", "aaa dd dd")]
 
 
 -- ----------------------------------------------------------------------------
