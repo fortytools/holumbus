@@ -173,11 +173,11 @@ processContext cache docId cc
       fromLA extractWords
       >>>
       ( if ( isJust cache
-       &&
-       cc_addToCache cc
-     )
-  then perform (arrIO storeInCache)
-  else this
+             &&
+             cc_addToCache cc
+           )
+        then perform (arrIO storeInCache)
+        else this
       )
       >>>
       arrL genWordList
@@ -188,9 +188,9 @@ processContext cache docId cc
     extractWords
       = listA
         ( xshow ( (cc_fExtract cc)                           -- extract interesting parts
-            >>>
-            getTexts
-          )
+                  >>>
+                  getTexts
+                )
           >>>
           arrL ( filter (not . null) . cc_fTokenize cc )
         )
@@ -204,21 +204,25 @@ processContext cache docId cc
         map ( \ (p, w) -> (cc_name cc, w, docId, p) )       -- attach context and docId
 
     storeInCache s
-      = let t = unwords s in 
-            if t /= "" then putDocText (fromJust cache) (cc_name cc) docId t
-                       else return()
+      = let
+        t = unwords s
+        in 
+        if t /= ""
+           then putDocText (fromJust cache) (cc_name cc) docId t
+           else return ()
 
 getTexts  :: LA XmlTree XmlTree
 getTexts                                                      -- select all text nodes
     =  choiceA
-       [ isElem :-> ( space                                   -- substitute tags by a single space
-          <+>                                     -- so tags act as word delimiter
-          (getChildren >>> getTexts)
-          <+>
-          space
-        )                                       -- tags are interpreted as word delimiter
-       , isText :-> this              -- take the text nodes
-       , this   :-> none              -- ignore anything else
+       [ isText :-> this                                      -- take the text nodes
+       , isElem :-> ( space                                   -- substitute tags by a single space
+                      <+>                                     -- so tags act as word delimiter
+                      (getChildren >>> getTexts)
+                      <+>
+                      space
+                    )                                         -- tags are interpreted as word delimiter
+       , isAttr :-> ( getChildren >>> getTexts )              -- take the attribute value
+       , this   :-> none                                      -- ignore anything else
        ]
     where
     space = txt " "

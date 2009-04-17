@@ -16,7 +16,7 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts -farrows -fno-warn-type-defaults #-}
+{-# LANGUAGE Arrows#-}
 
 module FHW.Search where
 
@@ -361,7 +361,7 @@ xpEscape = xpWrap (unescape, escape) xpText
 xpScore :: PU ((Score, Score), Word)
 xpScore = xpElem "span" $ xpPair (xpAttr "class" $ xpWrap (scoreFromHtml, scoreToHtml) xpText) xpText
   where
-  scoreToHtml (v, top) = "cloud" ++ (show $ round (weightScore 1 9 top v))
+  scoreToHtml (v, top) = "cloud" ++ (show $ (round (weightScore 1 9 top v)::Int))
   scoreFromHtml _ = (0.0, 0.0)
   weightScore mi ma to v = ma - ((to - v) / to) * (ma - mi)
 
