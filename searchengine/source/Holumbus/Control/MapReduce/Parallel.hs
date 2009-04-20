@@ -23,8 +23,6 @@ module Holumbus.Control.MapReduce.Parallel
   ) 
 where
 
-import Text.XML.HXT.Arrow
-
 import           Data.Map (Map,empty,insertWith) -- ,mapWithKey,filterWithKey)
 import qualified Data.Map    as M
 import           Data.Maybe (isJust, fromJust)
@@ -33,8 +31,11 @@ import           Data.Binary
 import           Control.Concurrent
 import           Control.Monad
 
-type Dict   = Map
+import           Holumbus.Utility
 
+-- ----------------------------------------------------------------------------
+
+type Dict   = Map
 
 -- ----------------------------------------------------------------------------
 
@@ -49,15 +50,15 @@ mapReduce maxWorkers mapFunction reduceFunction input
   = do
     
     -- parallel map phase
-    runX (traceMsg 0 ("                    mapPerKey " ))
+    trcMsg "                    mapPerKey "
     mapped <- parallelMap maxWorkers mapFunction input
     
     -- grouping of data gained in the map phase
-    runX (traceMsg 0 ("                    groupByKey " ))
+    trcMsg "                    groupByKey "
     grouped  <- return  (groupByKey mapped)  
     
     -- reduce phase
-    runX (traceMsg 0 ("                    reduceByKey "))
+    trcMsg "                    reduceByKey "
     reducePerKey reduceFunction grouped
     
 -- ----------------------------------------------------------------------------

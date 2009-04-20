@@ -18,29 +18,28 @@
 
 module Holumbus.Utility where
 
-import Data.Char
-
-import System.IO
-
-import           Numeric
-import           Holumbus.Index.Common
-import qualified Holumbus.Index.Documents as DOC
 
 import           Control.Exception (bracket)
 
 import           Data.Binary
-import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy   as B
+import           Data.ByteString.Lazy.Char8     (pack)
+import           Data.Char
+import           Data.Digest.Pure.MD5
+import qualified Data.IntMap            as IM
+import qualified Data.List              as L
 import           Data.Maybe
 
-import qualified Data.IntMap as IM
-import qualified Data.List as L
+import           Holumbus.Index.Common
+import qualified Holumbus.Index.Documents as DOC
 
+import           Numeric
+
+import           System.IO
 
 import           Text.XML.HXT.Arrow
 
-import           Data.Digest.Pure.MD5
-import           Data.ByteString.Lazy.Char8(pack)
-
+-- ------------------------------------------------------------
 
 -- | Split a string into seperate strings at a specific character sequence.
 split :: Eq a => [a] -> [a] -> [[a]]
@@ -125,20 +124,23 @@ tmpDocs tmpPath =
 computeDocBase  :: ArrowXml a => a XmlTree String
 computeDocBase
     = ( ( ( this
-      /> hasName "html"
-      /> hasName "head"
-      /> hasName "base"
-      >>> getAttrValue "href"
-    )
-    &&&
-    getAttrValue "transfer-URI"
-  )
-  >>> expandURI
+            /> hasName "html"
+            /> hasName "head"
+            /> hasName "base"
+            >>> getAttrValue "href"
+          )
+          &&&
+          getAttrValue "transfer-URI"
+        )
+        >>> expandURI
       )
       `orElse`
       getAttrValue "transfer-URI"  
       
-      
 traceOffset :: Int
 traceOffset = 3
-      
+
+trcMsg          :: String -> IO ()
+trcMsg m         = hPutStrLn stderr ('-':"- (0) " ++ m)
+
+-- ------------------------------------------------------------      

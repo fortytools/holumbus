@@ -36,6 +36,8 @@ module Holumbus.Build.Config
   
   -- * Crawler configuration helpers
   , getReferencesByXPaths
+  , getHtmlReferencesByXPaths
+  , getHtmlReferences
   , crawlFilter
   , simpleCrawlFilter
   , standardReadDocumentAttributes
@@ -63,9 +65,12 @@ import           Holumbus.Index.Common
 -- import           Holumbus.Index.Documents
 import           Holumbus.Utility
 
-import           Text.XML.HXT.Arrow
 import           Text.Regex
 
+import           Text.XML.HXT.Arrow hiding (getXPathTrees)
+import           Text.XML.HXT.Arrow.XPathSimple
+
+-- ------------------------------------------------------------
 
 type Custom a = IOSArrow XmlTree (Maybe a)
 type MD5Hash = String
@@ -152,7 +157,7 @@ initialCrawlerState cic emptyDocuments getCustom
     , cs_nextDocId      = 1
     , cs_readAttributes = ic_readAttributes cic
     , cs_crawlerTimeOut = ic_indexerTimeOut cic
-    , cs_fGetReferences = getReferencesByXPaths ["//a/@href/text()", "//frame/@src/text()", "//iframe/@src/text()"]
+    , cs_fGetReferences = getHtmlReferences    -- or getHtmlReferencesByXPaths
     , cs_fPreFilter     = (none `when` isText) -- this
     , cs_fCrawlFilter   = ic_fCrawlFilter cic
     , cs_docs           = emptyDocuments
@@ -230,22 +235,50 @@ simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden )
          isForbidden = foldl (||) False (map (matches theUri) ds)
          matches u a = isJust $ matchRegex (mkRegex a) u      
 
+-- ------------------------------------------------------------
 
 
 -- | Extract references to other documents from a XmlTree based on configured XPath expressions
+
 getReferencesByXPaths :: ArrowXml a => [String] -> a XmlTree [URI]
 getReferencesByXPaths xpaths
   = listA (getRefs' $< computeDocBase) -- >>^ concat
     where
-    getRefs' base = catA $ map (\x -> getXPathTrees x >>> getText >>^ toAbsRef) xpaths
-      where
-      toAbsRef ref = removeFragment $ fromMaybe ref $ expandURIString ref base
-      removeFragment r
-              | "#" `isPrefixOf` path = reverse . tail $ path
-              | otherwise = r
-              where
-                path = dropWhile (/='#') . reverse $ r 
+    getRefs' base = catA $ map (\x -> getXPathTrees x >>> getText >>^ toAbsRef base) xpaths
 
+getHtmlReferencesByXPaths :: ArrowXml a => a XmlTree [URI]
+getHtmlReferencesByXPaths
+    = getReferencesByXPaths [ "//a/@href/text()"
+			    , "//frame/@src/text()"
+			    , "//iframe/@src/text()"
+			    ]
+
+getHtmlReferences :: ArrowXml a => a XmlTree [URI]
+getHtmlReferences
+    = listA (getRefs' $< computeDocBase)
+    where
+    getRefs' base
+	= fromLA $
+	  deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
+	  >>>
+	  ( getAttrValue0 "href"
+	    <+>
+	    getAttrValue0 "src"
+	  )
+	  >>^ (toAbsRef base)
+
+toAbsRef	:: URI -> URI -> URI
+toAbsRef base ref
+    = removeFragment $ fromMaybe ref $ expandURIString ref base
+    where
+    removeFragment r
+        | "#" `isPrefixOf` path = reverse . tail $ path
+        | otherwise = r
+        where
+        path = dropWhile (/='#') . reverse $ r 
+
+	  
+-- ------------------------------------------------------------
 
 -- | Split a string into a list of words.
 parseWords  :: (Char -> Bool) -> String -> [String]
@@ -260,40 +293,41 @@ parseWords isWordChar'
 isWordChar  :: Char -> Bool
 isWordChar c = isAlphaNum c || c `elem` ".-_'@" 
 
-
+-- ------------------------------------------------------------
      
 -- | some standard options for the readDocument function
 standardReadDocumentAttributes :: [(String, String)]
 standardReadDocumentAttributes
-    = [ (a_parse_html,			     v_1)
-      , (a_encoding,			     isoLatin1)
-      , (a_issue_warnings,		     v_0)
-      , (a_remove_whitespace,	     v_1)
-      , (a_tagsoup,			         v_1)
+    = [ (a_parse_html,               v_1)
+      , (a_encoding,                 isoLatin1)
+      , (a_issue_warnings,           v_0)
+      , (a_remove_whitespace,        v_1)
+      , (a_tagsoup,                  v_1)
       , (a_parse_by_mimetype,        v_1)
       , (a_ignore_none_xml_contents, v_1)
-      , (a_use_curl,			     v_1)	-- obsolete since hxt-8.1, 
-      , ("curl--user-agent",  		"HolumBot/0.1@http://holumbus.fh-wedel.de --location")
+      , (a_use_curl,                 v_1)       -- obsolete since hxt-8.1, 
+      , ("curl--user-agent",         "HolumBot/0.1@http://holumbus.fh-wedel.de --location")
       ]
 
 -- | options for writing the tmp files
 standardWriteTmpDocumentAttributes :: [(String, String)]
 standardWriteTmpDocumentAttributes
-    = [ (a_indent,			v_1)	-- for testing only, should be v_0 for efficiency
-      , (a_remove_whitespace,		v_0)
-      , (a_output_encoding,		utf8)
+    = [ (a_indent,                      v_1)    -- for testing only, should be v_0 for efficiency
+      , (a_remove_whitespace,           v_0)
+      , (a_output_encoding,             utf8)
       ]
 
 -- | options for reading the tmp files
 standardReadTmpDocumentAttributes :: [(String, String)]
 standardReadTmpDocumentAttributes
-    = [ (a_indent,			v_0)
-      , (a_remove_whitespace,		v_0)
-      , (a_encoding,			utf8)
-      , (a_parse_html,			v_0)	-- force XML parsing
-      , (a_parse_by_mimetype,		v_0)
-      , (a_validate,			v_0)
-      , (a_canonicalize,		v_0)
-      , (a_encoding,			utf8)	-- must correspond to defaultTmpWriteDocumentAttributes
+    = [ (a_indent,                      v_0)
+      , (a_remove_whitespace,           v_0)
+      , (a_encoding,                    utf8)
+      , (a_parse_html,                  v_0)    -- force XML parsing
+      , (a_parse_by_mimetype,           v_0)
+      , (a_validate,                    v_0)
+      , (a_canonicalize,                v_0)
+      , (a_encoding,                    utf8)   -- must correspond to defaultTmpWriteDocumentAttributes
       ]
 
+-- ------------------------------------------------------------

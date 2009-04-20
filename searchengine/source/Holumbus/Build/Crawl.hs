@@ -56,10 +56,12 @@ import           Holumbus.Control.MapReduce.MapReducible
 import           Holumbus.Index.Common
 import           Holumbus.Utility
 
-import           Text.XML.HXT.Arrow hiding (getXPathTrees)
-import           Text.XML.HXT.Arrow.XPathSimple
+import           System.CPUTime
 import           System.Directory
 import           System.Time
+
+import           Text.XML.HXT.Arrow hiding (getXPathTrees)
+import           Text.XML.HXT.Arrow.XPathSimple
 
 -- import Control.Parallel.Strategies
 
@@ -112,8 +114,9 @@ crawl traceLevel maxWorkers maxDocs cs =
 --         saveCrawlerState ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "CrawlerState.bin") cs
 --         writeToXmlFile   ( (fromMaybe "/tmp/" (cs_tempPath cs) ) ++ "Docs.xml") (cs_docs cs)
                                       
-         runX (traceMsg 0 ("          Status: already processed: " ++ show (S.size $ cs_wereProcessed cs) ++ 
-                           ", to be processed: "   ++ show (S.size $ cs_toBeProcessed cs)))
+         trcMsg $ "          Status: already processed: " ++ show (S.size $ cs_wereProcessed cs)
+		++ 
+		", to be processed: "   ++ show (S.size $ cs_toBeProcessed cs)
          
          cs'  <- return $ cs { cs_nextDocId = cs_nextDocId cs + length d'
                              , cs_wereProcessed = S.union d (cs_wereProcessed cs)
@@ -121,9 +124,9 @@ crawl traceLevel maxWorkers maxDocs cs =
                              }
 
          let attrs     = cs_readAttributes cs 
-             tmpPath   = cs_tempPath cs
+             tmpPath   = cs_tempPath       cs
              getRefs   = cs_fGetReferences cs
-             getCustom = cs_fGetCustom cs 
+             getCustom = cs_fGetCustom     cs 
          
          csnew   <- mapReduce maxWorkers 
 --                              (cs_crawlerTimeOut cs) 
@@ -207,89 +210,109 @@ crawlDoc :: (Binary a, Show a) =>
          -> IO [((), (MD5Hash, Maybe (Document a), S.Set URI))]
 crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri 
   = do
+    cpuTime0 <- getCPUTime
     clt <- getClockTime               -- get Clock Time for debugging
     cat <- toCalendarTime clt         -- and convert it to "real" date and time
-    r <- runX (     setTraceLevel traceLevel
-               >>> traceMsg 1 (calendarTimeToString cat)  
-               >>> (     constA ()        -- this is needed to fit the MapReduce abstraction
-                     &&& crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) 
-                   )
-               >>^ (\(i, (h, d, u)) -> (i, (h, d, S.fromList u)))       
-              )
+    r <- runX ( setTraceLevel traceLevel
+		>>>
+		traceMsg 1 (calendarTimeToString cat)  
+		>>>
+		( constA ()        -- this is needed to fit the MapReduce abstraction
+		  &&&
+		  crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) 
+                )
+		>>^ (\ (i, (h, d, u)) -> (i, (h, d, S.fromList u)))       
+	      )
 --    putStrLn (show r)
+    cpuTime1 <- getCPUTime
+    trcMsg $ unwords ["CPU time for processing", show theUri, "was", show $ (cpuTime1 - cpuTime0) `div` 1000000000, "msec"]
     return $ r 
 
 -- | Download & read document and compute document title and included refs to
 --   other documents 
+
 crawlDoc' :: (Binary a) =>
-     Int
-  -> Attributes    -- ^ options for readDocument
-  -> Maybe String  -- ^ path for serialized tempfiles
-  -> IOSArrow XmlTree [URI]
---  -> [String]
-  -> Custom a
-  -> (DocId, URI)   -- ^ DocId, URI
-  -> IOSArrow c (String, Maybe (Document a), [URI])
-crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri) =
-        traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
-    >>> withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
-    >>> (
-          documentStatusOk `guards`   -- make sure that the document could be accessed
-                -- if it is set in the crawler options, write a temporary copy of the document to
-                -- the hard disk
-          (     ( if isJust tmpPath
-          then withTraceLevel (traceLevel - traceOffset) $
-                        (replaceBaseElement $< computeDocBase)    -- make sure that there ist a <base> tag
-                        >>> writeDocument standardWriteTmpDocumentAttributes
-                                     (fromJust tmpPath ++ tmpFile docId theUri)
-          else this
-                ) 
-                -- compute a pair of Document b (Holumbus datatype) and a list of contained links
-            >>> 
-                (     (  xshow (this) >>^ (show . md5 . pack) )
-                  &&& getDocument theUri getCustom
-                  &&& ( getRefs >>> strictA >>> perform (theTrace $< arr length) )
-                )   >>^ (\(a,(b,c)) -> (a,b,c))
+	     Int
+          -> Attributes    		-- ^ options for readDocument
+	  -> Maybe String  		-- ^ path for serialized tempfiles
+	  -> IOSArrow XmlTree [URI]
+	  --  -> [String]
+	  -> Custom a
+	  -> (DocId, URI)   		-- ^ DocId, URI
+	  -> IOSArrow c (String, Maybe (Document a), [URI])
+crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri)
+    = traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
+      >>>
+      withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
+      >>> ( documentStatusOk
+	    `guards`		   	-- make sure that the document could be accessed
+                                   	-- if it is set in the crawler options, write a temporary copy of the document to
+                                   	-- the hard disk
+            ( ( if isJust tmpPath
+		then withTraceLevel (traceLevel - traceOffset) $
+                     (replaceBaseElement $< computeDocBase)    			-- make sure that there ist a <base> tag, this is rather cheap
+                     >>>
+		     writeDocument
+                          standardWriteTmpDocumentAttributes
+                          (fromJust tmpPath ++ tmpFile docId theUri)
+		else this
+              ) 
+              >>>                  	-- compute a pair of Document b (Holumbus datatype) and a list of contained links
+              ( ( xshow (this) >>^ (show . md5 . pack) )
+                &&&
+		getDocument theUri getCustom
+                &&&
+		( getRefs >>> strictA >>> perform (theTrace $< arr length) )
+              )
+	      >>^ (\ (a,(b,c)) -> (a,b,c))
           )
-          `orElse` (                  -- if an error occurs with the current document, the global 
-                traceMsg 0 (  "something went wrong with doc: \"" ++ theUri ++"\"")    
-            >>> clearErrStatus        -- error status has to be reset, else the crawler would stop
-            >>> constA (show ( md5 (pack "foo")) , Nothing, [])  -- Nothing indicates the error, the empty list shows
-          )                           -- that - caused by the error - no new links were found
+          `orElse`
+	  ( 				-- if an error occurs with the current document, the global 
+	    traceMsg 0 (  "something went wrong with doc: \"" ++ theUri ++"\"")    
+            >>>
+	    clearErrStatus        	-- error status has to be reset, else the crawler would stop
+            >>>
+	    constA (show ( md5 (pack "foo")) , Nothing, [])  -- Nothing indicates the error, the empty list shows
+          )				-- that - caused by the error - no new links were found
         )
         where 
-          theTrace i = traceMsg 2 ("found " ++ (show i) ++ " references")
+          theTrace i = traceMsg 1 ("found " ++ (show i) ++ " references")
 
+-- ------------------------------------------------------------
 
 -- | Replaces the <base> tag in the Document. If there is no <base> tag, a new one is inserted.
 -- This is especially usefull when saving the document to a local file. With a <base> tag
 -- links in the document can be properly resolved.
+
 replaceBaseElement :: ArrowXml a => String -> a XmlTree XmlTree
-replaceBaseElement base = processTopDownUntil ( (isElem >>> hasName "html") `guards` processHtml )
+replaceBaseElement base
+    = processChildren ( replaceInHtml `when` (isElem >>> hasName "html") )
     where
-    processHtml = processTopDownUntil ( (isElem >>> hasName "head") `guards` processHead)
-    processHead = ifA (getChildren >>> isElem >>> hasName "base") 
-                        (processTopDownUntil ( (isElem >>> hasName "base") `guards` processAttr) )
-                        addBaseElem
-    processAttr = processAttrl ( changeAttrValue (\_ -> base ) `when` hasName "href")
-    addBaseElem = replaceChildren (getChildren <+> aelem "base" [sattr "href" base]) 
-          
+    replaceInHtml
+	= processChildren ( replaceInHead `when` (isElem >>> hasName "head") )
+    replaceInHead
+	= processChildren ( none `when` (isElem >>> hasName "base") )		-- remove old base element, if there
+	  >>>
+	  replaceChildren ( getChildren <+> aelem "base" [sattr "href" base])	-- insert new base element
+
+-- ------------------------------------------------------------
 
 -- | extract the Title of a Document (for web pages the <title> tag) and combine
 --   it with the document uri
+
 getDocument :: (Binary b) => 
                URI        -- ^ URI of the 'Document' 
             -> Custom b   -- ^ Function to extract the custom Data from the 'Document'
             -> IOSArrow XmlTree (Maybe (Document b))
-getDocument theUri getCustom 
-  = mkDoc $<<< (      -- get the document title. to avoid failure of the arrow if the title tag is
-                      -- absent, a default value is supplied
-                      ( withDefault (getXPathTrees "/html/head/title/text()" >>> getText) "")  
-                 &&& constA theUri
-                 &&& getCustom
-               )
-    where
-    mkDoc t u c = constA $ Just $ Document t u c          
-
-
+getDocument theUri getCustom
+    = ( xshow ( getXPathTrees "/html/head/title"
+		>>>
+		deep isText
+	      )
+	&&&
+	getCustom
+      )
+      >>>
+      arr (\ (t, c) -> Just (Document t theUri c))
          
+-- ------------------------------------------------------------

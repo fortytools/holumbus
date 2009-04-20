@@ -43,4 +43,3 @@ install :
 
 clean :
 	$(RM) $(OUTPUT) $(PROGS)
-	

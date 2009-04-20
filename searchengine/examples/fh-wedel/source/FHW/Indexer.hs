@@ -19,17 +19,19 @@ import           Data.Maybe
 import           Data.Binary
 import           Data.List
 
+import           System.IO
+
 import           Text.XML.HXT.Arrow	hiding 	( getXPathTrees )
 import           Text.XML.HXT.Arrow.XPathSimple ( getXPathTrees )
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 import           Text.XML.HXT.DOM.Unicode
 
-{-
-import           Debug.Trace as T
+import qualified Debug.Trace as D
 
-tra :: String -> String
-tra x = T.trace ("trace " ++ show x) x
--}
+-- ------------------------------------------------------------
+
+dbg 		:: String -> String
+dbg x 		= D.trace ("debug " ++ show x) x
 
 -- ------------------------------------------------------------
 
@@ -40,13 +42,13 @@ main
         workerThreads  = 1 
         docsPerCrawl   = 1
         -- docsPerIndex   = (250::Int)
-        idxConfig      = ic_fhw	-- ic_si
-        crawlerState     = initialCrawlerState idxConfig emptyDocuments customFunction
+        idxConfig      = ic_si -- ic_fhw
+        crawlerState   = initialCrawlerState idxConfig emptyDocuments customFunction
 
     -- ---------------------------------------------------------------------------------------------
     -- CRAWLING
     -- ---------------------------------------------------------------------------------------------
-    runX (traceMsg 0 (" crawling  ----------------------------- " ))
+    trcMsg " crawling  ----------------------------- "
     docs       <- crawl traceLevel workerThreads docsPerCrawl crawlerState
     localDocs <- return $ tmpDocs (fromMaybe "/tmp" (ic_tempPath idxConfig)) docs
 
@@ -55,7 +57,7 @@ main
     -- ---------------------------------------------------------------------------------------------
     -- INDEXING
     -- ---------------------------------------------------------------------------------------------
-    runX (traceMsg 0 (" indexing  ----------------------------- " ))
+    trcMsg " indexing  ----------------------------- "
 
     c <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
 
@@ -141,7 +143,7 @@ getLecture	= getBody					-- lecture content part
 -- ------------------------------------------------------------
 
 homeSi		:: String
-homeSi		= "http://localhost/~si/"
+homeSi		= "http://www.fh-wedel.de/~si/"
 -- homeSi		= "http://www.fh-wedel.de/~si/"
 
 isAllowedSi	:: String -> Bool
@@ -149,9 +151,10 @@ isAllowedSi
     = match $ homeSi ++ mkAlt ok ++ "/.*[.]html"
     where
     ok = [ "termine"
-	 , "vorlesungen/fp/Einleitung"
+	 , "vorlesungen/fp"
+	 -- , "vorlesungen/softwaredesign"
 	 -- , "vorlesungen/fp"
-	 -- , "praktika/SoftwarePraktikum"
+	 , "praktika/SoftwarePraktikum"
 	 , "klausuren"
 	 ]
 
