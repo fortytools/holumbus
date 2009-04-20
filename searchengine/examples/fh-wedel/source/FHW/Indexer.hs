@@ -1,7 +1,9 @@
 module Main
 where
+
+import           Control.Applicative
 import           Control.Monad
-import           Text.XML.HXT.Arrow
+
 import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
 import           Holumbus.Build.Index
@@ -13,18 +15,32 @@ import           Holumbus.Utility
 
 import qualified Data.IntMap as IM
 import qualified Data.Set    as S
-import Data.Maybe
-import Data.Binary
-import Data.List
+import           Data.Maybe
+import           Data.Binary
+import           Data.List
+
+import           Text.XML.HXT.Arrow	hiding 	( getXPathTrees )
+import           Text.XML.HXT.Arrow.XPathSimple ( getXPathTrees )
+import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
+import           Text.XML.HXT.DOM.Unicode
+
+{-
+import           Debug.Trace as T
+
+tra :: String -> String
+tra x = T.trace ("trace " ++ show x) x
+-}
+
+-- ------------------------------------------------------------
 
 main :: IO ()
 main 
   = do
     let traceLevel     = 1
         workerThreads  = 1 
-        docsPerCrawl   = 5
-        docsPerIndex   = 250
-        idxConfig      = ic_fhw
+        docsPerCrawl   = 1
+        -- docsPerIndex   = (250::Int)
+        idxConfig      = ic_fhw	-- ic_si
         crawlerState     = initialCrawlerState idxConfig emptyDocuments customFunction
 
     -- ---------------------------------------------------------------------------------------------
@@ -49,10 +65,12 @@ main
     writeToBinFile ( (ic_indexPath idxConfig) ++ "-index.bin") idx
 
     return()
+{-
     where
       mergeIndexes' i1 f = do
                            i2 <- loadFromBinFile (f  ++ "-index.bin")
                            return $ mergeIndexes i1 i2
+-}
                            
 fromDocuments :: Binary a => CrawlerState Documents a -> Documents a -> CrawlerState Documents a
 fromDocuments cs ds = cs { cs_toBeProcessed = S.fromList ( map (uri . snd) ( IM.toList $ toMap ds )) }
@@ -61,7 +79,150 @@ customFunction :: ArrowXml a => a XmlTree (Maybe Int)
 customFunction = constA Nothing    
 
 ic_test :: IndexerConfig
-ic_test = ic_fhw {ic_startPages = ["http://trac.schlatt.com/test/index.html"], ic_fCrawlFilter = const True}
+ic_test = ic_fhw
+	  { ic_startPages = ["http://trac.schlatt.com/test/index.html"]
+	  , ic_fCrawlFilter = const True
+	  }
+
+-- ------------------------------------------------------------
+--
+-- useful helpers
+
+wordList 	:: String -> [String]
+wordList	= map (stripWith (=='.')) . (parseWords isWordChar)
+
+tooShort 	:: [a] -> Bool
+tooShort	= (< 2) . length
+
+noLetter 	:: String -> Bool
+noLetter	= not . any isXmlLetter
+		  
+
+simpleCrawlFilter'	:: (String -> Bool) -> (String -> Bool) -> (String -> Bool)
+simpleCrawlFilter' isAllowed isDenied
+    		= liftA2 (&&) isAllowed (not . isDenied)
+
+mkAlt		:: [String] -> String
+mkAlt rs	= "(" ++ intercalate "|" rs ++ ")"
+
+getByPath	:: ArrowXml a => [String] -> a XmlTree XmlTree
+getByPath	= seqA . map (\ n -> getChildren >>> hasName n)
+
+-- ------------------------------------------------------------
+
+getTitle, getBody, getMeta
+		:: ArrowXml a => a XmlTree XmlTree
+
+getTitle	= getByPath ["html", "head", "title"]
+
+getBody		= getByPath ["html", "body"]
+
+getMeta		= getByPath ["html", "head", "meta"]
+		  >>>
+		  hasAttrValue "name" (`elem` ["description", "keywords"])
+		  >>>
+		  getAttrl >>> hasName "content"
+
+-- ------------------------------------------------------------
+
+getDivCol2, getLecture
+		:: ArrowXml a => a XmlTree XmlTree
+getDivCol2	= getBody					-- fh layout content part
+		  >>>
+		  deep ( hasName "div"
+			 >>>
+			 hasAttrValue "id" (== "col2_content")
+		       )
+
+getLecture	= getBody					-- lecture content part
+		  >>>
+		  hasAttrValue "id" (== "lecture")
+
+-- ------------------------------------------------------------
+
+homeSi		:: String
+homeSi		= "http://localhost/~si/"
+-- homeSi		= "http://www.fh-wedel.de/~si/"
+
+isAllowedSi	:: String -> Bool
+isAllowedSi
+    = match $ homeSi ++ mkAlt ok ++ "/.*[.]html"
+    where
+    ok = [ "termine"
+	 , "vorlesungen/fp/Einleitung"
+	 -- , "vorlesungen/fp"
+	 -- , "praktika/SoftwarePraktikum"
+	 , "klausuren"
+	 ]
+
+isDeniedSi	:: String -> Bool
+isDeniedSi
+    = match $ homeSi ++ mkAlt nok ++ ".*"
+    where
+    nok = [ "praktika/SoftwarePraktikum/Loesungen/"
+	  , "praktika/SoftwarePraktikum/photoalbum2?/"
+	  , "vorlesungen/[^/]*/welcome.html"
+	  ]
+
+ic_si :: IndexerConfig
+ic_si
+    = IndexerConfig
+      { ic_startPages	  = [ homeSi
+			    , homeSi ++ "vorlesungen/fp/Einleitung/index.html"
+			    ]
+      , ic_indexerTimeOut = 120 * 1000000		-- 2 minutes
+      , ic_readAttributes = standardReadDocumentAttributes
+      , ic_contextConfigs = ccs_si
+      , ic_fCrawlFilter	  = isAllowedSi .&&. (not . isDeniedSi)
+      , ic_indexPath      = "./si"
+      , ic_tempPath       = Just "/tmp/HolumbusIndex-si/"
+      }
+    where
+    (.&&.) = liftA2 (&&)
+
+ccs_si	:: [ContextConfig]
+ccs_si
+    = [ si_title
+      , si_meta
+      , si_content
+      ]
+
+si_default, si_title, si_meta, si_content :: ContextConfig
+
+si_default
+    = ContextConfig
+      { cc_name         = "raw"
+      , cc_preFilter    = this
+      , cc_fExtract     = hasName "body"
+      , cc_fTokenize    = wordList
+      , cc_fIsStopWord  = tooShort .||. noLetter
+      , cc_addToCache   = False
+      }
+    where
+    (.||.) = liftA2 (||)
+
+si_title
+    = si_default
+      { cc_name		= "title"
+      , cc_fExtract	= getTitle
+      }
+
+si_meta
+    = si_default
+      { cc_name		= "meta"
+      , cc_fExtract     = getXPathTrees "/html/head/meta[@name='description' or @name='keywords']/@content"  
+      -- , cc_fExtract	= getMeta
+      }
+
+si_content
+    = si_default
+      { cc_name		= "content"
+      , cc_fExtract	= getDivCol2		-- FH layout pages
+	                  `orElse`
+	                  getLecture		-- or pages of lecture document
+      }
+
+-- ------------------------------------------------------------
 
 ic_fhw :: IndexerConfig
 ic_fhw 
@@ -72,41 +233,42 @@ ic_fhw
                           ]
     , ic_tempPath       = Just "/tmp/"
     , ic_indexPath      = "~/fhw"
+    , ic_indexerTimeOut = 120 * 1000000		-- 2 minutes
     , ic_contextConfigs = ccs_fhw
     , ic_readAttributes = standardReadDocumentAttributes
     , ic_fCrawlFilter   = simpleCrawlFilter -- [ "^http://www\\.fh-wedel\\.de"] -- 
-                                            ["^http://[a-z]*\\.?fh-wedel\\.de" ]           -- allow
-                                        (["tx_fhwunternehmensforum_pi3"                     -- deny
-                                        , "http://asta.fh-wedel.de"                -- slow
-                                        , "http://biblserv.fh-wedel.de"            -- slow
-                                        , "http://darcs.fh-wedel.de"               -- hackers only
-                                        , "http://stud.fh-wedel.de"                -- boring
-                                        , "http://holumbus.fh-wedel.de/branches"
-                                        , "http://holumbus.fh-wedel.de/cgi-bin"
-                                        , "/HXmlToolbox/hdoc", "si/doc/javadoc/docs"
-                                        , "~herbert/html", "/java/jdk1.1.1/docs"
---                                       , "/~", "/%7E", "http://www.fh-wedel.de/mitarbeiter/"
-                                        , "\\?L=0", "\\&L=0"
-                                        , ".pdf$", ".jpg$", ".gif$", ".png$", ".tar.gz$"
-                                        , ".ppt$", ".exe$", ".txt$", ".zip$", ".doc$"
-                                        , ".dot$", ".png$", ".ps$", ".ps.gz$", ".nb$"
-                                        , ".swf$", ".JPG$", ".tex$", ".rss$", ".mpg$"
-                                        , ".mp3$", ".m3u$", ".java$", ".tgz$", ".svg", ".mdb$" 
-                                        , ".PDF$", ".xls$", ".dta$", ".lst$", ".rar", ".avi$", ".mp4$" 
-                                        , "%7Edi", "/~di"
-                                        , "ws99/Ausarbeitung/mico/Beispiel"
-                                        , "/rundgang/id=", "/vorlesungsplan/id="
-                                        , "/vorlesungsplan/sem=", "/tv-infosystem/", "/~splan/"
-                                        , "http://www\\.fh-wedel\\.de/index\\.php\\?eID=tx_cms_showpic"
-                                        , "http://www.fh-wedel.de/fileadmin/mitarbeiter/ne/CG/opengl_man"
-                                        , "http://www.fh-wedel.de/%7Esi/vorlesungen/c/beispiele"
-                                        , "http://www.fh-wedel.de/~si/vorlesungen/c/beispiele"
-                                        , "http://www.fh-wedel.de/~wol/fhtml" -- very slow and boring pages
-                                        , "http://www.fh-wedel.de/%7Esi/vorlesungen/internet/TclTk/program1.html" -- slow
-                                        ] ++ list404)
+                            ["^http://[a-z]*\\.?fh-wedel\\.de" ]           -- allow
+                            ( ["tx_fhwunternehmensforum_pi3"                     -- deny
+                              , "http://asta.fh-wedel.de"                -- slow
+                              , "http://biblserv.fh-wedel.de"            -- slow
+                              , "http://darcs.fh-wedel.de"               -- hackers only
+                              , "http://stud.fh-wedel.de"                -- boring
+                              , "http://holumbus.fh-wedel.de/branches"
+                              , "http://holumbus.fh-wedel.de/cgi-bin"
+                              , "/HXmlToolbox/hdoc", "si/doc/javadoc/docs"
+                              , "~herbert/html", "/java/jdk1.1.1/docs"
+			       --                                       , "/~", "/%7E", "http://www.fh-wedel.de/mitarbeiter/"
+                              , "\\?L=0", "\\&L=0"
+                              , ".pdf$", ".jpg$", ".gif$", ".png$", ".tar.gz$"
+                              , ".ppt$", ".exe$", ".txt$", ".zip$", ".doc$"
+                              , ".dot$", ".png$", ".ps$", ".ps.gz$", ".nb$"
+                              , ".swf$", ".JPG$", ".tex$", ".rss$", ".mpg$"
+                              , ".mp3$", ".m3u$", ".java$", ".tgz$", ".svg", ".mdb$" 
+                              , ".PDF$", ".xls$", ".dta$", ".lst$", ".rar", ".avi$", ".mp4$" 
+                              , "%7Edi", "/~di"
+                              , "ws99/Ausarbeitung/mico/Beispiel"
+                              , "/rundgang/id=", "/vorlesungsplan/id="
+                              , "/vorlesungsplan/sem=", "/tv-infosystem/", "/~splan/"
+                              , "http://www\\.fh-wedel\\.de/index\\.php\\?eID=tx_cms_showpic"
+                              , "http://www.fh-wedel.de/fileadmin/mitarbeiter/ne/CG/opengl_man"
+                              , "http://www.fh-wedel.de/%7Esi/vorlesungen/c/beispiele"
+                              , "http://www.fh-wedel.de/~si/vorlesungen/c/beispiele"
+                              , "http://www.fh-wedel.de/~wol/fhtml" -- very slow and boring pages
+                              , "http://www.fh-wedel.de/%7Esi/vorlesungen/internet/TclTk/program1.html" -- slow
+                              ]
+			      ++ list404
+			    )
     }
-    
-    
     
 list404 :: [String]
 list404 = 
@@ -262,12 +424,11 @@ list404 =
   
 -- | The list of context configurations for the Fh Wedel pages
 ccs_fhw :: [ContextConfig]
-ccs_fhw = []
-      ++ [cc_title]
-      ++ [cc_meta]
-      ++ [cc_content]
---      ++ [cc_raw]
-
+ccs_fhw = [ cc_title
+	  , cc_meta
+	  , cc_content
+	  , cc_raw
+	  ]
     
 -- | Context for title-tags
 cc_title :: ContextConfig
@@ -314,10 +475,10 @@ cc_raw
   = ContextConfig
     { cc_name         = "raw"
     , cc_preFilter    = this
-    , cc_fExtract     = getXPathTrees "//body"  
+    , cc_fExtract     = getXPathTrees "/html/body"  
     , cc_fTokenize    = map (stripWith (=='.')) . (parseWords isWordChar)
     , cc_fIsStopWord  = (\s -> length s < 2)
     , cc_addToCache   = False
     }
     
-        
+-- ------------------------------------------------------------
