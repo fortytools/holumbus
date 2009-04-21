@@ -2,7 +2,7 @@ module Main(main)
 where
 
 import           Control.Applicative
-import           Control.Monad
+import           Control.Monad		hiding		( when )
 
 import           Holumbus.Build.Config
 import           Holumbus.Build.Crawl
@@ -13,6 +13,7 @@ import           Holumbus.Index.Inverted.Memory(emptyInverted)
 import           Holumbus.Index.Cache
 import           Holumbus.Utility
 
+import           Data.Char
 import           Data.Maybe
 import           Data.List
 
@@ -85,17 +86,15 @@ mkAlt rs	= "(" ++ intercalate "|" rs ++ ")"
 
 -- ------------------------------------------------------------
 
-getByPath	:: ArrowXml a => [String] -> a XmlTree XmlTree
-getByPath	= seqA . map (\ n -> getChildren >>> hasName n)
-
-getTitle, getBody, getMeta
+getTitle, getBody, getDescrOrKeywords
 		:: ArrowXml a => a XmlTree XmlTree
 
 getTitle	= getByPath ["html", "head", "title"]
 
 getBody		= getByPath ["html", "body"]
 
-getMeta		= getByPath ["html", "head", "meta"]
+getDescrOrKeywords
+		= getByPath ["html", "head", "meta"]
 		  >>>
 		  hasAttrValue "name" (`elem` ["description", "keywords"])
 		  >>>
@@ -119,8 +118,8 @@ getLecture	= getBody					-- lecture content part
 -- ------------------------------------------------------------
 
 homeSi		:: String
-homeSi		= "http://www.fh-wedel.de/~si/"
--- homeSi		= "http://localhost/~si/"
+-- homeSi		= "http://www.fh-wedel.de/~si/"
+homeSi		= "http://localhost/~si/"
 
 isAllowedSi	:: String -> Bool
 isAllowedSi
@@ -190,7 +189,7 @@ si_meta
     = si_default
       { cc_name		= "meta"
       -- , cc_fExtract     = getXPathTrees "/html/head/meta[@name='description' or @name='keywords']/@content"
-      , cc_fExtract	= getMeta
+      , cc_fExtract	= getDescrOrKeywords
       }
 
 si_content

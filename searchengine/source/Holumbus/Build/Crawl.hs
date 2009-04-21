@@ -249,7 +249,10 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri)
     = traceMsg 1 ("  crawling document: " ++ show docId ++ " -> " ++ show theUri )
       >>>
       withTraceLevel (traceLevel - traceOffset) (readDocument attrs theUri)
-      >>> ( documentStatusOk
+      >>> ( ( documentStatusOk
+	      >>>
+	      robotsNoIndex'
+	    )
             `guards`                    -- make sure that the document could be accessed
                                         -- if it is set in the crawler options, write a temporary copy of the document to
                                         -- the hard disk
@@ -267,10 +270,12 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri)
                 &&&
                 getDocument theUri getCustom
                 &&&
-                ( ( getRefs
-                    >>^
-                    (sort >>> nub)
-                  )
+                ( ( ( robotsNoFollow'
+		      >>>
+		      getRefs >>^ (sort >>> nub)
+		    )
+		    `withDefault` []
+		  )
                   >>>
                   strictA
                   >>>
@@ -281,13 +286,29 @@ crawlDoc' traceLevel attrs tmpPath getRefs getCustom (docId, theUri)
           )
           `orElse`
           (                             -- if an error occurs with the current document, the global 
-            traceMsg 0 (unwords ["something went wrong with doc:", show theUri])
+            traceMsg 0 (unwords ["errors occured when reading or NOINDEX set:", show theUri])
             >>>
             clearErrStatus              -- error status has to be reset, else the crawler would stop
             >>>
             constA (show ( md5 (pack "foo")) , Nothing, [])  -- Nothing indicates the error, the empty list shows
           )                             -- that - caused by the error - no new links were found
         )
+      where
+      robotsNoFollow'
+	  = robotsNoFollow
+	    `orElse`
+            ( traceMsg 1 (unwords ["ROBOTS NOFOLLOW set for", show theUri, ", containing refs are ignored"])
+	      >>>
+	      none
+	    )
+
+      robotsNoIndex'
+	  = robotsNoIndex
+	    `orElse`
+            ( traceMsg 1 (unwords ["ROBOTS NOINDEX set for", show theUri, ", document ignored"])
+	      >>>
+	      none
+	    )
 
 -- ------------------------------------------------------------
 

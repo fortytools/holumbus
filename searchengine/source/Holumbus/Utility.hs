@@ -143,4 +143,38 @@ traceOffset = 3
 trcMsg          :: String -> IO ()
 trcMsg m         = hPutStrLn stderr ('-':"- (0) " ++ m)
 
--- ------------------------------------------------------------      
+-- ------------------------------------------------------------
+--
+-- simple and usefull access arrows
+
+getByPath	:: ArrowXml a => [String] -> a XmlTree XmlTree
+getByPath	= seqA . map (\ n -> getChildren >>> hasName n)
+
+robotsNo	:: String -> LA XmlTree XmlTree
+robotsNo what	= none
+		  `when`
+		  ( getByPath ["html", "head", "meta"]
+		    >>>
+		    hasAttrValue "name" ( map toUpper
+					  >>>
+					  (== "ROBOTS")
+					)
+		    >>>
+		    getAttrValue0 "content"
+		    >>>
+		    isA ( map (toUpper >>> (\ x -> if isLetter x then x else ' '))
+			  >>>
+			  words
+			  >>>
+			  (what `elem`)
+			)
+		  )	  
+
+robotsNoIndex	:: ArrowXml a => a XmlTree XmlTree
+robotsNoIndex	= fromLA $ robotsNo "NOINDEX"
+
+robotsNoFollow	:: ArrowXml a => a XmlTree XmlTree
+robotsNoFollow	= fromLA $ robotsNo "NOFOLLOW"
+
+-- ------------------------------------------------------------
+			  
