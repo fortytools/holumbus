@@ -1,5 +1,5 @@
 name:          Holumbus-Searchengine
-version:       0.0.6
+version:       0.0.7
 license:       OtherLicense
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
@@ -77,7 +77,7 @@ library
                , bytestring     >= 0.9
                , unix           >= 2.3
                , utf8-string    >= 0.3
-               , hxt            >= 8.2
+               , hxt            >= 8.3
                , binary         >= 0.4
                , bzlib          >= 0.4
                , regex-compat   >= 0.71

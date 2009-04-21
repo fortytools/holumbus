@@ -56,8 +56,9 @@ import           Data.Char
 import           Data.List
 import           Data.Maybe
 
-import qualified Data.Map    as M
-import qualified Data.Set    as S
+import qualified Data.Map       as M
+import qualified Data.Set       as S
+
 -- import qualified Data.IntMap as IM
 
 
@@ -67,9 +68,17 @@ import           Holumbus.Utility
 
 import           Text.Regex
 
-import           Text.XML.HXT.Arrow hiding (getXPathTrees)
-import           Text.XML.HXT.Arrow.XPathSimple
+import           Text.XML.HXT.Arrow             hiding  ( getXPathTrees )
+import           Text.XML.HXT.Arrow.XPathSimple         ( getXPathTrees )
 
+{-
+import qualified Debug.Trace as D
+
+-- ------------------------------------------------------------
+
+dbg             :: Show a => a -> a
+dbg x           = D.trace ("debug " ++ show x) x
+-}
 -- ------------------------------------------------------------
 
 type Custom a = IOSArrow XmlTree (Maybe a)
@@ -77,6 +86,7 @@ type MD5Hash = String
 
 
 -- | Configuration for the indexer. 
+
 data IndexerConfig 
   = IndexerConfig
     { ic_startPages     :: [URI]
@@ -96,6 +106,7 @@ data IndexerConfig
 --   are identified by a function it is possible to define a list of words that
 --   shall not be indexed or a function that excludes words because of the count
 --   of characters or a combination of both.
+
 data ContextConfig 
   = ContextConfig
     { cc_name           :: String
@@ -107,6 +118,7 @@ data ContextConfig
     }   
     
 -- | crawler state
+
 data CrawlerState d a
     = CrawlerState
       { cs_toBeProcessed    :: S.Set URI
@@ -149,6 +161,7 @@ instance (HolDocuments d a, Binary a) => Binary (CrawlerState d a) where
                               } 
          
 -- | create an initial CrawlerState from an IndexerConfig
+
 initialCrawlerState :: (HolDocuments d a, Binary a) => IndexerConfig -> d a -> Custom a -> CrawlerState d a
 initialCrawlerState cic emptyDocuments getCustom
   = CrawlerState
@@ -168,12 +181,14 @@ initialCrawlerState cic emptyDocuments getCustom
    
     
 -- | write CrawlerState to file
+
 saveCrawlerState :: (HolDocuments d a, Binary a) => FilePath -> CrawlerState d a -> IO ()
 saveCrawlerState fp cs = writeToBinFile fp cs
 
 -- | load CrawlerState from file. Since the functions can not be written 
 --   they have to be taken from another CrawlerState that has to be supplied
 --   as second parameter.
+
 loadCrawlerState :: (HolDocuments d a , Binary a) => FilePath -> CrawlerState d a -> IO (CrawlerState d a)
 loadCrawlerState fp ori = do
                           cs <- decodeFile fp
@@ -190,6 +205,7 @@ loadCrawlerState fp ori = do
 --   the startPages of all other Configs are added. The crawl filters are OR-ed
 --   so that more pages might be indexed. So you better know what you are doing
 --   when you are using this.
+
 mergeIndexerConfigs :: IndexerConfig -> IndexerConfig -> IndexerConfig
 mergeIndexerConfigs cfg1 cfg2 = mergeIndexerConfigs' cfg1 [cfg2]
 
@@ -218,16 +234,19 @@ mergeIndexerConfigs' cfg1 (cfg2:cfgs) = mergeIndexerConfigs' resCfg cfgs
      subdirectory z is included again and "\/a\/b\/a" to "\/a\/b\/y" are excluded. Even though this could
      also be done with the 'simpleCrawlFilter', this way saves you a lot of unnecessary code.
 -} 
+
 crawlFilter :: Bool -> [(String, Bool)] -> (URI -> Bool)
 crawlFilter theDefault [] _ = theDefault
 crawlFilter theDefault ((expr, b):expressions) theUri = 
   if isJust $ matchRegex (mkRegex expr) theUri then b else crawlFilter theDefault expressions theUri
+
 
 -- | Create Crawl filters based on regular expressions. The first list defines 
 --   regular expression of URIs that have to be crawled. Any new URI must match at least one of 
 --   these regular expressions to be crawled. The second list consists of regular expressions for
 --   pages that must not be crawled. This can be used to limit the set of documents defined by 
 --   the including expressions. 
+
 simpleCrawlFilter :: [String] -> [String] -> (URI -> Bool)
 simpleCrawlFilter as ds theUri = isAllowed && (not isForbidden ) 
          where
@@ -249,53 +268,56 @@ getReferencesByXPaths xpaths
 getHtmlReferencesByXPaths :: ArrowXml a => a XmlTree [URI]
 getHtmlReferencesByXPaths
     = getReferencesByXPaths [ "//a/@href/text()"
-			    , "//frame/@src/text()"
-			    , "//iframe/@src/text()"
-			    ]
+                            , "//frame/@src/text()"
+                            , "//iframe/@src/text()"
+                            ]
 
 getHtmlReferences :: ArrowXml a => a XmlTree [URI]
 getHtmlReferences
     = listA (getRefs' $< computeDocBase)
     where
     getRefs' base
-	= fromLA $
-	  deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
-	  >>>
-	  ( getAttrValue0 "href"
-	    <+>
-	    getAttrValue0 "src"
-	  )
-	  >>^ (toAbsRef base)
+        = fromLA $
+          deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
+          >>>
+          ( getAttrValue0 "href"
+            <+>
+            getAttrValue0 "src"
+          )
+          >>^ (toAbsRef base)
 
-toAbsRef	:: URI -> URI -> URI
+toAbsRef        :: URI -> URI -> URI
 toAbsRef base ref
-    = removeFragment $ fromMaybe ref $ expandURIString ref base
+    = removeFragment . fromMaybe ref . expandURIString ref $ base
     where
     removeFragment r
         | "#" `isPrefixOf` path = reverse . tail $ path
-        | otherwise = r
+        | otherwise 		= r
         where
         path = dropWhile (/='#') . reverse $ r 
 
-	  
+          
 -- ------------------------------------------------------------
 
 -- | Split a string into a list of words.
+
 parseWords  :: (Char -> Bool) -> String -> [String]
 parseWords isWordChar'
           = filter (not . null) . words . map boringChar
           where
           boringChar c             -- these chars separate words
             | isWordChar' c = c
-            | otherwise    = ' '
+            | otherwise     = ' '
 
 -- | standard function to identify non-separating characters for words
+
 isWordChar  :: Char -> Bool
 isWordChar c = isAlphaNum c || c `elem` ".-_'@" 
 
 -- ------------------------------------------------------------
      
 -- | some standard options for the readDocument function
+
 standardReadDocumentAttributes :: [(String, String)]
 standardReadDocumentAttributes
     = [ (a_parse_html,               v_1)
@@ -310,6 +332,7 @@ standardReadDocumentAttributes
       ]
 
 -- | options for writing the tmp files
+
 standardWriteTmpDocumentAttributes :: [(String, String)]
 standardWriteTmpDocumentAttributes
     = [ (a_indent,                      v_1)    -- for testing only, should be v_0 for efficiency
@@ -318,6 +341,7 @@ standardWriteTmpDocumentAttributes
       ]
 
 -- | options for reading the tmp files
+
 standardReadTmpDocumentAttributes :: [(String, String)]
 standardReadTmpDocumentAttributes
     = [ (a_indent,                      v_0)

@@ -18,7 +18,9 @@ all : shader $(PROGS)
 shader : $(SHADER) output
 	$(GHC) -threaded --make $< -hidir $(OUTPUT) -odir $(OUTPUT) -i./$(SOURCE)
 
-indexer : Indexer
+indexer : Indexer IndexerSi
+	[[ -d "./tmp/si" ]] || mkdir -p "./tmp/si"
+
 hebalizer : Hebalizer
 
 % : $(SOURCE)/FHW/%.hs output
