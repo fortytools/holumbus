@@ -140,6 +140,7 @@ isDeniedSi
     nok = [ "praktika/SoftwarePraktikum/Loesungen/"
 	  , "praktika/SoftwarePraktikum/photoalbum2?/"
 	  , "vorlesungen/[^/]*/welcome.html"
+	  , "(.*[?])"					-- all urls containing a ? are denied
 	  ]
 
 -- ------------------------------------------------------------
