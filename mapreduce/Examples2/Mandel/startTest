@@ -1,0 +1,43 @@
+#!/bin/bash
+
+function help() {
+	echo "usage: startTest width height zmax iterations client base count"
+  exit 0
+}
+
+[ "$*" == "--help" ] && help
+
+WIDTH=800
+[ -n "$1" ] && WIDTH="$1"
+
+HEIGHT=600
+[ -n "$2" ] && HEIGHT="$2"
+
+ZMAX=2.0
+[ -n "$3" ] && ITERATIONS="$3"
+
+ITERATIONS=100
+[ -n "$4" ] && ITERATIONS="$4"
+
+CLIENT="/home/re/MyExamples/Mandel/MandelClient"
+[ -n "$5" ] && CLIENT="$5"
+[ -f $CLIENT ] || { echo "No such file: $CLIENT"; exit 1; }
+
+BASE="."
+[ -n "$6" ] && BASE="$6"
+
+COUNT=5
+[ -n "$7" ] && COUNT="$7"
+
+I=1
+
+while [ $I -le $COUNT ]
+do
+  echo "Press Enter for run #$I ( Restart MR system if neccessary)"
+  read
+  echo "Runnin test $I"
+  DIR="$BASE/Test$I"
+  mkdir $DIR && \
+/usr/bin/time -o $DIR/time.txt -v $CLIENT $WIDTH $HEIGHT $ZMAX $ITERATIONS "$DIR/out.pgm"
+  I=`expr $I + 1`
+done
