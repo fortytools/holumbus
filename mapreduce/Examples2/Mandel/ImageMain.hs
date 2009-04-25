@@ -1,7 +1,7 @@
 module Main where
 
-import MyExamples.Mandel.ImageTypes
-import MyExamples.Mandel.ImageMandel
+import Examples2.Mandel.ImageTypes
+import Examples2.Mandel.ImageMandel
 
 import System.IO
 import System.Environment

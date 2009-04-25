@@ -12,8 +12,8 @@ import qualified Holumbus.Distribution.DMapReduce               as MR
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce 
 
-import           MyExamples.Mandel.DMandel
-import           MyExamples.Mandel.ImageTypes
+import           Examples2.Mandel.DMandel
+import           Examples2.Mandel.ImageTypes
 import System.IO
 import System.Environment
 import Data.List

@@ -1,8 +1,8 @@
-module MyExamples.Mandel.ImageMandel
+module Examples2.Mandel.ImageMandel
 where
 
-import MyExamples.Mandel.Mandel
-import MyExamples.Mandel.ImageTypes
+import Examples2.Mandel.Mandel
+import Examples2.Mandel.ImageTypes
 
 x // y = fromIntegral x / fromIntegral y
 

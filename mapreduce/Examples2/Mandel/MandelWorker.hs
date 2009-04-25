@@ -7,7 +7,7 @@ import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.FileSystem.FileSystem 		as FS
 import qualified Holumbus.Distribution.DMapReduce		as MR
 import qualified Holumbus.MapReduce.UserInterface		as UI
-import           MyExamples.Mandel.DMandel
+import           Examples2.Mandel.DMandel
 
 
 version :: String

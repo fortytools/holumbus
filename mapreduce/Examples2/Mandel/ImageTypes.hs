@@ -1,4 +1,4 @@
-module MyExamples.Mandel.ImageTypes
+module Examples2.Mandel.ImageTypes
 where
 
 import Data.Array.Unboxed

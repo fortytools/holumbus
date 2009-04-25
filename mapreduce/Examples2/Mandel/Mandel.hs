@@ -1,4 +1,4 @@
-module MyExamples.Mandel.Mandel
+module Examples2.Mandel.Mandel
 (
     pixelAt
   , pixelAt'

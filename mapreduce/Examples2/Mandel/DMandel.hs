@@ -1,4 +1,4 @@
-module MyExamples.Mandel.DMandel
+module Examples2.Mandel.DMandel
 (
   dmandelAction
 , dmandelActionMap
@@ -14,12 +14,12 @@ import           System.Log.Logger
 import qualified Holumbus.Data.AccuMap as AMap
 import qualified Holumbus.Data.KeyMap as KMap
 import           Holumbus.MapReduce.Types
-import           MyExamples.Mandel.ImageTypes
-import           MyExamples.Mandel.ImageMandel
+import           Examples2.Mandel.ImageTypes
+import           Examples2.Mandel.ImageMandel
 
 
 localLogger :: String
-localLogger = "MyExamples.Mandel.DMandel"
+localLogger = "Examples2.Mandel.DMandel"
 
 
 -- ----------------------------------------------------------------------------
