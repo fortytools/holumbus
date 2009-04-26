@@ -795,8 +795,8 @@ stopStreamServer sId
 
 
 -- | Delegates new incomming messages on a unix-socket to their streams.
-streamDispatcher :: SocketId -> Handle -> HostName -> PortNumber -> IO ()
-streamDispatcher (SocketId _ ownPo) hdl hn po
+streamDispatcher :: SocketId -> Handle -> SocketId -> IO ()
+streamDispatcher (SocketId _ ownPo) hdl (SocketId hn po)
   = do
     debugM localLogger "streamDispatcher: getting message from handle"
     raw <- getMessage hdl
@@ -910,7 +910,7 @@ sendWithMaybeGeneric p@(Port sn mbsoid) d rp
             do
             msg <- newMessage MTExternal sn d rp
             let raw = encode $ encodeMessage $ updateReceiverSocket msg so
-            sendRequest (putMessage raw) hn (PortNumber po)
+            sendRequest (putMessage raw) hn po
             return ()
           -- we don't know it's port
           (Nothing) ->
@@ -921,7 +921,7 @@ sendWithMaybeGeneric p@(Port sn mbsoid) d rp
                 do
                 msg <- newMessage MTExternal sn d rp
                 let raw = encode $ encodeMessage $ updateReceiverSocket msg so
-                sendRequest (putMessage raw) hn (PortNumber po)
+                sendRequest (putMessage raw) hn po
                 return ()
               (Nothing) ->
                 do

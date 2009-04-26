@@ -29,7 +29,13 @@ module Holumbus.Network.Core
     , startSocket
 
       -- * Client-Operations
+      -- deprecated
     , sendRequest
+    
+      -- use this
+    , performUnsafeSendRequest
+    , performSafeSendRequest    
+    , performMaybeSendRequest
 
       -- * Handle-Operations
     , putMessage
@@ -43,9 +49,10 @@ import           Prelude hiding         ( catch )
 
 import           Control.Concurrent
 import           Control.Exception      ( Exception
-					, bracket
-					, catch
-					)
+          , IOException
+          , bracket
+          , catch
+          )
 import           Control.Monad
 
 import           Data.Binary
@@ -70,7 +77,7 @@ localLogger :: String
 localLogger = "Holumbus.Network.Core"
 
 
-type ServerDispatcher = SocketId -> Handle -> HostName -> PortNumber -> IO ()
+type ServerDispatcher = SocketId -> Handle -> SocketId -> IO ()
 
 -- ------------------------------------------------------------
 --
@@ -215,7 +222,7 @@ processRequest f soid client =
       t1 <- getCPUTime
       debugM localLogger "starting to dispatch request"
       handleAll (\e -> errorM localLogger $ "UnknownError: " ++ show e) $ do
-        f soid hdl hst prt
+        f soid hdl (SocketId hst prt)
       t2 <- getCPUTime
       d <- return ((fromIntegral (t2 - t1) / 1000000000000) :: Float)
       ds <- return (printf "%.4f" d)
@@ -228,19 +235,43 @@ processRequest f soid client =
 
     
 -- | Send the query to a server and merge the result with the global result.
-sendRequest :: (Handle -> IO a) -> HostName -> PortID -> IO a
+sendRequest :: (Handle -> IO a) -> HostName -> PortNumber -> IO a
 sendRequest f n p = 
   withSocketsDo $ do 
     installHandler sigPIPE Ignore Nothing
     
     --TODO exception handling
     --handle (\e -> do putStrLn $ show e return False) $
-    bracket (connectTo n p) (hClose) (send)
+    bracket (connectTo n (PortNumber p)) (hClose) (send)
     where    
     send hdl 
       = do
         hSetBuffering hdl NoBuffering
-        f hdl
+        f hdl 
+
+-- no exception handling
+performUnsafeSendRequest :: (Handle -> IO a) -> HostName -> PortNumber -> IO a
+performUnsafeSendRequest = sendRequest
+
+-- all IOExceptions handled return of default value
+performSafeSendRequest :: (Handle -> IO a) -> a -> HostName -> PortNumber -> IO a
+performSafeSendRequest f d n p
+  = catch (sendRequest f n p)
+          (\(e ::IOException) -> 
+            do
+            debugM localLogger $  show e 
+            return d)
+
+-- all IOExceptions handled return of Nothing
+performMaybeSendRequest :: (Handle -> IO a) -> HostName -> PortNumber -> IO (Maybe a)
+performMaybeSendRequest f n p
+  = catch (do
+           res <- sendRequest f n p
+           return (Just res))
+          (\(e ::IOException) -> 
+            do
+            debugM localLogger $  show e 
+            return Nothing)
 
 
 -- ----------------------------------------------------------------------------
