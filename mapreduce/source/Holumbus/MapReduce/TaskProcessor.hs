@@ -510,7 +510,7 @@ sendTasksResults set fun
 -- Performing a Task
 -- ----------------------------------------------------------------------------
 
--- | doing a map task
+-- | doing a task
 performTask :: TaskData -> TaskProcessor-> IO TaskData
 performTask td tp
   = do
