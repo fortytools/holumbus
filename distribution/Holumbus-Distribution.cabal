@@ -29,6 +29,15 @@ extra-source-files:
     Examples/Ports/Receiver.hs
     Examples/Ports/Sender.hs
     Examples/Ports/Single.hs
+    Examples/Distribution/ChatDChan/ClientDChan.hs
+    Examples/Distribution/ChatDChan/ServerDChan.hs
+    Examples/Distribution/ChatDChan/MessagesDChan.hs
+    Examples/Distribution/CounterDFunction/MasterCounter.hs
+    Examples/Distribution/CounterDFunction/SlaveCounter.hs
+    Examples/Distribution/CounterDMVar/MasterCounter.hs
+    Examples/Distribution/CounterDMVar/SlaveCounter.hs
+    Examples/Distribution/CounterDMVar/WaitSlaveCounter.hs
+    Examples/Distribution/CounterDMVar/ErrorSlaveCounter.hs
 
 library
   build-depends:  base       >= 4
