@@ -1,5 +1,5 @@
 name:          Holumbus-Distribution
-version:       0.0.1.1
+version:       0.0.2.0
 license:       OtherLicense
 license-file:  LICENSE
 author:        Stefan Schmidt, Uwe Schmidt
@@ -42,6 +42,7 @@ library
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
+                , random     >= 1.0
 
   hs-source-dirs: 
                   source
@@ -57,6 +58,12 @@ library
                  , Holumbus.Network.PortRegistry.Messages
                  , Holumbus.Network.PortRegistry.PortRegistryData
                  , Holumbus.Network.PortRegistry.PortRegistryPort
+                 , Holumbus.Distribution.DNode
+                 , Holumbus.Distribution.DNode.Base
+                 , Holumbus.Distribution.DChan
+                 , Holumbus.Distribution.DStreamPort
+                 , Holumbus.Distribution.DFunction
+                 , Holumbus.Distribution.DMVar
                  , Holumbus.Console.Console
                  , Holumbus.Common.Debug
                  , Holumbus.Common.FileHandling
