@@ -60,6 +60,19 @@ module Holumbus.MapReduce.Types
 
 , OptionsDecoder
 
+
+-- ----------------------------------------------------------------------------
+-- remove this, when work done!
+-- defaultFunctions (only for profiling)
+, defaultInputReader
+, defaultOutputWriter
+, defaultSplit
+, defaultPartition
+, defaultMerge
+, readConnector
+, writeConnector
+-- ----------------------------------------------------------------------------
+
 , ActionConfiguration(..)
 , SplitConfiguration(..)
 , MapConfiguration(..)
