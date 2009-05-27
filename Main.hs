@@ -11,6 +11,8 @@ import 		 Control.Monad.Reader
 import		 Control.Monad.State
 import 		 Control.Monad.ReaderStateIO
 
+-- import		 Control.Parallel.Strategies
+
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
 
@@ -38,24 +40,25 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 type URIs		= S.Set URI
 
 data CrawlerConfig a r	= CrawlerConfig
-                          { cc_name		:: String
-			  , cc_readAttributes	:: Attributes
-			  , cc_readTimeOut	:: Int
+                          { cc_name		:: ! String
+			  , cc_readAttributes	:: ! Attributes
+			  , cc_readTimeOut	:: ! Int
 			  , cc_preRefsFilter	:: ArrowXml a' => a' XmlTree XmlTree	-- -XRank2Types
 			  , cc_processRefs	:: ArrowXml a' => a' XmlTree URI
 			  , cc_preDocFilter     :: ArrowXml a' => a' XmlTree XmlTree
 			  , cc_processDoc	:: ArrowXml a' => a' XmlTree a
 			  , cc_accumulate	:: a -> r -> r
 			  , cc_followRef	:: URI -> Bool
-			  , cc_traceLevel	:: Int
+			  , cc_traceLevel	:: ! Int
 			  }
 
 data CrawlerState r	= CrawlerState
-                          { cs_toBeProcessed    :: URIs
-			  , cs_wereProcessed    :: URIs
-			  , cs_robots		:: Robots		-- is part of the state, it will grow during crawling
+                          { cs_toBeProcessed    :: ! URIs
+			  , cs_wereProcessed    :: ! URIs
+			  , cs_robots		:: ! Robots		-- is part of the state, it will grow during crawling
 			  , cs_resultAccu       :: r
 			  }
+			  deriving (Show)
 
 type CrawlAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
@@ -206,89 +209,93 @@ processDocArrow c uri	= ( readDocument (cc_readAttributes c) uri
 
 -- ------------------------------------------------------------
 
-runCrawler		:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO (x, CrawlerState r)
-runCrawler		= runReaderStateIO
+runCrawler			:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO (x, CrawlerState r)
+runCrawler			= runReaderStateIO
 
 -- run a crawler and deliver just the accumulated result value
 
-execCrawler		:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO r
+execCrawler			:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO r
 execCrawler cmd config initState
-			= do
-			  (_, finalState) <- runCrawler cmd config initState
-			  return (cs_resultAccu finalState)
+				= do
+				  (_, finalState) <- runCrawler cmd config initState
+				  return (cs_resultAccu finalState)
 
 -- ------------------------------------------------------------
 
-simpleFollowRef		:: (String -> Bool) -> (String -> Bool) -> (String -> Bool)
+simpleFollowRef			:: (String -> Bool) -> (String -> Bool) -> (String -> Bool)
 simpleFollowRef isAllowed isDenied
-    			= isAllowed .&&. (not . isDenied)
-			  where
-			  (.&&.) = liftA2 (&&)
+    				= isAllowed .&&. (not . isDenied)
+				  where
+				  (.&&.) = liftA2 (&&)
 
-simpleFollowRef'	:: [String] -> [String] -> (String -> Bool)
+simpleFollowRef'		:: [String] -> [String] -> (String -> Bool)
 simpleFollowRef' allowed denied
-			= simpleFollowRef (match $ mkAlt allowed) (match $ mkAlt denied)
+				= simpleFollowRef (match $ mkAlt allowed) (match $ mkAlt denied)
     where
-    mkAlt		:: [String] -> String
-    mkAlt rs		= "(" ++ intercalate "|" rs ++ ")"
+    mkAlt			:: [String] -> String
+    mkAlt rs			= "(" ++ intercalate "|" rs ++ ")"
 
 
 -- ------------------------------------------------------------
 
 defaultHtmlCrawlerConfig	:: CrawlerConfig a r -> CrawlerConfig a r
 defaultHtmlCrawlerConfig c	= c
-				  { cc_preRefsFilter	= this
+				  { cc_readAttributes	= [ (a_validate,   		 v_0)
+							  , (a_parse_html,		 v_1)
+							  , (a_encoding,		 isoLatin1)
+							  , (a_issue_warnings, 		 v_0)
+							  , (a_ignore_none_xml_contents, v_1)
+							  ]
+				  , cc_preRefsFilter	= this
 				  , cc_processRefs	= getHtmlReferences
 				  }
 
 -- ------------------------------------------------------------
 
-getHtmlReferences :: ArrowXml a => a XmlTree URI
-getHtmlReferences
-    = getRefs' $< computeDocBase
+getHtmlReferences 		:: ArrowXml a => a XmlTree URI
+getHtmlReferences		= getRefs' $< computeDocBase
     where
-    getRefs' base
-        = fromLA $
-          deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
-          >>>
-          ( getAttrValue0 "href"
-            <+>
-            getAttrValue0 "src"
-          )
-          >>^ (toAbsRef base)
+    getRefs' base	        = fromLA $
+				  deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
+				  >>>
+				  ( getAttrValue0 "href"
+				    <+>
+				    getAttrValue0 "src"
+				  )
+				  >>^ (toAbsRef base)
 
-toAbsRef        :: URI -> URI -> URI
-toAbsRef base ref
-    = removeFragment . fromMaybe ref . expandURIString ref $ base
+toAbsRef        		:: URI -> URI -> URI
+toAbsRef base ref		= removeFragment . fromMaybe ref . expandURIString ref $ base
     where
     removeFragment r
         | "#" `isPrefixOf` path = reverse . tail $ path
         | otherwise 		= r
         where
-        path = dropWhile (/='#') . reverse $ r 
+        path 			= dropWhile (/='#') . reverse $ r 
 
 -- | Compute the base of a webpage
 --   stolen from Uwe Schmidt, http:\/\/www.haskell.org\/haskellwiki\/HXT
---   and then stolen again from Holumbus.Utility
+--   and then stolen back again from Holumbus.Utility
 
-computeDocBase  :: ArrowXml a => a XmlTree String
-computeDocBase
-    = ( ( ( this				-- try to find a base element in head
-            /> hasName "html"			-- and compute document base with transfer uri and base
-            /> hasName "head"
-            /> hasName "base"
-            >>> getAttrValue "href"
-          )
-          &&&
-          getAttrValue "transfer-URI"
-        )
-        >>> expandURI
-      )
-      `orElse`
-      getAttrValue "transfer-URI"  		-- the default: take the transfer uri
+computeDocBase  		:: ArrowXml a => a XmlTree String
+computeDocBase			= ( ( ( this				-- try to find a base element in head
+					/> hasName "html"		-- and compute document base with transfer uri and base
+					/> hasName "head"
+					/> hasName "base"
+					>>> getAttrValue "href"
+				      )
+				      &&&
+				      getAttrValue "transfer-URI"
+				    )
+				    >>> expandURI
+				  )
+				  `orElse`
+				  getAttrValue "transfer-URI"  		-- the default: take the transfer uri
       
 
 -- ------------------------------------------------------------
+--
+-- a test application
 
 type TextDoc		= (URI, String)
 
@@ -296,42 +303,55 @@ type TextDocs		= M.Map URI String
 
 type HtmlCrawlerConfig	= CrawlerConfig TextDoc TextDocs
 
+emptyTextDocs		:: TextDocs
+emptyTextDocs		= M.empty
+
 insertTextDoc		:: TextDoc -> TextDocs -> TextDocs
 insertTextDoc		= uncurry M.insert
 
 textHtmlCrawlerConfig	:: HtmlCrawlerConfig
 textHtmlCrawlerConfig	= ( defaultHtmlCrawlerConfig
 			    .
-			    defaultCrawlerConfig
-			  $ insertTextDoc
+			    defaultCrawlerConfig				-- merge default config with default HTML config
+			  $ insertTextDoc					
 			  )
-			  { cc_readAttributes	= [ (a_validate,   v_0)
-						  , (a_parse_html, v_1)
+			  { cc_readAttributes	= [ (a_validate,   		 v_0)
+						  , (a_parse_html,		 v_1)
+						  , (a_encoding,		 isoLatin1)
+						  , (a_issue_warnings, 		 v_0)
+						  , (a_ignore_none_xml_contents, v_1)
 						  ]
-			  , cc_processDoc	= fromLA extractText
+			  , cc_processDoc	= fromLA (rnfA extractText)	-- force complete evaluation of the result
+			  , cc_followRef	= const True			-- the whole world is checked
 			  }
     where
     extractText		= getAttrValue "transfer-URI"
 			  &&&
-			  ( xshow ( this			-- collect all text nodes within body
-				    />				-- and remove redundant whitespace
-				    hasName "html"
-				    />
-				    hasName "body"
+			  ( xshow ( ( theTitle <+> theBody )
 				    >>>
 				    deep isText
 				  )
 			    >>^ (words >>> unwords)
 			  )
+    theBody		= this /> hasName "html" /> hasName "body"
+    theTitle		= this /> hasName "html" /> hasName "head" /> hasName "title"
+
+textHtmlCrawlerInitState	:: CrawlerState TextDocs
+textHtmlCrawlerInitState	= initCrawlerState emptyTextDocs
 
 -- ------------------------------------------------------------
-{-
-c1	= do
-	  CCF e <- ask
-	  modify (\ (CST s) -> CST (s ++ e ++ reverse s))
-	  s1 <- get
-	  return (e ++ state s1)
 
-a1	= runReaderStateIO c1 (CCF "abc") (CST "xyz")
--}
+testCrawlerConfig 	:: CrawlerConfig TextDoc TextDocs
+testCrawlerConfig	= textHtmlCrawlerConfig
+			  { cc_followRef	= simpleFollowRef'
+			                          ["http://localhost/~si/klausuren/.*"]
+			                          ["()"]
+			  }
+
+t1 	:: IO TextDocs
+t1	= execCrawler (crawlDoc "http://localhost/~si/") testCrawlerConfig textHtmlCrawlerInitState
+
+t2 	:: IO ((), CrawlerState TextDocs)
+t2	= runCrawler  (crawlDoc "http://localhost/~si/") testCrawlerConfig textHtmlCrawlerInitState
+
 -- ------------------------------------------------------------
