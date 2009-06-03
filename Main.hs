@@ -54,6 +54,7 @@ data CrawlerState r	= CrawlerState
                           { cs_toBeProcessed    :: ! URIs
 			  , cs_wereProcessed    :: ! URIs
 			  , cs_robots		:: ! Robots		-- is part of the state, it will grow during crawling
+			  , cs_maxDocs		:: ! Int
 			  , cs_resultAccu       :: r
 			  }
 			  deriving (Show)
@@ -111,16 +112,20 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  >>
 			  B.put (cs_robots s)
 			  >>
+			  B.put (cs_maxDocs s)
+			  >>
 			  B.put (cs_resultAccu s)
     get			= do
 			  tbp <- B.get
 			  alp <- B.get
 			  rbt <- B.get
+			  mxd <- B.get
 			  acc <- B.get
 			  return $ CrawlerState
 				   { cs_toBeProcessed = tbp
 				   , cs_wereProcessed = alp
 				   , cs_robots        = rbt
+				   , cs_maxDocs	      = mxd
 				   , cs_resultAccu    = acc
 				   }
 
@@ -135,8 +140,21 @@ initCrawlerState r	= CrawlerState
 			  { cs_toBeProcessed    = emptyURIs
 			  , cs_wereProcessed    = emptyURIs
 			  , cs_robots		= emptyRobots
+			  , cs_maxDocs		= (-1)			-- unlimited
 			  , cs_resultAccu	= r
 			  }
+
+cs_setMaxDocs		:: Int -> CrawlerState r -> CrawlerState r
+cs_setMaxDocs mx s	= s
+			  { cs_maxDocs = mx `max` (-1)}
+
+cs_decrMaxDocs		:: CrawlerState r -> CrawlerState r
+cs_decrMaxDocs s	= s
+			  { cs_maxDocs = (cs_maxDocs s - 1) `max` (-1) }
+
+cs_maxDocsReached	:: CrawlerState r -> Bool
+cs_maxDocsReached s	= cs_maxDocs s == 0
+
 {-
 uriToBeProcessed	:: URI -> CrawlerState r -> CrawlerState r
 uriToBeProcessed uri s
