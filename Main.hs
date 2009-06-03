@@ -40,9 +40,7 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 type URIs		= S.Set URI
 
 data CrawlerConfig a r	= CrawlerConfig
-                          { cc_name		:: ! String
-			  , cc_readAttributes	:: ! Attributes
-			  , cc_readTimeOut	:: ! Int
+                          { cc_readAttributes	:: ! Attributes
 			  , cc_preRefsFilter	:: ArrowXml a' => a' XmlTree XmlTree	-- -XRank2Types
 			  , cc_processRefs	:: ArrowXml a' => a' XmlTree URI
 			  , cc_preDocFilter     :: ArrowXml a' => a' XmlTree XmlTree
@@ -68,17 +66,41 @@ type CrawlAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
 defaultCrawlerConfig	:: ((URI, a) -> r -> r) -> CrawlerConfig a r
 defaultCrawlerConfig op	= CrawlerConfig
-                          { cc_name		= "Holumbus Crawler 0.0.1"
-			  , cc_readAttributes	= []
-			  , cc_readTimeOut	= 10000
-			  , cc_preRefsFilter	= this			-- no preprocessing for refs extraction
-			  , cc_processRefs	= none			-- don't extract refs
-			  , cc_preDocFilter     = this			-- no document preprocessing
-			  , cc_processDoc	= none			-- no document processing at all
-			  , cc_accumulate	= op			-- combining function for result accumulating
-			  , cc_followRef	= const False		-- do not follow any refs
-			  , cc_traceLevel	= 1			-- traceLevel
+			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
+						  , (curl_max_time,		"60")		-- whole transaction for reading a document must complete within 60 seconds
+						  , (curl_connect_timeout,	"10")		-- connection must be established within 10 seconds
+						  ]
+			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
+			  , cc_processRefs	= none						-- don't extract refs
+			  , cc_preDocFilter     = this						-- no document preprocessing
+			  , cc_processDoc	= none						-- no document processing at all
+			  , cc_accumulate	= op						-- combining function for result accumulating
+			  , cc_followRef	= const False					-- do not follow any refs
+			  , cc_traceLevel	= 1						-- traceLevel
 			  }
+
+defaultCrawlerName	:: String
+defaultCrawlerName	= "HolumBot/0.2 @http://holumbus.fh-wedel.de -" ++ "-location"
+
+curl_user_agent		:: String
+curl_user_agent		= "curl-" ++ "-user-agent"
+
+curl_max_time		:: String
+curl_max_time           = "curl-" ++ "-max-time"
+
+curl_connect_timeout	:: String
+curl_connect_timeout	= "curl-" ++ "-connect-timeout"
+
+cc_setCrawlerName	:: String -> CrawlerConfig a r -> CrawlerConfig a r
+cc_setCrawlerName n c	= c
+			  { cc_readAttributes = addEntry curl_user_agent n $ cc_readAttributes c }
+
+cc_getCrawlerName	:: CrawlerConfig a r -> String
+cc_getCrawlerName c	= lookupDef defaultCrawlerName curl_user_agent $ cc_readAttributes c
+
+cc_setMaxTime		:: Int ->  CrawlerConfig a r -> CrawlerConfig a r
+cc_setMaxTime t c	= c
+			  { cc_readAttributes = addEntry curl_max_time (show $ t `max` 1) $ cc_readAttributes c }
 
 -- ------------------------------------------------------------
 
