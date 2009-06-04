@@ -1,4 +1,4 @@
-{-# OPTIONS -XMultiParamTypeClasses -XFunctionalDependencies -XFlexibleInstances -XRank2Types #-}
+{-# OPTIONS -XMultiParamTypeClasses -XFunctionalDependencies -XFlexibleInstances -XRank2Types -XNoMonomorphismRestriction #-}
 
 -- ------------------------------------------------------------
 
@@ -86,6 +86,12 @@ theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
 
 theReadAttributes	:: Selector (CrawlerConfig a r) Attributes
 theReadAttributes	= S cc_readAttributes	(\ x s -> s {cc_readAttributes = x})
+
+theTraceLevel		:: Selector (CrawlerConfig a r) Int
+theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
+
+theAccumulateOp		:: Selector (CrawlerConfig a r) ((URI, a) -> r -> r)
+theAccumulateOp		= S cc_accumulate	(\ x s -> s {cc_accumulate = x})
 
 -- ------------------------------------------------------------
 
@@ -203,9 +209,12 @@ deleteURI		= S.delete
 --
 -- basic crawler actions
 
+askEnv			:: (MonadReader r m) => Selector r a -> m a
+askEnv			= asks . load
+
 traceCrawl		:: Int -> String -> CrawlAction c r ()
 traceCrawl l msg		= do
-			  l0 <- asks cc_traceLevel
+			  l0 <- askEnv theTraceLevel
 			  when (l >= l0) $ liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ msg
 
 saveCrawlerState	:: (Binary r) => FilePath -> CrawlAction c r ()
@@ -238,7 +247,7 @@ uriToBeProcessed uri		= modify uriToBeProcessed'
 
 accumulateRes			:: (URI, c) -> CrawlAction c r ()
 accumulateRes res		= do
-				  combine <- asks cc_accumulate
+				  combine <- askEnv theAccumulateOp
 				  modify (update theResultAccu (combine res))
 			  
 -- ------------------------------------------------------------
