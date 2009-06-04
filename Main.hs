@@ -16,6 +16,8 @@ import 		 Control.Monad.ReaderStateIO
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
 
+import           Data.Function.Selector
+
 import           Data.List
 import		 Data.Maybe
 
@@ -52,14 +54,36 @@ data CrawlerConfig a r	= CrawlerConfig
 
 data CrawlerState r	= CrawlerState
                           { cs_toBeProcessed    :: ! URIs
-			  , cs_wereProcessed    :: ! URIs
-			  , cs_robots		:: ! Robots		-- is part of the state, it will grow during crawling
-			  , cs_maxDocs		:: ! Int
+			  , cs_alreadyProcessed :: ! URIs
+			  , cs_robots		:: ! Robots				-- is part of the state, it will grow during crawling
+			  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
 			  , cs_resultAccu       :: r
 			  }
 			  deriving (Show)
 
 type CrawlAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
+
+-- ------------------------------------------------------------
+
+-- | selector functions for CrawlerState
+
+theToBeProcessed	:: Selector (CrawlerState r) URIs
+theToBeProcessed	= S cs_toBeProcessed	(\ x s -> s {cs_toBeProcessed = x})
+
+theAlreadyProcessed	:: Selector (CrawlerState r) URIs
+theAlreadyProcessed	= S cs_alreadyProcessed	(\ x s -> s {cs_alreadyProcessed = x})
+
+theRobots		:: Selector (CrawlerState r) Robots
+theRobots		= S cs_robots	(\ x s -> s {cs_robots = x})
+
+theNoOfDocs		:: Selector (CrawlerState r) Int
+theNoOfDocs		= S cs_noOfDocs	(\ x s -> s {cs_noOfDocs = x})
+
+theResultAccu		:: Selector (CrawlerState r) r
+theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
+
+-- | selector functions for CrawlerConfig
+
 
 -- ------------------------------------------------------------
 
@@ -106,15 +130,15 @@ cc_setMaxTime t c	= c
 -- ------------------------------------------------------------
 
 instance (Binary r) => Binary (CrawlerState r) where
-    put	s		= B.put (cs_toBeProcessed s)
+    put	s		= B.put (load theToBeProcessed s)
 			  >>
-			  B.put (cs_wereProcessed s)
+			  B.put (load theAlreadyProcessed s)
 			  >>
-			  B.put (cs_robots s)
+			  B.put (load theRobots s)
 			  >>
-			  B.put (cs_maxDocs s)
+			  B.put (load theNoOfDocs s)
 			  >>
-			  B.put (cs_resultAccu s)
+			  B.put (load theResultAccu s)
     get			= do
 			  tbp <- B.get
 			  alp <- B.get
@@ -122,11 +146,11 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  mxd <- B.get
 			  acc <- B.get
 			  return $ CrawlerState
-				   { cs_toBeProcessed = tbp
-				   , cs_wereProcessed = alp
-				   , cs_robots        = rbt
-				   , cs_maxDocs	      = mxd
-				   , cs_resultAccu    = acc
+				   { cs_toBeProcessed    = tbp
+				   , cs_alreadyProcessed = alp
+				   , cs_robots           = rbt
+				   , cs_noOfDocs         = mxd
+				   , cs_resultAccu       = acc
 				   }
 
 putCrawlerState		:: (Binary r) => CrawlerState	r -> B.Put
@@ -138,22 +162,17 @@ getCrawlerState		= B.get
 initCrawlerState	:: r -> CrawlerState r
 initCrawlerState r	= CrawlerState
 			  { cs_toBeProcessed    = emptyURIs
-			  , cs_wereProcessed    = emptyURIs
+			  , cs_alreadyProcessed = emptyURIs
 			  , cs_robots		= emptyRobots
-			  , cs_maxDocs		= (-1)			-- unlimited
+			  , cs_noOfDocs		= (-1)			-- unlimited
 			  , cs_resultAccu	= r
 			  }
 
-cs_setMaxDocs		:: Int -> CrawlerState r -> CrawlerState r
-cs_setMaxDocs mx s	= s
-			  { cs_maxDocs = mx `max` (-1)}
+decrTheNoOfDocs		:: CrawlerState r -> CrawlerState r
+decrTheNoOfDocs		= update theNoOfDocs (\ x -> (x - 1) `max` (-1))
 
-cs_decrMaxDocs		:: CrawlerState r -> CrawlerState r
-cs_decrMaxDocs s	= s
-			  { cs_maxDocs = (cs_maxDocs s - 1) `max` (-1) }
-
-cs_maxDocsReached	:: CrawlerState r -> Bool
-cs_maxDocsReached s	= cs_maxDocs s == 0
+noOfDocsReached		:: CrawlerState r -> Bool
+noOfDocsReached		= (== 0) . load theNoOfDocs
 
 {-
 uriToBeProcessed	:: URI -> CrawlerState r -> CrawlerState r
@@ -161,7 +180,7 @@ uriToBeProcessed uri s
     | alreadyProcessed	= s
     | otherwise		= s { cs_toBeProcessed = insertURI uri (cs_toBeProcessed s) }
     where
-    alreadyProcessed	= uri `S.member` (cs_wereProcessed s)
+    alreadyProcessed	= uri `S.member` (cs_alreadyProcessed s)
 
 urisToBeProcessed	:: [URI] -> CrawlerState r -> CrawlerState r
 urisToBeProcessed uris	s
@@ -202,7 +221,7 @@ uriProcessed		:: URI -> CrawlAction c r ()
 uriProcessed uri	= modify uriProcessed'
     where
     uriProcessed' s	= s { cs_toBeProcessed = deleteURI uri (cs_toBeProcessed s)
-			    , cs_wereProcessed = insertURI uri (cs_wereProcessed s)
+			    , cs_alreadyProcessed = insertURI uri (cs_alreadyProcessed s)
 			    }
 
 uriToBeProcessed		:: URI -> CrawlAction c r ()
@@ -212,15 +231,13 @@ uriToBeProcessed uri		= modify uriToBeProcessed'
 	| alreadyProcessed	= s
 	| otherwise		= s { cs_toBeProcessed = insertURI uri (cs_toBeProcessed s) }
 	where
-	alreadyProcessed	= uri `S.member` (cs_wereProcessed s)
+	alreadyProcessed	= uri `S.member` (cs_alreadyProcessed s)
 
 
 accumulateRes			:: (URI, c) -> CrawlAction c r ()
 accumulateRes res		= do
 				  combine <- asks cc_accumulate
-				  modify (accumulate (combine res))
-    where
-    accumulate op s		= s { cs_resultAccu = op (cs_resultAccu s)}
+				  modify (update theResultAccu (combine res))
 			  
 -- ------------------------------------------------------------
 
@@ -286,7 +303,7 @@ execCrawler			:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO 
 execCrawler cmd config initState
 				= do
 				  (_, finalState) <- runCrawler cmd config initState
-				  return (cs_resultAccu finalState)
+				  return (load theResultAccu finalState)
 
 -- ------------------------------------------------------------
 
