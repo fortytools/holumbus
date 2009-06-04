@@ -84,6 +84,8 @@ theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
 
 -- | selector functions for CrawlerConfig
 
+theReadAttributes	:: Selector (CrawlerConfig a r) Attributes
+theReadAttributes	= S cc_readAttributes	(\ x s -> s {cc_readAttributes = x})
 
 -- ------------------------------------------------------------
 
@@ -116,16 +118,28 @@ curl_max_time           = "curl-" ++ "-max-time"
 curl_connect_timeout	:: String
 curl_connect_timeout	= "curl-" ++ "-connect-timeout"
 
-cc_setCrawlerName	:: String -> CrawlerConfig a r -> CrawlerConfig a r
-cc_setCrawlerName n c	= c
-			  { cc_readAttributes = addEntry curl_user_agent n $ cc_readAttributes c }
 
-cc_getCrawlerName	:: CrawlerConfig a r -> String
-cc_getCrawlerName c	= lookupDef defaultCrawlerName curl_user_agent $ cc_readAttributes c
+theCrawlerName		:: Selector (CrawlerConfig a r) String
+theCrawlerName		= theReadAttributes
+			  >>>
+			  S { load  = lookupDef defaultCrawlerName curl_user_agent
+			    , store = addEntry curl_user_agent
+			    }
 
-cc_setMaxTime		:: Int ->  CrawlerConfig a r -> CrawlerConfig a r
-cc_setMaxTime t c	= c
-			  { cc_readAttributes = addEntry curl_max_time (show $ t `max` 1) $ cc_readAttributes c }
+theMaxTime		:: Selector (CrawlerConfig a r) Int
+theMaxTime		= theReadAttributes
+			  >>>
+			  S { load  = read . lookupDef "0" curl_max_time
+			    , store = addEntry curl_max_time . show . (`max` 1)
+			    }
+
+theConnectTimeout	:: Selector (CrawlerConfig a r) Int
+theConnectTimeout	= theReadAttributes
+			  >>>
+			  S { load  = read . lookupDef "0" curl_connect_timeout
+			    , store = addEntry curl_connect_timeout . show . (`max` 1)
+			    }
+
 
 -- ------------------------------------------------------------
 
