@@ -149,6 +149,11 @@ theConnectTimeout	= theReadAttributes
 
 -- ------------------------------------------------------------
 
+addReadAttributes	:: Attributes -> CrawlerConfig a r -> CrawlerConfig a r
+addReadAttributes al	= update theReadAttributes (addEntries al)
+
+-- ------------------------------------------------------------
+
 instance (Binary r) => Binary (CrawlerState r) where
     put	s		= B.put (load theToBeProcessed s)
 			  >>
@@ -209,12 +214,14 @@ deleteURI		= S.delete
 --
 -- basic crawler actions
 
-askEnv			:: (MonadReader r m) => Selector r a -> m a
-askEnv			= asks . load
+-- | Load a component from the crawler configuration
+
+loadConf		:: Selector (CrawlerConfig a r) v -> CrawlAction a r v
+loadConf		= asks . load
 
 traceCrawl		:: Int -> String -> CrawlAction c r ()
-traceCrawl l msg		= do
-			  l0 <- askEnv theTraceLevel
+traceCrawl l msg	= do
+			  l0 <- loadConf theTraceLevel
 			  when (l >= l0) $ liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ msg
 
 saveCrawlerState	:: (Binary r) => FilePath -> CrawlAction c r ()
@@ -247,7 +254,7 @@ uriToBeProcessed uri		= modify uriToBeProcessed'
 
 accumulateRes			:: (URI, c) -> CrawlAction c r ()
 accumulateRes res		= do
-				  combine <- askEnv theAccumulateOp
+				  combine <- loadConf theAccumulateOp
 				  modify (update theResultAccu (combine res))
 			  
 -- ------------------------------------------------------------
@@ -283,9 +290,9 @@ processDoc uri		= do
 -- The two listA arrows make the whole arrow deterministic, and it will never fail
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a ([URI], [(URI, c)])
-processDocArrow c uri	= ( readDocument (cc_readAttributes c) uri
+processDocArrow c uri	= ( readDocument (load theReadAttributes c) uri
 			    >>>
-			    setTraceLevel (cc_traceLevel c)
+			    setTraceLevel (load theTraceLevel c)
 			    >>>
 			    ( listA ( cc_preRefsFilter c
 				      >>>
@@ -334,17 +341,18 @@ simpleFollowRef' allowed denied
 
 -- ------------------------------------------------------------
 
-defaultHtmlCrawlerConfig	:: CrawlerConfig a r -> CrawlerConfig a r
-defaultHtmlCrawlerConfig c	= c
-				  { cc_readAttributes	= [ (a_validate,   		 v_0)
-							  , (a_parse_html,		 v_1)
-							  , (a_encoding,		 isoLatin1)
-							  , (a_issue_warnings, 		 v_0)
-							  , (a_ignore_none_xml_contents, v_1)
-							  ]
-				  , cc_preRefsFilter	= this
-				  , cc_processRefs	= getHtmlReferences
-				  }
+defaultHtmlCrawlerConfig	:: ((URI, a) -> r -> r) -> CrawlerConfig a r
+defaultHtmlCrawlerConfig op	= ( addReadAttributes
+				    [ (a_validate,   		 v_0)
+				    , (a_parse_html,		 v_1)
+				    , (a_encoding,		 isoLatin1)
+				    , (a_issue_warnings, 	 v_0)
+				    , (a_ignore_none_xml_contents, v_1)
+				    ]
+				    $  defaultCrawlerConfig op
+				  ) { cc_preRefsFilter	= this
+				    , cc_processRefs	= getHtmlReferences
+				    }
 
 -- ------------------------------------------------------------
 
@@ -411,18 +419,15 @@ insertTextDoc		:: (URI, TextDoc) -> TextDocs -> TextDocs
 insertTextDoc		= uncurry M.insert
 
 textHtmlCrawlerConfig	:: HtmlCrawlerConfig
-textHtmlCrawlerConfig	= ( defaultHtmlCrawlerConfig
-			    .
-			    defaultCrawlerConfig				-- merge default config with default HTML config
-			  $ insertTextDoc					
+textHtmlCrawlerConfig	= ( addReadAttributes  [ (a_validate,   		 v_0)
+					       , (a_parse_html,		 v_1)
+					       , (a_encoding,		 isoLatin1)
+					       , (a_issue_warnings, 		 v_0)
+					       , (a_ignore_none_xml_contents, v_1)
+					       ]
+			    $ defaultHtmlCrawlerConfig insertTextDoc
 			  )
-			  { cc_readAttributes	= [ (a_validate,   		 v_0)
-						  , (a_parse_html,		 v_1)
-						  , (a_encoding,		 isoLatin1)
-						  , (a_issue_warnings, 		 v_0)
-						  , (a_ignore_none_xml_contents, v_1)
-						  ]
-			  , cc_processDoc	= fromLA (rnfA extractText)	-- force complete evaluation of the result
+			  { cc_processDoc	= fromLA (rnfA extractText)	-- force complete evaluation of the result
 			  , cc_followRef	= const True			-- the whole world is checked
 			  }
     where
