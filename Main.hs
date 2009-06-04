@@ -174,18 +174,6 @@ decrTheNoOfDocs		= update theNoOfDocs (\ x -> (x - 1) `max` (-1))
 noOfDocsReached		:: CrawlerState r -> Bool
 noOfDocsReached		= (== 0) . load theNoOfDocs
 
-{-
-uriToBeProcessed	:: URI -> CrawlerState r -> CrawlerState r
-uriToBeProcessed uri s
-    | alreadyProcessed	= s
-    | otherwise		= s { cs_toBeProcessed = insertURI uri (cs_toBeProcessed s) }
-    where
-    alreadyProcessed	= uri `S.member` (cs_alreadyProcessed s)
-
-urisToBeProcessed	:: [URI] -> CrawlerState r -> CrawlerState r
-urisToBeProcessed uris	s
-			= foldl' (flip uriToBeProcessed) s uris
--}
 -- ------------------------------------------------------------
 
 emptyURIs		:: URIs
@@ -218,20 +206,20 @@ loadCrawlerState fn	= do
 
 
 uriProcessed		:: URI -> CrawlAction c r ()
-uriProcessed uri	= modify uriProcessed'
-    where
-    uriProcessed' s	= s { cs_toBeProcessed = deleteURI uri (cs_toBeProcessed s)
-			    , cs_alreadyProcessed = insertURI uri (cs_alreadyProcessed s)
-			    }
+uriProcessed uri	= modify $
+			  ( update theToBeProcessed    (deleteURI uri)
+			    >>
+			    update theAlreadyProcessed (insertURI uri)
+			  )
 
 uriToBeProcessed		:: URI -> CrawlAction c r ()
 uriToBeProcessed uri		= modify uriToBeProcessed'
     where
     uriToBeProcessed' s
 	| alreadyProcessed	= s
-	| otherwise		= s { cs_toBeProcessed = insertURI uri (cs_toBeProcessed s) }
+	| otherwise		= update theToBeProcessed (insertURI uri) s
 	where
-	alreadyProcessed	= uri `S.member` (cs_alreadyProcessed s)
+	alreadyProcessed	= S.member uri . load theAlreadyProcessed $ s
 
 
 accumulateRes			:: (URI, c) -> CrawlAction c r ()
