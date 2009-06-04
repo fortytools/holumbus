@@ -1,4 +1,4 @@
-{-# OPTIONS -XMultiParamTypeClasses -XFunctionalDependencies -XFlexibleInstances -XRank2Types -XNoMonomorphismRestriction #-}
+{-# OPTIONS -XMultiParamTypeClasses -XFunctionalDependencies -XFlexibleInstances -XNoMonomorphismRestriction -XImpredicativeTypes #-}
 
 -- ------------------------------------------------------------
 
@@ -32,7 +32,9 @@ import           Holumbus.Index.Common          ( URI )
 
 import           System.IO
 
-import		 Text.XML.HXT.Arrow		hiding ( when )
+import		 Text.XML.HXT.Arrow		hiding ( when
+						       , getState
+						       )
 import qualified Text.XML.HXT.Arrow		as X
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 						( match )
@@ -43,12 +45,13 @@ type URIs		= S.Set URI
 
 data CrawlerConfig a r	= CrawlerConfig
                           { cc_readAttributes	:: ! Attributes
-			  , cc_preRefsFilter	:: ArrowXml a' => a' XmlTree XmlTree	-- -XRank2Types
-			  , cc_processRefs	:: ArrowXml a' => a' XmlTree URI
-			  , cc_preDocFilter     :: ArrowXml a' => a' XmlTree XmlTree
-			  , cc_processDoc	:: ArrowXml a' => a' XmlTree a
+			  , cc_preRefsFilter	:: IOSArrow XmlTree XmlTree
+			  , cc_processRefs	:: IOSArrow XmlTree URI
+			  , cc_preDocFilter     :: IOSArrow XmlTree XmlTree
+			  , cc_processDoc	:: IOSArrow XmlTree a
 			  , cc_accumulate	:: (URI, a) -> r -> r
 			  , cc_followRef	:: URI -> Bool
+			  , cc_maxNoOfDocs	:: ! Int
 			  , cc_traceLevel	:: ! Int
 			  }
 
@@ -61,7 +64,7 @@ data CrawlerState r	= CrawlerState
 			  }
 			  deriving (Show)
 
-type CrawlAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
+type CrawlerAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
 -- ------------------------------------------------------------
 
@@ -90,8 +93,26 @@ theReadAttributes	= S cc_readAttributes	(\ x s -> s {cc_readAttributes = x})
 theTraceLevel		:: Selector (CrawlerConfig a r) Int
 theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
 
+theMaxNoOfDocs		:: Selector (CrawlerConfig a r) Int
+theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
+
+theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
+theFollowRef		= S cc_followRef	(\ x s -> s {cc_followRef = x})
+
 theAccumulateOp		:: Selector (CrawlerConfig a r) ((URI, a) -> r -> r)
 theAccumulateOp		= S cc_accumulate	(\ x s -> s {cc_accumulate = x})
+
+thePreRefsFilter	:: Selector (CrawlerConfig a r) (IOSArrow XmlTree XmlTree)
+thePreRefsFilter	= S cc_preRefsFilter	(\ x s -> s {cc_preRefsFilter = x})
+
+theProcessRefs		:: Selector (CrawlerConfig a r) (IOSArrow XmlTree URI)
+theProcessRefs		= S cc_processRefs	(\ x s -> s {cc_processRefs = x})
+
+thePreDocFilter		:: Selector (CrawlerConfig a r) (IOSArrow XmlTree XmlTree)
+thePreDocFilter		= S cc_preDocFilter	(\ x s -> s {cc_preDocFilter = x})
+
+theProcessDoc		:: Selector (CrawlerConfig a r) (IOSArrow XmlTree a)
+theProcessDoc		= S cc_processDoc	(\ x s -> s {cc_processDoc = x})
 
 -- ------------------------------------------------------------
 
@@ -100,8 +121,8 @@ theAccumulateOp		= S cc_accumulate	(\ x s -> s {cc_accumulate = x})
 defaultCrawlerConfig	:: ((URI, a) -> r -> r) -> CrawlerConfig a r
 defaultCrawlerConfig op	= CrawlerConfig
 			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
-						  , (curl_max_time,		"60")		-- whole transaction for reading a document must complete within 60 seconds
-						  , (curl_connect_timeout,	"10")		-- connection must be established within 10 seconds
+						  -- , (curl_max_time,		"60")		-- whole transaction for reading a document must complete within 60 seconds
+						  -- , (curl_connect_timeout,	"10000")		-- connection must be established within 10 seconds
 						  ]
 			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
 			  , cc_processRefs	= none						-- don't extract refs
@@ -110,6 +131,7 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  , cc_accumulate	= op						-- combining function for result accumulating
 			  , cc_followRef	= const False					-- do not follow any refs
 			  , cc_traceLevel	= 1						-- traceLevel
+			  , cc_maxNoOfDocs	= (-1)						-- maximum number of docs to be crawled, -1 means unlimited
 			  }
 
 defaultCrawlerName	:: String
@@ -196,13 +218,19 @@ initCrawlerState r	= CrawlerState
 decrTheNoOfDocs		:: CrawlerState r -> CrawlerState r
 decrTheNoOfDocs		= update theNoOfDocs (\ x -> (x - 1) `max` (-1))
 
-noOfDocsReached		:: CrawlerState r -> Bool
-noOfDocsReached		= (== 0) . load theNoOfDocs
-
 -- ------------------------------------------------------------
 
 emptyURIs		:: URIs
 emptyURIs		= S.empty
+
+nullURIs		:: URIs -> Bool
+nullURIs		= S.null
+
+cardURIs		:: URIs -> Int
+cardURIs		= S.size
+
+nextURI			:: URIs -> URI
+nextURI			= S.findMin
 
 insertURI		:: URI -> URIs	-> URIs
 insertURI		= S.insert
@@ -210,39 +238,48 @@ insertURI		= S.insert
 deleteURI		:: URI -> URIs	-> URIs
 deleteURI		= S.delete
 
+fromListURIs		:: [URI] -> URIs
+fromListURIs		= S.fromList
+
 -- ------------------------------------------------------------
 --
 -- basic crawler actions
 
 -- | Load a component from the crawler configuration
 
-loadConf		:: Selector (CrawlerConfig a r) v -> CrawlAction a r v
-loadConf		= asks . load
+getConf			:: Selector (CrawlerConfig a r) v -> CrawlerAction a r v
+getConf			= asks . load
 
-traceCrawl		:: Int -> String -> CrawlAction c r ()
+getState		:: Selector (CrawlerState r) v -> CrawlerAction a r v
+getState 		= gets . load
+
+putState		:: Selector (CrawlerState r) v -> v -> CrawlerAction a r ()
+putState sel		= modify . store sel
+
+traceCrawl		:: Int -> String -> CrawlerAction c r ()
 traceCrawl l msg	= do
-			  l0 <- loadConf theTraceLevel
+			  l0 <- getConf theTraceLevel
 			  when (l >= l0) $ liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ msg
 
-saveCrawlerState	:: (Binary r) => FilePath -> CrawlAction c r ()
+saveCrawlerState	:: (Binary r) => FilePath -> CrawlerAction c r ()
 saveCrawlerState fn	= do
 			  s <- get
 			  liftIO $ writeToBinFile fn s
 
-loadCrawlerState	:: (Binary r) => FilePath -> CrawlAction c r ()
+loadCrawlerState	:: (Binary r) => FilePath -> CrawlerAction c r ()
 loadCrawlerState fn	= do
 			  s <- liftIO $ loadFromBinFile fn
 			  put s
 
 
-uriProcessed		:: URI -> CrawlAction c r ()
+uriProcessed		:: URI -> CrawlerAction c r ()
 uriProcessed uri	= modify $
 			  ( update theToBeProcessed    (deleteURI uri)
-			    >>
+			    >>>
 			    update theAlreadyProcessed (insertURI uri)
 			  )
 
-uriToBeProcessed		:: URI -> CrawlAction c r ()
+uriToBeProcessed		:: URI -> CrawlerAction c r ()
 uriToBeProcessed uri		= modify uriToBeProcessed'
     where
     uriToBeProcessed' s
@@ -252,34 +289,53 @@ uriToBeProcessed uri		= modify uriToBeProcessed'
 	alreadyProcessed	= S.member uri . load theAlreadyProcessed $ s
 
 
-accumulateRes			:: (URI, c) -> CrawlAction c r ()
+accumulateRes			:: (URI, c) -> CrawlerAction c r ()
 accumulateRes res		= do
-				  combine <- loadConf theAccumulateOp
+				  combine <- getConf theAccumulateOp
 				  modify (update theResultAccu (combine res))
 			  
 -- ------------------------------------------------------------
 
-crawlerLoop		:: CrawlAction c r ()
+crawlDocs		:: [URI] -> CrawlerAction c r ()
+crawlDocs uris		= do
+			  putState theToBeProcessed (fromListURIs uris)
+			  n <- getConf theMaxNoOfDocs
+			  putState theNoOfDocs n
+			  crawlerLoop
+
+crawlerLoop		:: CrawlerAction c r ()
 crawlerLoop		= do
-			  undefined
+			  n <- getState theNoOfDocs
+			  when (n /= 0)
+			       ( do
+				 traceCrawl 1 $ unwords ["crawlerLoop:", show n, "iteration(s) left"]
+				 modify decrTheNoOfDocs
+				 tbp <- getState theToBeProcessed
+			         traceCrawl 1 $ unwords ["crawlerLoop:", show $ cardURIs tbp, "uri to be processed"]
+				 when (not . nullURIs $ tbp)
+				      ( do
+					crawlDoc $ nextURI tbp
+					crawlerLoop
+				      )
+			       )
 
 -- | crawl a single doc, mark doc as proessed, collect new hrefs and combine doc result with accumulator in state
 
-crawlDoc		:: URI -> CrawlAction c r ()
+crawlDoc		:: URI -> CrawlerAction c r ()
 crawlDoc uri		= do
 			  traceCrawl 1 $ "crawlDoc: " ++ show uri
 			  uriProcessed uri				-- uri is put into processed URIs
 			  (uris, res) <- processDoc uri			-- get document and extract new refs and result
 
-			  traceCrawl 1 $ "crawlDoc: new uris: " ++ show uris
+			  traceCrawl 1 $ "crawlDoc: uris: " ++ show (nub . sort $ uris)
 			  mapM_ uriToBeProcessed uris			-- insert new uris into toBeProcessed set
 			  maybe (return ()) accumulateRes res		-- combine result with state accu
 
-processDoc		:: URI -> CrawlAction c r ([URI], Maybe (URI, c))
+processDoc		:: URI -> CrawlerAction c r ([URI], Maybe (URI, c))
 processDoc uri		= do
 			  conf <- ask
 			  [(uris, res)] <- liftIO $ runX (processDocArrow conf uri)
-			  return ( filter (cc_followRef conf) uris
+			  return ( filter (load theFollowRef conf) uris
 				 , listToMaybe res
 				 )
 -- | From a document two results are computed, 1. the list of all hrefs in the contents,
@@ -294,16 +350,16 @@ processDocArrow c uri	= ( readDocument (load theReadAttributes c) uri
 			    >>>
 			    setTraceLevel (load theTraceLevel c)
 			    >>>
-			    ( listA ( cc_preRefsFilter c
+			    ( listA ( load thePreRefsFilter c
 				      >>>
-				      cc_processRefs c
+				      load theProcessRefs c
 				    )
 			      &&&
 			      listA ( getAttrValue "transfer-URI"
 				      &&&
-				      ( cc_preDocFilter c
+				      ( load thePreDocFilter c
 					>>>
-					cc_processDoc c
+					load theProcessDoc c
 				      )
 				    )
 			    )
@@ -312,12 +368,12 @@ processDocArrow c uri	= ( readDocument (load theReadAttributes c) uri
 
 -- ------------------------------------------------------------
 
-runCrawler			:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO (x, CrawlerState r)
+runCrawler			:: CrawlerAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO (x, CrawlerState r)
 runCrawler			= runReaderStateIO
 
 -- run a crawler and deliver just the accumulated result value
 
-execCrawler			:: CrawlAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO r
+execCrawler			:: CrawlerAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO r
 execCrawler cmd config initState
 				= do
 				  (_, finalState) <- runCrawler cmd config initState
@@ -349,10 +405,12 @@ defaultHtmlCrawlerConfig op	= ( addReadAttributes
 				    , (a_issue_warnings, 	 v_0)
 				    , (a_ignore_none_xml_contents, v_1)
 				    ]
+				    >>>
+				    store thePreRefsFilter this
+				    >>>
+				    store theProcessRefs getHtmlReferences
 				    $  defaultCrawlerConfig op
-				  ) { cc_preRefsFilter	= this
-				    , cc_processRefs	= getHtmlReferences
-				    }
+				  )
 
 -- ------------------------------------------------------------
 
@@ -425,11 +483,12 @@ textHtmlCrawlerConfig	= ( addReadAttributes  [ (a_validate,   		 v_0)
 					       , (a_issue_warnings, 		 v_0)
 					       , (a_ignore_none_xml_contents, v_1)
 					       ]
+			    >>>
+			    store theFollowRef (const True)
+			    >>>
+			    store theProcessDoc (fromLA (rnfA extractText))	-- force complete evaluation of the result
 			    $ defaultHtmlCrawlerConfig insertTextDoc
 			  )
-			  { cc_processDoc	= fromLA (rnfA extractText)	-- force complete evaluation of the result
-			  , cc_followRef	= const True			-- the whole world is checked
-			  }
     where
     extractText		= xshow ( ( theTitle <+> theBody )
 				  >>>
@@ -446,16 +505,18 @@ textHtmlCrawlerInitState	= initCrawlerState emptyTextDocs
 -- ------------------------------------------------------------
 
 testCrawlerConfig 	:: CrawlerConfig TextDoc TextDocs
-testCrawlerConfig	= textHtmlCrawlerConfig
-			  { cc_followRef	= simpleFollowRef'
-			                          ["http://localhost/~si/klausuren/.*"]
-			                          ["()"]
-			  }
+testCrawlerConfig	= store theFollowRef ( simpleFollowRef'
+			                       ["http://localhost/~si/klausuren/.*[.]html"]
+			                       ["()"]
+					     )
+			  >>>
+			  store theMaxNoOfDocs 10
+			  $ textHtmlCrawlerConfig
 
 t1 	:: IO TextDocs
 t1	= execCrawler (crawlDoc "http://localhost/~si/") testCrawlerConfig textHtmlCrawlerInitState
 
 t2 	:: IO ((), CrawlerState TextDocs)
-t2	= runCrawler  (crawlDoc "http://localhost/~si/") testCrawlerConfig textHtmlCrawlerInitState
+t2	= runCrawler  (crawlDocs ["http://localhost/~si/"]) testCrawlerConfig textHtmlCrawlerInitState
 
 -- ------------------------------------------------------------
