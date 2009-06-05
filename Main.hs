@@ -39,30 +39,42 @@ import qualified Text.XML.HXT.Arrow		as X
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 						( match )
 
+-- import qualified Debug.Trace			as D
+
 -- ------------------------------------------------------------
 
-type URIs		= S.Set URI
+-- | A set of URIs
+type URIs			= S.Set URI
 
-data CrawlerConfig a r	= CrawlerConfig
-                          { cc_readAttributes	:: ! Attributes
-			  , cc_preRefsFilter	:: IOSArrow XmlTree XmlTree
-			  , cc_processRefs	:: IOSArrow XmlTree URI
-			  , cc_preDocFilter     :: IOSArrow XmlTree XmlTree
-			  , cc_processDoc	:: IOSArrow XmlTree a
-			  , cc_accumulate	:: (URI, a) -> r -> r
-			  , cc_followRef	:: URI -> Bool
-			  , cc_maxNoOfDocs	:: ! Int
-			  , cc_traceLevel	:: ! Int
-			  }
+-- | The action to combine the result of a single document with the accumulator for the overall crawler result.
+-- This combining function runs in the IO monad to enable stroing of parts of the result externally
 
-data CrawlerState r	= CrawlerState
-                          { cs_toBeProcessed    :: ! URIs
-			  , cs_alreadyProcessed :: ! URIs
-			  , cs_robots		:: ! Robots				-- is part of the state, it will grow during crawling
-			  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
-			  , cs_resultAccu       :: r
-			  }
-			  deriving (Show)
+type AccumulateDocResult a r	= (URI, a) -> r -> IO r
+
+-- | The crawler configuration record
+
+data CrawlerConfig a r		= CrawlerConfig
+                                  { cc_readAttributes	:: ! Attributes
+				  , cc_preRefsFilter	:: IOSArrow XmlTree XmlTree
+				  , cc_processRefs	:: IOSArrow XmlTree URI
+				  , cc_preDocFilter     :: IOSArrow XmlTree XmlTree
+				  , cc_processDoc	:: IOSArrow XmlTree a
+				  , cc_accumulate	:: AccumulateDocResult a r		-- result accumulation runs in the IO monad to allow storing parts externally
+				  , cc_followRef	:: URI -> Bool
+				  , cc_maxNoOfDocs	:: ! Int
+				  , cc_traceLevel	:: ! Int
+				  }
+
+-- | The crawler state record
+
+data CrawlerState r		= CrawlerState
+                                  { cs_toBeProcessed    :: ! URIs
+				  , cs_alreadyProcessed :: ! URIs
+				  , cs_robots		:: ! Robots				-- is part of the state, it will grow during crawling
+				  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
+				  , cs_resultAccu       :: ! r					-- evaluate accumulated result, else memory leaks show up
+				  }
+				  deriving (Show)
 
 type CrawlerAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
@@ -99,7 +111,7 @@ theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
 theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
 theFollowRef		= S cc_followRef	(\ x s -> s {cc_followRef = x})
 
-theAccumulateOp		:: Selector (CrawlerConfig a r) ((URI, a) -> r -> r)
+theAccumulateOp		:: Selector (CrawlerConfig a r) (AccumulateDocResult a r)
 theAccumulateOp		= S cc_accumulate	(\ x s -> s {cc_accumulate = x})
 
 thePreRefsFilter	:: Selector (CrawlerConfig a r) (IOSArrow XmlTree XmlTree)
@@ -118,11 +130,11 @@ theProcessDoc		= S cc_processDoc	(\ x s -> s {cc_processDoc = x})
 
 -- a rather boring default crawler configuration
 
-defaultCrawlerConfig	:: ((URI, a) -> r -> r) -> CrawlerConfig a r
+defaultCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
 defaultCrawlerConfig op	= CrawlerConfig
 			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
-						  -- , (curl_max_time,		"60")		-- whole transaction for reading a document must complete within 60 seconds
-						  -- , (curl_connect_timeout,	"10000")		-- connection must be established within 10 seconds
+						  , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 mili seconds, 
+						  , (curl_connect_timeout,	show $ (10::Int))	 	-- connection must be established within 10 seconds
 						  ]
 			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
 			  , cc_processRefs	= none						-- don't extract refs
@@ -259,7 +271,7 @@ putState sel		= modify . store sel
 traceCrawl		:: Int -> String -> CrawlerAction c r ()
 traceCrawl l msg	= do
 			  l0 <- getConf theTraceLevel
-			  when (l >= l0) $ liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ msg
+			  when (l <= l0) $ liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ msg
 
 saveCrawlerState	:: (Binary r) => FilePath -> CrawlerAction c r ()
 saveCrawlerState fn	= do
@@ -291,8 +303,11 @@ uriToBeProcessed uri		= modify uriToBeProcessed'
 
 accumulateRes			:: (URI, c) -> CrawlerAction c r ()
 accumulateRes res		= do
-				  combine <- getConf theAccumulateOp
-				  modify (update theResultAccu (combine res))
+				  combine <- getConf  theAccumulateOp
+				  acc0    <- getState theResultAccu
+				  acc1    <- liftIO $ combine res acc0
+				  putState theResultAccu acc1
+				  -- modify (update theResultAccu (combine res))
 			  
 -- ------------------------------------------------------------
 
@@ -346,11 +361,20 @@ processDoc uri		= do
 -- The two listA arrows make the whole arrow deterministic, and it will never fail
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a ([URI], [(URI, c)])
-processDocArrow c uri	= ( readDocument (load theReadAttributes c) uri
+processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
 			    >>>
-			    setTraceLevel (load theTraceLevel c)
+			    readDocument (load theReadAttributes c) uri
 			    >>>
-			    ( listA ( load thePreRefsFilter c
+			    trace 1 ( ( getAttrValue "transfer-Status"
+					&&&
+				        getAttrValue "transfer-Message"
+				      )
+				      >>> (arr $ \ (s, m) -> unwords ["-- (1)", "crawlDoc: response code:", s, m])
+				    )
+			    >>>
+			    ( listA ( documentStatusOk			-- only "good" documents are searched for refs
+				      >>>
+				      load thePreRefsFilter c
 				      >>>
 				      load theProcessRefs c
 				    )
@@ -397,7 +421,7 @@ simpleFollowRef' allowed denied
 
 -- ------------------------------------------------------------
 
-defaultHtmlCrawlerConfig	:: ((URI, a) -> r -> r) -> CrawlerConfig a r
+defaultHtmlCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
 defaultHtmlCrawlerConfig op	= ( addReadAttributes
 				    [ (a_validate,   		 v_0)
 				    , (a_parse_html,		 v_1)
@@ -473,26 +497,34 @@ type HtmlCrawlerConfig	= CrawlerConfig TextDoc TextDocs
 emptyTextDocs		:: TextDocs
 emptyTextDocs		= M.empty
 
-insertTextDoc		:: (URI, TextDoc) -> TextDocs -> TextDocs
-insertTextDoc		= uncurry M.insert
+insertTextDoc		:: AccumulateDocResult TextDoc TextDocs
+insertTextDoc x		= return . uncurry M.insert x
 
 textHtmlCrawlerConfig	:: HtmlCrawlerConfig
-textHtmlCrawlerConfig	= ( addReadAttributes  [ (a_validate,   		 v_0)
-					       , (a_parse_html,		 v_1)
-					       , (a_encoding,		 isoLatin1)
-					       , (a_issue_warnings, 		 v_0)
-					       , (a_ignore_none_xml_contents, v_1)
+textHtmlCrawlerConfig	= ( addReadAttributes  [ (a_validate,   		v_0)
+					       , (a_parse_html,		 	v_1)
+					       , (a_encoding,		 	isoLatin1)
+					       , (a_issue_warnings, 		v_0)
+					       , (a_ignore_none_xml_contents, 	v_1)
 					       ]
 			    >>>
-			    store theFollowRef (const True)
+			    store theFollowRef (const True)			-- all hrefs are collected
 			    >>>
-			    store theProcessDoc (fromLA (rnfA extractText))	-- force complete evaluation of the result
+			    store thePreDocFilter documentOK
+			    >>>
+			    store theProcessDoc (fromLA (rnfA extractText))	-- force complete evaluation of the result: this is essential, don't delete rnfA
 			    $ defaultHtmlCrawlerConfig insertTextDoc
 			  )
     where
+    documentOK		= ( getAttrValue transferStatus >>> isA (== "200") )	-- document transfer status must be 200 OK
+			  `guards`
+			  this
+
     extractText		= xshow ( ( theTitle <+> theBody )
 				  >>>
 				  deep isText
+				  -- >>>
+				  -- arr ( D.trace "extractText" )		-- make evaluation order visible
 				)
 			  >>^ (words >>> unwords)
 
@@ -511,6 +543,8 @@ testCrawlerConfig	= store theFollowRef ( simpleFollowRef'
 					     )
 			  >>>
 			  store theMaxNoOfDocs 10
+			  >>>
+			  store theTraceLevel 1
 			  $ textHtmlCrawlerConfig
 
 t1 	:: IO TextDocs
