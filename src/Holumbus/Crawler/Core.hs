@@ -2,16 +2,12 @@
 
 -- ------------------------------------------------------------
 
-module Main
+module Holumbus.Crawler.Core
 where
-
-import           Control.Applicative
 
 import 		 Control.Monad.Reader
 import		 Control.Monad.State
 import 		 Control.Monad.ReaderStateIO
-
--- import		 Control.Parallel.Strategies
 
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
@@ -21,23 +17,19 @@ import           Data.Function.Selector
 import           Data.List
 import		 Data.Maybe
 
-import qualified Data.Map       		as M
 import qualified Data.Set       		as S
 
-import           Holumbus.Index.Common		( writeToBinFile
+import           Holumbus.Index.Common		( URI
+						, writeToBinFile
 						, loadFromBinFile
 						)
 import           Holumbus.Crawler.Robots
-import           Holumbus.Index.Common          ( URI )
 
 import           System.IO
 
 import		 Text.XML.HXT.Arrow		hiding ( when
 						       , getState
 						       )
-import qualified Text.XML.HXT.Arrow		as X
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
-						( match )
 
 -- import qualified Debug.Trace			as D
 
@@ -389,9 +381,9 @@ processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
 			    >>>
 			    readDocument (load theReadAttributes c) uri
 			    >>>
-			    trace 1 ( ( getAttrValue "transfer-Status"
+			    trace 1 ( ( getAttrValue transferStatus
 					&&&
-				        getAttrValue "transfer-Message"
+				        getAttrValue transferMessage
 				      )
 				      >>> (arr $
 					   \ (s, m) -> unwords [ "-- (1)"
@@ -406,7 +398,7 @@ processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
 				      load theProcessRefs c
 				    )
 			      &&&
-			      listA ( getAttrValue "transfer-URI"
+			      listA ( getAttrValue transferURI
 				      &&&
 				      ( load thePreDocFilter c
 					>>>
@@ -432,162 +424,5 @@ execCrawler cmd config initState
 				= do
 				  (_, finalState) <- runCrawler cmd config initState
 				  return (load theResultAccu finalState)
-
--- ------------------------------------------------------------
-
-simpleFollowRef			:: (String -> Bool) -> (String -> Bool) -> (String -> Bool)
-simpleFollowRef isAllowed isDenied
-    				= isAllowed .&&. (not . isDenied)
-				  where
-				  (.&&.) = liftA2 (&&)
-
-simpleFollowRef'		:: [String] -> [String] -> (String -> Bool)
-simpleFollowRef' allowed denied
-				= simpleFollowRef (match $ mkAlt allowed) (match $ mkAlt denied)
-    where
-    mkAlt			:: [String] -> String
-    mkAlt rs			= "(" ++ intercalate "|" rs ++ ")"
-
-
--- ------------------------------------------------------------
-
-defaultHtmlCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
-defaultHtmlCrawlerConfig op	= ( addReadAttributes
-				    [ (a_validate,   		 v_0)
-				    , (a_parse_html,		 v_1)
-				    , (a_encoding,		 isoLatin1)
-				    , (a_issue_warnings, 	 v_0)
-				    , (a_ignore_none_xml_contents, v_1)
-				    ]
-				    >>>
-				    store thePreRefsFilter this
-				    >>>
-				    store theProcessRefs getHtmlReferences
-				    $  defaultCrawlerConfig op
-				  )
-
--- ------------------------------------------------------------
-
-getHtmlReferences 		:: ArrowXml a => a XmlTree URI
-getHtmlReferences		= getRefs' $< computeDocBase
-    where
-    getRefs' base	        = fromLA $
-				  deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
-				  >>>
-				  ( getAttrValue0 "href"
-				    <+>
-				    getAttrValue0 "src"
-				  )
-				  >>^ (toAbsRef base)
-
-toAbsRef        		:: URI -> URI -> URI
-toAbsRef base ref		= ( expandURIString ref			-- here >>> is normal function composition
-				    >>>
-				    fromMaybe ref
-				    >>>
-				    removeFragment
-				  ) base
-    where
-    removeFragment r
-        | "#" `isPrefixOf` path = reverse . tail $ path
-        | otherwise 		= r
-        where
-        path 			= dropWhile (/='#') . reverse $ r 
-
--- | Compute the base of a webpage
---   stolen from Uwe Schmidt, http:\/\/www.haskell.org\/haskellwiki\/HXT
---   and then stolen back again from Holumbus.Utility
-
-computeDocBase  		:: ArrowXml a => a XmlTree String
-computeDocBase			= ( ( ( this				-- try to find a base element in head
-					/> hasName "html"		-- and compute document base with transfer uri and base
-					/> hasName "head"
-					/> hasName "base"
-					>>> getAttrValue "href"
-				      )
-				      &&&
-				      getAttrValue "transfer-URI"
-				    )
-				    >>> expandURI
-				  )
-				  `orElse`
-				  getAttrValue "transfer-URI"  		-- the default: take the transfer uri
-      
-
--- ------------------------------------------------------------
---
--- a test application
-
-type TextDoc		= String
-
-type TextDocs		= M.Map URI TextDoc
-
-type HtmlCrawlerConfig	= CrawlerConfig TextDoc TextDocs
-
-emptyTextDocs		:: TextDocs
-emptyTextDocs		= M.empty
-
-insertTextDoc		:: AccumulateDocResult TextDoc TextDocs
-insertTextDoc x		= return . uncurry M.insert x
-
-textHtmlCrawlerConfig	:: HtmlCrawlerConfig
-textHtmlCrawlerConfig	= ( addReadAttributes  [ (a_validate,   		v_0)
-					       , (a_parse_html,		 	v_1)
-					       , (a_encoding,		 	isoLatin1)
-					       , (a_issue_warnings, 		v_0)
-					       , (a_ignore_none_xml_contents, 	v_1)
-					       ]
-			    >>>
-			    store theFollowRef (const True)			-- all hrefs are collected
-			    >>>
-			    store thePreDocFilter documentOK
-			    >>>
-			    store theProcessDoc (fromLA (rnfA extractText))	-- force complete evaluation of the result: this is essential, don't delete rnfA
-			    $ defaultHtmlCrawlerConfig insertTextDoc
-			  )
-    where
-    documentOK		= ( getAttrValue transferStatus >>> isA (== "200") )	-- document transfer status must be 200 OK
-			  `guards`
-			  this
-
-    extractText		= xshow ( ( theTitle <+> theBody )
-				  >>>
-				  deep isText
-				  -- >>>
-				  -- arr ( D.trace "extractText" )		-- make evaluation order visible
-				)
-			  >>^ (words >>> unwords)
-
-    theBody		= this /> hasName "html" /> hasName "body"
-    theTitle		= this /> hasName "html" /> hasName "head" /> hasName "title"
-
-textHtmlCrawlerInitState	:: CrawlerState TextDocs
-textHtmlCrawlerInitState	= initCrawlerState emptyTextDocs
-
--- ------------------------------------------------------------
-
-testCrawlerConfig 	:: CrawlerConfig TextDoc TextDocs
-testCrawlerConfig	= store theFollowRef ( simpleFollowRef'
-			                       ["http://localhost/~si/klausuren/.*[.]html"]
-			                       ["()"]
-					     )
-			  >>>
-			  store theMaxNoOfDocs 10
-			  >>>
-			  store theSaveIntervall 2
-			  >>>
-			  store theTraceLevel 1
-			  $ textHtmlCrawlerConfig
-
-t1 	:: IO TextDocs
-t1	= execCrawler (crawlDoc "http://localhost/~si/") testCrawlerConfig textHtmlCrawlerInitState
-
-t2 	:: IO ((), CrawlerState TextDocs)
-t2	= runCrawler  (crawlDocs ["http://localhost/~si/"]) testCrawlerConfig textHtmlCrawlerInitState
-
-sss	:: String -> IO ()
-sss fn	= do
-	  s <- loadFromBinFile fn
-	  putStrLn $ show (s::CrawlerState TextDocs)
 
 -- ------------------------------------------------------------
