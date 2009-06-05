@@ -62,6 +62,8 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_accumulate	:: AccumulateDocResult a r		-- result accumulation runs in the IO monad to allow storing parts externally
 				  , cc_followRef	:: URI -> Bool
 				  , cc_maxNoOfDocs	:: ! Int
+				  , cc_saveIntervall	:: ! Int
+				  , cc_savePathPrefix	:: ! String
 				  , cc_traceLevel	:: ! Int
 				  }
 
@@ -108,6 +110,12 @@ theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
 theMaxNoOfDocs		:: Selector (CrawlerConfig a r) Int
 theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
 
+theSaveIntervall	:: Selector (CrawlerConfig a r) Int
+theSaveIntervall	= S cc_saveIntervall	(\ x s -> s {cc_saveIntervall = x})
+
+theSavePathPrefix	:: Selector (CrawlerConfig a r) String
+theSavePathPrefix	= S cc_savePathPrefix	(\ x s -> s {cc_savePathPrefix = x})
+
 theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
 theFollowRef		= S cc_followRef	(\ x s -> s {cc_followRef = x})
 
@@ -143,6 +151,8 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  , cc_accumulate	= op						-- combining function for result accumulating
 			  , cc_followRef	= const False					-- do not follow any refs
 			  , cc_traceLevel	= 1						-- traceLevel
+			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
+			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
 			  , cc_maxNoOfDocs	= (-1)						-- maximum number of docs to be crawled, -1 means unlimited
 			  }
 
@@ -223,12 +233,12 @@ initCrawlerState r	= CrawlerState
 			  { cs_toBeProcessed    = emptyURIs
 			  , cs_alreadyProcessed = emptyURIs
 			  , cs_robots		= emptyRobots
-			  , cs_noOfDocs		= (-1)			-- unlimited
+			  , cs_noOfDocs		= 0
 			  , cs_resultAccu	= r
 			  }
 
-decrTheNoOfDocs		:: CrawlerState r -> CrawlerState r
-decrTheNoOfDocs		= update theNoOfDocs (\ x -> (x - 1) `max` (-1))
+incrTheNoOfDocs		:: CrawlerState r -> CrawlerState r
+incrTheNoOfDocs		= update theNoOfDocs (+1)
 
 -- ------------------------------------------------------------
 
@@ -311,28 +321,48 @@ accumulateRes res		= do
 			  
 -- ------------------------------------------------------------
 
-crawlDocs		:: [URI] -> CrawlerAction c r ()
+crawlDocs		:: Binary r => [URI] -> CrawlerAction c r ()
 crawlDocs uris		= do
 			  putState theToBeProcessed (fromListURIs uris)
-			  n <- getConf theMaxNoOfDocs
-			  putState theNoOfDocs n
+			  -- n <- getConf theMaxNoOfDocs
+			  -- putState theNoOfDocs n
 			  crawlerLoop
 
-crawlerLoop		:: CrawlerAction c r ()
+crawlerLoop		:: Binary r => CrawlerAction c r ()
 crawlerLoop		= do
-			  n <- getState theNoOfDocs
-			  when (n /= 0)
+			  n <- getState   theNoOfDocs
+			  m <- getConf theMaxNoOfDocs
+			  when (n /= m)
 			       ( do
-				 traceCrawl 1 $ unwords ["crawlerLoop:", show n, "iteration(s) left"]
-				 modify decrTheNoOfDocs
+				 traceCrawl 1 $ unwords ["crawlerLoop: iteration", show $ n+1]
+				 modify incrTheNoOfDocs
 				 tbp <- getState theToBeProcessed
 			         traceCrawl 1 $ unwords ["crawlerLoop:", show $ cardURIs tbp, "uri to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
 					crawlDoc $ nextURI tbp
+					crawlerSaveState
 					crawlerLoop
 				      )
 			       )
+
+crawlerSaveState	:: Binary r => CrawlerAction c r ()
+crawlerSaveState	= do
+			  n <- getState   theNoOfDocs
+			  m <- getConf theSaveIntervall
+			  when ( m > 0 && n `mod` m == 0)
+			       ( do
+				 fn <- getConf theSavePathPrefix
+				 let fn' = mkTmpFile 2 fn n			-- 2: last 100 files are saved, 1: last 10 file
+				 traceCrawl 1 $ unwords [ "crawlerSaveState: saving state for"
+							, show n, "documents into", show fn'
+							]
+				 saveCrawlerState fn'
+				 traceCrawl 1 $ unwords ["crawlerSaveState: saving state finished"]
+			       )
+
+mkTmpFile		:: Int -> String -> Int -> String
+mkTmpFile n s i		= (s ++) . reverse . take n . (++ replicate n '0') . reverse . show $ i
 
 -- | crawl a single doc, mark doc as proessed, collect new hrefs and combine doc result with accumulator in state
 
@@ -544,6 +574,8 @@ testCrawlerConfig	= store theFollowRef ( simpleFollowRef'
 			  >>>
 			  store theMaxNoOfDocs 10
 			  >>>
+			  store theSaveIntervall 2
+			  >>>
 			  store theTraceLevel 1
 			  $ textHtmlCrawlerConfig
 
@@ -552,5 +584,10 @@ t1	= execCrawler (crawlDoc "http://localhost/~si/") testCrawlerConfig textHtmlCr
 
 t2 	:: IO ((), CrawlerState TextDocs)
 t2	= runCrawler  (crawlDocs ["http://localhost/~si/"]) testCrawlerConfig textHtmlCrawlerInitState
+
+sss	:: String -> IO ()
+sss fn	= do
+	  s <- loadFromBinFile fn
+	  putStrLn $ show (s::CrawlerState TextDocs)
 
 -- ------------------------------------------------------------
