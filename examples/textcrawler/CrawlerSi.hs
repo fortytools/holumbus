@@ -61,6 +61,7 @@ main	= do
 		 >>>
 		 writeDocument [ (a_indent, v_1)
 			       , (a_output_encoding, usAscii)
+			       , (a_output_html, v_1)
 			       ] out
 	       )
 	  return ()
