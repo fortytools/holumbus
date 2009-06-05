@@ -1,0 +1,89 @@
+{-# OPTIONS #-}
+
+-- ------------------------------------------------------------
+
+module Holumbus.Crawler.Html
+where
+
+import           Data.Function.Selector
+
+import           Data.List
+import		 Data.Maybe
+
+import		 Holumbus.Crawler.Core
+
+import		 Text.XML.HXT.Arrow		hiding ( when
+						       , getState
+						       )
+import qualified Text.XML.HXT.Arrow		as X
+
+-- import qualified Debug.Trace			as D
+
+-- ------------------------------------------------------------
+
+defaultHtmlCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
+defaultHtmlCrawlerConfig op	= ( addReadAttributes [ (a_validate,   		 v_0)
+						      , (a_parse_html,		 v_1)
+						      , (a_encoding,		 isoLatin1)
+						      , (a_issue_warnings, 	 v_0)
+						      , (a_ignore_none_xml_contents, v_1)
+						      ]
+				    >>>
+				    store thePreRefsFilter this
+				    >>>
+				    store theProcessRefs getHtmlReferences
+				    $  defaultCrawlerConfig op
+				  )
+
+-- ------------------------------------------------------------
+
+-- | Collect all HTML references to other documents within a, frame and iframe elements
+
+getHtmlReferences 		:: ArrowXml a => a XmlTree URI
+getHtmlReferences		= getRefs' $< computeDocBase
+    where
+    getRefs' base	        = fromLA $
+				  deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
+				  >>>
+				  ( getAttrValue0 "href"
+				    <+>
+				    getAttrValue0 "src"
+				  )
+				  >>^ (toAbsRef base)
+
+-- | construct an absolute URI by a base URI and a possibly relative URI
+
+toAbsRef        		:: URI -> URI -> URI
+toAbsRef base ref		= ( expandURIString ref			-- here >>> is normal function composition
+				    >>>
+				    fromMaybe ref
+				    >>>
+				    removeFragment
+				  ) base
+    where
+    removeFragment r
+        | "#" `isPrefixOf` path = reverse . tail $ path
+        | otherwise 		= r
+        where
+        path 			= dropWhile (/='#') . reverse $ r 
+
+-- | Compute the base URI of a HTML page with respect to a possibly given base element in the head element of a html page.
+--   Stolen from Uwe Schmidt, http:\/\/www.haskell.org\/haskellwiki\/HXT
+--   and then stolen back again by Uwe from Holumbus.Utility
+
+computeDocBase  		:: ArrowXml a => a XmlTree String
+computeDocBase			= ( ( ( this				-- try to find a base element in head
+					/> hasName "html"		-- and compute document base with transfer uri and base
+					/> hasName "head"
+					/> hasName "base"
+					>>> getAttrValue "href"
+				      )
+				      &&&
+				      getAttrValue transferURI
+				    )
+				    >>> expandURI
+				  )
+				  `orElse`
+				  getAttrValue transferURI 		-- the default: take the transfer uri
+
+-- ------------------------------------------------------------

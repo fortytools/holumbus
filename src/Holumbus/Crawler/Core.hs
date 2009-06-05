@@ -19,21 +19,26 @@ import		 Data.Maybe
 
 import qualified Data.Set       		as S
 
-import           Holumbus.Index.Common		( URI
+import qualified Holumbus.Index.Common		as H
+                                                ( URI
 						, writeToBinFile
 						, loadFromBinFile
 						)
 import           Holumbus.Crawler.Robots
+import           Holumbus.Crawler.Util		( mkTmpFile )
 
 import           System.IO
 
-import		 Text.XML.HXT.Arrow		hiding ( when
-						       , getState
-						       )
+import		 Text.XML.HXT.Arrow		hiding
+                                                ( when
+						, getState
+						)
 
 -- import qualified Debug.Trace			as D
 
 -- ------------------------------------------------------------
+
+type URI			= H.URI
 
 -- | A set of URIs
 type URIs			= S.Set URI
@@ -282,11 +287,11 @@ traceCrawl l msg		= do
 saveCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
 saveCrawlerState fn		= do
 				  s <- get
-				  liftIO $ writeToBinFile fn s
+				  liftIO $ H.writeToBinFile fn s
 
 loadCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
 loadCrawlerState fn		= do
-				  s <- liftIO $ loadFromBinFile fn
+				  s <- liftIO $ H.loadFromBinFile fn
 				  put s
 
 
@@ -326,7 +331,7 @@ crawlerLoop		= do
 				 traceCrawl 1 $ unwords ["crawlerLoop: iteration", show $ n+1]
 				 modifyState theNoOfDocs (+1)
 				 tbp <- getState theToBeProcessed
-			         traceCrawl 1 $ unwords ["crawlerLoop:", show $ cardURIs tbp, "uri to be processed"]
+			         traceCrawl 1 $ unwords ["crawlerLoop:", show $ cardURIs tbp, "uri(s) to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
 					crawlDoc $ nextURI tbp
@@ -408,9 +413,6 @@ processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
 			    )
 			  )
 			  `withDefault` ([], [])
-
-mkTmpFile		:: Int -> String -> Int -> String
-mkTmpFile n s i		= (s ++) . reverse . take n . (++ replicate n '0') . reverse . show $ i
 
 -- ------------------------------------------------------------
 
