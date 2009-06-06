@@ -41,16 +41,28 @@ testCrawlerConfig	= store theFollowRef ( simpleFollowRef'
 			  >>>
 			  store theMaxNoOfDocs 2000
 			  >>>
-			  store theSaveIntervall 10
+			  store theSaveIntervall 20
 			  >>>
 			  store theTraceLevel 1
 			  $
 			  textCrawlerConfig
 
+getOptions		:: [String] -> (Maybe String, String)
+getOptions ("-r":fn:as)	= (Just fn, r)
+			  where
+			  (_, r) = getOptions as
+getOptions (out:_)	= (Nothing, out)
+getOptions []		= (Nothing, "")
+
+
 main	:: IO ()
 main	= do
-	  [out]     <- getArgs
-	  (_, docs) <- runCrawler (crawlDocs ["http://localhost/~si/"])
+	  (resume, out) <- getArgs >>= return . getOptions
+	  let action	= maybe (crawlDocs ["http://localhost/~si/"])
+				crawlerResume
+				$
+				resume
+	  (_, docs) <- runCrawler action		-- (crawlDocs ["http://localhost/~si/"])
                                   testCrawlerConfig
 				  textCrawlerInitState
 	  runX ( constA (load theResultAccu $ docs)

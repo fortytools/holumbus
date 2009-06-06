@@ -278,11 +278,11 @@ putState sel			= modify . store sel
 modifyState			:: Selector (CrawlerState r) v -> (v -> v) -> CrawlerAction a r ()
 modifyState sel			= modify . update sel
 
-traceCrawl			:: Int -> String -> CrawlerAction c r ()
+traceCrawl			:: Int -> [String] -> CrawlerAction c r ()
 traceCrawl l msg		= do
 				  l0 <- getConf theTraceLevel
 				  when ( l <= l0 )
-                                       ( liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ msg )
+                                       ( liftIO $ hPutStrLn stderr $ "-" ++ "- (" ++ show l ++ ") " ++ unwords msg )
 
 saveCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
 saveCrawlerState fn		= do
@@ -317,9 +317,8 @@ accumulateRes res		= do
 
 crawlDocs		:: Binary r => [URI] -> CrawlerAction c r ()
 crawlDocs uris		= do
+			  traceCrawl 1 ["crawlDocs: init crawler state and start crawler loop"]
 			  putState theToBeProcessed (fromListURIs uris)
-			  -- n <- getConf theMaxNoOfDocs
-			  -- putState theNoOfDocs n
 			  crawlerLoop
 
 crawlerLoop		:: Binary r => CrawlerAction c r ()
@@ -328,10 +327,10 @@ crawlerLoop		= do
 			  m <- getConf theMaxNoOfDocs
 			  when (n /= m)
 			       ( do
-				 traceCrawl 1 $ unwords ["crawlerLoop: iteration", show $ n+1]
+				 traceCrawl 1 ["crawlerLoop: iteration", show $ n+1]
 				 modifyState theNoOfDocs (+1)
 				 tbp <- getState theToBeProcessed
-			         traceCrawl 1 $ unwords ["crawlerLoop:", show $ cardURIs tbp, "uri(s) to be processed"]
+			         traceCrawl 1 ["crawlerLoop:", show $ cardURIs tbp, "uri(s) to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
 					crawlDoc $ nextURI tbp
@@ -340,6 +339,13 @@ crawlerLoop		= do
 				      )
 			       )
 
+crawlerResume		:: Binary r => String -> CrawlerAction c r ()
+crawlerResume fn	= do
+			  traceCrawl 1 ["crawlerResume: read crawler state from", fn]
+			  loadCrawlerState fn
+			  traceCrawl 1 ["crawlerResume: resume crawler"]
+			  crawlerLoop
+
 crawlerSaveState	:: Binary r => CrawlerAction c r ()
 crawlerSaveState	= do
 			  n <- getState   theNoOfDocs
@@ -347,23 +353,23 @@ crawlerSaveState	= do
 			  when ( m > 0 && n `mod` m == 0)
 			       ( do
 				 fn <- getConf theSavePathPrefix
-				 let fn' = mkTmpFile 2 fn n			-- 2: last 100 files are saved, 1: last 10 file
-				 traceCrawl 1 $ unwords [ "crawlerSaveState: saving state for"
-							, show n, "documents into", show fn'
-							]
+				 let fn' = mkTmpFile 2 fn (n `div` m)			-- 2 digits: last 100 files are saved, 1 digit: last 10 file
+				 traceCrawl 1 [ "crawlerSaveState: saving state for"
+					      , show n, "documents into", show fn'
+					      ]
 				 saveCrawlerState fn'
-				 traceCrawl 1 $ unwords ["crawlerSaveState: saving state finished"]
+				 traceCrawl 1 ["crawlerSaveState: saving state finished"]
 			       )
 
 -- | crawl a single doc, mark doc as proessed, collect new hrefs and combine doc result with accumulator in state
 
 crawlDoc		:: URI -> CrawlerAction c r ()
 crawlDoc uri		= do
-			  traceCrawl 1 $ "crawlDoc: " ++ show uri
+			  traceCrawl 1 ["crawlDoc:", show uri]
 			  uriProcessed uri				-- uri is put into processed URIs
 			  (uris, res) <- processDoc uri			-- get document and extract new refs and result
 
-			  traceCrawl 1 $ "crawlDoc: uris: " ++ show (nub . sort $ uris)
+			  traceCrawl 1 ["crawlDoc: uris:", show . nub . sort $ uris]
 			  mapM_ uriToBeProcessed uris			-- insert new uris into toBeProcessed set
 			  maybe (return ()) accumulateRes res		-- combine result with state accu
 
@@ -379,21 +385,23 @@ processDoc uri		= do
 -- such that following functions know the source of this contents. The transfer-URI may be another one
 -- as the input uri, there could happen a redirect in the http request.
 --
--- The two listA arrows make the whole arrow deterministic, and it will never fail
+-- The two listA arrows make the whole arrow deterministic, so it never fails
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a ([URI], [(URI, c)])
 processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
 			    >>>
 			    readDocument (load theReadAttributes c) uri
 			    >>>
-			    trace 1 ( ( getAttrValue transferStatus
+			    setTraceLevel (load theTraceLevel c)
+			    >>>
+			    perform ( ( getAttrValue transferStatus
 					&&&
 				        getAttrValue transferMessage
 				      )
-				      >>> (arr $
-					   \ (s, m) -> unwords [ "-- (1)"
-							       , "crawlDoc: response code:", s, m]
-					  )
+				      >>>
+				      ( arr2 $ \ s m -> unwords ["crawlDoc: response code:", s, m] )
+				      >>>
+				      traceString 1 id
 				    )
 			    >>>
 			    ( listA ( documentStatusOk			-- only "good" documents are searched for refs
