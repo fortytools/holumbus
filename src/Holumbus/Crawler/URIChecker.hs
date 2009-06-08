@@ -1,0 +1,151 @@
+{-# OPTIONS #-}
+
+-- ------------------------------------------------------------
+-- |
+-- A test crawler:
+-- Crawls a collection of documents and extracts the text from the documents.
+-- Result is a map from URIs to a string of words found in the 
+
+module Holumbus.Crawler.URIChecker
+where
+
+import           Data.Binary			( Binary )
+import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
+
+import           Data.Function.Selector
+
+import           Data.List
+import		 Data.Maybe			( )
+
+import qualified Data.Map       		as M
+
+import		 Holumbus.Crawler.Core
+import           Holumbus.Crawler.Html
+
+import		 Text.XML.HXT.Arrow		hiding ( when
+						       , getState
+						       )
+import qualified Text.XML.HXT.Arrow		as X
+
+import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match )
+
+-- import qualified Debug.Trace			as D
+
+-- ------------------------------------------------------------
+
+data URIClass		= Contents | Exists | Not200OK | Manual | Ignore | Illegal
+			  deriving (Eq, Show, Enum)
+
+data DocDescr		= DD { dd_class		:: ! URIClass
+			     , dd_status	:: ! String
+			     , dd_message	:: ! String
+			     , dd_mimetype	:: ! String
+			     , dd_modified	:: ! String
+			     , dd_uris		:: ! URIs
+			     }
+			  deriving (Show)
+
+type DocMap		= M.Map URI DocDescr
+
+type URICrawlerConfig	= CrawlerConfig DocDescr DocMap
+
+type URIClassifier	= URI -> URIClass
+
+-- ------------------------------------------------------------
+
+instance Binary URIClass where
+    put s		= B.put (fromEnum s)
+    get			= do
+			  i <- B.get
+			  return (toEnum i)
+
+instance Binary DocDescr where
+    put dd		= do
+			  B.put $ dd_class    dd
+			  B.put $ dd_status   dd
+			  B.put $ dd_message  dd
+			  B.put $ dd_mimetype dd
+			  B.put $ dd_modified dd
+			  B.put $ dd_uris     dd
+    get			= do
+			  c <- B.get
+			  s <- B.get
+			  e <- B.get
+			  m <- B.get
+			  o <- B.get
+			  u <- B.get
+			  return $ DD { dd_class	= c
+				      , dd_status	= s
+				      , dd_message      = e
+				      , dd_mimetype	= m
+				      , dd_modified	= o
+				      , dd_uris		= u
+				      }
+
+-- ------------------------------------------------------------
+
+simpleURIClassifier			:: [(String, URIClass)] -> URIClassifier
+simpleURIClassifier []	           _	= Illegal
+simpleURIClassifier ((re, c) : us) uri
+    | match re uri			= c
+    | otherwise                         = simpleURIClassifier us uri
+
+emptyDocMap				:: DocMap
+emptyDocMap				= M.empty
+
+uriCrawlerConfig			:: URIClassifier -> URICrawlerConfig
+uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read attributes are neccessary
+			  		  >>>
+					  setS thePreRefsFilter remContents			-- throw away content when URL class  isn't Contents
+					  >>>
+			  		  setS theFollowRef 	followRefs
+			  		  >>>
+					  setS thePreDocFilter  remContents			-- throw away content when URL class  isn't Contents
+					  >>>
+			  		  setS theProcessDoc	mkDocDescr
+					  $
+					  baseConfig
+    where
+    baseConfig 				= defaultHtmlCrawlerConfig insertDocDescr		-- take the default HTML crawler config
+												-- and set the accumulator op
+    insertDocDescr			:: AccumulateDocResult DocDescr DocMap
+    insertDocDescr x			= return . uncurry M.insert x
+
+    followRefs				= (`elem` [Contents, Exists]) . ucf			-- these urls must be accessed
+
+    remContents				= replaceChildren none					-- throw away document content when URL class is no Contents
+					  `X.when`
+					  (ucfA >>> isA (/= Contents))
+
+    ucfA				=  getAttrValue transferURI >>^ ucf
+
+    mkDocDescr				:: IOSArrow XmlTree DocDescr
+    mkDocDescr				= ( ucfA
+					    &&&
+					    getAttrValue transferStatus
+					    &&&
+					    getAttrValue transferMessage
+					    &&&
+					    getAttrValue transferMimeType
+					    &&&
+					    getAttrValue "http-Last-Modified"
+					    &&&
+					    ( listA getDocReferences >>^ fromListURIs )
+					  )
+					  >>^
+					  ( \ (x1, (x2, (x3, (x4, (x5, x6))))) -> DD { dd_class    = if x1 `elem` [Contents, Exists] && x2 /= "200"
+										                     then Not200OK
+										                     else x1
+										     , dd_status   = x2
+										     , dd_message  = x3
+										     , dd_mimetype = x4
+										     , dd_modified = x5
+										     , dd_uris     = x6
+										     }
+					  )
+					    
+
+uriCrawlerInitState	:: CrawlerState DocMap
+uriCrawlerInitState	= initCrawlerState emptyDocMap
+
+-- ------------------------------------------------------------

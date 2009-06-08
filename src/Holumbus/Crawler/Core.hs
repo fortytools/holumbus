@@ -169,22 +169,22 @@ curl_connect_timeout	= "curl-" ++ "-connect-timeout"
 theCrawlerName		:: Selector (CrawlerConfig a r) String
 theCrawlerName		= theReadAttributes
 			  >>>
-			  S { load  = lookupDef defaultCrawlerName curl_user_agent
-			    , store = addEntry curl_user_agent
+			  S { getS = lookupDef defaultCrawlerName curl_user_agent
+			    , setS = addEntry curl_user_agent
 			    }
 
 theMaxTime		:: Selector (CrawlerConfig a r) Int
 theMaxTime		= theReadAttributes
 			  >>>
-			  S { load  = read . lookupDef "0" curl_max_time
-			    , store = addEntry curl_max_time . show . (`max` 1)
+			  S { getS = read . lookupDef "0" curl_max_time
+			    , setS = addEntry curl_max_time . show . (`max` 1)
 			    }
 
 theConnectTimeout	:: Selector (CrawlerConfig a r) Int
 theConnectTimeout	= theReadAttributes
 			  >>>
-			  S { load  = read . lookupDef "0" curl_connect_timeout
-			    , store = addEntry curl_connect_timeout . show . (`max` 1)
+			  S { getS = read . lookupDef "0" curl_connect_timeout
+			    , setS = addEntry curl_connect_timeout . show . (`max` 1)
 			    }
 
 
@@ -196,15 +196,12 @@ addReadAttributes al	= update theReadAttributes (addEntries al)
 -- ------------------------------------------------------------
 
 instance (Binary r) => Binary (CrawlerState r) where
-    put	s		= B.put (load theToBeProcessed s)
-			  >>
-			  B.put (load theAlreadyProcessed s)
-			  >>
-			  B.put (load theRobots s)
-			  >>
-			  B.put (load theNoOfDocs s)
-			  >>
-			  B.put (load theResultAccu s)
+    put	s		= do
+			  B.put (getS theToBeProcessed s)
+			  B.put (getS theAlreadyProcessed s)
+			  B.put (getS theRobots s)
+			  B.put (getS theNoOfDocs s)
+			  B.put (getS theResultAccu s)
     get			= do
 			  tbp <- B.get
 			  alp <- B.get
@@ -267,13 +264,13 @@ fromListURIs		= S.fromList
 -- | Load a component from the crawler configuration
 
 getConf				:: Selector (CrawlerConfig a r) v -> CrawlerAction a r v
-getConf				= asks . load
+getConf				= asks . getS
 
 getState			:: Selector (CrawlerState r) v -> CrawlerAction a r v
-getState 			= gets . load
+getState 			= gets . getS
 
 putState			:: Selector (CrawlerState r) v -> v -> CrawlerAction a r ()
-putState sel			= modify . store sel
+putState sel			= modify . setS sel
 
 modifyState			:: Selector (CrawlerState r) v -> (v -> v) -> CrawlerAction a r ()
 modifyState sel			= modify . update sel
@@ -377,7 +374,7 @@ processDoc		:: URI -> CrawlerAction c r ([URI], Maybe (URI, c))
 processDoc uri		= do
 			  conf <- ask
 			  [(uris, res)] <- liftIO $ runX (processDocArrow conf uri)
-			  return ( filter (load theFollowRef conf) uris
+			  return ( filter (getS theFollowRef conf) uris
 				 , listToMaybe res
 				 )
 -- | From a document two results are computed, 1. the list of all hrefs in the contents,
@@ -388,11 +385,11 @@ processDoc uri		= do
 -- The two listA arrows make the whole arrow deterministic, so it never fails
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a ([URI], [(URI, c)])
-processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
+processDocArrow c uri	= ( setTraceLevel ( (getS theTraceLevel c) - 1)
 			    >>>
-			    readDocument (load theReadAttributes c) uri
+			    readDocument (getS theReadAttributes c) uri
 			    >>>
-			    setTraceLevel (load theTraceLevel c)
+			    setTraceLevel (getS theTraceLevel c)
 			    >>>
 			    perform ( ( getAttrValue transferStatus
 					&&&
@@ -406,16 +403,16 @@ processDocArrow c uri	= ( setTraceLevel ( (load theTraceLevel c) - 1)
 			    >>>
 			    ( listA ( documentStatusOk			-- only "good" documents are searched for refs
 				      >>>
-				      load thePreRefsFilter c
+				      getS thePreRefsFilter c
 				      >>>
-				      load theProcessRefs c
+				      getS theProcessRefs c
 				    )
 			      &&&
 			      listA ( getAttrValue transferURI
 				      &&&
-				      ( load thePreDocFilter c
+				      ( getS thePreDocFilter c
 					>>>
-					load theProcessDoc c
+					getS theProcessDoc c
 				      )
 				    )
 			    )
@@ -433,6 +430,6 @@ execCrawler			:: CrawlerAction c r x -> CrawlerConfig c r -> CrawlerState r -> I
 execCrawler cmd config initState
 				= do
 				  (_, finalState) <- runCrawler cmd config initState
-				  return (load theResultAccu finalState)
+				  return (getS theResultAccu finalState)
 
 -- ------------------------------------------------------------

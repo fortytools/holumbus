@@ -29,27 +29,57 @@ defaultHtmlCrawlerConfig op	= ( addReadAttributes [ (a_validate,   		 v_0)
 						      , (a_ignore_none_xml_contents, v_1)
 						      ]
 				    >>>
-				    store thePreRefsFilter this
+				    setS thePreRefsFilter this
 				    >>>
-				    store theProcessRefs getHtmlReferences
-				    $  defaultCrawlerConfig op
+				    setS theProcessRefs getHtmlReferences
+				    $ 
+				    defaultCrawlerConfig op
 				  )
 
 -- ------------------------------------------------------------
 
 -- | Collect all HTML references to other documents within a, frame and iframe elements
-
-getHtmlReferences 		:: ArrowXml a => a XmlTree URI
-getHtmlReferences		= getRefs' $< computeDocBase
+{-
+getReferences 			:: ArrowXml a => (URI -> LA XmlTree URI) -> a XmlTree URI
+getReferences refs		= fromLA (getRefs' $< computeDocBase)
     where
-    getRefs' base	        = fromLA $
-				  deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
+    getRefs' base	        = refs base >>^ toAbsRef base
+-}
+getHtmlReferences 		:: ArrowXml a => a XmlTree URI
+getHtmlReferences		= fromLA (getRefs $< computeDocBase)
+    where
+    getRefs base		= deep (hasNameWith ((`elem` ["a","frame","iframe"]) . localPart))
 				  >>>
 				  ( getAttrValue0 "href"
 				    <+>
 				    getAttrValue0 "src"
 				  )
-				  >>^ (toAbsRef base)
+                                  >>^ toAbsRef base
+
+getDocReferences		:: ArrowXml a => a XmlTree URI
+getDocReferences		= fromLA (getRefs $< computeDocBase)
+    where
+    getRefs base		= multi selRefs >>^ toAbsRef base
+				  where
+				  hasLocName n	= hasNameWith ((== n) . localPart)
+				  selRef en an	= hasLocName en :-> getAttrValue0 an
+				  selRefs	= choiceA $
+						  map (uncurry selRef) names
+						  ++
+						  [ appletRefs
+						  , objectRefs
+						  , this :-> none
+						  ]
+				  names 	= [ ("img",	"src")
+						  , ("input",	"src")		-- input type="image" scr="..."
+						  , ("link",	"href")
+						  , ("script",	"src")
+						  ]				
+				  appletRefs	= hasLocName "applet"	:-> (getAppRef $< getAppBase)
+						  where
+						  getAppBase	= (getAttrValue0 "codebase" `withDefault` ".") >>^ toAbsRef base
+						  getAppRef ab	= getAttrValue0 "code" >>^ toAbsRef ab
+				  objectRefs	= hasLocName "object"	:-> none	-- TODO
 
 -- | construct an absolute URI by a base URI and a possibly relative URI
 

@@ -9,11 +9,11 @@ import qualified Data.Map as M
 
 import           Holumbus.Crawler.HtmlText
 
-import		 Text.XML.HXT.Arrow		hiding ( when
-						       , getState
-						       )
+import		 Text.XML.HXT.Arrow
 
 -- ------------------------------------------------------------
+
+-- | a simple pickler, just for HTML output
 
 xpTextDocs		:: String -> PU TextDocs
 xpTextDocs ref		= xpElem "html" $
@@ -37,8 +37,8 @@ xpTextDocs ref		= xpElem "html" $
 					    xpList $
 					    xpPair ( xpElem "dt" $
 						     xpElem "a" $
-						     xpWrap ( snd
-							    , \ x -> (x, x)
+						     xpWrap ( snd				-- double value, because it's used two time
+							    , \ x -> (x, x)			-- as "href" value and as content of an "a" element
 							    ) $
 						     xpPair (xpAttr "href" $ xpText) xpText
 						   )

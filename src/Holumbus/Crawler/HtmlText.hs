@@ -40,11 +40,11 @@ emptyTextDocs		= M.empty
 textCrawlerConfig	:: TextCrawlerConfig
 textCrawlerConfig	= addReadAttributes  [ ]				-- at the moment no more read attributes are neccessary
 			  >>>
-			  store theFollowRef 	followRefs
+			  setS theFollowRef 	followRefs
 			  >>>
-			  store thePreDocFilter	documentOK
+			  setS thePreDocFilter	documentOK
 			  >>>
-			  store theProcessDoc	extractText
+			  setS theProcessDoc	extractText
 			  $
 			  baseConfig
     where
