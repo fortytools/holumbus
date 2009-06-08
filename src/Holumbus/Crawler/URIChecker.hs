@@ -18,6 +18,7 @@ import           Data.List
 import		 Data.Maybe			( )
 
 import qualified Data.Map       		as M
+import qualified Data.Set       		as S
 
 import		 Holumbus.Crawler.Core
 import           Holumbus.Crawler.Html
@@ -98,6 +99,8 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 			  		  >>>
 					  setS thePreRefsFilter remContents			-- throw away content when URL class  isn't Contents
 					  >>>
+					  setS theProcessRefs   (getHtmlReferences <+> getDocReferences)
+					  >>>
 			  		  setS theFollowRef 	followRefs
 			  		  >>>
 					  setS thePreDocFilter  remContents			-- throw away content when URL class  isn't Contents
@@ -109,9 +112,26 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
     baseConfig 				= defaultHtmlCrawlerConfig insertDocDescr		-- take the default HTML crawler config
 												-- and set the accumulator op
     insertDocDescr			:: AccumulateDocResult DocDescr DocMap
-    insertDocDescr x			= return . uncurry M.insert x
+    insertDocDescr x			= return . insertDoc x					-- TODO: urls not to be checked must be added into document map
 
-    followRefs				= (`elem` [Contents, Exists]) . ucf			-- these urls must be accessed
+    insertDoc (uri, dd) dm		= M.insert uri dd dm1
+	                                  where
+					  dm1 = S.fold addUri dm (dd_uris dd)
+					  addUri uri' dm'
+					      | contOrEx uc'	= dm'
+					      | otherwise	= M.insert uri' dd' dm'
+					      where
+					      uc' = ucf uri'
+					      dd' = DD { dd_class	= uc'
+						       , dd_status	= "999"
+						       , dd_message     = ""
+						       , dd_mimetype	= ""
+						       , dd_modified	= ""
+						       , dd_uris	= emptyURIs
+						       }
+
+    followRefs				= contOrEx . ucf					-- these urls must be accessed
+    contOrEx                            = (`elem` [Contents, Exists])
 
     remContents				= replaceChildren none					-- throw away document content when URL class is no Contents
 					  `X.when`
@@ -133,7 +153,7 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 					    ( listA getDocReferences >>^ fromListURIs )
 					  )
 					  >>^
-					  ( \ (x1, (x2, (x3, (x4, (x5, x6))))) -> DD { dd_class    = if x1 `elem` [Contents, Exists] && x2 /= "200"
+					  ( \ (x1, (x2, (x3, (x4, (x5, x6))))) -> DD { dd_class    = if contOrEx x1 && x2 /= "200"
 										                     then Not200OK
 										                     else x1
 										     , dd_status   = x2
