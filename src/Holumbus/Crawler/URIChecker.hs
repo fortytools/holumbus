@@ -49,6 +49,8 @@ type DocMap		= M.Map URI DocDescr
 
 type URICrawlerConfig	= CrawlerConfig DocDescr DocMap
 
+type URIClassList	= [(String, URIClass)]
+
 type URIClassifier	= URI -> URIClass
 
 type URICrawlerAction x = CrawlerAction DocDescr DocMap x
@@ -86,7 +88,7 @@ instance Binary DocDescr where
 
 -- ------------------------------------------------------------
 
-simpleURIClassifier			:: [(String, URIClass)] -> URIClassifier
+simpleURIClassifier			:: URIClassList -> URIClassifier
 simpleURIClassifier []	           _	= Illegal
 simpleURIClassifier ((re, c) : us) uri
     | match re uri			= c
@@ -172,7 +174,7 @@ uriCrawlerInitState	= initCrawlerState emptyDocMap
 
 -- ------------------------------------------------------------
 
-stdURIChecker	:: Int -> Int -> String -> Int -> Maybe String -> URI -> [(String, URIClass)] -> IO DocMap
+stdURIChecker	:: Int -> Int -> String -> Int -> Maybe String -> URI -> URIClassList -> IO DocMap
 stdURIChecker maxDocs saveIntervall savePath trc resumeLoc startUri uriClasses
                         = do
 			  (_, dm) <- runCrawler action config uriCrawlerInitState
@@ -189,7 +191,7 @@ stdURIChecker maxDocs saveIntervall savePath trc resumeLoc startUri uriClasses
 			  $
 			  uriCrawlerConfig (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
-simpleURIChecker	:: Maybe String -> URI -> [(String, URIClass)] -> IO DocMap
+simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
 simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1
 
 -- ------------------------------------------------------------
