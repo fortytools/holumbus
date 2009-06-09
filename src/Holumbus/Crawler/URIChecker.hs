@@ -128,11 +128,15 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 					      uc' = ucf uri'
 					      dd' = DD { dd_class	= uc'
 						       , dd_status	= "999"
-						       , dd_message     = ""
+						       , dd_message     = ms uc'
 						       , dd_mimetype	= ""
 						       , dd_modified	= ""
 						       , dd_uris	= emptyURIs
 						       }
+					      ms Manual		= "Manual Check"
+					      ms Illegal	= "Illegal URI"
+					      ms Ignore		= "Ignored URI"
+					      ms c		= show c
 
     followRefs				= contOrEx . ucf					-- these urls must be accessed
     contOrEx                            = (`elem` [Contents, Exists])
