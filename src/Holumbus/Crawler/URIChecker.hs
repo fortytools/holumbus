@@ -18,7 +18,6 @@ import           Data.List
 import		 Data.Maybe			( )
 
 import qualified Data.Map       		as M
-import qualified Data.Set       		as S
 
 import		 Holumbus.Crawler.Core
 import           Holumbus.Crawler.Html
@@ -51,6 +50,8 @@ type DocMap		= M.Map URI DocDescr
 type URICrawlerConfig	= CrawlerConfig DocDescr DocMap
 
 type URIClassifier	= URI -> URIClass
+
+type URICrawlerAction x = CrawlerAction DocDescr DocMap x
 
 -- ------------------------------------------------------------
 
@@ -116,10 +117,11 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 
     insertDoc (uri, dd) dm		= M.insert uri dd dm1
 	                                  where
-					  dm1 = S.fold addUri dm (dd_uris dd)
+					  dm1 = foldURIs addUri dm (dd_uris dd)
 					  addUri uri' dm'
-					      | contOrEx uc'	= dm'
-					      | otherwise	= M.insert uri' dd' dm'
+					      | contOrEx uc'		= dm'			-- filter uris to be accessed
+					      | uri' `M.member` dm'	= dm'			-- filter already known uris
+					      | otherwise		= M.insert uri' dd' dm'
 					      where
 					      uc' = ucf uri'
 					      dd' = DD { dd_class	= uc'
@@ -150,7 +152,7 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 					    &&&
 					    getAttrValue "http-Last-Modified"
 					    &&&
-					    ( listA getDocReferences >>^ fromListURIs )
+					    ( listA (getHtmlReferences <+> getDocReferences) >>^ fromListURIs )
 					  )
 					  >>^
 					  ( \ (x1, (x2, (x3, (x4, (x5, x6))))) -> DD { dd_class    = if contOrEx x1 && x2 /= "200"
@@ -167,5 +169,27 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 
 uriCrawlerInitState	:: CrawlerState DocMap
 uriCrawlerInitState	= initCrawlerState emptyDocMap
+
+-- ------------------------------------------------------------
+
+stdURIChecker	:: Int -> Int -> String -> Int -> Maybe String -> URI -> [(String, URIClass)] -> IO DocMap
+stdURIChecker maxDocs saveIntervall savePath trc resumeLoc startUri uriClasses
+                        = do
+			  (_, dm) <- runCrawler action config uriCrawlerInitState
+			  return (getS theResultAccu dm)
+    where
+    action		= maybe (crawlDocs [startUri]) crawlerResume $ resumeLoc
+    config		= setS theMaxNoOfDocs maxDocs
+			  >>>
+			  setS theSaveIntervall saveIntervall
+			  >>>
+			  setS theSavePathPrefix savePath
+			  >>>
+			  setS theTraceLevel trc
+			  $
+			  uriCrawlerConfig (simpleURIClassifier ((startUri, Contents) : uriClasses))
+
+simpleURIChecker	:: Maybe String -> URI -> [(String, URIClass)] -> IO DocMap
+simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1
 
 -- ------------------------------------------------------------

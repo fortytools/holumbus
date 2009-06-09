@@ -257,6 +257,9 @@ deleteURI		= S.delete
 fromListURIs		:: [URI] -> URIs
 fromListURIs		= S.fromList
 
+foldURIs		:: (URI -> b -> b) -> b -> URIs -> b
+foldURIs		= S.fold
+
 -- ------------------------------------------------------------
 --
 -- basic crawler actions
