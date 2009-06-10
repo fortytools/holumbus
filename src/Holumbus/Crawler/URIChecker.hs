@@ -9,6 +9,8 @@
 module Holumbus.Crawler.URIChecker
 where
 
+import           Control.Parallel.Strategies
+
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
 
@@ -57,11 +59,17 @@ type URICrawlerAction x = CrawlerAction DocDescr DocMap x
 
 -- ------------------------------------------------------------
 
+instance NFData URIClass where
+    rnf			= rwhnf
+
 instance Binary URIClass where
     put s		= B.put (fromEnum s)
     get			= do
 			  i <- B.get
 			  return (toEnum i)
+instance NFData DocDescr where
+    rnf (DD x1 x2 x3 x4 x5 x6)
+			= rnf x1 `seq` rnf x2 `seq` rnf x3 `seq` rnf x4 `seq` rnf x5 `seq` rnf x6
 
 instance Binary DocDescr where
     put dd		= do
@@ -108,7 +116,7 @@ uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read
 			  		  >>>
 					  setS thePreDocFilter  remContents			-- throw away content when URL class  isn't Contents
 					  >>>
-			  		  setS theProcessDoc	mkDocDescr
+			  		  setS theProcessDoc	(rnfA mkDocDescr)		-- force complete evaluation of result of document contens
 					  $
 					  baseConfig
     where
