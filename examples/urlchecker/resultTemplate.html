@@ -8,9 +8,9 @@
     </style>
   </head>
   <body>
-    <h1>URI Check: Result for URI <span id="h1-title">The Root URI</span></h1>
+    <h1>URI Check for <span id="h1-title">The Root URI</span></h1>
     <div id="error-index">
-      <h2>Documents with illegal or incorrect URIs</h2>
+      <h2>Documents containing illegal or incorrect URIs</h2>
       <ul>
 	<li id="error-uri-link">a link to a page containing errors</li>
       </ul>
@@ -18,61 +18,63 @@
 
     <div id="notok-part">
       <h2>URIs with access errors</h2>
-      <dl>
+      <ul>
 	<div id="page-descr">
-	  <dt id="page-uri">The page URI</dt>
-	  <dd id="page-data">The page Data</dd>
+	  <li>
+	  <span id="page-uri">The page URI</span>
+	  <span>(<span id="page-status">The page status</span>)</span>
+	  </li>
 	</div>
-      </dl>
+      </ul>
     </div>
 
     <div id="content-part">
-      <h2>URIs with contents check</h2>
-      <dl>
+      <h2>Contents checked documents</h2>
+      <ul>
 	<div id="page-descr">
-	  <dt id="page-uri">The page URI</dt>
-	  <dd id="page-data">The page attributes</dd>
-	  <dd id="page-uris">
-	    <ul>
-	      <li id="page-uri1">The URI ref</li>
-	    </ul>
-	  </dd>
+	  <li>
+	    <div>
+	      <span id="page-uri">The page URI</span>
+	      <span>(<span id="page-mimetype">The page mimetype</span>)</span>
+	    </div>
+	    <div id="page-uris">
+	      <ul>
+	        <li id="page-uri1">The URI ref</li>
+	      </ul>
+	    </div>
+	  </li>
 	</div>
-      </dl>
+      </ul>
     </div>
 
     <div id="exists-part">
-      <h2>URIs with existence check</h2>
-      <dl>
+      <h2>Existence checked documents</h2>
+      <ul>
 	<div id="page-descr">
-	  <dt id="page-uri">The page URI</dt>
-	  <dd id="page-data">
-	    <ul>
-	      <li id="page-uri1">The URI ref</li>
-	    </ul>
-	  </dd>
+	  <li>
+	  <span id="page-uri">The page URI</span>
+	  <span>(<span id="page-mimetype">The page mimetype</span>)</span>
+	  </li>
 	</div>
-      </dl>
+      </ul>
     </div>
 
     <div id="manual-part">
-      <h2>URIs to be checked manually</h2>
-      <dl>
+      <h2>Documents to be checked manually</h2>
+      <ul>
 	<div id="page-descr">
-	  <dt id="page-uri">The page URI</dt>
-	  <dd id="page-data">The page Data</dd>
+	  <li id="page-uri">The page URI</li>
 	</div>
-      </dl>
+      </ul>
     </div>
 
     <div id="illegal-part">
       <h2>Illegal URIs</h2>
-      <dl>
+      <ul>
 	<div id="page-descr">
-	  <dt id="page-uri">The page URI</dt>
-	  <dd id="page-data">The page Data</dd>
+	  <li id="page-uri">The page URI</li>
 	</div>
-      </dl>
+      </ul>
     </div>
   </body>
 </html>

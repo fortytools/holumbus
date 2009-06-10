@@ -107,7 +107,7 @@ genResultPage out uri _ucs dm
 						  >>>
 						  (fromMaybe this . lookup k $ handlers)
 
-    handlers1		= [ ("title", 		txt (show uri))
+    handlers1		= [ ("title", 		txt uri)
 			  , ("h1-title",	insertPageURI0 uri >>> getChildren)
 			  , ("error-index",	insertErrorIndex)
 			  , ("error-uri-link",  insertErrorURIix)
@@ -122,6 +122,8 @@ genResultPage out uri _ucs dm
     handlers3b uri'	= [ ("page-uri",        insertPageURI  uri')
 			  , ("page-data",       insertPageData uri')
 			  , ("page-uris",       insertPageURIs uri')
+			  , ("page-status",     insertPageStatus uri')
+			  , ("page-mimetype",   insertMimeType uri')
 			  ]
     handlers4b uris'    = [ ("page-uri1",       insertURIsRefs uris') ]
 
@@ -133,7 +135,11 @@ genResultPage out uri _ucs dm
 
     insertErrorURIix    = insertPageURIx $< constL errURIs
 
-    insertPart	cf      = getChildren >>> genPage (handlers2b cf)
+    insertPart	cf      = if null clsURIs
+			  then txt ""
+			  else getChildren >>> genPage (handlers2b cf)
+			  where
+			  clsURIs = classURIs cf
 
     insertPageDescr cf  = if null clsURIs
 			  then txt ""
@@ -160,6 +166,16 @@ genResultPage out uri _ucs dm
 				      += txt uri'
 			  )
 
+    insertPageStatus uri'= replaceChildren $
+			  txt $ unwords [dd_status dd, dd_message dd]
+			  where
+			  dd = fromJust . M.lookup uri' $ dm
+
+    insertMimeType uri'	= replaceChildren $
+			  txt $ dd_mimetype dd
+			  where
+			  dd = fromJust . M.lookup uri' $ dm
+
     insertPageData uri' = replaceChildren $
 			  txt $ concat $
 				  ["status: ", st, " ", ms]
@@ -182,17 +198,16 @@ genResultPage out uri _ucs dm
 
     insertURIsRefs uris'= uf $< constL uris'
 		          where
-			  uf uri' = (insertPageURIx uri')
+			  uf uri' = (insertPageURI0 uri')
 				    += st
 				    where
 				    dd' = fromJust . M.lookup uri' $ dm
 				    ds' = dd_status  dd'
 				    dc' = dd_class   dd'
 				    dm' = dd_message dd'
-				    ms' | null dm'
-					  &&
-					  ds' == "999"	= showC dc'
-					| otherwise	= ds' ++ " " ++ dm'
+				    ms' | dc' `elem` [Manual, Illegal] 	= dm'
+				        | null dm'		       	= show dc'
+					| otherwise			= ds' ++ " " ++ dm'
 
 				    st  | ds' == "200"
 					  ||
@@ -200,8 +215,5 @@ genResultPage out uri _ucs dm
 					                = none
 					| otherwise	= eelem "span" += sattr "class" "error"
 					                               += txt ("(" ++ ms' ++ ")")
-				    showC Manual	= "manual check"
-				    showC Illegal	= "illegal URI"
-				    showC c		= show c
 
 -- ------------------------------------------------------------
