@@ -28,8 +28,7 @@ sessions		= [ ( "http://localhost/~si/"
 			      , ("http://localhost/~si/vorlesungen/java/.*",			Contents)
 			      , ("http://localhost/~si/.*",					Exists)
 			      , ("http://localhost/",						Ignore)
-			      , ("http://www.fh-wedel.de/~si/",					Exists)
-			      , ("http://.*/.*[.]html",						Exists)
+			      , ("http://.*/.*/",						Exists)
 			      ] ++ defaults
 			    )
 			  ]
