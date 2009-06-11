@@ -18,6 +18,15 @@ import		 Text.XML.HXT.Arrow
 
 -- | A simple template scheme is used for generating the HTML result page
 
+type ReverseRefs	= M.Map URI URIs
+
+revRefs			:: DocMap -> ReverseRefs
+revRefs			= M.foldWithKey insRefs M.empty
+    where
+    insRefs uri dd rm	= foldURIs insRef rm $ dd_uris dd
+	where
+	insRef uri' rm' = M.insertWith S.union uri' (S.singleton uri) rm'
+
 genResultPage		:: String -> URI -> URIClassList -> DocMap -> IOSArrow a XmlTree
 genResultPage out uri _ucs dm
 			=  readDocument [ (a_parse_xml, v_1)
@@ -37,13 +46,21 @@ genResultPage out uri _ucs dm
     where
     dmIx		= zip (M.keys $ dm) [(1::Int) ..]
     lookupDmIx uri'     = ("uri-" ++) . show . fromJust . lookup uri' $ dmIx
+    revRefMap		= revRefs dm
+
     errURIs		= map fst . filter (containsErrURIs . snd) . M.toList $ dm
 			  where
 			  containsErrURIs d
 			      = any isNotOk . S.toList . dd_uris $ d
 				where
 				isNotOk u2
-				    = (/= "200") . dd_status . (M.! u2) $ dm
+				    = dc' `elem` [Not200OK, Illegal]
+				      ||
+				      ( dc' `elem` [Contents, Exists] && ds' /= "200")
+				      where
+				      dd' = dm M.! u2
+				      dc' = dd_class  dd'
+				      ds' = dd_status dd'
 
     classURIs cf	= map fst . filter (cf . dd_class . snd) . M.toList $ dm
 
@@ -73,8 +90,11 @@ genResultPage out uri _ucs dm
 			  , ("page-uris",       insertPageURIs uri')
 			  , ("page-status",     insertPageStatus uri')
 			  , ("page-mimetype",   insertMimeType uri')
+			  , ("uri-refs",        insertURIRefs uri')
 			  ]
-    handlers4b uris'    = [ ("page-uri1",       insertURIsRefs uris') ]
+    handlers4b uris'    = [ ("page-uri1",       insertURIsRefs uris')
+			  , ("page-uri0",       insertURIsRefs0 uris')
+			  ]
 
     insertErrorIndex
 	| noErrors	= txt ""
@@ -140,7 +160,7 @@ genResultPage out uri _ucs dm
 			  md = dd_modified dd
 
     insertPageURIs uri' = if null uris'
-			  then none
+			  then txt ""
 			  else processChildren (genPage $ handlers4b uris')
 			  where
 			  uris' = S.toList . dd_uris . fromJust . M.lookup uri' $ dm
@@ -164,5 +184,15 @@ genResultPage out uri _ucs dm
 					                = none
 					| otherwise	= eelem "span" += sattr "class" "error"
 					                               += txt ("(" ++ ms' ++ ")")
+
+    insertURIRefs uri'  = if null uris'
+			  then txt ""
+			  else processChildren (genPage $ handlers4b uris')
+			  where
+			  uris' = S.toList . fromMaybe emptyURIs . M.lookup uri' $ revRefMap
+
+    insertURIsRefs0 u' = uf $< constL u'
+	                 where
+			 uf uri' = (insertPageURIx uri')
 
 -- ------------------------------------------------------------

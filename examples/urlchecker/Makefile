@@ -1,20 +1,26 @@
 HC	= ghc -i../../src -Wall -O2
 
-PROG	: check-uris
+PROG	= check-uris
+SRC	= URIChecker.hs URIChecker/Check.hs URIChecker/Template.hs
 
 all	: $(PROG) tmp
 
-run	:
-	./$(PROG) "http://localhost/~si/" check.si.html
+run	: si java
+
+si	:
+	./$(PROG) "http://localhost/~si/" check.localhost.si.html
+
+java	:
+	./$(PROG) "http://localhost/~si/vorlesungen/java/java.html" check.localhost.java.html
 
 clean	:
-	rm -f *.hi *.o tmp/check-* check.si.html
+	rm -f *.hi *.o tmp/check-* check.*.html
 
 distclean	: clean
 	rm $(PROG)
 
-$(PROG)	: URIChecker.hs URIChecker/Check.hs URIChecker/Template.hs resultTemplate.html
-	$(HC) -O2 --make -o $@ $<
+$(PROG)	: $(SRC)
+	$(HC) --make -o $@ $<
 
 tmp	:
 	[ -d "$@" ] || mkdir "$@"
