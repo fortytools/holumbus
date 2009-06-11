@@ -28,7 +28,17 @@ sessions		= [ ( "http://localhost/~si/"
 			      , ("http://localhost/~si/vorlesungen/java/.*",			Contents)
 			      , ("http://localhost/~si/.*",					Exists)
 			      , ("http://localhost/",						Ignore)
-			      , ("http://.*/.*/",						Exists)
+			      , ("http://.*",							Exists)
+			      ] ++ defaults
+			    )
+			  , ( "http://www.fh-wedel.de/~si/vorlesungen/java/java.html"
+			    , [ ("http://www.fh-wedel.de/~si/vorlesungen/java/welcome.html",		Ignore)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*[?]VAR=0",		Ignore)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/exec.html[?].*",	Exists)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/downloadhtml.html[?].*[.]html",	Exists)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*",			Contents)
+			      , ("http://www.fh-wedel.de/~si/.*",					Exists)
+			      , ("http://.*",								Exists)
 			      ] ++ defaults
 			    )
 			  ]
@@ -39,7 +49,7 @@ defaults		= [ ("http:.*",			Manual)
 			  , ("https:.*", 		Manual)
 			  , ("mailto:si@fh-wedel.de",	Ignore)
 			  , ("mailto:.*", 		Manual)
-			  , ("ftp:",			Manual)
+			  , ("ftp:.*",			Manual)
 			  , ("javascript:.*", 		Ignore)
 			  , ("file:///.*", 		Illegal)
 			  , ( ".*",			Illegal)

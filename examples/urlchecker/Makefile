@@ -13,6 +13,9 @@ si	:
 java	:
 	./$(PROG) "http://localhost/~si/vorlesungen/java/java.html" check.localhost.java.html
 
+fhw.java	:
+	./$(PROG) "http://www.fh-wedel.de/~si/vorlesungen/java/java.html" check.fh-wedel.java.html
+
 clean	:
 	rm -f *.hi *.o tmp/check-* check.*.html
 

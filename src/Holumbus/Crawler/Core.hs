@@ -193,6 +193,16 @@ theConnectTimeout	= theReadAttributes
 addReadAttributes	:: Attributes -> CrawlerConfig a r -> CrawlerConfig a r
 addReadAttributes al	= update theReadAttributes (addEntries al)
 
+-- | Insert a robots no follow filter before thePreRefsFilter
+
+addRobotsNoFollow	:: CrawlerConfig a r -> CrawlerConfig a r
+addRobotsNoFollow	= update thePreRefsFilter ( robotsNoFollow >>> )
+
+-- | Insert a robots no follow filter before thePreRefsFilter
+
+addRobotsNoIndex	:: CrawlerConfig a r -> CrawlerConfig a r
+addRobotsNoIndex	= update thePreDocFilter ( robotsNoIndex >>> )
+
 -- ------------------------------------------------------------
 
 instance (Binary r) => Binary (CrawlerState r) where
