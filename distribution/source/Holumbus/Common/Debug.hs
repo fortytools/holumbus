@@ -22,3 +22,4 @@ class Debug m where
 
   -- | Just print out some debug output.  
   printDebug :: m -> IO ()
+  getDebug   :: m -> IO String

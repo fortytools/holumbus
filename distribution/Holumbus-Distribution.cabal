@@ -21,6 +21,8 @@ extra-source-files:
     Programs/Makefile
     Programs/PortRegistry/Makefile
     Programs/PortRegistry/PortRegistry.hs
+    Programs/PortRegistryDaemon/Makefile
+    Programs/PortRegistryDaemon/PortRegistryDaemon.hs    
     Examples/Makefile
     Examples/ClientServer/Client.hs
     Examples/ClientServer/Makefile
@@ -52,6 +54,7 @@ library
                 , time       >= 1.1
                 , unix       >= 2.3
                 , random     >= 1.0
+                , stm        >= 2.1.1.2
 
   hs-source-dirs: 
                   source
@@ -63,6 +66,7 @@ library
                  , Holumbus.Network.Messages
                  , Holumbus.Network.Port
                  , Holumbus.Network.Site
+                 , Holumbus.Network.DoWithServer                 
                  , Holumbus.Network.PortRegistry
                  , Holumbus.Network.PortRegistry.Messages
                  , Holumbus.Network.PortRegistry.PortRegistryData
@@ -74,6 +78,7 @@ library
                  , Holumbus.Distribution.DFunction
                  , Holumbus.Distribution.DMVar
                  , Holumbus.Console.Console
+                 , Holumbus.Console.ServerConsole                 
                  , Holumbus.Common.Debug
                  , Holumbus.Common.FileHandling
                  , Holumbus.Common.Logging
@@ -88,3 +93,8 @@ executable PortRegistry
   hs-source-dirs: Programs/PortRegistry source
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable PortRegistryDaemon
+  main-is: PortRegistryDaemon.hs
+  hs-source-dirs: Programs/PortRegistryDaemon source
+  ghc-options: -Wall -threaded

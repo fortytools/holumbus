@@ -479,6 +479,17 @@ instance Debug Server where
         putStrLn $ "SiteToClientMap: " ++ show (sd_SiteToClientMap sd)
         putStrLn $ "SiteMap:         " ++ show (sd_SiteMap sd)
         putStrLn $ "NextId:          " ++ show (sd_NextId sd)
+  getDebug (Server server)
+    = withMVar server $
+        \sd ->
+        do
+        return   $ ("printServer"
+          ++"\n"++ "OwnStream:       " ++ show (sd_OwnStream sd)
+          ++"\n"++ "OwnPort:         " ++ show (sd_OwnPort sd)
+          ++"\n"++ "ClientMap:       " ++ show (sd_ClientMap sd)
+          ++"\n"++ "SiteToClientMap: " ++ show (sd_SiteToClientMap sd)
+          ++"\n"++ "SiteMap:         " ++ show (sd_SiteMap sd)
+          ++"\n"++ "NextId:          " ++ show (sd_NextId sd))++"\n"
   
 
 
@@ -777,7 +788,17 @@ instance Debug Client where
         putStrLn $ "OwnStream:  " ++ show (cd_OwnStream cd)
         putStrLn $ "OwnPort:    " ++ show (cd_OwnPort cd)
         putStrLn $ "ServerPort: " ++ show (cd_ServerPort cd)
-
+  getDebug (Client client)
+    = withMVar client $
+        \cd ->
+        do
+        return ( "printClient"
+          ++"\n"++ "Id:         " ++ show (cd_Id cd)
+          ++"\n"++ "LifeValue   " ++ show (cd_LifeValue cd)
+          ++"\n"++ "Site:       " ++ show (cd_SiteId cd)
+          ++"\n"++ "OwnStream:  " ++ show (cd_OwnStream cd)
+          ++"\n"++ "OwnPort:    " ++ show (cd_OwnPort cd)
+          ++"\n"++ "ServerPort: " ++ show (cd_ServerPort cd)++"\n")
 
 
 
