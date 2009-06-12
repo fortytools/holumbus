@@ -188,6 +188,27 @@ instance Debug DMapReduce where
         maybe (putStrLn "NOTHING") (\w' -> printDebug w') w
         putStrLn "--------------------------------------------------------"
 
+  getDebug (DMapReduce mr)
+    = withMVar mr $
+        \(DMapReduceData s t m w) ->
+        do
+        let line = "--------------------------------------------------------"
+        tmp <- getDebug m
+        mtmp <- maybe (return "NOTHING") (\w' -> getDebug w') w
+        return (line
+          ++"\n"++ "Distribtion - internal data\n"
+          ++"\n"++line
+          ++"\n"++ "SiteId:"
+          ++"\n"++ show s
+          ++"\n"++ "Type:"
+          ++"\n"++ show t
+          ++"\n"++line
+          ++"\n"++ "Master:"
+          ++"\n"++tmp
+          ++"\n"++line
+          ++"\n"++"Worker:"
+          ++mtmp
+          ++"\n"++line++"\n")
 
 
 

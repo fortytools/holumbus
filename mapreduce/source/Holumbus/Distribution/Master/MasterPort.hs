@@ -69,7 +69,9 @@ instance Debug MasterPort where
     = do
       putStrLn "MasterPort:"
       putStrLn $ show p
-      
+ 
+  getDebug (MasterPort p)
+    = return ("MasterPort:\n"++show p++"\n")
       
      
 

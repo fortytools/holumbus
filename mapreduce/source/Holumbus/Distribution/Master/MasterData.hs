@@ -388,4 +388,24 @@ instance Debug MasterData where
         putStrLn jc
       where
         gap = 20
-      
+  getDebug md
+    = do
+      mddebug <- getDebug (md_Server md)
+      tmp <- (withMVar (md_WorkerController md) $
+          \wcd -> 
+          do
+          jc <- printJobController (md_JobController md)
+          return (
+            prettyRecordLine gap "TaskToWorkerMap: " (wcd_TaskToWorkerMap wcd)
+            ++"\n"++ prettyRecordLine gap "WorkerToTaskMap" (wcd_WorkerToTaskMap wcd)
+            ++"\n"++ prettyRecordLine gap "ActionToWorkerMap:" (wcd_ActionToWorkerMap wcd)        
+            ++"\n"++ "JobController:"
+            ++"\n"++  jc ++"\n"))
+      return (
+                 "Master-Object (full)"
+        ++"\n"++ "--------------------------------------------------------"        
+        ++"\n"++  "Server"
+        ++ mddebug
+        ++ tmp)
+      where
+        gap = 20      

@@ -391,3 +391,24 @@ instance Debug FileSystem where
         putStrLn "Node:"
         maybe (putStrLn "NOTHING") (\n' -> printDebug n') n
         putStrLn "--------------------------------------------------------"
+  getDebug (FileSystem fs)
+    = do
+      tmp <- withMVar fs $
+        \(FileSystemData s c n) ->
+        do
+        tmp <-  getDebug c
+        tmp2 <- maybe (return "NOTHING") (\n' -> getDebug n') n
+        let line = "--------------------------------------------------------"
+        return (line
+          ++"\n"++ "FileSystem - internal data\n"
+          ++"\n"++ line
+          ++"\n"++ "SiteId:"
+          ++"\n"++ show s
+          ++"\n"++ line
+          ++"\n"++ "Controller:"
+          ++"\n"++ tmp
+          ++"\n"++ line
+          ++"\n"++ "Node:"
+          ++"\n"++ tmp2
+          ++"\n"++ line ++"\n")
+      return tmp   

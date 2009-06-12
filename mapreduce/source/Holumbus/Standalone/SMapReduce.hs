@@ -192,6 +192,24 @@ instance Debug SMapReduce where
         actions <- getActions (sad_TaskProcessor sad)
         putStrLn $ show $ actions
 
+  getDebug (SMapReduce sa)
+    = do
+      withMVar sa $
+        \sad ->
+        do
+        showJC <- printJobController (sad_JobController sad)
+        showTP <- printTaskProcessor (sad_TaskProcessor sad)
+        actions <- getActions (sad_TaskProcessor sad)
+        let line= "--------------------------------------------------------"
+        return (line
+          ++"\n"++ "Job-Controller"
+          ++"\n"++ showJC
+          ++"\n"++ line
+          ++"\n"++ "Task-Processor"
+          ++"\n"++ showTP
+          ++"\n"++ line
+          ++"\n"++ "Actions"
+          ++"\n"++ show actions++"\n")
 
 
 

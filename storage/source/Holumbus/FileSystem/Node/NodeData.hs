@@ -276,3 +276,13 @@ instance Debug Node where
         putStrLn $ prettyRecordLine gap "Storage:" (nd_Storage nd)
         where
         gap = 20
+  getDebug (Node node)
+    = do      
+      tmp <- withMVar node $
+        \nd ->
+        do
+        tmp <- getDebug (nd_Client nd)
+        return (tmp++"\n"++ (prettyRecordLine gap "Storage:" (nd_Storage nd)) ++"\n")
+      return ("Node-Object (full)"++"\n"++tmp++"\n")
+        where
+        gap = 20        

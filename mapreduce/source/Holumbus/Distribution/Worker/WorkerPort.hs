@@ -100,3 +100,5 @@ instance Debug WorkerPort where
       = do
         putStrLn "WorkerPort:"
         putStrLn $ show p
+  getDebug (WorkerPort p)
+      = return ("WorkerPort:\n"++show p++"\n")

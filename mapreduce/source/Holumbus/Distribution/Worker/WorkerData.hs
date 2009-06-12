@@ -190,3 +190,11 @@ instance Debug WorkerData where
       tp <- TP.printTaskProcessor (wd_TaskProcessor wd)
       putStrLn "TaskProcessor:"
       putStrLn tp
+  getDebug wd
+    = do
+      tmp <- getDebug (wd_Client wd)
+      tp <- TP.printTaskProcessor (wd_TaskProcessor wd)
+      return ("Worker-Object (full)"
+        ++"\n"++tmp
+        ++"\n"++"TaskProcessor:"
+        ++"\n"++tp++"\n")

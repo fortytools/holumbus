@@ -1,0 +1,47 @@
+#!/bin/bash
+
+PIDDIR="/var/run/holumbus"
+[ -d "$PIDDIR" ] || mkdir -p "$PIDDIR"
+PIDFILE="$PIDDIR/MasterDaemon.pid"
+EXECUTABLE="/usr/local/bin/MasterDaemon"
+NAME="MasterDaemon"
+LOGDIR="/var/log/holumbus"
+[ -d "$LOGDIR" ] || mkdir -p "$LOGDIR"
+LOGFILE="$LOGDIR/master.log"
+CONSOLE_PORT=9901
+
+function startServer() {
+	start-stop-daemon --start --background -m -p "$PIDFILE" --startas "$EXECUTABLE" "$CONSOLE_PORT" "$LOGFILE"
+}
+
+function stopServer() {
+	start-stop-daemon --stop -p "$PIDFILE" && rm "$PIDFILE"
+}
+
+function status() {
+ [ -f "$PIDFILE" ] || { echo "$NAME is not running"; exit 1; }
+ ps aux | grep `cat "$PIDFILE"`
+}
+
+case $1 in
+  start)        
+    echo "Starting $NAME"
+    startServer
+  ;;
+  stop)
+    echo "Stopping $NAME"
+    stopServer
+  ;;
+  restart)
+    stopServer && startServer
+  ;;
+  status)
+    status
+  ;;
+  log)
+    tail -f "$LOGFILE"
+  ;;
+  *)
+    echo "Usage: PortRegistry (start|stop|restart|status|log)"
+  ;;
+esac

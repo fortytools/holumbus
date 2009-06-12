@@ -79,6 +79,7 @@ library
                 , Holumbus.MapReduce.TaskProcessor
                 , Holumbus.MapReduce.Types
                 , Holumbus.MapReduce.UserInterface
+                , Holumbus.MapReduce.DaemonInterface
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification
 
@@ -87,3 +88,8 @@ executable Master
   hs-source-dirs: Programs/MapReduceMaster source
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable MasterDaemon
+  main-is: MasterDaemon.hs
+  hs-source-dirs: Programs/MapReduceMasterDaemon source
+  ghc-options: -Wall -threaded

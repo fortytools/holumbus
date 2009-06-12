@@ -140,3 +140,5 @@ instance Debug ControllerPort where
     = do
       putStrLn "ControllerPort:"
       putStrLn $ show p
+  getDebug (ControllerPort p)
+    = return ("ControllerPort:\n"++show p++"\n")

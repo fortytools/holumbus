@@ -398,13 +398,13 @@ instance C.ControllerClass ControllerData where
         do
         mbCi <- getClientInfo nid (cd_Server cd)
         case mbCi of
-          (Just ci) ->
+          (Just _) ->
             do
             let fc' = addFileToController f nid fc
             -- copy file to one other node
             mpCp <- lookupPortWithoutFile f (cd_Server cd) fc
             case mpCp of
-              (Just cp) -> 
+              (Just _) -> 
                 do 
                 return ()
                 -- let np = NP.newNodePort cp
@@ -460,5 +460,19 @@ instance Debug ControllerData where
       putStrLn "FileToNodeMap:"
       withMVar (cd_FileController cd) $
         \fc -> do
-        putStrLn $ show (cm_FileToNodeMap $ fc) 
+        putStrLn $ show (cm_FileToNodeMap $ fc)
+  getDebug cd
+    = do
+      let line = "--------------------------------------------------------"
+      tmp <- getDebug (cd_Server cd)
+      tmp2 <- withMVar (cd_FileController cd) $
+          \fc -> do
+          return $ show (cm_FileToNodeMap $ fc)
+      return ( "Controller-Object (full)"
+        ++"\n"++ line
+        ++"\n"++ "Server"
+        ++"\n"++ tmp
+        ++"\n"++ line
+        ++"\n"++ "FileToNodeMap:"
+        ++"\n"++tmp2++"\n")
         

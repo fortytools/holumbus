@@ -142,3 +142,5 @@ instance Debug NodePort where
     = do
       putStrLn "NodePort:"
       putStrLn $ show p
+  getDebug (NodePort p)
+    = return ("NodePort:\n"++show p++"\n")
