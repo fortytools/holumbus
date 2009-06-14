@@ -83,8 +83,12 @@ genResultPage out uri _ucs dm
 			  , ("manual-part",     insertPart (== Manual))
 			  , ("illegal-part",    insertPart (== Illegal))
 			  ]
-    handlers2a          = [ ("error-uri-link",  insertErrorURIix) ]
-    handlers2b uf       = [ ("page-descr",      insertPageDescr uf) ]
+    handlers2a          = [ ("error-uri-link",  insertErrorURIix)
+			  , ("error-uri-cnt",   insertURIcnt $ length errURIs)
+			  ]
+    handlers2b uf       = [ ("page-descr",      insertPageDescr uf)
+			  , ("page-cnt",        insertPageCnt   uf)
+			  ]
     handlers3b uri'	= [ ("page-uri",        insertPageURI  uri')
 			  , ("page-data",       insertPageData uri')
 			  , ("page-uris",       insertPageURIs uri')
@@ -104,6 +108,10 @@ genResultPage out uri _ucs dm
 
     insertErrorURIix    = insertPageURIx $< constL errURIs
 
+    insertURIcnt 0	= txt "no URI"
+    insertURIcnt 1      = txt "1 URI"
+    insertURIcnt n	= txt $ (show n) ++ " URIs"
+
     insertPart	cf      = if null clsURIs
 			  then txt ""
 			  else getChildren >>> genPage (handlers2b cf)
@@ -116,6 +124,8 @@ genResultPage out uri _ucs dm
 			  where
 			  uf uri' = getChildren >>> genPage (handlers3b uri')
 			  clsURIs = classURIs cf
+
+    insertPageCnt cf    = insertURIcnt . length . classURIs $ cf
 
     insertPageURI uri'	= insertPageURI0 uri'
 			  >>>

@@ -16,6 +16,9 @@ java	:
 fhw.java	:
 	./$(PROG) "http://www.fh-wedel.de/~si/vorlesungen/java/java.html" check.fh-wedel.java.html
 
+hobel.java	:
+	./$(PROG) "http://192.168.2.11/~si/vorlesungen/java/java.html" check.hobel.java.html
+
 clean	:
 	rm -f *.hi *.o tmp/check-* check.*.html
 

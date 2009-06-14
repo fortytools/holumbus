@@ -34,10 +34,24 @@ sessions		= [ ( "http://localhost/~si/"
 			  , ( "http://www.fh-wedel.de/~si/vorlesungen/java/java.html"
 			    , [ ("http://www.fh-wedel.de/~si/vorlesungen/java/welcome.html",		Ignore)
 			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*[?]VAR=0",		Ignore)
-			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/exec.html[?].*",	Exists)
-			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/downloadhtml.html[?].*[.]html",	Exists)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/exec.html[?].*",	Illegal)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/exec.html[?].*",	Illegal)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/program.html[?].*[.]html",		Contents)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*/download[a-zA-Z0-9]*.html[?].*SRC=.*",	Exists)
 			      , ("http://www.fh-wedel.de/~si/vorlesungen/java/.*",			Contents)
 			      , ("http://www.fh-wedel.de/~si/.*",					Exists)
+			      , ("http://.*",								Exists)
+			      ] ++ defaults
+			    )
+			  , ( "http://192.168.2.11/~si/vorlesungen/java/java.html"
+			    , [ ("http://192.168.2.11/~si/vorlesungen/java/welcome.html",		Ignore)
+			      , ("http://192.168.2.11/~si/vorlesungen/java/.*[?]VAR=0",			Ignore)
+			      , ("http://192.168.2.11/~si/vorlesungen/java/.*/exec.html[?].*",		Illegal)
+			      , ("http://192.168.2.11/~si/vorlesungen/java/.*/exec.html[?].*",		Illegal)
+			      , ("http://192.168.2.11/~si/vorlesungen/java/.*/program.html[?].*[.]html",		Contents)
+			      , ("http://192.168.2.11/~si/vorlesungen/java/.*/download[a-zA-Z0-9]*.html[?].*SRC=.*",	Exists)
+			      , ("http://192.168.2.11/~si/vorlesungen/java/.*",				Contents)
+			      , ("http://192.168.2.11/~si/.*",						Exists)
 			      , ("http://.*",								Exists)
 			      ] ++ defaults
 			    )
