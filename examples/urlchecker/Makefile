@@ -16,6 +16,9 @@ java	:
 fhw.java	:
 	./$(PROG) "http://www.fh-wedel.de/~si/vorlesungen/java/java.html" check.fh-wedel.java.html
 
+fhw.hxtdoc	:
+	./$(PROG) "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html" check.fh-wedel.hxtdoc.html
+
 hobel.java	:
 	./$(PROG) "http://192.168.2.11/~si/vorlesungen/java/java.html" check.hobel.java.html
 

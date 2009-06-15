@@ -55,6 +55,14 @@ sessions		= [ ( "http://localhost/~si/"
 			      , ("http://.*",								Exists)
 			      ] ++ defaults
 			    )
+			  , ( "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"
+			    , [ ("http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/src/.*[.]html",		Exists)
+			      , ("http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/.*[.]html",		Contents)
+			      , ("http://www.fh-wedel.de/usr/.*[.]html",				Ignore)		-- the default location for base documentation
+			      , ("http://hackage.haskell.org/packages/archive/base/latest/doc/html/.*",	Exists)		-- the location on hackage for base
+			      , ("http://.*",								Exists)
+			      ] ++ defaults
+			    )
 			  ]
 
 -- | default uri handling
