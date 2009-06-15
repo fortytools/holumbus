@@ -105,8 +105,8 @@ simpleURIClassifier ((re, c) : us) uri
 emptyDocMap				:: DocMap
 emptyDocMap				= M.empty
 
-uriCrawlerConfig			:: URIClassifier -> URICrawlerConfig
-uriCrawlerConfig ucf			= addReadAttributes  [ ]				-- at the moment no more read attributes are neccessary
+uriCrawlerConfig			:: Attributes -> URIClassifier -> URICrawlerConfig
+uriCrawlerConfig opts ucf		= addReadAttributes opts
 			  		  >>>
 					  setS thePreRefsFilter remContents			-- throw away content when URL class  isn't Contents
 					  >>>
@@ -186,8 +186,8 @@ uriCrawlerInitState	= initCrawlerState emptyDocMap
 
 -- ------------------------------------------------------------
 
-stdURIChecker	:: Int -> Int -> String -> Int -> Maybe String -> URI -> URIClassList -> IO DocMap
-stdURIChecker maxDocs saveIntervall savePath trc resumeLoc startUri uriClasses
+stdURIChecker	:: Int -> Int -> String -> Int -> Attributes -> Maybe String -> URI -> URIClassList -> IO DocMap
+stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri uriClasses
                         = do
 			  (_, dm) <- runCrawler action config uriCrawlerInitState
 			  return (getS theResultAccu dm)
@@ -201,9 +201,9 @@ stdURIChecker maxDocs saveIntervall savePath trc resumeLoc startUri uriClasses
 			  >>>
 			  setS theTraceLevel trc
 			  $
-			  uriCrawlerConfig (simpleURIClassifier ((startUri, Contents) : uriClasses))
+			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
 simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
-simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1
-
+simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1 [(curl_max_filesize, "1000000")]
+								      
 -- ------------------------------------------------------------
