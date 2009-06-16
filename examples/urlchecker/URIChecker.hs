@@ -21,6 +21,8 @@ sessions		= [ ( "http://localhost/~si/"
 			      , ("http://localhost/.*", 				Manual)
 			      ] ++ defaults
 			    )
+
+			    -- java lecture
 			  , ( "http://localhost/~si/vorlesungen/java/java.html"
 			    , [ ("http://localhost/~si/vorlesungen/java/welcome.html",		Ignore)
 			      , ("http://localhost/~si/vorlesungen/java/.*/exec.html[?].*",	Exists)
@@ -55,12 +57,40 @@ sessions		= [ ( "http://localhost/~si/"
 			      , ("http://.*",								Exists)
 			      ] ++ defaults
 			    )
+			    -- FP lecture
+			  , ( "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
+			    , [ ("http://www.fh-wedel.de/~si/vorlesungen/fp/welcome.html",		Ignore)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/handouts/haskell.*",	Exists)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/.*[?]VAR=0",		Ignore)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/.*/exec.html[?].*",		Illegal)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/.*/exec.html[?].*",		Illegal)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/.*/program.html[?].*[.]html",		Contents)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/.*/download[a-zA-Z0-9]*.html[?].*SRC=.*",	Exists)
+			      , ("http://www.fh-wedel.de/~si/vorlesungen/fp/.*",			Contents)
+			      , ("http://www.fh-wedel.de/~si/.*",					Exists)
+			      , ("http://.*",								Exists)
+			      ] ++ defaults
+			    )
+			    -- hxt home
 			  , ( "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html"
 			    , [ ("http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/src/.*[.]html",		Exists)
 			      , ("http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/.*[.]html",		Contents)
 			      , ("http://www.fh-wedel.de/usr/.*[.]html",				Ignore)		-- the default location for base documentation
 			      , ("http://hackage.haskell.org/packages/archive/base/latest/doc/html/.*",	Exists)		-- the location on hackage for base
 			      , ("http://.*",								Exists)
+			      ] ++ defaults
+			    )
+			    -- holumbus site
+			  , ( "http://holumbus.fh-wedel.de/"
+			    , [ ("http://holumbus.fh-wedel.de/trac",					Contents)
+			      , ("http://holumbus.fh-wedel.de.*",					Exists)
+			      , ("http://darcs2.fh-wedel.de.*",						Exists)
+			      , ("http://www.fh-wedel.de.*",						Exists)
+			      , ("http://hackage.haskell.org.*",					Exists)
+			      , ("http://www.haskell.org.*",						Exists)
+			      , ("http://darcs.net.*",							Exists)
+			      , ("http://www.opensource.org/licenses/mit-license.php",			Exists)
+			      , ("http://.*.edgewall.org.*",						Exists)
 			      ] ++ defaults
 			    )
 			  ]

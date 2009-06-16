@@ -16,11 +16,17 @@ java	:
 fhw.java	:
 	./$(PROG) "http://www.fh-wedel.de/~si/vorlesungen/java/java.html" check.fh-wedel.java.html
 
+fhw.fp	:
+	./$(PROG) "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html" check.fh-wedel.fp.html
+
 fhw.hxtdoc	:
 	./$(PROG) "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html" check.fh-wedel.hxtdoc.html
 
 hobel.java	:
 	./$(PROG) "http://192.168.2.11/~si/vorlesungen/java/java.html" check.hobel.java.html
+
+holumbus	:
+	./$(PROG) "http://holumbus.fh-wedel.de/" check.holumbus.html
 
 clean	:
 	rm -f *.hi *.o tmp/check-* check.*.html

@@ -54,7 +54,9 @@ genResultPage out uri _ucs dm
 			      = any isNotOk . S.toList . dd_uris $ d
 				where
 				isNotOk u2
-				    = dc' `elem` [Not200OK, Illegal]
+				    = ( u2 `M.notMember` dm )
+				      ||
+				      ( dc' `elem` [Not200OK, Illegal] )
 				      ||
 				      ( dc' `elem` [Contents, Exists] && ds' /= "200")
 				      where

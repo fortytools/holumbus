@@ -39,12 +39,7 @@ defaultHtmlCrawlerConfig op	= ( addReadAttributes [ (a_validate,   		 v_0)
 -- ------------------------------------------------------------
 
 -- | Collect all HTML references to other documents within a, frame and iframe elements
-{-
-getReferences 			:: ArrowXml a => (URI -> LA XmlTree URI) -> a XmlTree URI
-getReferences refs		= fromLA (getRefs' $< computeDocBase)
-    where
-    getRefs' base	        = refs base >>^ toAbsRef base
--}
+
 getHtmlReferences 		:: ArrowXml a => a XmlTree URI
 getHtmlReferences		= fromLA (getRefs $< computeDocBase)
     where
@@ -115,5 +110,19 @@ computeDocBase			= ( ( ( this				-- try to find a base element in head
 				  )
 				  `orElse`
 				  getAttrValue transferURI 		-- the default: take the transfer uri
+
+-- ------------------------------------------------------------
+
+-- | compute the real URI in case of a 301 or 302 response (moved permanently or temporary),
+-- else the arrow will fail
+
+getLocationReference		:: ArrowXml a => a XmlTree String
+getLocationReference		= fromLA $
+				  ( getAttrValue0 transferStatus
+				    >>>
+				    isA (`elem` ["301", "302"])
+				  )
+				  `guards`
+				  getAttrValue0 "http-location"
 
 -- ------------------------------------------------------------

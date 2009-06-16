@@ -110,7 +110,12 @@ uriCrawlerConfig opts ucf		= addReadAttributes opts
 			  		  >>>
 					  setS thePreRefsFilter remContents			-- throw away content when URL class  isn't Contents
 					  >>>
-					  setS theProcessRefs   (getHtmlReferences <+> getDocReferences)
+					  setS theProcessRefs   ( getHtmlReferences		-- collect all a href
+								  <+>
+								  getDocReferences		-- all other href, src, ...
+								  <+>
+								  getLocationReference		-- redirect location in case of a 301 or 302 response
+								)
 					  >>>
 			  		  setS theFollowRef 	followRefs
 			  		  >>>
@@ -166,7 +171,14 @@ uriCrawlerConfig opts ucf		= addReadAttributes opts
 					    &&&
 					    getAttrValue "http-Last-Modified"
 					    &&&
-					    ( listA (getHtmlReferences <+> getDocReferences) >>^ fromListURIs )
+					    ( listA ( getHtmlReferences
+						      <+>
+						      getDocReferences
+						      <+>
+						      getLocationReference			-- redirect location in case of a 301 or 302 response
+						    )
+					      >>^ fromListURIs
+					    )
 					  )
 					  >>^
 					  ( \ (x1, (x2, (x3, (x4, (x5, x6))))) -> DD { dd_class    = if contOrEx x1 && x2 /= "200"
