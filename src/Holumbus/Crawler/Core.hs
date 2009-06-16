@@ -168,6 +168,8 @@ curl_connect_timeout	= "curl-" ++ "-connect-timeout"
 curl_max_filesize	:: String
 curl_max_filesize	= "curl-" ++ "-max-filesize"
 
+curl_location		:: String
+curl_location		= "curl-" ++ "-location"
 
 theCrawlerName		:: Selector (CrawlerConfig a r) String
 theCrawlerName		= theReadAttributes

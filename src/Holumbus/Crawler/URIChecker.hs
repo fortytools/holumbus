@@ -204,6 +204,8 @@ stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri u
 			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
 simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
-simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1 [(curl_max_filesize, "1000000")]
+simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1 [ (curl_max_filesize, "1000000")	-- limit document size to 1 Mbyte
+								   , (curl_location, v_0)		-- don't automatically follow redirects
+								   ]
 								      
 -- ------------------------------------------------------------
