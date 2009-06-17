@@ -112,17 +112,3 @@ computeDocBase			= ( ( ( this				-- try to find a base element in head
 				  getAttrValue transferURI 		-- the default: take the transfer uri
 
 -- ------------------------------------------------------------
-
--- | compute the real URI in case of a 301 or 302 response (moved permanently or temporary),
--- else the arrow will fail
-
-getLocationReference		:: ArrowXml a => a XmlTree String
-getLocationReference		= fromLA $
-				  ( getAttrValue0 transferStatus
-				    >>>
-				    isA (`elem` ["301", "302"])
-				  )
-				  `guards`
-				  getAttrValue0 "http-location"
-
--- ------------------------------------------------------------

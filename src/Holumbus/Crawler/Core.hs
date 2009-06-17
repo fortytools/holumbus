@@ -381,20 +381,28 @@ crawlerSaveState	= do
 crawlDoc		:: URI -> CrawlerAction c r ()
 crawlDoc uri		= do
 			  traceCrawl 1 ["crawlDoc:", show uri]
-			  uriProcessed uri				-- uri is put into processed URIs
-			  (uris, res) <- processDoc uri			-- get document and extract new refs and result
+			  uriProcessed uri						-- uri is put into processed URIs
+			  (uri', uris, res) <- processDoc uri				-- get document and extract new refs and result
+			  when (not . null $ uri') $
+			       uriProcessed uri'					-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
 
-			  traceCrawl 1 ["crawlDoc: uris:", show . nub . sort $ uris]
-			  mapM_ uriToBeProcessed uris			-- insert new uris into toBeProcessed set
-			  maybe (return ()) accumulateRes res		-- combine result with state accu
+			  traceCrawl 1 ["crawlDoc: new uris:", show . nub . sort $ uris]
+			  mapM_ uriToBeProcessed uris					-- insert new uris into toBeProcessed set
+			  maybe (return ()) accumulateRes res				-- combine result with state accu
 
-processDoc		:: URI -> CrawlerAction c r ([URI], Maybe (URI, c))
+-- | Run the process document arrow and prepare results
+
+processDoc		:: URI -> CrawlerAction c r (URI, [URI], Maybe (URI, c))
 processDoc uri		= do
 			  conf <- ask
-			  [(uris, res)] <- liftIO $ runX (processDocArrow conf uri)
-			  return ( filter (getS theFollowRef conf) uris
+			  [(uri', (uris, res))] <- liftIO $ runX (processDocArrow conf uri)
+			  return ( if uri' /= uri
+				   then uri'
+				   else ""
+				 , filter (getS theFollowRef conf) uris
 				 , listToMaybe res
 				 )
+
 -- | From a document two results are computed, 1. the list of all hrefs in the contents,
 -- and 2. the collected info contained in the page. This result is augmented with the transfer uri
 -- such that following functions know the source of this contents. The transfer-URI may be another one
@@ -402,7 +410,7 @@ processDoc uri		= do
 --
 -- The two listA arrows make the whole arrow deterministic, so it never fails
 
-processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a ([URI], [(URI, c)])
+processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a (URI, ([URI], [(URI, c)]))
 processDocArrow c uri	= ( setTraceLevel ( (getS theTraceLevel c) - 1)
 			    >>>
 			    readDocument (getS theReadAttributes c) uri
@@ -419,7 +427,12 @@ processDocArrow c uri	= ( setTraceLevel ( (getS theTraceLevel c) - 1)
 				      traceString 1 id
 				    )
 			    >>>
-			    ( listA ( documentStatusOk			-- only "good" documents are searched for refs
+			    ( getRealDocURI
+			      &&&
+			      listA ( ( replaceChildren none
+					`whenNot`
+					documentStatusOk
+				      )					-- only the contents of "good" documents are searched for refs
 				      >>>
 				      getS thePreRefsFilter c
 				      >>>
@@ -435,7 +448,31 @@ processDocArrow c uri	= ( setTraceLevel ( (getS theTraceLevel c) - 1)
 				    )
 			    )
 			  )
-			  `withDefault` ([], [])
+			  `withDefault` ("", ([], []))
+
+-- ------------------------------------------------------------
+
+-- | compute the real URI in case of a 301 or 302 response (moved permanently or temporary),
+-- else the arrow will fail
+
+getLocationReference		:: ArrowXml a => a XmlTree String
+getLocationReference		= fromLA $
+				  ( getAttrValue0 transferStatus
+				    >>>
+				    isA (`elem` ["301", "302"])
+				  )
+				  `guards`
+				  getAttrValue0 "http-location"
+
+-- | compute the real URI of the document, in case of a move response
+-- this is contained in the \"http-location\" attribute, else it's the
+-- tranferURI.
+
+getRealDocURI			:: ArrowXml a => a XmlTree String
+getRealDocURI			= fromLA $
+				  getLocationReference
+				  `orElse`
+				  getAttrValue transferURI
 
 -- ------------------------------------------------------------
 
