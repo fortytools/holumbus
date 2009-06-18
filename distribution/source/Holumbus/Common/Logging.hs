@@ -70,11 +70,11 @@ initializeFileLogging file ls = do
 initializeLogging :: [(String, Priority)] -> IO ()
 initializeLogging ls = do
 
-    
+
     -- log all verbose
     v <- verboseStreamHandler stderr DEBUG
     updateGlobalLogger rootLoggerName (setLevel DEBUG . setHandlers [v])
-
+    updateGlobalLogger "Holumbus" (setLevel WARNING)
     -- set all logLevels for all loggers
     mapM_ (\(s,p) -> updateGlobalLogger s (setLevel p)) ls
 
@@ -83,7 +83,7 @@ initializeLogging ls = do
     -- updateGlobalLogger rootLoggerName (addHandler s)
     
     -- this will be removed in next versions
-    updateGlobalLogger "Holumbus" (setLevel WARNING)
+    --updateGlobalLogger "Holumbus" (setLevel WARNING)
     -- updateGlobalLogger "Holumbus.Network" (setLevel WARNING)
     -- updateGlobalLogger "Holumbus.MapReduce.TaskProcessor.task" (setLevel WARNING)
     -- updateGlobalLogger "Holumbus.FileSystem.Storage.FileStorage" (setLevel WARNING)
