@@ -122,7 +122,7 @@ import           Holumbus.Common.Utils
 import qualified Holumbus.Data.AccuMap as AMap
 import qualified Holumbus.Data.KeyMap as KMap
 import qualified Holumbus.FileSystem.FileSystem as FS
-
+import           Control.Parallel.Strategies
 
 localLogger :: String
 localLogger = "Holumbus.MapReduce.Types"
@@ -509,7 +509,6 @@ readConnector
   -> IO [(k1,v1)]
 readConnector ic ae ls
   = do
-    debugM localLogger $ "readConnector: " ++ show ls
     os <- mapM (readInput (ae_FileSystem ae)) ls
     return $ concat $ catMaybes os
     where    
@@ -519,7 +518,6 @@ readConnector ic ae ls
       = do        
         debugM localLogger $ "loadInputList: getting content for: " ++ f
         mbc <- FS.getFileContent f fs
-        debugM localLogger $ "loadInputList: content is: " ++ show mbc
         if isNothing mbc
           then do
             debugM localLogger $ "loadInputList: no content found"
@@ -551,21 +549,24 @@ writeConnector oc ae ls
     -- TODO exception werfen 
     writeOutput fs _ (i,ts)
       = do
-        c <- oc ts
+        debugM localLogger "oc ts"
+        c <-  oc ts        
+        debugM localLogger "appendfile"
         FS.appendFile fn c fs
+        debugM localLogger "return just"
         return $ Just (i,[FileFunctionData fn])
         where
-        fn = "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
+        fn =  "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
 
 
-defaultInputReader :: (Binary k1, Binary v1) => InputReader k1 v1
+defaultInputReader :: (NFData v1, NFData k1, Binary k1, Binary v1) => InputReader k1 v1
 defaultInputReader b
   = return $ parseByteStringToList b
 
 
 defaultOutputWriter :: (Binary k2, Binary v2) => OutputWriter k2 v2
-defaultOutputWriter ls
-  = return $ B.concat $ map encode ls
+defaultOutputWriter = return . encodeStream . List
+--  = return $ B.concat $ map encode ls
 
 
 type ActionName = String
@@ -615,7 +616,7 @@ data ReduceConfiguration a k2 v2 v3
 
 
 defaultActionConfiguration
-  :: (Binary a, Binary k1, Binary v1, Binary k2, Binary v4)
+  :: (NFData v1, NFData k1, Binary a, Binary k1, Binary v1, Binary k2, Binary v4)
   => ActionName
   -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 defaultActionConfiguration name
@@ -633,7 +634,7 @@ defaultActionConfiguration name
 
 
 defaultSplitConfiguration
-  :: (Binary a, Binary k1, Binary v1)
+  :: (NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
   => SplitConfiguration a k1 v1
 defaultSplitConfiguration 
   = SplitConfiguration
@@ -643,7 +644,7 @@ defaultSplitConfiguration
 
 
 defaultMapConfiguration
-  :: (Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
+  :: (NFData v1, NFData k1, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction a k1 v1 k2 v2
   -> MapConfiguration a k1 v1 k2 v2
 defaultMapConfiguration fct
@@ -655,7 +656,7 @@ defaultMapConfiguration fct
 
 
 defaultReduceConfiguration
-  :: (Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
+  :: (NFData v2, NFData k2, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
   => ReduceFunction a k2 v2 v3
   -> ReduceConfiguration a k2 v2 v3
 defaultReduceConfiguration fct
@@ -900,8 +901,9 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)]
     
-    infoM localLogger "writing outputlist"
+    debugM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList
+    debugM localLogger "writing outputlist: done"    
     return outputList
 
 
