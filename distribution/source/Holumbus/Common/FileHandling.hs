@@ -51,6 +51,8 @@ module Holumbus.Common.FileHandling
     , appendToListFile
     , readFromListFile
     , parseByteStringToList
+    , encodeStream
+    , decodeStream
 
       -- * bytestring file handling
     , writeToBinFile
@@ -61,12 +63,15 @@ module Holumbus.Common.FileHandling
     , writeToTextFile
     , appendToTextFile
     , readFromTextFile
+    , List (..)
     )
 where
 
 
 import           Control.Exception
 import           Data.Binary
+import           Data.Binary.Get
+import           Data.Binary.Put
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
 import           Foreign
@@ -74,6 +79,7 @@ import           System.IO
 import           System.IO.Unsafe
 
 import           Text.XML.HXT.Arrow
+import           Control.Parallel.Strategies
 
 -- ----------------------------------------------------------------------------
 -- xml files
@@ -106,35 +112,86 @@ saveToXmlFile f i
 
 -- | Writes data to a list file.
 writeToListFile :: (Binary a) => FilePath -> [a] -> IO ()
-writeToListFile fp bs = writeToBinFile fp $ B.concat $ map encode bs
+--writeToListFile fp bs = writeToBinFile fp $ B.concat $ map encode bs
+writeToListFile fp bs = writeToBinFile fp $ encodeStream (List bs)
 
 
 -- | Appends data to a list file.
 appendToListFile :: (Binary a) => FilePath -> [a] -> IO ()
-appendToListFile fp bs = appendToBinFile fp $ B.concat $ map encode bs
+--appendToListFile fp bs = appendToBinFile fp $ B.concat $ map encode bs
+appendToListFile fp bs = appendToBinFile fp $ encodeStream (List bs)
 
 -- | reads from a list file.
-readFromListFile :: (Binary a) => FilePath -> IO [a]
+readFromListFile :: (NFData a, Binary a) => FilePath -> IO [a]
 readFromListFile f
    = do
      b <- readFromBinFile f 
      return $ parseByteStringToList b
 
-
+newtype (Binary a) =>  List a = List [a]
+instance Binary a => Binary (List a) where
+--    put l  = put (length l) >> mapM_ put l
+--    get    = do n <- get :: Get Int
+--                getMany n
+    put (List [])     = putWord8 0
+    put (List (x:xs)) = putWord8 1 >> put x >> put (List xs)
+    get        = do
+                 next <- getWord8
+                 getMany next
+  
+  -- | 'getMany n' get 'n' elements in order, without blowing the stack.
+getMany :: Binary a => Word8 -> Get (List a)
+getMany next = go (List []) next
+ where
+    go :: Binary a => (List a) -> Word8 -> Get (List a)
+    go (List xs) 0       = return . List $! reverse xs
+    go (List xs) 1 = do
+                 x <- get
+                 next <- getWord8
+                 -- we must seq x to avoid stack overflows due to laziness in
+                 -- (>>=)                 
+                 x `seq` go (List (x:xs)) next
 -- | You'll need this function, if you read the files a a normal binary file,
 --   but the content itself is a list. This function encodes the bytestring
 --   into a list of the specified datatype.
-parseByteStringToList :: (Binary a) => B.ByteString -> [a]
-parseByteStringToList b = reverse $ parse b []
+--parseByteStringToList :: (NFData a, Binary a) => B.ByteString -> [a]
+--parseByteStringToList b = reverse $ parse b []
+--  where
+--  parse :: (NFData a, Binary a) => B.ByteString -> [a] -> [a]
+--  parse bs accu
+--    | (B.null bs) = id accu
+--    | otherwise   = rnf count `seq` parse (B.drop count bs) ([nextElem] ++ accu) 
+--    where
+--    nextElem = decode bs
+----    count    = B.length bs
+--    count    = rnf nextElem `seq` B.length  $!{-# SCC "encodeSCC_pbstl" #-}encode nextElem
+    
+parseByteStringToList :: (NFData a, Binary a) => B.ByteString -> [a]
+parseByteStringToList b = {-# SCC "encodeSCC_pbstl" #-}xs
   where
-  parse :: (Binary a) => B.ByteString -> [a] -> [a]
-  parse bs accu
-    | (B.null bs) = accu
-    | otherwise   = parse (B.drop count bs) ([nextElem] ++ accu) 
-    where
-    nextElem = decode bs
-    count    = B.length (encode nextElem)
-     
+  (List xs) = decodeStream b
+
+-- | Decode records in repetition
+decodeStream :: Binary a => B.ByteString -> (List a)
+decodeStream a = List . runGet (getStream get) $ a
+
+-- | Encode list of records as bytestring
+encodeStream :: Binary a => (List a) -> B.ByteString 
+encodeStream (List xs) = runPut . putStream put $ xs
+
+-- | Read list of values from bytestring until it ends.
+getStream :: Get a -> Get [a]
+getStream getter = do
+  empty <- isEmpty
+  if empty
+    then return []
+    else do x <- getter
+            xs <- getStream getter
+            return (x:xs)
+
+-- | Write list of values.
+putStream :: (a -> Put) -> [a] -> Put
+putStream f = mapM_ f
 
 
 -- ----------------------------------------------------------------------------     
