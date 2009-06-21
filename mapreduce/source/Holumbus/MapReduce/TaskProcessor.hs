@@ -541,5 +541,5 @@ performTask td tp
         let env = mkActionEnvironment td fs
         bout <- action env opt parts bin
         let td' = td { td_Output = bout }
-        debugM taskLogger $ "output td: " ++ show td'
+        --debugM taskLogger $ "output td: " ++ show td'
         return td'
