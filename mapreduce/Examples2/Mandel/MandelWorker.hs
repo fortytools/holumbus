@@ -8,10 +8,10 @@ import qualified Holumbus.FileSystem.FileSystem 		as FS
 import qualified Holumbus.Distribution.DMapReduce		as MR
 import qualified Holumbus.MapReduce.UserInterface		as UI
 import           Examples2.Mandel.DMandel
-
-
+import            System.Log.Logger
 version :: String
 version = "Distributed Mandel-set calculation"
+
 
 main :: IO ()
 main
@@ -19,21 +19,21 @@ main
     putStrLn version
     handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
-      initializeLogging []
+      initializeLogging [("Holumbus.MapReduce.Types",WARNING),("Holumbus.FileSystem.FileSystem",WARNING)]
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p
       (mr,fs) <- initializeData
-      UI.runUI mr version      
+      UI.runUI mr version
       deinitializeData (mr,fs)
 
 
 initializeData :: IO (MR.DMapReduce, FS.FileSystem)
 initializeData 
   = do
-    fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+    fs <- {-# SCC "initializeDatad" #-}FS.mkFileSystemNode FS.defaultFSNodeConfig
     let actions = dmandelActionMap
     let config  = MR.defaultMRWorkerConfig
-    mr <- MR.mkMapReduceWorker fs actions config
+    mr <- {-# SCC "initializeDatadddd" #-}MR.mkMapReduceWorker fs actions config
     return (mr,fs)
 
 

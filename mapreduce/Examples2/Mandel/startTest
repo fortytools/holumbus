@@ -33,11 +33,20 @@ I=1
 
 while [ $I -le $COUNT ]
 do
+  sudo /etc/init.d/PortRegistry start && \
+  sleep 1 && \
+  sudo /etc/init.d/Master start && \
   echo "Press Enter for run #$I ( Restart MR system if neccessary)"
   read
   echo "Runnin test $I"
   DIR="$BASE/Test$I"
-  mkdir $DIR && \
-/usr/bin/time -o $DIR/time.txt -v $CLIENT $WIDTH $HEIGHT $ZMAX $ITERATIONS "$DIR/out.pgm"
+  mkdir -p $DIR && \
+  date && \
+/usr/bin/time -o $DIR/time.txt -v $CLIENT $WIDTH $HEIGHT $ZMAX $ITERATIONS "$DIR/out.pgm" && \
+  sudo /etc/init.d/Master stop && \
+  sleep 1 && \
+  sudo /etc/init.d/PortRegistry stop && \
+  echo "RUn finished"
+  read
   I=`expr $I + 1`
 done

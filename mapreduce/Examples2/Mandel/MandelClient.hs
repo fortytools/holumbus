@@ -63,8 +63,8 @@ getParams
 main	:: IO()
 main
     = do
-      args <-getParams
-      main2 args
+      args <-{-#SCC "getargscc" #-}getParams
+      {-#SCC "getargscc" #-} main2 args
 
 main2 :: [String] -> IO ()
 main2 (sw : sh : szmax : siter : outp : _)
@@ -77,8 +77,9 @@ main2 (sw : sh : szmax : siter : outp : _)
       setPortRegistry p      
       mr <- initializeData
 
-      (ls,_) <- doMapReduce (dmandelAction) (w,h,zmax,iter) (pixels w h) [] 1 5 1 1 TOTRawTuple mr
-      let pix = (concat . map (\(xk,vs) -> vs) . sortBy sortPixels) ls
+      (ls,_) <- doMapReduce (dmandelAction) (w,h,zmax,iter) (pixels w h) [] 2 2 2 2 TOTRawTuple mr
+--      let pix = (concat . map (\(xk,vs) -> vs) . sortBy sortPixels) ls      
+      let pix = (concat . map (\(xk,vs) -> vs)) ls
       saveImage (Geo w h) pix outp
       deinitializeData mr
     where
@@ -96,7 +97,7 @@ sortPixels (k1,_) (k2,_)
 
 initializeData :: IO (MR.DMapReduce)
 initializeData 
-  = do
+  = do    
     let config = MR.defaultMRClientConfig
     MR.mkMapReduceClient config
 

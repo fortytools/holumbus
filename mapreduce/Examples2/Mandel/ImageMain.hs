@@ -6,11 +6,14 @@ import Examples2.Mandel.ImageMandel
 import System.IO
 import System.Environment
 
-saveImage :: (RealFloat a) =>  Geo -> a -> Int -> FilePath -> IO ()
+saveImage :: Geo -> Double -> Int -> FilePath -> IO ()
 saveImage g zmax iter dst
     = do
-      let res = showImage True $ gamma 4.0 $ Image g (imageMandel g zmax iter)
       writeFile dst res
+      where
+        image = Image g (imageMandel g zmax iter)
+        --image' = gamma 4.0 image
+        res = showImage True image
 -- --------------------------------------
 
 getParams	:: IO [String]
@@ -27,17 +30,12 @@ main
       
 main2	:: [String] -> IO()
 main2 (sw : sh : szmax : siter : outp : _)
-    = do
---      print $ "Width : " ++ show w
---      print $ "Height: " ++ show h
---      print $ "Iter  : " ++ show iter
---      print $ "ZMax  : " ++ show zmax;
-      saveImage (Geo w h) zmax iter outp
+    = saveImage (Geo w h) zmax iter outp
   	where
   	w = read sw
   	h = read sh
   	iter = read siter
-  	zmax = read szmax
+	zmax = read szmax
 
 -- --------------------------------------
 
