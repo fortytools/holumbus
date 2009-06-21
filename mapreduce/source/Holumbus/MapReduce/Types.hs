@@ -605,13 +605,13 @@ data MapConfiguration a k1 v1 k2 v2
   }
 
 
-data ReduceConfiguration a k2 v2 v3
+data ReduceConfiguration a k2 v3 v4
   = ReduceConfiguration {
-    rc_Merge     :: ReduceMerge a k2 v2
-  , rc_Function  :: ReduceFunction a k2 v2 v3
-  , rc_Partition :: ReducePartition a k2 v3
-  , rc_Reader    :: InputReader k2 v2
-  , rc_Writer    :: OutputWriter k2 v3
+    rc_Merge     :: ReduceMerge a k2 v3
+  , rc_Function  :: ReduceFunction a k2 v3 v4
+  , rc_Partition :: ReducePartition a k2 v4
+  , rc_Reader    :: InputReader k2 v3
+  , rc_Writer    :: OutputWriter k2 v4
   }
 
 
