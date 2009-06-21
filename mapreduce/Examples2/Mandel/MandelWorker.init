@@ -1,0 +1,42 @@
+#!/bin/bash
+
+PIDFILE="worker.pid"
+EXECUTABLE="./MandelWorker"
+NAME="MandelWorkerDaemon"
+CONSOLE_PORT=10000
+
+function startServer() {
+	start-stop-daemon --start --background -m -p "$PIDFILE" --startas "$EXECUTABLE" -- +RTS -p -K100M -hd -sMandelMemory.txt -RTS
+}
+
+function stopServer() {
+	start-stop-daemon --stop -p "$PIDFILE" && rm "$PIDFILE"
+}
+
+function status() {
+ [ -f "$PIDFILE" ] || { echo "$NAME is not running"; exit 1; }
+ ps aux | grep `cat "$PIDFILE"`
+}
+
+case $1 in
+  start)        
+    echo "Starting $NAME"
+    startServer
+  ;;
+  stop)
+    echo "Stopping $NAME"
+    stopServer
+  ;;
+  restart)
+    stopServer && startServer
+  ;;
+  status)
+    status
+  ;;
+  log)
+    tail -f "$LOGFILE"
+  ;;
+  *)
+    echo "Usage: PortRegistry (start|stop|restart|status|log)"
+  ;;
+esac
