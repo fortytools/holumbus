@@ -55,6 +55,8 @@ library
                 , unix       >= 2.3
                 , random     >= 1.0
                 , stm        >= 2.1.1.2
+                , parallel   >= 1.1.0.0
+                , array      >= 0.2.0.0
 
   hs-source-dirs: 
                   source
@@ -86,15 +88,16 @@ library
                  , Holumbus.Common.Utils
 
   ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification FlexibleContexts
 
 executable PortRegistry
   main-is: PortRegistry.hs
   hs-source-dirs: Programs/PortRegistry source
   ghc-options: -Wall -threaded
-  extensions: Arrows DeriveDataTypeable ExistentialQuantification
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification FlexibleContexts
 
 executable PortRegistryDaemon
   main-is: PortRegistryDaemon.hs
   hs-source-dirs: Programs/PortRegistryDaemon source
   ghc-options: -Wall -threaded
+  extensions: Arrows DeriveDataTypeable ExistentialQuantification FlexibleContexts

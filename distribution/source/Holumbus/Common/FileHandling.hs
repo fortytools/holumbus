@@ -147,10 +147,11 @@ getMany next = go (List []) next
     go (List xs) 0       = return . List $! reverse xs
     go (List xs) 1 = do
                  x <- get
-                 next <- getWord8
+                 next' <- getWord8
                  -- we must seq x to avoid stack overflows due to laziness in
                  -- (>>=)                 
-                 x `seq` go (List (x:xs)) next
+                 x `seq` go (List (x:xs)) next'
+    go _ _ = undefined
 -- | You'll need this function, if you read the files a a normal binary file,
 --   but the content itself is a list. This function encodes the bytestring
 --   into a list of the specified datatype.
