@@ -28,10 +28,10 @@ import           System.Exit
 
 
 version :: String
-version = "Holumbus-Distribution Standalone-Master 0.1"
+version = "Daemon-Master 0.1"
 
 prompt :: String
-prompt = "# MasterDaemon >"
+prompt = "# "++version++" > "
 
 localLogger :: String
 localLogger = "MasterDaemon"
