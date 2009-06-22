@@ -10,12 +10,12 @@ import Holumbus.Distribution.SimpleDMapReduce
 {-
   The mapping function
 -}
-idMap :: SimpleMapFunction Int Int Int Int
-idMap = (,)
+idMap :: SimpleMapFunction () Int Int Int Int
+idMap _ = (,)
 
 {-
  The reduce function
 -}
-idReduce :: SimpleReduceFunction Int Int Int
-idReduce key = head
+idReduce :: SimpleReduceFunction () Int Int Int
+idReduce _ _ = head
 

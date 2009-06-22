@@ -37,8 +37,8 @@ import           System.Exit
    The simple types & fucntions
   --------------------------------------------------------------------------------------------------------- -}   
 
-type SimpleMapFunction    k1 v1 k2 v2 =  k1 -> v1 -> (k2, v2)
-type SimpleReduceFunction k2 v2 v3    =  k2 -> [v2] -> v3
+type SimpleMapFunction    a k1 v1 k2 v2 =  a -> k1 -> v1 -> (k2, v2)
+type SimpleReduceFunction a k2 v2 v3    =  a -> k2 -> [v2] -> v3
 
 {-
   The mapping function
@@ -46,25 +46,25 @@ type SimpleReduceFunction k2 v2 v3    =  k2 -> [v2] -> v3
   type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 
 -}
-simpleMapping :: SimpleMapFunction k1 v1 k2 v2 -> MapFunction () k1 v1 k2 v2
-simpleMapping f _ _ key1 value1 = return [(key2, value2 )]
+simpleMapping :: SimpleMapFunction a k1 v1 k2 v2 -> MapFunction a k1 v1 k2 v2
+simpleMapping f _ a key1 value1 = return [(key2, value2 )]
   where
-  (key2, value2) = f key1 value1
+  (key2, value2) = f a key1 value1
 
 {-
  The reduce function
 
  type ReduceFunction a k2 v3 v4 = ActionEnvironment -> a -> k2 -> [v3] -> IO (Maybe v4)
 -}
-simpleReduce :: SimpleReduceFunction k2 v3 v4 -> ReduceFunction () k2 v3 v4
-simpleReduce f _ _ key2 values3 = return ( Just f' )
+simpleReduce :: SimpleReduceFunction a k2 v3 v4 -> ReduceFunction a k2 v3 v4
+simpleReduce f _ a key2 values3 = return ( Just f' )
   where 
-  f' = f key2 values3
+  f' = f a key2 values3
 
 {-
 actionConfig
 -}
-actionConfig :: (NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction k1 v1 k2 v2 -> SimpleReduceFunction k2 v3 v4 -> ActionConfiguration () k1 v1 k2 v2 v3 v4
+actionConfig :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 actionConfig m r = (defaultActionConfiguration "ID") {
            ac_Map     = Just . defaultMapConfiguration    $ simpleMapping m
          , ac_Reduce  = Just . defaultReduceConfiguration $ simpleReduce r
@@ -89,12 +89,12 @@ actionConfig m r = (defaultActionConfiguration "ID") {
   -> TaskOutputType  -- ^ type of the result (file of raw)
   -> mr -> IO ([(k2,v4)],[FileId])
 -}
-simpleClient :: (NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction k1 v1 k2 v2 -> SimpleReduceFunction k2 v3 v4 -> Int -> [(k1,v1)] -> IO [(k2,v4)]
-simpleClient m r num ls = do
+simpleClient :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> a -> Int -> [(k1,v1)] -> IO [(k2,v4)]
+simpleClient m r a num ls = do
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
       mr <- initializeData
-      (result, _) <- MR.doMapReduce (actionConfig m r) () ls [] num num num num TOTRawTuple mr
+      (result, _) <- MR.doMapReduce (actionConfig m r) a ls [] num num num num TOTRawTuple mr
       deinitializeData mr
       return result
 
@@ -144,7 +144,7 @@ params = do
 {-
  The simpleWorker
 -}
-simpleWorker :: (NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => SimpleMapFunction k1 v1 k2 v2  -> SimpleReduceFunction k2 v3 v4 -> IO ()
+simpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO ()
 simpleWorker m r = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -159,7 +159,7 @@ simpleWorker m r = do
 {-
  The simpleWorker's init functin
 -}
-initSimpleWorker :: (NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction k1 v1 k2 v2  -> SimpleReduceFunction k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initSimpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
 initSimpleWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig

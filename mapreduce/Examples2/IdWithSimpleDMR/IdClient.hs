@@ -11,7 +11,7 @@ import Data.List
 
 main :: IO ()
 main = do
-  result <- simpleClient idMap idReduce num ls
+  result <- simpleClient idMap idReduce () num ls
   putStrLn . show . sortBy sortList $ result
   where
   num = 2
