@@ -30,6 +30,8 @@ import qualified Text.XML.HXT.Arrow		as X
 
 import           Text.Regex.XMLSchema.String
 
+-- import qualified Debug.Trace as D
+
 -- ------------------------------------------------------------
 
 getOptions		:: [String] -> (Maybe String, String)
@@ -98,12 +100,24 @@ instance Binary Joke where
 			  return $ Joke x1 x2 x3 x4 x5
 
 mkJokes			:: [(JComp, String)] -> Jokes
+
 mkJokes ((Jauthor, a) : (Jid, i) : (Jclass, c) : (Jtext, t) : (Jcontext, x) : rest)
 			= Joke { jid = read i, jwho = a, jwhat = trim 1 t, jwhere = trim 1 x, jclass = c } : mkJokes rest
 			  where
 			  trim n               = drop n . reverse . drop n . reverse
-mkJokes []		= []
+
+mkJokes ((Jauthor, a) : (Jid, i) : (Jclass, c) : (Jtext, t) : rest)
+			= mkJokes $ (Jauthor, a) : (Jid, i) : (Jclass, c) : (Jtext, t) : (Jcontext, "") : rest
+
+mkJokes ((Jauthor, a) : (Jid, i) : rest)
+    			= mkJokes $ (Jauthor, a) : (Jid, i) : (Jclass, "") : rest
+
+mkJokes ((Jid, i) : rest)
+			= mkJokes $ (Jauthor, "") : (Jid, i) : rest
+
 mkJokes (_:xs)		= mkJokes xs
+
+mkJokes []		= []
 
 -- ------------------------------------------------------------
 
@@ -147,7 +161,7 @@ jokeCrawlerConfig	= addReadAttributes  [ ]				-- at the moment no more read attr
 
     collectJokes	= rnfA $						-- force complete evaluation of the result: this is essential, don't delete rnfA
 			  fromLA $
-			  listA theJokes >>^ mkJokes
+			  listA theJokes >>^ {- (\ x -> D.trace (show x) x ) >>^ -} mkJokes
 
     followRefs		= const True						-- all hrefs are collected
 
@@ -247,10 +261,13 @@ testCrawlerConfig	= setS theFollowRef
 
 showJokesAsHaskell	:: JokeTable -> String
 showJokesAsHaskell jt	= unlines
-			  [ "module Jokes"
+			  [ "module FussballerSprueche"
 			  , "where"
 			  , ""
 			  , "type Joke = (Int, String, String, String, String)"
+			  , ""
+			  , "allJokes :: [Joke]"
+			  , "allJokes = [" ++ intercalate ", " ( map (("joke" ++) . show) . M.keys $ jt ) ++ "]"
 			  , ""
 			  ]
 			  ++ M.fold ((++) . showJokeAsHaskell) "" jt
