@@ -26,7 +26,7 @@ import           Text.XML.HXT.Arrow
 -- ------------------------------------------------------------
 
 type Robots		= M.Map URI RobotRestriction
-type RobotRestriction	= [RobotSpec]						-- TODO
+type RobotRestriction	= [RobotSpec]
 type RobotSpec		= (URI, RobotAction)
 
 data RobotAction	= Disallow | Allow
@@ -44,6 +44,16 @@ instance NFData RobotAction where
     rnf			= rwhnf
 
 -- ------------------------------------------------------------
+
+robotsAddHost		:: String -> URI -> Robots -> IO Robots
+robotsAddHost agent uri rdm
+    | isJust spec	= return rdm
+    | otherwise		= do
+			  (h, r) <- robotsGetSpec agent host
+			  return $! M.insert h r rdm
+    where
+    host		= getHost uri
+    spec		= M.lookup host rdm
 
 robotsDisallow		:: URI -> Robots -> Bool
 robotsDisallow uri rdm
@@ -81,7 +91,8 @@ robotsGetSpec agent uri
     | null host		= return ("", [])
     | otherwise		= do
 			  r <- getRobotsTxt host
-			  return (host, evalRobotsTxt agent r)
+			  s <- return $ evalRobotsTxt agent r
+			  rnf s `seq` return (host, s)
     where
     host 		= getHost uri
 
