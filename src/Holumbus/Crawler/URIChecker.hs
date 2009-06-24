@@ -213,6 +213,8 @@ stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri u
 			  setS theSavePathPrefix savePath
 			  >>>
 			  setS theTraceLevel trc
+			  >>>
+			  enableRobotsTxt
 			  $
 			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 

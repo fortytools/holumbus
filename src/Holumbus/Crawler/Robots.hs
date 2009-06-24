@@ -96,9 +96,10 @@ robotsGetSpec attrs uri
 
 getRobotsTxt		:: Attributes -> URI -> IO String
 getRobotsTxt attrs uri	= do
-			  res <- runX ( readDocument ( addEntries [ (a_parse_by_mimetype, v_1)
-								  , (a_trace, v_0)
-								  , ("curl-L",v_1)
+			  res <- runX ( readDocument ( addEntries [ (a_parse_by_mimetype,        v_1)	-- these 3 options are important for reading none XML/HTML documents
+								  , (a_parse_html,               v_0)
+								  , (a_ignore_none_xml_contents, v_0)
+								  , (curl_location,              v_1)	-- follow redirects for robots.txt
 								  ]
 						                  attrs
 						     ) (getHost uri ++ "/robots.txt")
