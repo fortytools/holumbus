@@ -12,6 +12,7 @@ import           Data.List
 import qualified Data.Map       		as M
 import		 Data.Maybe
 
+import           Holumbus.Crawler.Keywords
 import           Holumbus.Index.Common		( URI )
 
 import 		 Network.URI 			hiding
@@ -45,11 +46,11 @@ instance NFData RobotAction where
 
 -- ------------------------------------------------------------
 
-robotsAddHost		:: String -> URI -> Robots -> IO Robots
-robotsAddHost agent uri rdm
+robotsAddHost		:: Attributes -> URI -> Robots -> IO Robots
+robotsAddHost attrs uri rdm
     | isJust spec	= return rdm
     | otherwise		= do
-			  (h, r) <- robotsGetSpec agent host
+			  (h, r) <- robotsGetSpec attrs host
 			  return $! M.insert h r rdm
     where
     host		= getHost uri
@@ -57,7 +58,6 @@ robotsAddHost agent uri rdm
 
 robotsDisallow		:: URI -> Robots -> Bool
 robotsDisallow uri rdm
-    | null host		= False
     | isNothing restr	= False
     | otherwise		= evalRestr $ fromJust restr
     where
@@ -83,25 +83,25 @@ getHost			= getURIPart h
 					 , uriFragment = ""
 					 }
 
-test1 = robotsGetSpec "HolIndex" "http://www.wikipedia.org/"
-test2 = robotsGetSpec "DOC"      "http://www.wikipedia.org/"
-
-robotsGetSpec		:: String -> URI -> IO (URI, RobotRestriction)
-robotsGetSpec agent uri
+robotsGetSpec		:: Attributes -> URI -> IO (URI, RobotRestriction)
+robotsGetSpec attrs uri
     | null host		= return ("", [])
     | otherwise		= do
-			  r <- getRobotsTxt host
+			  r <- getRobotsTxt attrs host
 			  s <- return $ evalRobotsTxt agent r
 			  rnf s `seq` return (host, s)
     where
     host 		= getHost uri
+    agent		= fromMaybe defaultCrawlerName . lookup curl_user_agent $ attrs
 
-getRobotsTxt		:: URI -> IO String
-getRobotsTxt uri	= do
-			  res <- runX ( readDocument [ (a_parse_by_mimetype, v_1)
-						     , (a_trace, v_0)
-						     , ("curl-L",v_1)
-						     ] (getHost uri ++ "/robots.txt")
+getRobotsTxt		:: Attributes -> URI -> IO String
+getRobotsTxt attrs uri	= do
+			  res <- runX ( readDocument ( addEntries [ (a_parse_by_mimetype, v_1)
+								  , (a_trace, v_0)
+								  , ("curl-L",v_1)
+								  ]
+						                  attrs
+						     ) (getHost uri ++ "/robots.txt")
 					>>>
 					documentStatusOk
 					>>>
@@ -147,19 +147,11 @@ evalRobotsTxt agent t	= lines
     toRestr ("disallow", uri)	= [(uri, Disallow)]				-- other directives are currently ignored
     toRestr ("allow",    uri)	= [(uri, Allow)]
     toRestr _			= []
-{-
-matchDirective		:: String -> Bool
-matchDirective		= match ("(" ++ intercalate "|" directives ++ ")" ++ ":")
-			  where
-			  directives = ["disallow", "allow", "user-agent", "crawl-delay", "request-rate", "visit-time", "sitemap"]
-
-rbm = M.fromList [("http://localhost", [("/emil/egon.html",Disallow),("/emil/",Allow),("/",Disallow)])]
--}
 
 -- ------------------------------------------------------------
 
 emptyRobots		:: Robots
-emptyRobots		= M.empty
+emptyRobots		= M.singleton "" []
 
 robotsExtend		:: String -> URI -> Robots -> IO Robots
 robotsExtend _robotName _uri robots

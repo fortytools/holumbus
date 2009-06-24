@@ -24,6 +24,7 @@ import qualified Holumbus.Index.Common		as H
 						, writeToBinFile
 						, loadFromBinFile
 						)
+import           Holumbus.Crawler.Keywords
 import           Holumbus.Crawler.Robots
 import           Holumbus.Crawler.Util		( mkTmpFile )
 
@@ -48,6 +49,8 @@ type URIs			= S.Set URI
 
 type AccumulateDocResult a r	= (URI, a) -> r -> IO r
 
+type AddRobotsAction            = URI -> Robots -> IO Robots
+
 -- | The crawler configuration record
 
 data CrawlerConfig a r		= CrawlerConfig
@@ -58,6 +61,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_processDoc	:: IOSArrow XmlTree a
 				  , cc_accumulate	:: AccumulateDocResult a r		-- result accumulation runs in the IO monad to allow storing parts externally
 				  , cc_followRef	:: URI -> Bool
+				  , cc_addRobotsTxt	:: AddRobotsAction
 				  , cc_maxNoOfDocs	:: ! Int
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
@@ -116,6 +120,9 @@ theSavePathPrefix	= S cc_savePathPrefix	(\ x s -> s {cc_savePathPrefix = x})
 theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
 theFollowRef		= S cc_followRef	(\ x s -> s {cc_followRef = x})
 
+theAddRobotsAction	:: Selector (CrawlerConfig a r) AddRobotsAction
+theAddRobotsAction	= S cc_addRobotsTxt	(\ x s -> s {cc_addRobotsTxt = x})
+
 theAccumulateOp		:: Selector (CrawlerConfig a r) (AccumulateDocResult a r)
 theAccumulateOp		= S cc_accumulate	(\ x s -> s {cc_accumulate = x})
 
@@ -147,29 +154,12 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  , cc_processDoc	= none						-- no document processing at all
 			  , cc_accumulate	= op						-- combining function for result accumulating
 			  , cc_followRef	= const False					-- do not follow any refs
+			  , cc_addRobotsTxt	= const $ return				-- do not add robots.txt evaluation
 			  , cc_traceLevel	= 1						-- traceLevel
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
 			  , cc_maxNoOfDocs	= (-1)						-- maximum number of docs to be crawled, -1 means unlimited
 			  }
-
-defaultCrawlerName	:: String
-defaultCrawlerName	= "HolumBot/0.2 @http://holumbus.fh-wedel.de -" ++ "-location"
-
-curl_user_agent		:: String
-curl_user_agent		= "curl-" ++ "-user-agent"
-
-curl_max_time		:: String
-curl_max_time           = "curl-" ++ "-max-time"
-
-curl_connect_timeout	:: String
-curl_connect_timeout	= "curl-" ++ "-connect-timeout"
-
-curl_max_filesize	:: String
-curl_max_filesize	= "curl-" ++ "-max-filesize"
-
-curl_location		:: String
-curl_location		= "curl-" ++ "-location"
 
 theCrawlerName		:: Selector (CrawlerConfig a r) String
 theCrawlerName		= theReadAttributes
@@ -195,6 +185,8 @@ theConnectTimeout	= theReadAttributes
 
 -- ------------------------------------------------------------
 
+-- | Add attributes for accessing documents
+
 addReadAttributes	:: Attributes -> CrawlerConfig a r -> CrawlerConfig a r
 addReadAttributes al	= update theReadAttributes (addEntries al)
 
@@ -207,6 +199,19 @@ addRobotsNoFollow	= update thePreRefsFilter ( robotsNoFollow >>> )
 
 addRobotsNoIndex	:: CrawlerConfig a r -> CrawlerConfig a r
 addRobotsNoIndex	= update thePreDocFilter ( robotsNoIndex >>> )
+
+
+-- | Enable the evaluation of robots.txt
+
+enableRobotsTxt		:: CrawlerConfig a r -> CrawlerConfig a r
+enableRobotsTxt c	= setS theAddRobotsAction (robotsAddHost attrs) c
+			  where
+			  attrs = getS theReadAttributes c
+
+-- | Disable the evaluation of robots.txt
+
+disableRobotsTxt	:: CrawlerConfig a r -> CrawlerConfig a r
+disableRobotsTxt	= setS theAddRobotsAction (const return)
 
 -- ------------------------------------------------------------
 
@@ -327,7 +332,7 @@ accumulateRes res		= do
 				  acc0    <- getState theResultAccu
 				  acc1    <- liftIO $ combine res acc0
 				  putState theResultAccu acc1
-			  
+
 -- ------------------------------------------------------------
 
 crawlDocs		:: Binary r => [URI] -> CrawlerAction c r ()
