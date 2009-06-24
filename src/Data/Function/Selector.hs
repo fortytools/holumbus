@@ -21,6 +21,13 @@ update sel f s		= setS sel x s
 			  where
 			  x = f . getS sel $ s
 
+updateM			:: (Monad m) => Selector s a -> (a -> m a) -> (s -> m s)
+updateM sel f s		= do
+			  y <- f x
+			  return $ setS sel y s
+			  where
+			  x = getS sel $ s
+
 -- | Alias for constructor S
 
 mkSelector		:: (s -> a) -> (a -> s -> s) -> Selector s a

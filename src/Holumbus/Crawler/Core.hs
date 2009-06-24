@@ -298,6 +298,9 @@ putState sel			= modify . setS sel
 modifyState			:: Selector (CrawlerState r) v -> (v -> v) -> CrawlerAction a r ()
 modifyState sel			= modify . update sel
 
+modifyStateIO			:: Selector (CrawlerState r) v -> (v -> IO v) -> CrawlerAction a r ()
+modifyStateIO sel		= modifyIO . updateM sel
+
 traceCrawl			:: Int -> [String] -> CrawlerAction c r ()
 traceCrawl l msg		= do
 				  l0 <- getConf theTraceLevel
@@ -325,6 +328,11 @@ uriToBeProcessed uri		= do
 				  aps <- getState theAlreadyProcessed
 				  when ( not $ uri `memberURIs` aps )
 				       ( modifyState theToBeProcessed $ insertURI uri )
+
+uriAddToRobotsTxt		:: URI -> CrawlerAction c r ()
+uriAddToRobotsTxt uri		= do
+				  raa <- getConf theAddRobotsAction
+				  modifyStateIO theRobots (raa uri)
 
 accumulateRes			:: (URI, c) -> CrawlerAction c r ()
 accumulateRes res		= do
@@ -386,14 +394,21 @@ crawlerSaveState	= do
 crawlDoc		:: URI -> CrawlerAction c r ()
 crawlDoc uri		= do
 			  traceCrawl 1 ["crawlDoc:", show uri]
-			  uriProcessed uri						-- uri is put into processed URIs
-			  (uri', uris, res) <- processDoc uri				-- get document and extract new refs and result
-			  when (not . null $ uri') $
-			       uriProcessed uri'					-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
+			  uriProcessed      uri						-- uri is put into processed URIs
+			  uriAddToRobotsTxt uri						-- for the uri host, a robots.txt is loaded, if neccessary
+			  rdm <- getState theRobots					-- check, whether uri is disaalowed by host/robots.txt
+			  if (robotsDisallow rdm uri)
+			     then do
+				  traceCrawl 1 ["crawlDoc: uri rejected by robots.txt", show uri]
+				  return ()
+			     else do
+				  (uri', uris, res) <- processDoc uri			-- get document and extract new refs and result
+				  when (not . null $ uri') $
+				       uriProcessed uri'				-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
 
-			  traceCrawl 1 ["crawlDoc: new uris:", show . nub . sort $ uris]
-			  mapM_ uriToBeProcessed uris					-- insert new uris into toBeProcessed set
-			  maybe (return ()) accumulateRes res				-- combine result with state accu
+				  traceCrawl 1 ["crawlDoc: new uris:", show . nub . sort $ uris]
+				  mapM_ uriToBeProcessed uris				-- insert new uris into toBeProcessed set
+				  maybe (return ()) accumulateRes res			-- combine result with state accu
 
 -- | Run the process document arrow and prepare results
 

@@ -56,8 +56,8 @@ robotsAddHost attrs uri rdm
     host		= getHost uri
     spec		= M.lookup host rdm
 
-robotsDisallow		:: URI -> Robots -> Bool
-robotsDisallow uri rdm
+robotsDisallow		:: Robots -> URI -> Bool
+robotsDisallow rdm uri
     | isNothing restr	= False
     | otherwise		= evalRestr $ fromJust restr
     where

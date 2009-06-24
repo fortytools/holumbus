@@ -47,6 +47,12 @@ instance MonadReader env (ReaderStateIO env state) where
     local f (RSIO cmd)
 	= RSIO $ \  e  s -> cmd (f e) s
 
+modifyIO		:: (state -> IO state) -> ReaderStateIO env state ()
+modifyIO f		= do
+			  s0 <- get
+			  s1 <- liftIO (f s0)
+			  put s1
+
 runReaderStateIO	:: ReaderStateIO env state res	-> env -> state -> IO (res, state)
 runReaderStateIO (RSIO cmd) e s
     = cmd e s
