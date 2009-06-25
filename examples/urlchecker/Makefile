@@ -22,6 +22,9 @@ fhw.fp	:
 fhw.hxtdoc	:
 	./$(PROG) "http://www.fh-wedel.de/~si/HXmlToolbox/hdoc/index.html" check.fh-wedel.hxtdoc.html
 
+fhw2	:
+	./$(PROG) "http://www2.fh-wedel.de/" check.www2-fh-wedel.de.html
+
 hobel.java	:
 	./$(PROG) "http://192.168.2.11/~si/vorlesungen/java/java.html" check.hobel.java.html
 

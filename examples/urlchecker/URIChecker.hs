@@ -93,6 +93,13 @@ sessions		= [ ( "http://localhost/~si/"
 			      , ("http://.*.edgewall.org.*",						Exists)
 			      ] ++ defaults
 			    )
+			  , ( "http://www2.fh-wedel.de/"
+			    , [ ("http://www2.fh-wedel.de/~splan/index.html[?].*",			Ignore)
+			      , ("http://www2.fh-wedel.de/.*[?].*",					Exists)
+			      , ("http://www2.fh-wedel.de(/.*)?",					Contents)
+			      , ("http://.*",								Exists)
+			      ] ++ defaults
+			    )
 			  ]
 
 -- | default uri handling
@@ -101,6 +108,7 @@ defaults		= [ ("http:.*",			Manual)
 			  , ("https:.*", 		Manual)
 			  , ("mailto:si@fh-wedel.de",	Ignore)
 			  , ("mailto:.*", 		Manual)
+			  , ("news:.*",   		Manual)
 			  , ("ftp:.*",			Manual)
 			  , ("javascript:.*", 		Ignore)
 			  , ("file:///.*", 		Illegal)

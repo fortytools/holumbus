@@ -214,7 +214,7 @@ stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri u
 			  >>>
 			  setS theTraceLevel trc
 			  >>>
-			  enableRobotsTxt
+			  disableRobotsTxt			-- change to enableRobotsTxt, when robots.txt becomes important
 			  $
 			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
