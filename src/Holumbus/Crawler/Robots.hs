@@ -99,6 +99,7 @@ getRobotsTxt attrs uri	= do
 			  res <- runX ( readDocument ( addEntries [ (a_parse_by_mimetype,        v_1)	-- these 3 options are important for reading none XML/HTML documents
 								  , (a_parse_html,               v_0)
 								  , (a_ignore_none_xml_contents, v_0)
+								  , (a_accept_mimetypes, "text/plain")	-- robots.txt is plain text
 								  , (curl_location,              v_1)	-- follow redirects for robots.txt
 								  ]
 						                  attrs

@@ -23,5 +23,11 @@ curl_max_filesize	= "curl-" ++ "-max-filesize"
 curl_location		:: String
 curl_location		= "curl-" ++ "-location"
 
+http_location		:: String
+http_location		= "http-location"
+
+http_last_modified	:: String
+http_last_modified	= "http-Last-Modified"
+
 -- ------------------------------------------------------------
 

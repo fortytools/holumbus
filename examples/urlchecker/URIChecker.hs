@@ -95,6 +95,7 @@ sessions		= [ ( "http://localhost/~si/"
 			    )
 			  , ( "http://www2.fh-wedel.de/"
 			    , [ ("http://www2.fh-wedel.de/~splan/index.html[?].*",			Ignore)
+			      , ("http://biblserv.fh-wedel.de.*",					Manual)
 			      , ("http://www2.fh-wedel.de/.*[?].*",					Exists)
 			      , ("http://www2.fh-wedel.de(/.*)?",					Contents)
 			      , ("http://.*",								Exists)

@@ -406,7 +406,7 @@ crawlDoc uri		= do
 				  when (not . null $ uri') $
 				       uriProcessed uri'				-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
 
-				  traceCrawl 1 ["crawlDoc: new uris:", show . nub . sort $ uris]
+				  traceCrawl 1 ["crawlDoc:", show . length . nub . sort $ uris, "new uris found"]
 				  mapM_ uriToBeProcessed uris				-- insert new uris into toBeProcessed set
 				  maybe (return ()) accumulateRes res			-- combine result with state accu
 
@@ -482,7 +482,7 @@ getLocationReference		= fromLA $
 				    isA (`elem` ["301", "302"])
 				  )
 				  `guards`
-				  getAttrValue0 "http-location"
+				  getAttrValue0 http_location
 
 -- | compute the real URI of the document, in case of a move response
 -- this is contained in the \"http-location\" attribute, else it's the

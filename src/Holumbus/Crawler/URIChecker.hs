@@ -170,7 +170,7 @@ uriCrawlerConfig opts ucf		= addReadAttributes opts
 					    &&&
 					    getAttrValue transferMimeType
 					    &&&
-					    getAttrValue "http-Last-Modified"
+					    getAttrValue http_last_modified
 					    &&&
 					    ( listA ( getHtmlReferences
 						      <+>
@@ -220,7 +220,8 @@ stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri u
 
 simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
 simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1 [ (curl_max_filesize, "1000000")	-- limit document size to 1 Mbyte
-								   , (curl_location, v_0)		-- don't automatically follow redirects
+								   , (curl_location, v_1)		-- automatically follow redirects
+								   , (a_accept_mimetypes, "text/html")
 								   ]
 								      
 -- ------------------------------------------------------------
