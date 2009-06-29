@@ -5,12 +5,11 @@
 module URIChecker.Template
 where
 
-import           Holumbus.Crawler.Core
 import           Holumbus.Crawler.URIChecker
+import           Holumbus.Crawler.URIs
 
 import		 Data.Maybe
 import qualified Data.Map as M
-import qualified Data.Set as S
 
 import		 Text.XML.HXT.Arrow
 
@@ -25,7 +24,7 @@ revRefs			= M.foldWithKey insRefs M.empty
     where
     insRefs uri dd rm	= foldURIs insRef rm $ dd_uris dd
 	where
-	insRef uri' rm' = M.insertWith S.union uri' (S.singleton uri) rm'
+	insRef uri' rm' = M.insertWith unionURIs uri' (singletonURIs uri) rm'
 
 genResultPage		:: String -> URI -> URIClassList -> DocMap -> IOSArrow a XmlTree
 genResultPage out uri _ucs dm
@@ -51,7 +50,7 @@ genResultPage out uri _ucs dm
     errURIs		= map fst . filter (containsErrURIs . snd) . M.toList $ dm
 			  where
 			  containsErrURIs d
-			      = any isNotOk . S.toList . dd_uris $ d
+			      = any isNotOk . toListURIs . dd_uris $ d
 				where
 				isNotOk u2
 				    = ( u2 `M.notMember` dm )
@@ -175,7 +174,7 @@ genResultPage out uri _ucs dm
 			  then txt ""
 			  else processChildren (genPage $ handlers4b uris')
 			  where
-			  uris' = S.toList . dd_uris . fromJust . M.lookup uri' $ dm
+			  uris' = toListURIs . dd_uris . fromJust . M.lookup uri' $ dm
 
     insertURIsRefs uris'= uf $< constL uris'
 		          where
@@ -201,7 +200,7 @@ genResultPage out uri _ucs dm
 			  then txt ""
 			  else processChildren (genPage $ handlers4b uris')
 			  where
-			  uris' = S.toList . fromMaybe emptyURIs . M.lookup uri' $ revRefMap
+			  uris' = toListURIs . fromMaybe emptyURIs . M.lookup uri' $ revRefMap
 
     insertURIsRefs0 u' = uf $< constL u'
 	                 where

@@ -52,20 +52,6 @@ main	= do
                                   testCrawlerConfig
 				  jokeCrawlerInitState
 	  writeFile out $ showJokesAsHaskell (getS theResultAccu $ docs)
-	  -- writeFile $ showJokesAsHaskell res
-{-
-	  runX ( constA (getS theResultAccu $ docs)
-		 >>>
-		 xpickleVal (xpTextDocs "http://localhost/~si/")
-		 >>>
-		 addXHtmlDoctypeTransitional
-		 >>>
-		 writeDocument [ (a_indent, v_1)
-			       , (a_output_encoding, usAscii)
-			       , (a_output_html, v_1)
-			       ] out
-	       )
--}
 	  return ()
 
 -- ------------------------------------------------------------

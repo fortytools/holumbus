@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module Holumbus.Crawler.Keywords
+module Holumbus.Crawler.Constants
 where
 
 defaultCrawlerName	:: String

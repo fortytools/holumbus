@@ -21,15 +21,15 @@ import		 Data.Maybe			( )
 
 import qualified Data.Map       		as M
 
-import           Holumbus.Crawler.Keywords
+import           Holumbus.Crawler.Constants
 import		 Holumbus.Crawler.Core
 import           Holumbus.Crawler.Html
+import		 Holumbus.Crawler.URIs
 
-import		 Text.XML.HXT.Arrow		hiding ( when
-						       , getState
-						       )
+import		 Text.XML.HXT.Arrow		hiding 		( when
+								, getState
+								)
 import qualified Text.XML.HXT.Arrow		as X
-
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match )
 
 -- import qualified Debug.Trace			as D

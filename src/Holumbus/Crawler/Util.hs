@@ -5,12 +5,11 @@
 module Holumbus.Crawler.Util
 where
 
-import		 Control.Applicative		( liftA2 )
+import		 Control.Applicative				( liftA2 )
 
 import           Data.List
 
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
-						( match )
+import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match )
 
 -- ------------------------------------------------------------
 

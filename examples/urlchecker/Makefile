@@ -35,7 +35,7 @@ clean	:
 	rm -f *.hi *.o tmp/check-* check.*.html
 
 distclean	: clean
-	rm $(PROG)
+	rm -f $(PROG)
 
 $(PROG)	: $(SRC)
 	$(HC) --make -o $@ $<

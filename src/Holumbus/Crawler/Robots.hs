@@ -12,17 +12,19 @@ import           Data.List
 import qualified Data.Map       		as M
 import		 Data.Maybe
 
-import           Holumbus.Crawler.Keywords
-import           Holumbus.Index.Common		( URI )
+import           Holumbus.Crawler.Constants
+import           Holumbus.Crawler.URIs
 
-import 		 Network.URI 			hiding
-    						( URI )
+import 		 Network.URI 			hiding	( URI )
 import qualified Network.URI			as N
 
 import           Text.XML.HXT.Arrow
--- import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
--- import qualified Debug.Trace as D
+{-
+import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
+
+import qualified Debug.Trace as D
+-}
 
 -- ------------------------------------------------------------
 
@@ -46,6 +48,9 @@ instance NFData RobotAction where
 
 -- ------------------------------------------------------------
 
+-- | Add a robots.txt description for a given URI, if it's not already there.
+-- The 1. main function of this module
+
 robotsAddHost		:: Attributes -> URI -> Robots -> IO Robots
 robotsAddHost attrs uri rdm
     | isJust spec	= return rdm
@@ -55,6 +60,11 @@ robotsAddHost attrs uri rdm
     where
     host		= getHost uri
     spec		= M.lookup host rdm
+
+-- ------------------------------------------------------------
+
+-- | Check whether a robot is not allowed to access a page.
+-- The 2. main function of this module
 
 robotsDisallow		:: Robots -> URI -> Bool
 robotsDisallow rdm uri
@@ -70,10 +80,14 @@ robotsDisallow rdm uri
 			      | r `isPrefixOf` path'	= a == Disallow
 			      | otherwise		= v
 
+-- ------------------------------------------------------------
+
 getURIPart		:: (N.URI -> String) -> URI -> String
 getURIPart f		= maybe "" f
 			  .
 			  N.parseURIReference
+
+-- | Get the protocol-host-port part of an URI
 
 getHost			:: URI -> URI
 getHost			= getURIPart h
@@ -82,6 +96,9 @@ getHost			= getURIPart h
 					 , uriQuery = ""
 					 , uriFragment = ""
 					 }
+-- ------------------------------------------------------------
+
+-- | Access, parse and evaluate a robots.txt file for a given URI
 
 robotsGetSpec		:: Attributes -> URI -> IO (URI, RobotRestriction)
 robotsGetSpec attrs uri
@@ -93,6 +110,11 @@ robotsGetSpec attrs uri
     where
     host 		= getHost uri
     agent		= fromMaybe defaultCrawlerName . lookup curl_user_agent $ attrs
+
+-- ------------------------------------------------------------
+
+-- | Try to get the robots.txt file for a given host.
+-- If it's not there or any errors occuduring acces, the empty string is returned
 
 getRobotsTxt		:: Attributes -> URI -> IO String
 getRobotsTxt attrs uri	= do
@@ -112,6 +134,10 @@ getRobotsTxt attrs uri	= do
 				        getText
 				      )
 			  return $ concat res
+
+-- ------------------------------------------------------------
+
+-- | Parse the robots.txt, select the crawler specific parts and build a robots restriction value
 
 evalRobotsTxt		:: String -> String -> RobotRestriction
 evalRobotsTxt agent t	= lines

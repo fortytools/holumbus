@@ -17,14 +17,8 @@ import           Data.Function.Selector
 import           Data.List
 import		 Data.Maybe
 
-import qualified Data.Set       		as S
-
-import qualified Holumbus.Index.Common		as H
-                                                ( URI
-						, writeToBinFile
-						, loadFromBinFile
-						)
-import           Holumbus.Crawler.Keywords
+import           Holumbus.Crawler.Constants
+import           Holumbus.Crawler.URIs
 import           Holumbus.Crawler.Robots
 import           Holumbus.Crawler.Util		( mkTmpFile )
 
@@ -38,11 +32,6 @@ import		 Text.XML.HXT.Arrow		hiding
 -- import qualified Debug.Trace			as D
 
 -- ------------------------------------------------------------
-
-type URI			= H.URI
-
--- | A set of URIs
-type URIs			= S.Set URI
 
 -- | The action to combine the result of a single document with the accumulator for the overall crawler result.
 -- This combining function runs in the IO monad to enable storing parts of the result externally
@@ -252,35 +241,6 @@ initCrawlerState r	= CrawlerState
 			  }
 
 -- ------------------------------------------------------------
-
-emptyURIs		:: URIs
-emptyURIs		= S.empty
-
-nullURIs		:: URIs -> Bool
-nullURIs		= S.null
-
-memberURIs		:: URI -> URIs -> Bool
-memberURIs		= S.member
-
-cardURIs		:: URIs -> Int
-cardURIs		= S.size
-
-nextURI			:: URIs -> URI
-nextURI			= S.findMin
-
-insertURI		:: URI -> URIs	-> URIs
-insertURI		= S.insert
-
-deleteURI		:: URI -> URIs	-> URIs
-deleteURI		= S.delete
-
-fromListURIs		:: [URI] -> URIs
-fromListURIs		= S.fromList
-
-foldURIs		:: (URI -> b -> b) -> b -> URIs -> b
-foldURIs		= S.fold
-
--- ------------------------------------------------------------
 --
 -- basic crawler actions
 
@@ -310,11 +270,11 @@ traceCrawl l msg		= do
 saveCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
 saveCrawlerState fn		= do
 				  s <- get
-				  liftIO $ H.writeToBinFile fn s
+				  liftIO $ B.encodeFile fn s
 
 loadCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
 loadCrawlerState fn		= do
-				  s <- liftIO $ H.loadFromBinFile fn
+				  s <- liftIO $ B.decodeFile fn
 				  put s
 
 

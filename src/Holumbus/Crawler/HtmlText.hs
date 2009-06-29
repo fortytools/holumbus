@@ -16,6 +16,7 @@ import		 Data.Maybe			( )
 
 import qualified Data.Map       		as M
 
+import		 Holumbus.Crawler.URIs
 import		 Holumbus.Crawler.Core
 import           Holumbus.Crawler.Html
 

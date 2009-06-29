@@ -42,7 +42,7 @@ testCrawlerConfig	= setS theFollowRef
 			  >>>
 			  setS theSaveIntervall 20						-- every 20 documents the state is saved
 			  >>>
-			  setS theSavePrefix "./tmp/hc-"					-- states are saved in subdir "./tmp" in files starting with "hc-"
+			  setS theSavePathPrefix "./tmp/hc-"					-- states are saved in subdir "./tmp" in files starting with "hc-"
 			  >>>
 			  setS theTraceLevel 1							-- trace actions with lowest level
 			  $
