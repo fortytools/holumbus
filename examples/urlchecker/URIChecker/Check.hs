@@ -37,8 +37,14 @@ main1 sessList		= do
 			  (resume, sid, out) <- getArgs >>= return . getOptions
 			  case lookup sid sessList of
 			    Nothing -> do
-				       hPutStrLn stderr $
-						 unwords ["no URI config for root URI found:", show sid]
+				       hPutStrLn stderr $ unlines $
+					 [ unwords ["no URI config for start URI found:", show sid]
+				         , ""
+					 , "possible start uris are"
+					 , ""
+					 ]
+				         ++
+					 map fst sessList
 				       return ()
 			    Just uris -> do
 					 dm    <- simpleURIChecker resume sid uris

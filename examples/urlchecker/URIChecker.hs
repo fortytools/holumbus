@@ -94,10 +94,13 @@ sessions		= [ ( "http://localhost/~si/"
 			      ] ++ defaults
 			    )
 			  , ( "http://www2.fh-wedel.de/"
-			    , [ ("http://www2.fh-wedel.de/~splan/index.html[?].*",			Ignore)
-			      , ("http://biblserv.fh-wedel.de.*",					Manual)
-			      , ("http://www2.fh-wedel.de/.*[?].*",					Exists)
-			      , ("http://www2.fh-wedel.de(/.*)?",					Contents)
+			    , [ ("http://www2.fh-wedel.de/~splan/index.html[?].*",			Ignore)		-- queries are not interesting
+			      , ("http://www2.fh-wedel.de/~cwlan/.*",					Contents)	-- cwlan home pages
+			      , ("http://www2.fh-wedel.de/~.*",						Exists)		-- personal home pages
+			      , ("http://www2.fh-wedel.de/%7E.*",					Exists)		-- personal home pages
+			      -- , ("http://biblserv.fh-wedel.de.*",					Manual)		-- library opac (contains errors)
+			      , ("http://www2.fh-wedel.de/.*[?].*",					Exists)		-- pages with query string
+			      , ("http://www2.fh-wedel.de(/.*)?",					Contents)	-- "real" pages
 			      , ("http://.*",								Exists)
 			      ] ++ defaults
 			    )
@@ -107,7 +110,7 @@ sessions		= [ ( "http://localhost/~si/"
 defaults		:: URIClassList
 defaults		= [ ("http:.*",			Manual)
 			  , ("https:.*", 		Manual)
-			  , ("mailto:si@fh-wedel.de",	Ignore)
+			  -- , ("mailto:si@fh-wedel.de",	Ignore)
 			  , ("mailto:.*", 		Manual)
 			  , ("news:.*",   		Manual)
 			  , ("ftp:.*",			Manual)

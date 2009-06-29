@@ -23,6 +23,9 @@ curl_max_filesize	= "curl-" ++ "-max-filesize"
 curl_location		:: String
 curl_location		= "curl-" ++ "-location"
 
+curl_max_redirects	:: String
+curl_max_redirects	= "curl-" ++ "-max-redirs"
+
 http_location		:: String
 http_location		= "http-location"
 

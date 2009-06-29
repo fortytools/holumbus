@@ -223,6 +223,7 @@ simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1 [ (curl_max_filesize
 								   , (a_ignore_encoding_errors, v_1)    -- encoding errors and parser warnings are boring
 								   , (a_issue_warnings, v_0)
 								   , (curl_location, v_1)		-- automatically follow redirects
+								   , (curl_max_redirects, "3")		-- but limit # of redirects to 3
 								   , (a_accept_mimetypes, "text/html")
 								   ]
 								      
