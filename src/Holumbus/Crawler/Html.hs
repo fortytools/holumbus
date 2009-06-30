@@ -113,3 +113,40 @@ computeDocBase			= ( ( ( this				-- try to find a base element in head
 				  getAttrValue transferURI 		-- the default: take the transfer uri
 
 -- ------------------------------------------------------------
+
+getByPath			:: ArrowXml a => [String] -> a XmlTree XmlTree
+getByPath			= seqA . map (\ n -> getChildren >>> hasName n)
+
+
+getHtmlTitle			:: ArrowXml a => a XmlTree String
+getHtmlTitle			= fromLA $
+				  ( getByPath ["html", "head", "title"]
+				    >>>
+				    deep getText
+				  )
+				  >. (concat >>> normalizeWS)				-- normalize Space
+
+getHtmlText			:: ArrowXml a => a XmlTree String
+getHtmlText			= fromLA $
+				  ( getByPath ["html", "body"]
+				    >>>
+				    deep getText
+				    >>^
+				    (" " ++)						-- text parts are separated by a space
+				  )
+				  >. (concat >>> normalizeWS)				-- normalize Space
+
+-- | normalize whitespace by splitting a text into words and joining this together with unwords
+
+normalizeWS	:: String -> String
+normalizeWS	= words >>> unwords
+
+-- | take the first n chars of a string, if the input is too long the cut off is indicated by \"...\" at the end
+limitLength	:: Int -> String -> String
+limitLength n s
+    | length s' <= n		= s
+    | otherwise			= take (n - 3) s' ++ "..."
+    where
+    s'				= take (n + 1) s
+
+-- ------------------------------------------------------------

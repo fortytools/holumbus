@@ -53,19 +53,20 @@ data (HolIndex i) =>
 indexCrawlerConfig		:: Attributes					-- ^ document read options
 				-> Maybe (IOSArrow XmlTree String)		-- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
 				-> Maybe (IOSArrow XmlTree XmlTree)		-- ^ the pre document filter, default is the this arrow
-				-> IOSArrow XmlTree String			-- ^ the filter for computing the document title
-				-> IOSArrow XmlTree String			-- ^ the filter for computing the raw text
-				-> IOSArrow XmlTree c				-- ^ the filter for the cutomized doc info
+				-> Maybe (IOSArrow XmlTree String)		-- ^ the filter for computing the document title, default is empty string
+				-> Maybe (IOSArrow XmlTree String)		-- ^ the filter for computing the raw text, default is empty string
+				-> Maybe (IOSArrow XmlTree c)			-- ^ the filter for the cutomized doc info, default Nothing
 				-> [ContextConfig]				-- ^ the configuration of the various index parts
 				-> IndexCrawlerConfig i c			-- ^ result is a crawler config
-indexCrawlerConfig opts	getHrefF preDocF _titleF _textF _customF _contexts
+
+indexCrawlerConfig opts	getHrefF preDocF titleF0 textF0 customF0 contextCs
 				= addReadAttributes defaultOpts			-- install the default read options
 				  >>>
 				  addReadAttributes opts			-- overwrite and add specific read options
 				  >>>
-				  ( setS theProcessRefs $ fromMaybe getHtmlReferences getHrefF )
+				  ( setS theProcessRefs  $ fromMaybe getHtmlReferences getHrefF )
 				  >>>
-				  ( setS thePreDocFilter $ fromMaybe this preDocF )
+				  ( setS thePreDocFilter $ fromMaybe checkDocumentStatus preDocF )	-- in case of errors throw away any contents
 				  >>>
 				  enableRobotsTxt				-- add the robots stuff at the end
 				  >>>						-- the filter wrap the other filters
@@ -76,6 +77,16 @@ indexCrawlerConfig opts	getHrefF preDocF _titleF _textF _customF _contexts
 				  defaultCrawlerConfig insertRawDoc		-- take the default crawler config
 										-- and set the result combining function
     where
+    titleF			= fromMaybe (constA "") titleF0
+    textF			= fromMaybe (constA "") textF0
+    customF			= fromMaybe none        customF0
+
+    contextFs			:: IOSArrow XmlTree RawContexts
+    contextFs			= catA . map contextF $ contextCs
+
+    contextF			:: ContextConfig -> IOSArrow XmlTree RawContexts
+    contextF			= undefined
+
     defaultOpts			= [ (curl_max_filesize, 	"1000000")	-- limit document size to 1 Mbyte
 				  , (curl_location, 		v_1)		-- automatically follow redirects
 				  , (curl_max_redirects, 	"3")		-- but limit # of redirects to 3

@@ -15,7 +15,7 @@ import qualified Data.Binary			as B			-- else naming conflict with put and get f
 import           Data.Function.Selector
 
 import           Data.List
-import		 Data.Maybe
+import		 Data.Maybe			( )
 
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.URIs
@@ -139,7 +139,7 @@ defaultCrawlerConfig op	= CrawlerConfig
 						  ]
 			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
 			  , cc_processRefs	= none						-- don't extract refs
-			  , cc_preDocFilter     = this						-- no document preprocessing
+			  , cc_preDocFilter     = checkDocumentStatus				-- default: in case of errors throw away any contents
 			  , cc_processDoc	= none						-- no document processing at all
 			  , cc_accumulate	= op						-- combining function for result accumulating
 			  , cc_followRef	= const False					-- do not follow any refs
@@ -362,17 +362,17 @@ crawlDoc uri		= do
 				  traceCrawl 1 ["crawlDoc: uri rejected by robots.txt", show uri]
 				  return ()
 			     else do
-				  (uri', uris, res) <- processDoc uri			-- get document and extract new refs and result
+				  (uri', uris, resList) <- processDoc uri		-- get document and extract new refs and result
 				  when (not . null $ uri') $
 				       uriProcessed uri'				-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
 
 				  traceCrawl 1 ["crawlDoc:", show . length . nub . sort $ uris, "new uris found"]
 				  mapM_ uriToBeProcessed uris				-- insert new uris into toBeProcessed set
-				  maybe (return ()) accumulateRes res			-- combine result with state accu
+				  mapM_ accumulateRes resList				-- combine results with state accu
 
 -- | Run the process document arrow and prepare results
 
-processDoc		:: URI -> CrawlerAction c r (URI, [URI], Maybe (URI, c))
+processDoc		:: URI -> CrawlerAction c r (URI, [URI], [(URI, c)])
 processDoc uri		= do
 			  conf <- ask
 			  [(uri', (uris, res))] <- liftIO $ runX (processDocArrow conf uri)
@@ -380,8 +380,8 @@ processDoc uri		= do
 				   then uri'
 				   else ""
 				 , filter (getS theFollowRef conf) uris
-				 , listToMaybe res
-				 )
+				 , res							-- usually in case of normal processing this list consists of a singleton list
+				 )							-- and in case of an error it's an empty list
 
 -- | From a document two results are computed, 1. the list of all hrefs in the contents,
 -- and 2. the collected info contained in the page. This result is augmented with the transfer uri
@@ -409,26 +409,32 @@ processDocArrow c uri	= ( setTraceLevel ( (getS theTraceLevel c) - 1)
 			    >>>
 			    ( getRealDocURI
 			      &&&
-			      listA ( ( replaceChildren none
-					`whenNot`
-					documentStatusOk
-				      )					-- only the contents of "good" documents are searched for refs
+			      listA ( checkDocumentStatus
 				      >>>
 				      getS thePreRefsFilter c
 				      >>>
 				      getS theProcessRefs c
 				    )
 			      &&&
-			      listA ( getAttrValue transferURI
-				      &&&
-				      ( getS thePreDocFilter c
-					>>>
-					getS theProcessDoc c
-				      )
+			      listA (  getS thePreDocFilter c
+				       >>>
+				       ( getAttrValue transferURI
+					 &&&
+					 getS theProcessDoc c
+				       )
 				    )
 			    )
 			  )
 			  `withDefault` ("", ([], []))
+
+-- ------------------------------------------------------------
+
+-- | Remove contents, when document status isn't ok, but remain meta info
+
+checkDocumentStatus		:: IOSArrow XmlTree XmlTree
+checkDocumentStatus		=  replaceChildren none
+				   `whenNot`
+				   documentStatusOk
 
 -- ------------------------------------------------------------
 

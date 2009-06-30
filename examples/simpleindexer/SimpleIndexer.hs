@@ -28,9 +28,9 @@ simpleIndexerConfig		= indexCrawlerConfig
 				   [ ]							-- use default read options
 				  Nothing						-- use default collection filter
 				  Nothing						-- use the default pre document filter: this
-				  none						-- the document title
-				  none						-- the raw text
-				  none						-- the customized doc info
-				  []						-- the context configs
+				  Nothing						-- the document title
+				  Nothing						-- the raw text
+				  Nothing						-- the customized doc info
+				  []							-- the context configs
 
 -- ------------------------------------------------------------
