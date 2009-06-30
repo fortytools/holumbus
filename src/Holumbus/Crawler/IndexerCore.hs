@@ -7,7 +7,12 @@ where
 
 -- ------------------------------------------------------------
 
+import           Data.Function.Selector
+import		 Data.Maybe
+
+import		 Holumbus.Crawler.Constants
 import		 Holumbus.Crawler.Core
+import		 Holumbus.Crawler.Html
 import		 Holumbus.Crawler.URIs
 
 import		 Holumbus.Index.Common		hiding ( URI )
@@ -24,10 +29,10 @@ type RawWords                   = [RawWord]
 type RawWord			= (Word, Position)
 type RawText			= String
 
-type IxCrawlerConfig i u	= CrawlerConfig (RawDoc u) (IndexerState i u)
+type IndexCrawlerConfig i u	= CrawlerConfig (RawDoc u) (IndexerState i u)
 
 data IndexerConfig i u		= IndexerConfig
-				  { icc_crawlerConfig	:: IxCrawlerConfig i u
+				  { icc_crawlerConfig	:: IndexCrawlerConfig i u
 				  , icc_docTitle	:: IOSArrow XmlTree String
 				  , icc_rawText		:: IOSArrow XmlTree String
 				  , icc_custom		:: IOSArrow XmlTree u
@@ -45,14 +50,43 @@ data (HolIndex i) =>
 
 -- ------------------------------------------------------------
 
-defaultIndexerConfig		:: IndexerConfig i u
-defaultIndexerConfig		= IndexerConfig
-				  { icc_crawlerConfig	= defaultCrawlerConfig insertRawDoc
-				  , icc_docTitle	= none
-				  , icc_rawText		= none
-				  , icc_custom		= none
-				  , icc_contexts	= []
-				  }
+indexCrawlerConfig		:: Attributes					-- ^ document read options
+				-> Maybe (IOSArrow XmlTree String)		-- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
+				-> Maybe (IOSArrow XmlTree XmlTree)		-- ^ the pre document filter, default is the this arrow
+				-> IOSArrow XmlTree String			-- ^ the filter for computing the document title
+				-> IOSArrow XmlTree String			-- ^ the filter for computing the raw text
+				-> IOSArrow XmlTree c				-- ^ the filter for the cutomized doc info
+				-> [ContextConfig]				-- ^ the configuration of the various index parts
+				-> IndexCrawlerConfig i c			-- ^ result is a crawler config
+indexCrawlerConfig opts	getHrefF preDocF _titleF _textF _customF _contexts
+				= addReadAttributes defaultOpts			-- install the default read options
+				  >>>
+				  addReadAttributes opts			-- overwrite and add specific read options
+				  >>>
+				  ( setS theProcessRefs $ fromMaybe getHtmlReferences getHrefF )
+				  >>>
+				  ( setS thePreDocFilter $ fromMaybe this preDocF )
+				  >>>
+				  enableRobotsTxt				-- add the robots stuff at the end
+				  >>>						-- the filter wrap the other filters
+				  addRobotsNoFollow
+				  >>>
+				  addRobotsNoIndex
+				  $
+				  defaultCrawlerConfig insertRawDoc		-- take the default crawler config
+										-- and set the result combining function
+    where
+    defaultOpts			= [ (curl_max_filesize, 	"1000000")	-- limit document size to 1 Mbyte
+				  , (curl_location, 		v_1)		-- automatically follow redirects
+				  , (curl_max_redirects, 	"3")		-- but limit # of redirects to 3
+				  , (a_accept_mimetypes, 	"text/html")
+				  , (a_encoding,		isoLatin1)
+				  , (a_ignore_encoding_errors, 	v_1)   		-- encoding errors and parser warnings are boring
+				  , (a_validate,   		v_0)
+				  , (a_parse_html,		v_1)
+				  , (a_issue_warnings, 	v_0)
+				  ]
+
 
 defaultIndexerState		:: (HolIndex i) => i -> IndexerState i u
 defaultIndexerState ix		= IndexerState
