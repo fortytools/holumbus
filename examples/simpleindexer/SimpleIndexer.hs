@@ -5,13 +5,13 @@
 module SimpleIndexer
 where
 
-import		 Holumbus.Crawler.Constants	()
+import		 Holumbus.Crawler.Constants	( )
 import		 Holumbus.Crawler.IndexerCore
-import		 Holumbus.Crawler.Html		()
+import		 Holumbus.Crawler.Html
 
 import		 Holumbus.Index.Inverted.Memory
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Arrow		( )
 
 -- ------------------------------------------------------------
 
@@ -28,7 +28,7 @@ simpleIndexerConfig		= indexCrawlerConfig
 				   [ ]							-- use default read options
 				  Nothing						-- use default collection filter
 				  Nothing						-- use the default pre document filter: this
-				  Nothing						-- the document title
+				  (Just getHtmlTitle)					-- the document title
 				  Nothing						-- the raw text
 				  Nothing						-- the customized doc info
 				  []							-- the context configs
