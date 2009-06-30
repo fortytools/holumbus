@@ -93,16 +93,16 @@ toAbsRef base ref		= ( expandURIString ref			-- here >>> is normal function comp
         where
         path 			= dropWhile (/='#') . reverse $ r 
 
+-- ------------------------------------------------------------
+
 -- | Compute the base URI of a HTML page with respect to a possibly given base element in the head element of a html page.
 --   Stolen from Uwe Schmidt, http:\/\/www.haskell.org\/haskellwiki\/HXT
 --   and then stolen back again by Uwe from Holumbus.Utility
 
 computeDocBase  		:: ArrowXml a => a XmlTree String
-computeDocBase			= ( ( ( this				-- try to find a base element in head
-					/> hasName "html"		-- and compute document base with transfer uri and base
-					/> hasName "head"
-					/> hasName "base"
-					>>> getAttrValue "href"
+computeDocBase			= ( ( ( getByPath ["html", "head", "base"]
+					>>>
+					getAttrValue "href"			-- and compute document base with transfer uri and base
 				      )
 				      &&&
 				      getAttrValue transferURI
@@ -110,7 +110,7 @@ computeDocBase			= ( ( ( this				-- try to find a base element in head
 				    >>> expandURI
 				  )
 				  `orElse`
-				  getAttrValue transferURI 		-- the default: take the transfer uri
+				  getAttrValue transferURI 			-- the default: take the transfer uri
 
 -- ------------------------------------------------------------
 
@@ -126,8 +126,8 @@ getHtmlTitle			= fromLA $
 				  )
 				  >. (concat >>> normalizeWS)				-- normalize Space
 
-getHtmlText			:: ArrowXml a => a XmlTree String
-getHtmlText			= fromLA $
+getHtmlPlainText		:: ArrowXml a => a XmlTree String
+getHtmlPlainText		= fromLA $
 				  ( getByPath ["html", "body"]
 				    >>>
 				    deep getText
@@ -135,6 +135,8 @@ getHtmlText			= fromLA $
 				    (" " ++)						-- text parts are separated by a space
 				  )
 				  >. (concat >>> normalizeWS)				-- normalize Space
+
+-- ------------------------------------------------------------
 
 -- | normalize whitespace by splitting a text into words and joining this together with unwords
 
