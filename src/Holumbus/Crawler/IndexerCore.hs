@@ -1,4 +1,4 @@
-{-# OPTIONS #-}
+{-# OPTIONS #-} {- -XFlexibleContexts -}
 
 -- ------------------------------------------------------------
 
@@ -7,9 +7,12 @@ where
 
 -- ------------------------------------------------------------
 
+import		 Control.Parallel.Strategies
+
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
 import           Data.Function.Selector
+import		 Data.List
 import		 Data.Maybe
 
 import		 Holumbus.Crawler.Constants
@@ -41,8 +44,8 @@ data IndexContextConfig		= IndexContextConfig
 
 data (HolIndex i, HolDocuments d c) =>
      IndexerState i d c		= IndexerState
-				  { ixs_index		:: i			-- the index type
-				  , ixs_documents	:: d c			-- the user defined type for document descriptions
+				  { ixs_index		:: ! i			-- the index type
+				  , ixs_documents	:: ! (d c)		-- the user defined type for document descriptions
 				  }
 
 -- ------------------------------------------------------------
@@ -62,7 +65,8 @@ instance (HolIndex i, HolDocuments d c) => Binary (IndexerState i d c) where
 
 -- ------------------------------------------------------------
 
-indexCrawlerConfig		:: Attributes					-- ^ document read options
+indexCrawlerConfig		:: (HolIndex i, HolDocuments d c, NFData c) =>
+				   Attributes					-- ^ document read options
 				-> (URI -> Bool)				-- ^ the filter for deciding, whether the URI shall be processed
 				-> Maybe (IOSArrow XmlTree String)		-- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
 				-> Maybe (IOSArrow XmlTree XmlTree)		-- ^ the pre document filter, default is the this arrow
@@ -143,18 +147,36 @@ emptyIndexerState eix edm	= IndexerState
 
 -- ------------------------------------------------------------
 
-insertRawDoc			:: (URI, RawDoc c) -> IndexerState i d c -> IO (IndexerState i d c)
-insertRawDoc (_uri, (_rcs, _rtlt, _u)) _ixs
-				= return undefined
+insertRawDoc			:: (HolIndex i, HolDocuments d c, NFData c) =>
+				   (URI, RawDoc c)				-- ^ extracted URI and doc info
+				-> IndexerState i d c				-- ^ old indexer state
+				-> IO (IndexerState i d c)			-- ^ new indexer state
+
+insertRawDoc (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
+				= return $
+				  IndexerState
+				  { ixs_index		= newIx
+				  , ixs_documents	= newDocs
+				  }
+    where
+    newIx			= foldl' insertRawContext (ixs_index ixs) $ rawContexts
+    insertRawContext ix cx	= undefined 		-- ix
+
+    (did, newDocs)		= insertDoc (ixs_documents ixs) doc
+    doc				= Document					-- Document is reduced to normal form
+				  { title	= rawTitle  `using` rnf
+				  , uri		= rawUri    `using` rnf
+				  , custom	= rawCustom `using` rnf
+				  }
 
 -- ------------------------------------------------------------
 
 stdIndexer			:: (HolIndex i, HolDocuments d c, Binary c) =>
-				   Maybe String							-- ^ resume from interrupted index run with state stored in file
-				-> [URI]							-- ^ start indexing with this set of uris
-				-> IndexCrawlerConfig i d c					-- ^ adapt configuration to special needs, use id if default is ok
-				-> IndexerState i d c						-- ^ the initial empty indexer state
-				-> IO (IndexerState i d c)					-- ^ result is a state consisting of the index and the map of indexed documents
+				   Maybe String					-- ^ resume from interrupted index run with state stored in file
+				-> [URI]					-- ^ start indexing with this set of uris
+				-> IndexCrawlerConfig i d c			-- ^ adapt configuration to special needs, use id if default is ok
+				-> IndexerState i d c				-- ^ the initial empty indexer state
+				-> IO (IndexerState i d c)			-- ^ result is a state consisting of the index and the map of indexed documents
 
 stdIndexer resumeLoc startUris config eis
 				= do
