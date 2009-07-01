@@ -6,6 +6,7 @@ module SimpleIndexer
 where
 
 import		 Holumbus.Crawler.Constants	( )
+import		 Holumbus.Index.Documents
 import		 Holumbus.Crawler.IndexerCore
 import		 Holumbus.Crawler.Html
 import		 Holumbus.Crawler.URIs
@@ -19,8 +20,8 @@ import		 Text.XML.HXT.Arrow
 
 type PlainText			= String
 
-type SimpleIndexerState		= IndexerState       Inverted PlainText
-type SimpleIndexerConfig	= IndexCrawlerConfig Inverted PlainText
+type SimpleIndexerState		= IndexerState       Inverted Documents PlainText
+type SimpleIndexerConfig	= IndexCrawlerConfig Inverted Documents PlainText
 
 simpleIndexerConfig		:: (URI -> Bool) -> SimpleIndexerConfig
 simpleIndexerConfig followRef	= indexCrawlerConfig
@@ -34,16 +35,16 @@ simpleIndexerConfig followRef	= indexCrawlerConfig
 
 simpleIndexer 			:: (URI -> Bool)					-- uris to be processed
                                 -> [URI]						-- start uris
-                                -> IO (IndexerState Inverted PlainText)			-- the index and document table with start of plain text
+                                -> IO SimpleIndexerState				-- the index and document table with start of plain text
 simpleIndexer refs startUris	= stdIndexer
-				  ( simpleIndexerConfig refs )
-				  emptyInverted
 				  Nothing
 				  startUris
+				  ( simpleIndexerConfig refs )
+				  ( emptyIndexerState emptyInverted emptyDocuments )
 
 -- ------------------------------------------------------------
 
-siIndexer 			:: IO (IndexerState Inverted PlainText)
+siIndexer 			:: IO SimpleIndexerState
 siIndexer			= simpleIndexer refs startUris 
     where
     startUris			= [ "http://localhost/~si/" ]

@@ -18,20 +18,19 @@ import		 Holumbus.Crawler.Html
 import		 Holumbus.Crawler.URIs
 
 import		 Holumbus.Index.Common		hiding ( URI )
-import		 Holumbus.Index.Documents
 
 import		 Text.XML.HXT.Arrow
 
 -- ------------------------------------------------------------
 
-type RawDoc u			= (RawContexts, RawTitle, Maybe u)		-- u is the user defined custom info
+type RawDoc c			= (RawContexts, RawTitle, Maybe c)		-- c is the user defined custom info
 type RawContexts		= [RawContext]
 type RawContext                 = (Context, RawWords)
 type RawWords                   = [RawWord]
 type RawWord			= (Word, Position)
 type RawTitle			= String
 
-type IndexCrawlerConfig i u	= CrawlerConfig (RawDoc u) (IndexerState i u)
+type IndexCrawlerConfig i d c	= CrawlerConfig (RawDoc c) (IndexerState i d c)
 
 data IndexContextConfig		= IndexContextConfig
     				  { ixc_name           :: String
@@ -40,15 +39,15 @@ data IndexContextConfig		= IndexContextConfig
 				  , ixc_boringWord     :: String -> Bool
 				  }   
 
-data (HolIndex i) =>
-     IndexerState i u		= IndexerState
+data (HolIndex i, HolDocuments d c) =>
+     IndexerState i d c		= IndexerState
 				  { ixs_index		:: i			-- the index type
-				  , ixs_documents	:: Documents u		-- the user defined type for document descriptions
+				  , ixs_documents	:: d c			-- the user defined type for document descriptions
 				  }
 
 -- ------------------------------------------------------------
 
-instance (HolIndex i, Binary u) => Binary (IndexerState i u) where
+instance (HolIndex i, HolDocuments d c) => Binary (IndexerState i d c) where
     put	s		= B.put (ixs_index s)
 			  >>
 			  B.put (ixs_documents s)
@@ -70,7 +69,7 @@ indexCrawlerConfig		:: Attributes					-- ^ document read options
 				-> Maybe (IOSArrow XmlTree String)		-- ^ the filter for computing the document title, default is empty string
 				-> Maybe (IOSArrow XmlTree c)			-- ^ the filter for the cutomized doc info, default Nothing
 				-> [IndexContextConfig]				-- ^ the configuration of the various index parts
-				-> IndexCrawlerConfig i c			-- ^ result is a crawler config
+				-> IndexCrawlerConfig i d c			-- ^ result is a crawler config
 
 indexCrawlerConfig opts	followRef getHrefF preDocF titleF0 customF0 contextCs
 				= addReadAttributes defaultOpts			-- install the default read options
@@ -135,33 +134,33 @@ indexCrawlerConfig opts	followRef getHrefF preDocF titleF0 customF0 contextCs
 				  ]
 
 
-emptyIndexerState		:: (HolIndex i) => i -> IndexerState i u
-emptyIndexerState eix		= IndexerState
+emptyIndexerState		:: (HolIndex i, HolDocuments d c) =>
+				   i -> d c -> IndexerState i d c
+emptyIndexerState eix edm	= IndexerState
 				  { ixs_index		= eix
-				  , ixs_documents	= emptyDocuments
+				  , ixs_documents	= edm
 				  }
 
 -- ------------------------------------------------------------
 
-insertRawDoc			:: (URI, RawDoc u) -> IndexerState i u -> IO (IndexerState i u)
+insertRawDoc			:: (URI, RawDoc c) -> IndexerState i d c -> IO (IndexerState i d c)
 insertRawDoc (_uri, (_rcs, _rtlt, _u)) _ixs
 				= return undefined
 
 -- ------------------------------------------------------------
 
-stdIndexer			:: (HolIndex i, Binary c) =>
-				   IndexCrawlerConfig i c					-- ^ adapt configuration to special needs, use id if default is ok
-				-> i								-- ^ the initial empty indexer state
-				-> Maybe String							-- ^ resume from interrupted index run with state stored in file
+stdIndexer			:: (HolIndex i, HolDocuments d c, Binary c) =>
+				   Maybe String							-- ^ resume from interrupted index run with state stored in file
 				-> [URI]							-- ^ start indexing with this set of uris
-				-> IO (IndexerState i c)					-- ^ result is a state consisting of the index and the map of indexed documents
+				-> IndexCrawlerConfig i d c					-- ^ adapt configuration to special needs, use id if default is ok
+				-> IndexerState i d c						-- ^ the initial empty indexer state
+				-> IO (IndexerState i d c)					-- ^ result is a state consisting of the index and the map of indexed documents
 
-stdIndexer config eix resumeLoc startUris
+stdIndexer resumeLoc startUris config eis
 				= do
-				  (_, ixState) <- runCrawler action config (initCrawlerState $ emptyIndexerState eix)
+				  (_, ixState) <- runCrawler action config (initCrawlerState eis)
 				  return (getS theResultAccu ixState)
     where
     action			= maybe (crawlDocs startUris) crawlerResume $ resumeLoc
 
 -- ------------------------------------------------------------
-
