@@ -74,6 +74,7 @@ library
                  , Holumbus.Network.PortRegistry.PortRegistryData
                  , Holumbus.Network.PortRegistry.PortRegistryPort
                  , Holumbus.Distribution.DNode
+                 , Holumbus.Distribution.DNode.Network
                  , Holumbus.Distribution.DNode.Base
                  , Holumbus.Distribution.DChan
                  , Holumbus.Distribution.DStreamPort

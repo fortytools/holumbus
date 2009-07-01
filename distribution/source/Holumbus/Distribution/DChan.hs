@@ -37,7 +37,6 @@ import           System.IO
 import           System.Log.Logger
 import           System.Timeout
 
-import           Holumbus.Network.Core
 import           Holumbus.Distribution.DNode.Base
 
 localLogger :: String
@@ -98,9 +97,9 @@ dispatchDChanRequest :: (Binary a) => DChanReference a -> DNodeId -> Handle -> I
 dispatchDChanRequest dch _ hdl
   = do
     debugM localLogger "dispatcher: getting message from handle"
-    raw <- getMessage hdl
+    raw <- getByteStringMessage hdl
     let msg = (decode raw)
-    debugM localLogger $ "dispatcher: Message: " ++ show msg
+    -- debugM localLogger $ "dispatcher: Message: " ++ show msg
     case msg of
       (DCMReqRead)    -> handleRead dch hdl
       (DCMReqWrite d) -> handleWrite dch (decode d) hdl
@@ -154,8 +153,8 @@ closeDChan (DChanRemote dra)
 requestRead :: (Binary a) => Handle -> IO a
 requestRead hdl
   = do
-    putMessage (encode $ DCMReqRead) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ DCMReqRead) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DCMRspRead d)  -> return $ decode d
@@ -166,14 +165,14 @@ handleRead :: (Binary a) => DChanReference a -> Handle -> IO ()
 handleRead (DChanReference _ ch) hdl
   = do
     a <- readChan ch
-    putMessage (encode $ DCMRspRead $ encode a) hdl
+    putByteStringMessage (encode $ DCMRspRead $ encode a) hdl
 
 
 requestWrite :: (Binary a) => a -> Handle -> IO ()
 requestWrite a hdl
-  = do
-    putMessage (encode $ DCMReqWrite $ encode a) hdl
-    raw <- getMessage hdl
+  = do 
+    putByteStringMessage (encode $ DCMReqWrite $ encode a) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DCMRspWrite) -> return ()
@@ -184,14 +183,14 @@ handleWrite :: DChanReference a -> a -> Handle -> IO ()
 handleWrite (DChanReference _ ch) a hdl
   = do
     writeChan ch a
-    putMessage (encode $ DCMRspWrite) hdl
+    putByteStringMessage (encode $ DCMRspWrite) hdl
 
 
 requestIsEmpty :: Handle -> IO Bool
 requestIsEmpty hdl
   = do
-    putMessage (encode $ DCMReqIsEmpty) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ DCMReqIsEmpty) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DCMRspIsEmpty b) -> return b
@@ -202,7 +201,7 @@ handleIsEmpty :: DChanReference a -> Handle -> IO ()
 handleIsEmpty (DChanReference _ ch) hdl
   = do
     b <- isEmptyChan ch
-    putMessage (encode $ DCMRspIsEmpty b) hdl 
+    putByteStringMessage (encode $ DCMRspIsEmpty b) hdl 
 
 
 writeDChan :: (Binary a) => DChan a -> a -> IO ()

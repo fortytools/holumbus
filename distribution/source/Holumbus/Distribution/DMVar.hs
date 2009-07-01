@@ -31,14 +31,12 @@ where
 
 import           Prelude hiding (catch)
 
--- import           Control.Exception
 import           Control.Concurrent.MVar
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger
 
-import           Holumbus.Network.Core
 import           Holumbus.Distribution.DNode.Base
 
 
@@ -98,7 +96,7 @@ dispatchDMVarRequest :: (Binary a) => DMVarReference a -> DNodeId -> Handle -> I
 dispatchDMVarRequest dch dna hdl
   = do
     debugM localLogger "dispatcher: getting message from handle"
-    raw <- getMessage hdl
+    raw <- getByteStringMessage hdl
     let msg = (decode raw)
     debugM localLogger $ "dispatcher: Message: " ++ show msg
     case msg of
@@ -167,8 +165,8 @@ closeDMVar (DMVarRemote dra)
 requestRead :: (Binary a) => Handle -> IO a
 requestRead hdl
   = do
-    putMessage (encode $ DVMReqRead) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ DVMReqRead) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DVMRspRead d) -> return $ decode d
@@ -179,15 +177,15 @@ handleRead :: (Binary a) => DMVarReference a -> Handle -> IO ()
 handleRead (DMVarReference _ v _) hdl
   = do
     a <- readMVar v
-    putMessage (encode $ DVMRspRead $ encode a) hdl
+    putByteStringMessage (encode $ DVMRspRead $ encode a) hdl
 
 
 
 requestTake :: (Binary a) => Handle -> IO a
 requestTake hdl
   = do
-    putMessage (encode $ DVMReqTake) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ DVMReqTake) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DVMRspTake d) -> return $ decode d
@@ -205,7 +203,7 @@ handleTake r@(DMVarReference _ v o) dni hdl
     debugM localLogger $ "handleTake: 3"
     putMVar o (a, mbDhi)
     debugM localLogger $ "handleTake: 4"
-    putMessage (encode $ DVMRspTake $ encode a) hdl
+    putByteStringMessage (encode $ DVMRspTake $ encode a) hdl
     debugM localLogger $ "handleTake: 5"
     
 
@@ -225,8 +223,8 @@ handleErrorTake (DMVarReference _ v o)
 requestPut :: (Binary a) => a -> Handle -> IO ()
 requestPut d hdl
   = do
-    putMessage (encode $ DVMReqPut $ encode d) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ DVMReqPut $ encode d) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DVMRspPut) -> return ()
@@ -242,7 +240,7 @@ handlePut (DMVarReference _ v o) a hdl
       (Just dhi) -> delForeignHandler dhi
       (Nothing)  -> return ()
     putMVar v a
-    putMessage (encode $ DVMRspPut) hdl
+    putByteStringMessage (encode $ DVMRspPut) hdl
 
 
 
@@ -277,22 +275,4 @@ putDMVar (DMVarLocal _ v o) d
 putDMVar (DMVarRemote a) d
   = do
     unsafeAccessForeignRessource a (requestPut d)
-
-
-{-
-newEmptyMVar :: IO (MVar a)
-newMVar :: a -> IO (MVar a)
-takeMVar :: MVar a -> IO a
-putMVar :: MVar a -> a -> IO ()
-readMVar :: MVar a -> IO a
-swapMVar :: MVar a -> a -> IO a
-tryTakeMVar :: MVar a -> IO (Maybe a)
-tryPutMVar :: MVar a -> a -> IO Bool
-isEmptyMVar :: MVar a -> IO Bool
-withMVar :: MVar a -> (a -> IO b) -> IO b
-modifyMVar_ :: MVar a -> (a -> IO a) -> IO ()
-modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
-addMVarFinalizer :: MVar a -> IO () -> IO ()
--}
-
 

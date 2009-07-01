@@ -801,7 +801,7 @@ streamDispatcher (SocketId _ ownPo) hdl (SocketId hn po)
     debugM localLogger "streamDispatcher: getting message from handle"
     raw <- getMessage hdl
     let msg = (decode raw)::Message B.ByteString
-    debugM localLogger $ "streamDispatcher: Message: " ++ show msg
+    -- debugM localLogger $ "streamDispatcher: Message: " ++ show msg
     let sn = getMessageReceiver msg
     sns <- getStreamNamesForPort ownPo
     sd <- getStreamData sn

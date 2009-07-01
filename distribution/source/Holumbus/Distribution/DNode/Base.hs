@@ -54,6 +54,8 @@ module Holumbus.Distribution.DNode.Base
   , delForeignRessource           -- rf
   , safeAccessForeignRessource    -- rf
   , unsafeAccessForeignRessource  -- rf
+  , getByteStringMessage          -- rf -- reimported from Network-Module
+  , putByteStringMessage          -- rf -- reimported from Network-Module
   , getDNodeData                  -- debug
 )
 where
@@ -68,13 +70,13 @@ import           Data.Char
 import           Data.Maybe
 import           Data.Unique
 import qualified Data.Map as Map
-import           Network
+import           Network.Socket (HostName, PortNumber)
 import           System.IO
 import           System.IO.Unsafe
 import           System.Log.Logger
 import           System.Random
 
-import           Holumbus.Network.Core
+import           Holumbus.Distribution.DNode.Network
 
 
 localLogger :: String
@@ -133,8 +135,8 @@ genDId st
 --   allow users to create their own configuration.
 data DNodeConfig = DNodeConfig {
     dnc_Name        :: String
-  , dnc_MinPort     :: PortNumber
-  , dnc_MaxPort     :: PortNumber
+  , dnc_MinPort     :: Int
+  , dnc_MaxPort     :: Int
   , dnc_AccessDelay :: Int
   , dnc_PingDelay   :: Int
   } deriving (Show)
@@ -143,7 +145,7 @@ data DNodeConfig = DNodeConfig {
 --   string empty. 
 defaultDNodeConfig :: String -> DNodeConfig
 defaultDNodeConfig s
-  = DNodeConfig s (fromInteger 8000) (fromInteger 9000) 1000000 1000000
+  = DNodeConfig s 8000 9000 1000000 1000000
 
 
 
@@ -174,20 +176,22 @@ mkDNodeId s  = DNodeId $ DIdName s
 
 -- | The DNode address.
 data DNodeAddress = DNodeAddress {
-    dna_Id         :: DNodeId
-  , dna_HostName   :: HostName
-  , dna_PortNumber :: PortNumber
+    dna_Id          :: DNodeId
+  , dna_HostName    :: HostName
+  , dna_ServiceName :: PortNumber
   } deriving (Show)
 
 instance Binary DNodeAddress where
   put (DNodeAddress i hn po) = put i >> put hn >> put (toInteger po)
   get = get >>= \i -> get >>= \hn -> get >>= \po -> return (DNodeAddress i hn (fromInteger po))
-  
+
+
 -- | use this to make a new DNodeAddress
-mkDNodeAddress :: String -> HostName -> PortNumber -> DNodeAddress
-mkDNodeAddress s hn po = DNodeAddress i hn po
+mkDNodeAddress :: String -> HostName -> Int -> DNodeAddress
+mkDNodeAddress s hn po = DNodeAddress i hn (fromIntegral po)
   where
   i = mkDNodeId s
+
   
 data DNodeEntry = DNodeEntry {
     dne_Address           :: DNodeAddress
@@ -276,7 +280,7 @@ instance Show DRessourceEntry where
 --   keeps a record of foreign DNodes
 data DNodeData = DNodeData {
     dnd_Address         :: DNodeAddress
-  , dnd_ThreadId        :: ThreadId
+  , dnd_SocketServer    :: SocketServer
   , dnd_AccessDelay     :: Int
   , dnd_PingDelay       :: Int
   , dnd_NodeMap         :: Map.Map DNodeId DNodeEntry
@@ -303,29 +307,29 @@ initDNode c
         accessDelay = dnc_AccessDelay c
         pingDelay   = dnc_PingDelay c
     n   <- genDNodeId (dnc_Name c)
-    res <- startSocket (dispatcher) minPort maxPort
-    case res of
+    serverSocket <- startSocketServer (dispatcher) minPort maxPort
+    case serverSocket of
       Nothing ->
         do
         errorM localLogger "no socket opened"
         error "socket could not be opened"
-      (Just (tid, hn, po)) ->
+      (Just ss) ->
         do
-        let dnd = DNodeData {
-           dnd_Address         = DNodeAddress n hn po
-         , dnd_ThreadId        = tid
-         , dnd_AccessDelay     = accessDelay
-         , dnd_PingDelay       = pingDelay
-         , dnd_NodeMap         = Map.empty
-         , dnd_OwnRessourceMap = Map.empty
-         }
+        let hn = getSocketServerName ss
+            po = getSocketServerPort ss
+            dnd = DNodeData {
+            dnd_Address         = DNodeAddress n hn po
+          , dnd_SocketServer    = ss
+          , dnd_AccessDelay     = accessDelay
+          , dnd_PingDelay       = pingDelay
+          , dnd_NodeMap         = Map.empty
+          , dnd_OwnRessourceMap = Map.empty
+          }
         success <- tryPutMVar myDNode dnd
         if success
           then do return ()          
           else do
-            me <- myThreadId
-            throwTo (dnd_ThreadId dnd) (ThreadIdException me)
-            yield
+            stopSocketServer ss
             error "dnode already initialized"
 
 
@@ -339,10 +343,7 @@ deinitDNode
         do
         -- TODO close all threads and unregister from all other nodes...
         -- close the dispatcher thread, so no requests are handled...
-        me <- myThreadId
-        debugM localLogger $ "stopping server... with threadId: " ++ show (dnd_ThreadId dnd) ++ " - form threadId: " ++ show me
-        throwTo (dnd_ThreadId dnd) (ThreadIdException me)
-        yield
+        stopSocketServer (dnd_SocketServer dnd)
       (Nothing) ->
         do
         error "dnode already deinitialized"
@@ -488,11 +489,12 @@ instance Binary DNodeResponseMessage where
 
     
 -- | Delegates new incomming messages on a unix-socket to their streams.
-dispatcher :: SocketId -> Handle -> SocketId -> IO ()
-dispatcher _ hdl _
+dispatcher :: Handle -> IO ()
+dispatcher hdl
   = do
-    debugM localLogger "dispatcher: getting message from handle"
-    raw <- getMessage hdl
+    debugM localLogger "dispatcher: reading message from connection"
+    raw <- getByteStringMessage hdl
+    debugM localLogger "dispatcher: message received starting dispatching"
     let msg      = (decode raw)::DNodeRequestMessage
     let sender   = dnm_Req_Sender msg
     let receiver = dnm_Req_Receiver msg
@@ -508,7 +510,7 @@ dispatcher _ hdl _
           (DNMReqRessourceMsg a) -> handleRessourceMessage (dna_Id sender) a hdl
       else do
         warningM localLogger $ "message for other node received... dropping request: " ++ show msg
-        putMessage (encode $ DNMRspError "unknown receiver") hdl 
+        putByteStringMessage (encode $ DNMRspError "unknown receiver") hdl
 
 {-
 requestRegister :: Handle -> IO ()
@@ -560,8 +562,8 @@ requestPing :: DNodeAddress -> DNodeAddress -> DNodeId -> [DRessourceId] -> Hand
 requestPing s r i rs hdl
   = do
     let request = DNodeRequestMessage s r (DNMReqPing i rs)
-    putMessage (encode $ request) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ request) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)::DNodeResponseMessage
     case rsp of
       (DNMRspOk)      -> return (Just [])
@@ -580,9 +582,9 @@ handlePing otherDni rs hdl
       then do 
         let orm = dnd_OwnRessourceMap dnd
             ls  = map (\i -> (i, isJust $ Map.lookup i orm)) rs
-        putMessage (encode $ DNMRspPing ls) hdl
+        putByteStringMessage (encode $ DNMRspPing ls) hdl
       else do
-        putMessage (encode $ DNMRspError "false ping - ids do not match") hdl
+        putByteStringMessage (encode $ DNMRspError "false ping - ids do not match") hdl
 
       
 requestRessourceMessage :: DNodeAddress -> DNodeAddress -> DRessourceAddress -> (Handle -> IO a) -> Handle -> IO a
@@ -590,9 +592,12 @@ requestRessourceMessage s r dra requester hdl
   = do
     let request = DNodeRequestMessage s r (DNMReqRessourceMsg dra)
     -- ask node for ressource
-    putMessage (encode $ request) hdl
+    debugM localLogger "requestRessourceMessage: asking node for ressource"
+    putByteStringMessage (encode $ request) hdl
     -- get the response
-    raw <- getMessage hdl
+    debugM localLogger "requestRessourceMessage: getting the response"
+    raw <- getByteStringMessage hdl
+    debugM localLogger "requestRessourceMessage: parsing the response"
     let rsp = (decode raw)::DNodeResponseMessage
     case rsp of
       (DNMRspOk)      -> do requester hdl
@@ -608,11 +613,11 @@ handleRessourceMessage sender dra hdl
     case mbDrd of
       (Just drd) ->
         do
-        putMessage (encode $ DNMRspOk) hdl
+        putByteStringMessage (encode $ DNMRspOk) hdl
         let handler = dre_Dispatcher drd
         handler sender hdl
       (Nothing) -> 
-        putMessage (encode $ DNMRspError "ressource not found") hdl
+        putByteStringMessage (encode $ DNMRspError "ressource not found") hdl
       
 -- ----------------------------------------------------------------------------
 -- always returns...
@@ -650,7 +655,7 @@ checkForeignDNode dni
       (Just otherDna) ->
         do
         let hn  = dna_HostName otherDna
-            po  = dna_PortNumber otherDna
+            po  = dna_ServiceName otherDna
         res <- performSafeSendRequest (requestPing myDna otherDna dni []) Nothing hn po
         return $ isJust res
       (Nothing) -> return False
@@ -781,7 +786,7 @@ safeAccessForeignRessource dra requester
         do
         debugM localLogger $ "accessForeignRessource: node in list found"
         let hn  = dna_HostName otherDna
-            po  = dna_PortNumber otherDna
+            po  = dna_ServiceName otherDna
         mbres <- performMaybeSendRequest (requestRessourceMessage myDna otherDna dra requester) hn po
         case mbres of
           (Just res) -> return res
@@ -807,7 +812,7 @@ unsafeAccessForeignRessource dra requester
         do
         debugM localLogger $ "accessForeignRessource: node in list found"
         let hn  = dna_HostName otherDna
-            po  = dna_PortNumber otherDna
+            po  = dna_ServiceName otherDna
         catch (performUnsafeSendRequest (requestRessourceMessage myDna otherDna dra requester) hn po)
           (\(e ::IOException) -> 
             do
@@ -824,7 +829,7 @@ startPingThread me a
     pingLoop myDna dna = do
       let dni       = dna_Id dna
           hn        = dna_HostName dna
-          po        = dna_PortNumber dna
+          po        = dna_ServiceName dna
       mbDne <- lookupNode dni
       if (isJust mbDne) 
         then do

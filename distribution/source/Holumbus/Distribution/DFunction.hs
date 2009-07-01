@@ -35,7 +35,6 @@ import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger
 
-import           Holumbus.Network.Core
 import           Holumbus.Distribution.DNode.Base
 
 
@@ -100,7 +99,7 @@ dispatchDFunctionRequest :: (BinaryFunction a) => DFunctionReference a -> DNodeI
 dispatchDFunctionRequest dfun _ hdl
   = do
     debugM localLogger "dispatcher: getting message from handle"
-    raw <- getMessage hdl
+    raw <- getByteStringMessage hdl
     let msg = (decode raw)::(DFunctionRequestMessage)
     -- debugM localLogger $ "dispatcher: Message: " ++ show msg
     case msg of
@@ -152,8 +151,8 @@ closeDFunction (DFunctionRemote dra)
 requestCall :: [B.ByteString] -> Handle -> IO B.ByteString
 requestCall bs hdl
   = do
-    putMessage (encode $ DFMReqCall bs) hdl
-    raw <- getMessage hdl
+    putByteStringMessage (encode $ DFMReqCall bs) hdl
+    raw <- getByteStringMessage hdl
     let rsp = (decode raw)
     case rsp of
       (DFMRspCallResult b) -> return b
@@ -166,9 +165,9 @@ handleCall (DFunctionReference _ f) bs hdl
     catch
       (do
        b <- toFun f bs
-       putMessage (encode $ DFMRspCallResult b) hdl)
+       putByteStringMessage (encode $ DFMRspCallResult b) hdl)
       (\(SomeException e) -> do
-       putMessage (encode $ DFMRspCallException (show e)) hdl)
+       putByteStringMessage (encode $ DFMRspCallException (show e)) hdl)
 
 
 accessDFunction :: (BinaryFunction a) => DFunction a -> a
