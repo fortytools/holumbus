@@ -179,7 +179,7 @@ data DNodeAddress = DNodeAddress {
     dna_Id          :: DNodeId
   , dna_HostName    :: HostName
   , dna_ServiceName :: PortNumber
-  } deriving (Show)
+  } deriving (Show, Eq, Ord)
 
 instance Binary DNodeAddress where
   put (DNodeAddress i hn po) = put i >> put hn >> put (toInteger po)
