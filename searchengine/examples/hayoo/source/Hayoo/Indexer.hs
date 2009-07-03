@@ -113,8 +113,8 @@ main
     runX (traceMsg 0 ("           (2) Additional libraries " ))
     
     let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
---    additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
-    let additionalDocs = emptyDocuments
+    additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
+--    let additionalDocs = emptyDocuments
       
     let hayooDocs = snd $ mergeDocs hackageLatest additionalDocs
     
