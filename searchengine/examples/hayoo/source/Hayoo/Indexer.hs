@@ -68,9 +68,10 @@ main
     dir <- getHomeDirectory
 
     let traceLevel    = 0
-        workerThreads = 1 
-        docsPerCrawl  = 100
+        workerThreads = 8 
+        docsPerCrawl  = 00
         indexPath     = dir ++ "/indexes/hayoo"
+--        idxConfig     = ic_HTTP { ic_indexPath = dir ++ "/indexes/hxt" }
         idxConfig     = ic_Hayoo { ic_indexPath = indexPath }
         additionalConfig = ic_Hayoo_additional 
                            { ic_indexPath    = indexPath
@@ -105,14 +106,16 @@ main
                        filterDocuments 
                          (\d -> (not $ isSuffixOf "recent.html"  $ uri d )) 
                        hackageCrawled
+
         hackageDocs'  = filterDocuments (hackageFilter . uri) hackageDocs
         hackageLatest = filterDocuments (isLatestVersion (getVersions hackageDocs')) hackageDocs'
-    
+
     runX (traceMsg 0 ("           (2) Additional libraries " ))
     
     let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
-    additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
-    
+--    additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
+    let additionalDocs = emptyDocuments
+      
     let hayooDocs = snd $ mergeDocs hackageLatest additionalDocs
     
     writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs
@@ -200,6 +203,7 @@ hackageFilter = simpleCrawlFilter [ "http://hackage.haskell.org/" ]             
                                          , "Graphics-UI-WXCore-WxcClassesAL.html"
                                          , "Graphics-UI-WXCore-WxcClassesMZ.html"
                                          , "Graphics-UI-WXCore-WxcDefs.html"
+                                         , "Types-Data-Num-Decimal-Literals.html"
                                          ]
 
 
@@ -448,7 +452,7 @@ isSig
 
 getDeclName     :: LA XmlTree String
 getDeclName
-    = listA (hasName "tr" /> hasName "td" /> hasName "a" >>> getAttrValue "name")>>. concat
+    = listA (hasName "tr" /> hasName "td" /> hasName "a"  >>> getAttrValue "name")>>. (take 1) . concat
       >>> (arr $ drop 4)
 
 processTableRows      :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
@@ -730,18 +734,31 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
   rsep s = join s . map stripr . split s 
  
 
-{-
+
+ic_HTTP :: IndexerConfig
+ic_HTTP 
+  = IndexerConfig
+    { ic_startPages     = [ "http://hackage.haskell.org/packages/archive/HTTP/4000.0.7/doc/html/Network-Browser.html"]
+    , ic_tempPath        = Just "/tmp/"
+    , ic_indexPath        = "/home/sms/indexes/http"
+    , ic_indexerTimeOut  = 10 * 60 * 1000000
+    , ic_contextConfigs = ccs_Hayoo
+    , ic_readAttributes = standardReadDocumentAttributes
+    , ic_fCrawlFilter   = simpleCrawlFilter [ "http://hackage.haskell.org/packages/archive/HTTP/4000.0.7/doc/html/"]
+                                            [ "/src/"]
+    }  
+
             
 ic_Holumbus :: IndexerConfig
 ic_Holumbus 
   =  IndexerConfig
-     { ic_startPages     = [ "http://holumbus.fh-wedel.de/docs/develop/index.html" ]
-     , ic_tempPath        = Just "/home/sms/tmp/holumbus_docs/"
-     , ic_indexPath        = "/home/sms/indexes/holumbus"
-     , ic_indexerTimeOut  = 10 * 60 * 1000000
+     { ic_startPages     = [ "http://holumbus.fh-wedel.de/docs/Holumbus-Searchengine/doc-index.html" ]
+     , ic_tempPath       = Just "/home/sms/tmp/holumbus_docs/"
+     , ic_indexPath      = "/home/sms/indexes/holumbus"
+     , ic_indexerTimeOut = 10 * 60 * 1000000
      , ic_contextConfigs = ccs_Hayoo                                   
      , ic_readAttributes = standardReadDocumentAttributes
-     , ic_fCrawlFilter   = simpleCrawlFilter [ "http://holumbus.fh-wedel.de/docs/develop/" ] [ "/src/"]
+     , ic_fCrawlFilter   = simpleCrawlFilter [ "http://holumbus.fh-wedel.de/docs/" ] [ "/src/"]
      }      
 
 ic_GHC_libs :: IndexerConfig         
@@ -776,10 +793,3 @@ ic_HXT
                                             [ "/src/"]
     }              
 
-       
-    docs <- return $ filterDocuments (\d -> isPrefixOf "http://hackage.haskell.org/packages/archive/" (uri d)) crawled
-    docs <- return $ filterDocuments (\d -> not (isSuffixOf "pkg-list.html" (uri d))) docs
-    docs <- return $ filterDocuments (\d -> not (isSuffixOf "recent.html" (uri d))) docs
-    docs <- return $ filterDocuments (hayooFilter . uri) docs
-    docs <- return $ filterDocuments (isLatestVersion (getVersions docs)) docs
--}                          
