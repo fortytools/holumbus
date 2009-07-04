@@ -26,9 +26,6 @@ import Data.Binary
 
 import qualified Data.Map as M
 
-import Data.ByteString.UTF8 (ByteString)
-import qualified Data.ByteString.UTF8 as B
-
 import Control.Monad hiding (join)
 
 import Text.XML.HXT.Arrow
@@ -41,35 +38,38 @@ type StatusResult = (String, Result FunctionInfo)
 
 -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 
-  { moduleName :: ByteString      -- ^ The name of the module containing the function, e.g. Data.Map
-  , signature :: ByteString       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
-  , package   :: ByteString       -- ^ The name of the package containing the module, e.g. containers
-  , sourceURI :: Maybe ByteString -- ^ An optional URI to the online source of the function.
+  { moduleName :: String       -- ^ The name of the module containing the function, e.g. Data.Map
+  , signature  :: String       -- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+  , package    :: String       -- ^ The name of the package containing the module, e.g. containers
+  , categories :: [String]     -- ^ The name of the categories the package belongs to, e.g. Network
+  , sourceURI  :: Maybe String -- ^ An optional URI to the online source of the function.
   } 
   deriving (Show, Eq)
 
 instance XmlPickler FunctionInfo where
   xpickle = xpWrap (fromTuple, toTuple) xpFunction
     where
-    fromTuple (m, s, p, r) = FunctionInfo (B.fromString m) (B.fromString s) (B.fromString p) (liftM B.fromString $ r)
-    toTuple (FunctionInfo m s p r) = (B.toString m, B.toString s, B.toString p, liftM B.toString $ r)
-    xpFunction = xp4Tuple xpModule xpSignature xpPackage xpSource
+    fromTuple (m, s, p, c, r) = FunctionInfo m s p c r
+    toTuple (FunctionInfo m s p c r) = (m, s, p, c, r)
+    xpFunction = xp5Tuple xpModule xpSignature xpPackage xpCategories xpSource
       where -- We are inside a doc-element, therefore everything is stored as attribute.
       xpModule = xpAttr "module" xpText0
       xpSignature = xpAttr "signature" xpText0
       xpPackage = xpAttr "package" xpText0
+      xpCategories = xpList $ xpElem "category" $ xpAttr "name" xpText0
       xpSource = xpOption (xpAttr "source" xpText0)
 
 instance Binary FunctionInfo where
-  put (FunctionInfo m s p r) = put m >> put s >> put p >> put r
+  put (FunctionInfo m s p c r) = put m >> put s >> put p >> put c >> put r
 -- TH 12.08.2008 De-serialize more strict
 --  get = liftM4 FunctionInfo get get get get
   get = do
         !m <- get
         !s <- get
         !p <- get
+	!c <- get
         !r <- get
-        return $! FunctionInfo m s p r
+        return $! FunctionInfo m s p c r
 
 -- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
 -- @a->b->b@. All whitespace will be removed from the resulting string.
