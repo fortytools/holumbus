@@ -9,13 +9,12 @@ RM				= rm $(RM_FLAGS)
 SOURCE		= source
 OUTPUT		= output
 
-PROGS		= Indexer Hebalizer Stats
+PROGS		= Indexer Hebalizer
 
 all		: $(PROGS) janus
 
 indexer		: Indexer
 hebalizer	: Hebalizer
-stats		: Stats
 
 # ------------------------------------------------------------
 # old stuff for janus with hs-plugins

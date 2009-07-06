@@ -108,16 +108,17 @@ xpPager ps s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, make
   wrapper = (undefined, \v -> if v > 0 then Just v else Nothing)
 
 xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContextHits))
-xpDocInfoHtml cac = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
+xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
   docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
-  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p c l))) _, _)) = 
-    (((modLink u, m), (u, t), s), ((pkgLink p, p), (getDesc i, l)))
+  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = 
+    (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
     where
     modLink = takeWhile ((/=) '#')
     pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
+    pkgLink "base" = "http://hackage.haskell.org/packages/archive/base/4.0.0.0/doc/html/"
     pkgLink p' = "http://hackage.haskell.org/cgi-bin/hackage-scripts/package/" ++ p'
-    getDesc = unsafePerformIO . getDocText cac "description" 
+    getDesc = unsafePerformIO . getDocText c "description" 
   xpQualified = xpElem "tr" $ xpClass "function" $ xpTriple xpModule xpFunction xpSignature
     where
     xpModule = xpCell "module" $ xpPair (xpElemClass "a" "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)

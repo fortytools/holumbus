@@ -29,6 +29,8 @@ import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntSet as IS
 
+import qualified Data.ByteString.UTF8 as B
+
 import Network.URI (unEscapeString)
 
 import Text.XML.HXT.Arrow
@@ -262,9 +264,9 @@ hayooRanking ws ts _ di dch = baseScore
   where
   baseScore = M.foldWithKey calcWeightedScore 0.0 dch
   isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
-  isInPrelude = maybe False (\fi -> (moduleName fi) == "Prelude") (custom $ document di)
-  isInBase = maybe False (\fi -> (package fi) == "base") (custom $ document di)
-  factModule = maybe 1.0 (\fi -> 1.0 / (fromIntegral $ length $ split "." $ moduleName fi)) (custom $ document di)
+  isInPrelude = maybe False (\fi -> (B.toString $ moduleName fi) == "Prelude") (custom $ document di)
+  isInBase = maybe False (\fi -> (B.toString $ package fi) == "base") (custom $ document di)
+  factModule = maybe 1.0 (\fi -> 1.0 / (fromIntegral $ length $ split "." $ B.toString $ moduleName fi)) (custom $ document di)
   calcWeightedScore :: Context -> DocWordHits -> Score -> Score
   calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
     where
