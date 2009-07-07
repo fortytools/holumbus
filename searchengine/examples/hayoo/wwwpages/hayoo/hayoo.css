@@ -81,6 +81,21 @@ span.query {
 	padding-right:20px;
 }
 
+#examples {
+  width:80%;
+  margin-left:auto;
+  margin-right:auto;
+  background-color:#F4F4F4;
+  border:1px solid silver;
+  padding:20px;
+}
+
+.example a {
+	font-weight: normal;
+	color: #DD0000;
+	text-decoration: underline;
+}
+
 #container {
 	min-height:100%;
 	position:relative;
