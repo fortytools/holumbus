@@ -29,6 +29,8 @@ import Control.Monad
 
 import Data.Function
 
+import Data.String.Utils (strip)
+
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
@@ -141,7 +143,7 @@ xpSigDecl = xpWrap (undefined, makeSignature) (xpAlt tag [xpSig, xpDecl])
   xpDecl = xpWrap (Declaration, \(Declaration s) -> s) (xpElemClass "span" "declaration" $ xpText)
   tag (Signature _) = 0
   tag (Declaration _) = 1
-  makeSignature s = if (s == "data") || (s == "type") || (s == "newtype") || (s == "class")
+  makeSignature s = if (strip s == "data") || (strip s == "type") || (strip s == "newtype") || (strip s == "class")
                     then Declaration s
                     else Signature s
 

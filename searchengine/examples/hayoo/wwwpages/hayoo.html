@@ -46,7 +46,8 @@
       <div id="words">&nbsp;</div>
       <div id="documents">
         <div id="examples">
-          Hayoo! will search all packages from <a href="http://hackage.haskell.org">Hackage</a>, currently 111.946 function and type definitions. Here are some example queries:
+          Hayoo! will search all packages from <a href="http://hackage.haskell.org">Hackage</a> (and additionally <a href="http://haskell.org/gtk2hs">gtk2hs</a>),
+          currently 111.946 function and type definitions. Here are some example queries:
           <div class="example">
             <p>
               <a onclick="replaceInQuery('','map'); return false;" href="hayoo.html?query=map&start=0">map</a>
@@ -56,7 +57,7 @@
           <div class="example">
             <p>
               <a onclick="replaceInQuery('','name:map'); return false;" href="hayoo.html?query=name%3Amap&start=0">name:map</a>
-              searches for everything that contains a word starting with "name:map" (case insensitive) in the function name.
+              searches for everything where the function name starts with "map" (case insensitive).
             </p>
           </div>
           <div class="example">
@@ -73,14 +74,20 @@
           </div>
           <div class="example">
             <p>
-              <a onclick="replaceInQuery('','map hierarchy:Data'); return false;" href="hayoo.html?query=map%20hierarchy%3AData&start=0">map hierarchy:Data</a>
-              searches for everything from module hierarchy "Data" that contains a word starting with "map" (case insensitive) in the function name, module name or description.
+              <a onclick="replaceInQuery('','map hierarchy:Lazy'); return false;" href="hayoo.html?query=map%20hierarchy%3ALazy&start=0">map hierarchy:Lazy</a>
+              searches for everything where "Lazy" appears somewhere in the full qualified module name and that contains a word starting with "map" (case insensitive) in the function name, module name or description.
             </p>
           </div>
           <div class="example">
             <p>
               <a onclick="replaceInQuery('','(map OR fold) module:Data.Map'); return false;" href="hayoo.html?query=(map%20OR%20fold)%20module%3AData.Map&start=0">(map OR fold) module:Data.Map</a>
               searches for everything from module "Data.Map" that contains a word starting with "map" or "fold" (case insensitive) in the function name, module name or description.
+            </p>
+          </div>
+          <div class="example">
+            <p>
+              <a onclick="replaceInQuery('','name:attr module:Text.XML'); return false;" href="hayoo.html?query=name%3Aattr%20module%3AText.XML&start=0">name:attr module:Text.XML</a>
+              searches for everything from the whole module hierarchy "Text.XML" where the function name starts with "attr" (case insensitive).
             </p>
           </div>
         </div>
