@@ -165,6 +165,22 @@ span.query {
 	padding-left:5px;
 }
 
+#modules {
+	padding:10px;
+	margin:20px;
+	float:right;
+	background-color:#F4F4F4;
+	border:1px solid grey;
+}
+
+a.rootModuleName {
+	color:#DD0000;
+}
+
+.rootModuleCount {
+	color:grey;
+}
+
 #documents {
 	padding:10px;
 }
@@ -234,6 +250,30 @@ a.source {
 
 a.source:hover {
 	text-decoration: underline;
+}
+
+.description div {
+	max-height:1.2em;
+	overflow:hidden;
+}
+
+div.unfold {
+	max-height:none;
+}
+
+a.toggleFold {
+	float:left;
+	margin-right:2px;
+	cursor:pointer;
+}
+
+span.description {
+	float:left;
+	max-width:90%;
+}
+
+span.source {
+	padding-left:5px;
 }
 
 #queryinterface {

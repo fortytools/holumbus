@@ -106,6 +106,24 @@ function replaceInQuery (needle, substitute) {
   processQuery(0);
 }
 
+function addToQuery (addition) {
+  $("querytext").value = $("querytext").value + ' ' + addition;
+  processQuery(0);
+}
+
+function toggleFold(node) {
+
+  if ($(node).parentNode.hasClassName('unfold')) {
+    $(node).parentNode.removeClassName('unfold');
+    $(node).update('+');
+  } else {
+    $(node).parentNode.addClassName('unfold');
+    $(node).update('-');
+  }
+
+  return false;
+}
+
 function showPage (page) {
   if ($("querytext").value == "") {
     $("querytext").value = lastQuery;

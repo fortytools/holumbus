@@ -37,7 +37,7 @@ import Holumbus.Utility
 import Holumbus.Query.Result
 
 -- Status information of query processing.
-type StatusResult = (String, Result FunctionInfo)
+type StatusResult = (String, Result FunctionInfo, [(String, Int)])
 
 -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 

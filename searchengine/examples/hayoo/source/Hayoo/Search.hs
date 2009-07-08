@@ -27,6 +27,7 @@ import Data.Maybe
 
 import qualified Data.List as L
 import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
 import qualified Data.ByteString.UTF8 as B
@@ -216,7 +217,7 @@ replaceElem x y = map (\z -> if z == x then y else z)
 
 -- | Perform some postprocessing on the status and the result.
 arrFilterStatusResult :: ArrowXml a => a StatusResult StatusResult
-arrFilterStatusResult = arr $ (\(s, r) -> (s, filterResult r))
+arrFilterStatusResult = arr $ (\(s, r, m) -> (s, filterResult r, m))
   where
   filterResult (Result dh wh) = Result dh (M.filterWithKey (\w _ -> not ("->" `L.isInfixOf` w)) wh)
 
@@ -280,13 +281,13 @@ hayooRanking ws ts _ di dch = baseScore
                           else lookupWeight xs
 
 -- | This is the core arrow where the request is finally processed.
-genResult :: ArrowXml a => a (Query, Core) (String, Result FunctionInfo)
+genResult :: ArrowXml a => a (Query, Core) StatusResult
 genResult = --ifP (\(q, _) -> checkWith ((> 1) . length) q)
               (proc (q, idc) -> do
                 res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
                 cfg <- (arr $ (\q' -> RankConfig (hayooRanking contextWeights (extractTerms q')) wordRankByCount)) -< q
                 rnk <- (arr $ rank cfg)            -<< res -- Rank the results
-                (arr $ (\r -> (msgSuccess r , r))) -< rnk -- Include a success message in the status
+                (arr $ (\r -> (msgSuccess r, r, genModules r))) -< rnk -- Include a success message in the status
               )
 
               -- Tell the user to enter more characters if the search terms are too short.
@@ -310,6 +311,13 @@ makeQuery (q, Core i d _ _) = processQuery cfg i d q
                            where
                            cfg = ProcessConfig (FuzzyConfig False True 1.0 []) True 50
 
+-- | Generate a list of modules from a result
+genModules :: Result FunctionInfo -> [(String, Int)]
+genModules r = reverse $ L.sortBy (compare `on` snd) $ M.toList $ IM.fold collectModules M.empty (docHits r)
+  where
+  collectModules ((DocInfo d _), _)  modules = maybe modules (\fi -> M.insertWith (+) (takeWhile (/= '.') $ B.toString $ moduleName fi) 1 modules) (custom d)
+
 -- | Generate an error message in case the query could not be parsed.
-genError :: ArrowXml a => a (String, Core) (String, Result FunctionInfo)
-genError = arr $ (\(msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult))
+genError :: ArrowXml a => a (String, Core) StatusResult
+genError = arr $ (\(msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult, []))
+

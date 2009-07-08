@@ -62,7 +62,22 @@ staticRoot = "hayoo.html"
 
 -- | The combined pickler for the status response and the result.
 xpStatusResult :: PickleState -> PU StatusResult
-xpStatusResult s = xpDivId "result" $ xpPair xpStatus (xpResultHtml s)
+xpStatusResult ps = xpDivId "result" $ xpWrap (undefined, \(s, r, m) -> (s, m, r)) $ xpTriple xpStatus (xpModules ps) (xpResultHtml ps)
+
+-- | The aggregated modules list.
+xpModules :: PickleState -> PU [(String, Int)]
+xpModules ps = xpDivId "modules" $ xpWrap (undefined, take 40) $ xpList xpRootModule
+  where
+  xpRootModule = xpElemClass "div" "rootModule" $ xpPair (xpRootModuleLink $ psQuery ps) (xpElemClass "span" "rootModuleCount" $ xpPrim)
+
+xpRootModuleLink :: String -> PU String
+xpRootModuleLink q = xpElemClass "a" "rootModuleName" $ xpDuplicate $ xpPair (xpDuplicate $ xpPair xpStaticLink xpReplace) xpText
+  where
+  xpReplace = xpAttr "onclick" $ xpPrepend "addToQuery('module:" $ xpAppend "'); return false;" $ xpEscape
+  xpStaticLink = xpAttr "href" $ xpWrap (undefined, makeQueryString) $ xpText
+  makeQueryString s = staticRoot ++ "?query=" ++ q ++ "%20module%3A" ++ s
+
+
 
 -- | Enclose the status message in a <div> tag.
 xpStatus :: PU String
@@ -125,13 +140,14 @@ xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional
     xpModule = xpCell "module" $ xpPair (xpElemClass "a" "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)
     xpFunction = xpCell "function" $ xpPair (xpElemClass "a" "function" $ xpAttr "href" $ xpText) xpText
     xpSignature = xpCell "signature" $ xpPrepend ":: " xpSigDecl
-  xpAdditional = xpElemClass "tr" "description" $ xpPair xpPackage xpDescSource
+  xpAdditional = xpElemClass "tr" "description" $ xpPair xpPackage $ xpDescSource
     where
     xpPackage = xpCell "package" $ xpPair (xpElemClass "a" "package" $ xpAttr "href" $ xpText) xpText
-    xpDescSource = xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpPair xpDescription xpSource
-    xpDescription = xpWrap (undefined, limitDescription) (xpElemClass "span" "description" $ xpText)
+    xpDescSource = xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpElem "div" $ xpPair xpDescription xpSource
+    xpDescription = xpWrap (undefined, limitDescription) $ xpPair xpUnfoldLink (xpElemClass "span" "description" $ xpText)
+    xpUnfoldLink = xpElemClass "a" "toggleFold" $ xpAddFixedAttr "onclick" "toggleFold(this);" $xpText
     xpSource = xpOption $ (xpElemClass "span" "source" $ xpElemClass "a" "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
-    limitDescription = maybe "No description. " (\d -> if length d > 100 then (take 100 d) ++ "... " else d ++ " ")
+    limitDescription = maybe ("+", "No description. ") (\d -> ("+", d))
 
 data Signature = Signature String
                | Declaration String
@@ -164,7 +180,7 @@ xpWordHitsHtml ps = xpDivId "words" $ xpElemClass "p" "cloud" $ xpWrap (fromList
 xpCloudLink :: String -> Int -> PU (String, Word)
 xpCloudLink q s = xpDuplicate $ xpPair xpStaticLink xpReplace
   where
-  xpReplace = xpAttr "onclick" $ xpPair (xpPrepend "replaceInQuery(\"" $ xpAppend "\",\"" xpEscape) (xpAppend "\"); return false;" $ xpEscape)
+  xpReplace = xpAttr "onclick" $ xpPair (xpPrepend "replaceInQuery('" $ xpAppend "','" xpEscape) (xpAppend "'); return false;" $ xpEscape)
   xpStaticLink = xpAttr "href" $ xpWrap (\v -> (v, v), makeQueryString) $ xpText
   makeQueryString (needle, subst) = staticRoot ++ "?query=" ++ (replace needle subst q) ++ "&start=" ++ (show s)
 
