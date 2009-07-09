@@ -117,20 +117,18 @@ computeDocBase			= ( ( ( getByPath ["html", "head", "base"]
 getByPath			:: ArrowXml a => [String] -> a XmlTree XmlTree
 getByPath			= seqA . map (\ n -> getChildren >>> hasName n)
 
-
 getHtmlTitle			:: ArrowXml a => a XmlTree String
-getHtmlTitle			= fromLA $
-				  ( getByPath ["html", "head", "title"]
-				    >>>
-				    deep getText
-				  )
-				  >. (concat >>> normalizeWS)				-- normalize Space
+getHtmlTitle			= getNormalizedText $
+				  getByPath ["html", "head", "title"]
 
 getHtmlPlainText		:: ArrowXml a => a XmlTree String
-getHtmlPlainText		= fromLA $
-				  ( getByPath ["html", "body"]
+getHtmlPlainText		= getNormalizedText $
+				  getByPath ["html", "body"]
+
+getNormalizedText		:: ArrowXml a => a XmlTree XmlTree -> a XmlTree String
+getNormalizedText getText'	= ( getText'
 				    >>>
-				    deep getText
+				    ( fromLA $ deep getText )
 				    >>^
 				    (" " ++)						-- text parts are separated by a space
 				  )

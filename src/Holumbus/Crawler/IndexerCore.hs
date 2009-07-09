@@ -66,6 +66,11 @@ instance (Binary i, Binary (d c)) => Binary (IndexerState i d c) where
 				 , ixs_documents	= dm
 				 }
 
+instance (XmlPickler i, XmlPickler (d c)) => XmlPickler (IndexerState i d c) where
+    xpickle 		= xpElem "index-state" $
+			  xpWrap (uncurry IndexerState, \ ix -> (ixs_index ix, ixs_documents ix)) $
+			  xpPair xpickle xpickle
+
 -- ------------------------------------------------------------
 
 indexCrawlerConfig		:: (HolIndex i, HolDocuments d c, NFData c) =>
