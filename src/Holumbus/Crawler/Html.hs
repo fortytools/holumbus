@@ -118,15 +118,15 @@ getByPath			:: ArrowXml a => [String] -> a XmlTree XmlTree
 getByPath			= seqA . map (\ n -> getChildren >>> hasName n)
 
 getHtmlTitle			:: ArrowXml a => a XmlTree String
-getHtmlTitle			= getNormalizedText $
+getHtmlTitle			= getAllText $
 				  getByPath ["html", "head", "title"]
 
 getHtmlPlainText		:: ArrowXml a => a XmlTree String
-getHtmlPlainText		= getNormalizedText $
+getHtmlPlainText		= getAllText $
 				  getByPath ["html", "body"]
 
-getNormalizedText		:: ArrowXml a => a XmlTree XmlTree -> a XmlTree String
-getNormalizedText getText'	= ( getText'
+getAllText			:: ArrowXml a => a XmlTree XmlTree -> a XmlTree String
+getAllText getText'		= ( getText'
 				    >>>
 				    ( fromLA $ deep getText )
 				    >>^
@@ -138,8 +138,8 @@ getNormalizedText getText'	= ( getText'
 
 -- | normalize whitespace by splitting a text into words and joining this together with unwords
 
-normalizeWS	:: String -> String
-normalizeWS	= words >>> unwords
+normalizeWS			:: String -> String
+normalizeWS			= words >>> unwords
 
 -- | take the first n chars of a string, if the input is too long the cut off is indicated by \"...\" at the end
 limitLength	:: Int -> String -> String

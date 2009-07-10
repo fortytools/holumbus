@@ -72,14 +72,28 @@ simpleIndexer refs ixc startUris
 siIndexer 			:: IO SimpleIndexerState
 siIndexer			= simpleIndexer refs ixc startUris
     where
+{-
     startUris			= [ "http://localhost/~si/" ]
     refs			= simpleFollowRef'
 				  [ "http://localhost/~si/termine/.*"			-- just 2 subdirs
 				  , "http://localhost/~si/Klausuren/.*"
+				  , "http://localhost/~si/termine/.*"
 				  ]
 				  [ ".*[?].*"						-- no query string
 				  , "http://localhost/~si/vorlesungen/.*"		-- no lecture pages, currently redundant
 				  ]
+-}
+    startUris			= [ "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html" ]
+    refs			= simpleFollowRef'
+				  [ "http://www.fh-wedel.de/~si/vorlesungen/fp/.*.html"
+				  ]
+				  [ "http://www.fh-wedel.de/~si/vorlesungen/fp/welcome.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/fp/handouts/.*"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/fp/.*[?]VAR=0"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/fp/.*/exec.html[?].*"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/fp/.*/download[a-zA-Z0-9]*.html[?].*SRC=.*"
+				  ]
+
     ixDefault			=  IndexContextConfig
 				   { ixc_name		= "default"
 				   , ixc_collectText	= getHtmlPlainText
@@ -91,21 +105,24 @@ siIndexer			= simpleIndexer refs ixc startUris
 				    , ixc_collectText	= getHtmlTitle
 				    }
 				  , ixDefault
-				    { ixc_name		= "meta"
-				    , ixc_collectText	= getMetaText
+				    { ixc_name		= "headlines"
+				    , ixc_collectText	= getAllText getHeadlines
 				    }
 				  , ixDefault
 				    { ixc_name		= "content"
-				    , ixc_collectText	= getPlainText
+				    , ixc_collectText	= getAllText getBody
 				    }
 				  ]
 
-getDivCol2, getLecture, getBody
+getDivCol2, getLecture, getBody, getHeadlines
 			:: ArrowXml a => a XmlTree XmlTree
 
 getBody			= this
 			  />  hasName "html"
 			  />  hasName "body"
+
+getHeadlines		= getBody
+			   //> hasNameWith (localPart >>> (`elem` ["h1","h2","h3","h4","h5","h6"]))
 
 getDivCol2		= getBody					-- contents part of fh layout
 			  //>
@@ -123,16 +140,13 @@ getContText		= getDivCol2
 			  `orElse`
 			  getLecture
 
-getPlainText		:: ArrowXml a => a XmlTree String
-getPlainText		= getNormalizedText getContText
-
 getPlainText128		:: ArrowXml a => a XmlTree PlainText
-getPlainText128		= getPlainText
+getPlainText128		= getAllText getBody
 			  >>^
-			  (PT . limitLength 128)
+			  (normalizeWS >>> limitLength 128 >>> PT)
 
 getMetaText 		:: ArrowXml a => a XmlTree String
-getMetaText		= getNormalizedText $
+getMetaText		= getAllText $
 			  getXPathTrees "/html/head/meta[@name='description' or @name='keywords']/@content"
 
 -- ------------------------------------------------------------
