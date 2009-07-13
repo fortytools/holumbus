@@ -1,0 +1,47 @@
+#!/bin/bash
+
+function myGrep () {
+  grep -h "$1" `ls */*/$2 | sort -n`
+}
+function profGrep () {
+  myGrep "$1" "IdWorker.prof"
+}
+function memGrep () {
+  myGrep "$1" "Memory.txt"  
+}
+
+CURRENT=`pwd`
+
+cd $1
+
+TITLES=(
+'total time'
+'total alloc'
+'live memory'
+'GC time'
+'Productivity' )
+
+#TIME=( `profGrep "total time" | cut -d" " -f 12|sed "s/\./,/g"` )
+TIME=( `profGrep "total time" | sed -e "s/^.*total time[^0-9]*//g" -e "s/ secs.*$//g" -e "s/\./,/g"` )
+ALLOC=( `profGrep "total alloc" | sed -e "s/^[^0-9]*//g" -e "s/ bytes.*$//g" -e "s/,//g"` )
+LIVEMEMORY=( `memGrep "total memory" | sed -e "s/^ \+//g" -e "s/ MB.*$//g" -e "s/\./,/g"` )
+GC=( `memGrep "%GC time" | sed -e "s/^[a-Z% ]*//g" -e "s/%.*$//g" -e "s/\./,/g"` )
+PRODUCTIVITY=( `memGrep "Productivity" | sed -e "s/^[a-Z ]*//g" -e "s/%.*$//g" -e "s/\./,/g"` )
+
+for((I=0;I<${#TITLES[*]};I++))
+do
+  echo -n "\"${TITLES[$I]}\";"
+done
+echo
+
+for I in `ls|sort -n`
+do
+  I=`expr $I - 1`
+  echo -n "${TIME[$I]};"
+  echo -n "${ALLOC[$I]};"
+  echo -n "${LIVEMEMORY[$I]};"
+  echo -n "${GC[$I]};"
+  echo "${PRODUCTIVITY[$I]};"
+done
+
+cd $CURRENT

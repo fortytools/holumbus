@@ -1,0 +1,63 @@
+#!/bin/bash
+
+function myGrep () {
+  grep -h "$1" `ls */*/$2 | sort -n`
+}
+function profGrep () {
+  myGrep "$1" "MandelWorker.prof"
+}
+function memGrep () {
+  myGrep "$1" "Memory.txt"  
+}
+
+CURRENT=`pwd`
+
+cd $1
+
+TITLES=(
+'total time'
+'total alloc'
+'defaultOutputWriter time'
+'defaultOutputWriter memory'
+'defaultInputReader time'
+'defaultInputReader memory'
+'writeConnector time'
+'writeConnector memory'
+'live memory'
+'GC time'
+'Productivity'
+'output sizes' )
+
+#TIME=( `profGrep "total time" | cut -d" " -f 12|sed "s/\./,/g"` )
+TIME=( `profGrep "total time" | sed -e "s/^.*total time[^0-9]*//g" -e "s/ secs.*$//g" -e "s/\./,/g"` )
+ALLOC=( `profGrep "total alloc" | cut -d" " -f 4|sed s/,//g` )
+OPWRITER=( `profGrep "^defaultOutputWriter" | sed "s/^[a-Z\.\ ]*//g" | sed -e "s/\./,/g" -e "s/ \+/;/g"` )
+IPWRITER=( `profGrep "^defaultInputReader" | sed "s/^[a-Z\.\ ]*//g" | sed -e "s/\./,/g" -e "s/ \+/;/g"` )
+CONNECTOR=( `profGrep "^writeConnector" | sed "s/^[a-Z\.\ ]*//g" | sed -e "s/\./,/g" -e "s/ \+/;/g"` )
+LIVEMEMORY=( `memGrep "total memory" | sed -e "s/^ \+//g" -e "s/ MB.*$//g" -e "s/\./,/g"` )
+GC=( `memGrep "%GC time" | sed -e "s/^[a-Z% ]*//g" -e "s/%.*$//g" -e "s/\./,/g"` )
+PRODUCTIVITY=( `memGrep "Productivity" | sed -e "s/^[a-Z ]*//g" -e "s/%.*$//g" -e "s/\./,/g"` )
+
+CMD='for OUT in `ls */out.pgm | sort -n`; do ls -l $OUT | cut -d" " -f5; done'
+SIZES=( `eval $CMD` )
+
+for((I=0;I<${#TITLES[*]};I++))
+do
+  echo -n "\"${TITLES[$I]}\";"
+done
+echo
+
+for I in {0..9}
+do
+  echo -n "${TIME[$I]};"
+  echo -n "${ALLOC[$I]};"
+  echo -n "${OPWRITER[$I]};"
+  echo -n "${IPWRITER[$I]};"
+  echo -n "${CONNECTOR[$I]};"
+  echo -n "${LIVEMEMORY[$I]};"
+  echo -n "${GC[$I]};"
+  echo -n "${PRODUCTIVITY[$I]};"
+  echo "${SIZES[$I]}"
+done
+
+cd $CURRENT

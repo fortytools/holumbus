@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# How to start the registry ?
+PORTREG="sudo /etc/init.d/PortRegistry"
+PORTREG_START="$PORTREG start"
+PORTREG_STOP="$PORTREG stop"
+
+# How to start the master ?
+MASTER="sudo /etc/init.d/Master"
+MASTER_START="$MASTER start"
+MASTER_STOP="$MASTER stop"
+MASTER_STATFILE="/tmp/master.state"
+
+# 
+BASE="/home/re/Examples2/Mandel" # where am i?
+CLIENT="$BASE/MandelClient" # your client
+WORKER="$BASE/MandelWorker" # your worker binary
+WORKER_SCRIPT="$BASE/worker" # script to start the worker in bg
+WORKER_PID="Worker.pid" # the worker's pid name
+
+COUNT=$1
+TESTDIR="$2"
+WIDTH=800
+HEIGHT=600
+ZMAX=2.0
+ITERATIONS=100
+
+# Application specific stuff, change to fit your app
+NUM="$3"
+
+I=1
+
+while [ $I -le $COUNT ]
+do
+  echo "Runnin test $I" && \
+  # start registry
+  $PORTREG_START && \
+  sleep 1 && \
+  # start master
+  $MASTER_START && \
+  sleep 1 && \
+  DIR="$BASE/$TESTDIR/$I" && \
+  mkdir -p $DIR && \
+  for W in `seq 1 $NUM`; do { echo "Creating worker $W" && WORKERDIR=$DIR/worker$W && mkdir -p $WORKERDIR && cp $WORKER $WORKERDIR && cd $WORKERDIR && start-stop-daemon --start -p $WORKERDIR/$WORKER_PID --background --startas $WORKER_SCRIPT $WORKERDIR "1000""$W"; }; done  && \
+  while [ `cat $MASTER_STATFILE | wc -l` -ne $NUM ]; do echo "Waiting for workers to start"; sleep 1; done && \
+  cd $DIR && \
+  date && \
+  /usr/bin/time -o time.txt -v $CLIENT $WIDTH $HEIGHT $ZMAX $ITERATIONS "out.pgm" $NUM +RTS -p -smem.txt -K500M && \
+  date && \
+  for W in `seq 1 $NUM`; do { echo "Stoping worker $W" && WORKERDIR=$DIR/worker$W && start-stop-daemon --stop --signal 2 -p $WORKERDIR/$WORKER_PID; }; done  && \
+  while [ `cat $MASTER_STATFILE | wc -l` -ne 0 ]; do echo "Waiting for workers to stop"; sleep 1; done && \
+  $MASTER_STOP && \
+  sleep 1 && \
+  $PORTREG_STOP && \
+  cd $BASE && \
+  echo "Run finished"
+  sleep 2 && \
+#  read
+  I=`expr $I + 1`
+done
