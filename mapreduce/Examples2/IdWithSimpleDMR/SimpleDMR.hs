@@ -21,8 +21,7 @@ where
 
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.MapReduce.Types
---import           Data.Binary
-import Holumbus.Common.MRBinary
+import           Data.Binary
 import           Control.Parallel.Strategies
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import qualified Holumbus.FileSystem.FileSystem                 as FS

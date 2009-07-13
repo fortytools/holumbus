@@ -15,8 +15,7 @@
 
 module Main(main) where
 
---import           Data.Binary
-import Holumbus.Common.MRBinary
+import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 
 import           Holumbus.Common.FileHandling
