@@ -23,7 +23,8 @@ module Holumbus.FileSystem.UserInterface
     )
 where
 
-import           Data.Binary
+--import           Data.Binary
+import Holumbus.Common.MRBinary
 import           Data.List
 
 import qualified Holumbus.Common.Debug                  as DEBUG

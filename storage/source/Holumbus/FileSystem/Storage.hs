@@ -37,7 +37,8 @@ module Holumbus.FileSystem.Storage
 where
 
 import           Prelude hiding (appendFile)
-import           Data.Binary
+--import           Data.Binary
+import Holumbus.Common.MRBinary
 import           Data.Time
 import qualified Data.ByteString.Lazy as B
 
