@@ -87,6 +87,7 @@ library
                  , Holumbus.Common.Logging
                  , Holumbus.Common.Threading
                  , Holumbus.Common.Utils
+                 , Holumbus.Common.MRBinary
 
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification FlexibleContexts
