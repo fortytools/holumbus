@@ -3,5 +3,5 @@
 DIR=$1
 PORT=$2
 cd $DIR 
-./IdWorker $PORT logfile +RTS -K500M -sMemory.txt  -RTS &
+./IdWorker $PORT logfile +RTS -p -K500M -sMemory.txt  -RTS &
 echo $! > Worker.pid
