@@ -21,7 +21,9 @@ where
 
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.MapReduce.Types
+import           Holumbus.Common.FileHandling
 import           Data.Binary
+import           Data.Maybe
 import           Control.Parallel.Strategies
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import qualified Holumbus.FileSystem.FileSystem                 as FS
@@ -64,7 +66,7 @@ simpleReduce f _ a key2 values3 = return ( Just f' )
 {-
 actionConfig
 -}
-actionConfig :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
+actionConfig :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 actionConfig m r = (defaultActionConfiguration "ID") {
            ac_Map     = Just . defaultMapConfiguration    $ simpleMapping m
          , ac_Reduce  = Just . defaultReduceConfiguration $ simpleReduce r
@@ -89,14 +91,25 @@ actionConfig m r = (defaultActionConfiguration "ID") {
   -> TaskOutputType  -- ^ type of the result (file of raw)
   -> mr -> IO ([(k2,v4)],[FileId])
 -}
-simpleClient :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> a -> Int -> [(k1,v1)] -> IO [(k2,v4)]
+simpleClient :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> a -> Int -> [(k1,v1)] -> IO [(k2,v4)]
 simpleClient m r a num ls = do
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
       mr <- initializeData
-      (result, _) <- MR.doMapReduce (actionConfig m r) a ls [] num num num num TOTRawTuple mr
+      fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+      FS.createFile "initial_input" (listToByteString ls) fs
+      (_,fids) <- MR.doMapReduce (actionConfig m r) a [] ["initial_input"] num num num num TOTFile mr
+      result <- merge fids fs
       deinitializeData mr
+      FS.closeFileSystem fs
       return result
+      
+merge :: (Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
+merge fids fs = do
+   mayberesult <- mapM ( flip FS.getFileContent fs) fids
+   let result = concat . map parseByteStringToList $ catMaybes mayberesult
+   return result
+   
 
 {-
 The simple client's init function
@@ -144,7 +157,7 @@ params = do
 {-
  The simpleWorker
 -}
-simpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO ()
+simpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO ()
 simpleWorker m r = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -159,7 +172,7 @@ simpleWorker m r = do
 {-
  The simpleWorker's init functin
 -}
-initSimpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initSimpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
 initSimpleWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig

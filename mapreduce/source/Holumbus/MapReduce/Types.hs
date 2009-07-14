@@ -564,8 +564,8 @@ defaultInputReader b
   = return $ parseByteStringToList b
 
 
-defaultOutputWriter :: (Binary k2, Binary v2) => OutputWriter k2 v2
-defaultOutputWriter = return . encodeStream . List
+defaultOutputWriter :: (NFData v2, NFData k2, Binary k2, Binary v2) => OutputWriter k2 v2
+defaultOutputWriter = return . listToByteString
 --  = return $ B.concat $ map encode ls
 
 
@@ -644,7 +644,7 @@ defaultSplitConfiguration
 
 
 defaultMapConfiguration
-  :: (NFData v1, NFData k1, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
+  :: (NFData v1, NFData k1, NFData v2, NFData k2, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction a k1 v1 k2 v2
   -> MapConfiguration a k1 v1 k2 v2
 defaultMapConfiguration fct
@@ -656,7 +656,7 @@ defaultMapConfiguration fct
 
 
 defaultReduceConfiguration
-  :: (NFData v2, NFData k2, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
+  :: (NFData v2, NFData k2, NFData v3, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
   => ReduceFunction a k2 v2 v3
   -> ReduceConfiguration a k2 v2 v3
 defaultReduceConfiguration fct
