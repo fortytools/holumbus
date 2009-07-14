@@ -12,7 +12,7 @@ import Data.List
 main :: IO ()
 main = do
   result <- simpleClient idMap idReduce () num ls
-  putStrLn . show . sortBy sortList $ result
+  putStrLn . show . (==ls) . sortBy sortList $ result
   where
   num = 2
   ls = zip [0..] [1..10]
