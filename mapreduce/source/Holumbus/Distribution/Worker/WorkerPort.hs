@@ -16,7 +16,7 @@
 module Holumbus.Distribution.Worker.WorkerPort
 (
 -- * Datatypes
-  WorkerPort
+  WorkerPort(..)
   
 -- * Creation and Destruction
 , newWorkerPort

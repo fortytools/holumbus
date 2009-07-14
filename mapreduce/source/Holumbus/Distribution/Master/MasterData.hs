@@ -40,7 +40,7 @@ import           Holumbus.Network.Site
 -- import           Holumbus.Network.Port
 -- import           Holumbus.Network.Messages
 import           Holumbus.Network.Communication
-
+import           Holumbus.Distribution.Master.MasterState
 import qualified Holumbus.MapReduce.MapReduce                   as MR
 import           Holumbus.MapReduce.JobController
 import           Holumbus.MapReduce.Types
@@ -175,6 +175,7 @@ registerWorker m i cp
     let wp = WP.newWorkerPort cp
     as <- WC.getActionNames wp
     md <- readMVar m
+    addWorker i (as,wp)
     modifyMVar (md_WorkerController md) $
       \wcd ->
       do
@@ -188,6 +189,7 @@ unregisterWorker :: MVar MasterData -> IdType -> ClientPort -> IO ()
 unregisterWorker m i _
   = do
     md <- readMVar m
+    delWorker i
     modifyMVar (md_WorkerController md) $
       \wcd ->
       do

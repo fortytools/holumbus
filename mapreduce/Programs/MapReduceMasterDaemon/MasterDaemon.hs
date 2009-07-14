@@ -21,6 +21,7 @@ import           Holumbus.Common.Utils                         ( handleAll )
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.FileSystem.FileSystem                 as FS
 import qualified Holumbus.Distribution.DMapReduce               as MR
+import           Holumbus.Distribution.Master.MasterState
 import qualified Holumbus.MapReduce.DaemonInterface             as UI
 import           System.Environment
 import           System.Log.Logger
@@ -38,12 +39,12 @@ localLogger = "MasterDaemon"
 
 pUsage :: IO ()
 pUsage = do
-  putStrLn "Usage: MasterDaemon ConsolePort Logfile"
+  putStrLn "Usage: MasterDaemon ConsolePort Logfile Statefile"
 
 params :: IO [String]
 params = do
   args <- getArgs
-  if length args /= 2 then do
+  if length args /= 3 then do
     errorM localLogger "Wrong argument count"
     pUsage
     exitFailure
@@ -56,9 +57,10 @@ main
     putStrLn version
     handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
       do      
-      (s_cport:logfile:[]) <- params
+      (s_cport:logfile:statefile:[]) <- params
       initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO)]
-      p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
+      addResource statefile
+      p <- newPortRegistryFromXmlFile "/tmp/registry.xml"      
       setPortRegistry p
       (mr,fs) <- initializeData
       UI.runDaemon mr version (read s_cport) prompt 

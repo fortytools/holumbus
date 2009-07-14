@@ -75,6 +75,7 @@ library
                 , Holumbus.Distribution.Master
                 , Holumbus.Distribution.Master.MasterData
                 , Holumbus.Distribution.Master.MasterPort
+                , Holumbus.Distribution.Master.MasterState
                 , Holumbus.Standalone.SMapReduce
                 , Holumbus.MapReduce.MapReduce
                 , Holumbus.MapReduce.JobController

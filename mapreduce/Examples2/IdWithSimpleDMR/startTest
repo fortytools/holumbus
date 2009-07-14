@@ -12,7 +12,7 @@ MASTER_STOP="$MASTER stop"
 MASTER_STATFILE="/tmp/master.state"
 
 # 
-BASE="/home/re/Examples2/IdWithSimpleDMR" # where am i?
+BASE="/home/re/FH/holumbus/Examples2/IdWithSimpleDMR" # where am i?
 CLIENT="$BASE/IdClient" # your client
 WORKER="$BASE/IdWorker" # your worker binary
 WORKER_SCRIPT="$BASE/worker" # script to start the worker in bg

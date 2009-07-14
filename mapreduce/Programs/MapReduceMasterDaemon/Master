@@ -1,17 +1,29 @@
 #!/bin/bash
 
+#
 PIDDIR="/var/run/holumbus"
 [ -d "$PIDDIR" ] || mkdir -p "$PIDDIR"
 PIDFILE="$PIDDIR/MasterDaemon.pid"
+
+#
 EXECUTABLE="/usr/local/bin/MasterDaemon"
+
+#
 NAME="MasterDaemon"
+
+#
 LOGDIR="/var/log/holumbus"
 [ -d "$LOGDIR" ] || mkdir -p "$LOGDIR"
 LOGFILE="$LOGDIR/master.log"
+
+# 
+STATEFILE="/tmp/master.state"
+
+#
 CONSOLE_PORT=9901
 
 function startServer() {
-	start-stop-daemon --start --background -m -p "$PIDFILE" --startas "$EXECUTABLE" "$CONSOLE_PORT" "$LOGFILE"
+	start-stop-daemon --start --background -m -p "$PIDFILE" --startas "$EXECUTABLE" "$CONSOLE_PORT" "$LOGFILE" "$STATEFILE"
 }
 
 function stopServer() {
@@ -42,6 +54,6 @@ case $1 in
     tail -f "$LOGFILE"
   ;;
   *)
-    echo "Usage: PortRegistry (start|stop|restart|status|log)"
+    echo "Usage: Master (start|stop|restart|status|log)"
   ;;
 esac

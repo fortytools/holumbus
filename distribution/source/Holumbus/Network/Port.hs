@@ -36,7 +36,7 @@ module Holumbus.Network.Port
 , StreamName
 , StreamType(..)
 , Stream
-, Port
+, Port(..)
 
 -- * Message-Operations
 , getMessageType

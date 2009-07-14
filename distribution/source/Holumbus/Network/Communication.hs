@@ -57,7 +57,7 @@ module Holumbus.Network.Communication
 , Client
 , newClient
 , closeClient
-, ClientPort
+, ClientPort(..)
 , sendRequestToClient 
 )
 where
