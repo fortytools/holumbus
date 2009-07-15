@@ -48,7 +48,8 @@ import		 Control.Exception	( Exception
 import qualified Control.Exception as E
 -}
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import           Data.Maybe
 import           Data.Typeable
 

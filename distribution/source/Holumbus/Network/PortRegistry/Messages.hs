@@ -28,7 +28,8 @@ module Holumbus.Network.PortRegistry.Messages
 )
 where
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 
 import           Holumbus.Network.Port
 import           Holumbus.Network.Core

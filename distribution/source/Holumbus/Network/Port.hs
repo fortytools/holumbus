@@ -84,7 +84,8 @@ import           Control.Concurrent
 import           Control.Exception
 import           Control.Monad
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
 import qualified Data.Map as Map

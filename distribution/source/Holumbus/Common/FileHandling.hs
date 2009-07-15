@@ -67,7 +67,8 @@ where
 
 
 import           Control.Exception
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
 import           Foreign

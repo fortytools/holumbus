@@ -12,7 +12,7 @@ MASTER_STOP="$MASTER stop"
 MASTER_STATFILE="/tmp/master.state"
 
 # 
-BASE="/home/re/Examples2/Mandel" # where am i?
+BASE=`pwd` # where am i?
 CLIENT="$BASE/MandelClient" # your client
 WORKER="$BASE/MandelWorker" # your worker binary
 WORKER_SCRIPT="$BASE/worker" # script to start the worker in bg

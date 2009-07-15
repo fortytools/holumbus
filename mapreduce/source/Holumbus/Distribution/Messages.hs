@@ -32,7 +32,8 @@ module Holumbus.Distribution.Messages
 where
 
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 
 import           Holumbus.Network.Messages
 import           Holumbus.MapReduce.Types

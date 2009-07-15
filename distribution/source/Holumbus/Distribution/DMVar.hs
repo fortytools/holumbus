@@ -32,7 +32,8 @@ where
 import           Prelude hiding (catch)
 
 import           Control.Concurrent.MVar
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger

@@ -24,7 +24,8 @@ module Examples.Distribution.ChatDChan.MessagesDChan
 )
 where
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import           System.Random
 import           Holumbus.Distribution.DChan
 

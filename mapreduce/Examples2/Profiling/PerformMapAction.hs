@@ -2,7 +2,8 @@
 module Main(main) where
 
 import qualified Data.ByteString.Lazy as B
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import           System.IO
 import           System.Environment
 import qualified Data.HashTable as Hash

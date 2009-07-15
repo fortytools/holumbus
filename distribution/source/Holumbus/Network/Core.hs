@@ -55,7 +55,8 @@ import           Control.Exception      ( Exception
           )
 import           Control.Monad
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy   as B
 import           Data.Typeable
 

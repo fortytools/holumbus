@@ -4,7 +4,8 @@ HOME		= ../../
 
 SOURCE		= .
 OPTIMIZATION=-O2
-GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main
+PROF=-prof -auto-all -caf-all
+GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main $(PROF)
 # -prof -auto-all -caf-all -fforce-recomp
 GHC		= ghc $(GHC_FLAGS)
 

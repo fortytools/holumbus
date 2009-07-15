@@ -4,16 +4,20 @@ module Main
 )
 where
 
+import           Holumbus.Common.FileHandling (listToByteString, parseByteStringToList)
 import           Holumbus.Common.Logging
 import           Holumbus.Common.Utils                          ( handleAll )
-
+import           Data.Maybe
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import           Holumbus.MapReduce.Types
 import           Holumbus.MapReduce.MapReduce 
-
+import qualified Holumbus.FileSystem.FileSystem                 as FS
 import           Examples2.Mandel.DMandel
 import           Examples2.Mandel.ImageTypes
+import Control.Parallel.Strategies
 import System.IO
 import System.Environment
 import Data.List
@@ -67,7 +71,7 @@ main
       {-#SCC "getargscc" #-} main2 args
 
 main2 :: [String] -> IO ()
-main2 (sw : sh : szmax : siter : outp : _)
+main2 (sw : sh : szmax : siter : outp : snum : _)
   = do
     putStrLn version
     handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
@@ -76,10 +80,12 @@ main2 (sw : sh : szmax : siter : outp : _)
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
       mr <- initializeData
-
-      (ls,_) <- doMapReduce (dmandelAction) (w,h,zmax,iter) (pixels w h) [] 2 2 2 2 TOTRawTuple mr
---      let pix = (concat . map (\(xk,vs) -> vs) . sortBy sortPixels) ls      
-      let pix = (concat . map (\(xk,vs) -> vs)) ls
+      fs <- FS.mkFileSystemNode  FS.defaultFSNodeConfig -- $ FS.FSNodeConf "MandelClient" Nothing "MandelClientStorage/" "directory"
+      FS.createFile "initial_input" (listToByteString $ pixels w h) fs
+      (_, fids) <- doMapReduce (dmandelAction) (w,h,zmax,iter) [] ["initial_input"] num num num num TOTFile mr
+      ls <- merge fids fs
+      let pix = (concat . map snd . sortBy sortPixels) ls      
+--      let pix = (concat . map (\(xk,vs) -> vs)) ls
       saveImage (Geo w h) pix outp
       deinitializeData mr
     where
@@ -87,6 +93,13 @@ main2 (sw : sh : szmax : siter : outp : _)
   	h = read sh
   	iter = read siter
   	zmax = read szmax
+  	num = read snum
+
+merge :: [FS.FileId] -> FS.FileSystem -> IO [(Int,[Double])]
+merge fids fs = do
+   mayberesult <- mapM ( flip FS.getFileContent fs) fids
+   let result = concat . map parseByteStringToList $ catMaybes mayberesult
+   return result
 
 sortPixels :: (Ord k) => (k,v) -> (k,v) -> Ordering
 sortPixels (k1,_) (k2,_) 

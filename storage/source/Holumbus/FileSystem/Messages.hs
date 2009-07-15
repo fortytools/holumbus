@@ -37,7 +37,8 @@ where
 
 import           Prelude hiding (appendFile)
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import           Data.Set
 
 import           Holumbus.Network.Communication

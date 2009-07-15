@@ -41,7 +41,8 @@ module Holumbus.Network.Site
 )
 where
 
-import           Data.Binary
+--import           Data.Binary
+import           Holumbus.Common.MRBinary
 import qualified Data.List as List
 import           Network.Socket
 import           System.Posix
