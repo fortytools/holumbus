@@ -17,7 +17,9 @@
 {-# LANGUAGE Arrows, NoMonomorphismRestriction #-}
 module Holumbus.MapReduce.Types
 (
-  FunctionData(..)
+  Hash(..)
+, hashedPartition  
+,  FunctionData(..)
   
 {-
 , encodeTuple
@@ -131,7 +133,11 @@ localLogger = "Holumbus.MapReduce.Types"
 -- ----------------------------------------------------------------------------
 -- general datatypes
 -- ----------------------------------------------------------------------------
-
+class Hash a where
+  hash :: Int -> a -> Int
+  
+instance Hash Int where
+  hash n k = mod k n
 
 data FunctionData
   = TupleFunctionData B.ByteString
@@ -680,6 +686,10 @@ defaultSplit _ _ n ls
     ps = zip ns is
 
 
+hashedPartition :: (Hash k2, Binary k2, Binary v2) => MapPartition a k2 v2
+hashedPartition _ _ 1 = return . (:[]) . (,) 1
+hashedPartition _ _ n = return . AMap.toList . AMap.fromList . map (\t -> (hash n (fst t),[t]))
+
 defaultPartition
   :: (Binary k2, Binary v2)
   => MapPartition a k2 v2
@@ -689,7 +699,7 @@ defaultPartition _ _ 1 ls
 defaultPartition _ _ n ls
   = do
     -- calculate partition-Values
-    let markedList = map (\t@(k,_) -> (hash k,t)) ls
+    let markedList = map (\t@(k,_) -> (hash' k,t)) ls
     -- merge them
     
     -- TODO this might change (revert) the order of the Elements...
@@ -698,7 +708,7 @@ defaultPartition _ _ n ls
     where
     -- calculate a hash-value, because we only have the Binary-Instance, we
     -- can only use the Bytestring of the Value
-    hash k = ((fromIntegral $ Hash.hashString (show $ encode k)) `mod` n) + 1
+    hash' k = ((fromIntegral $ Hash.hashString (show $ encode k)) `mod` n) + 1
 
 
 defaultMerge

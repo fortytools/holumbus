@@ -52,9 +52,10 @@ reduceDMandel _ _ k vs
   
 partitionDMandel :: ActionEnvironment -> (Int, Int, Double, Int) -> Int -> [(Int, [Lightness])] -> IO [(Int,[(Int, [Lightness])])]
 --partitionDMandel _ _ _ ls@((k2,_):xs) = --return $ [foldr (\t (1,xs) -> (1,t:xs)) (1,[]) ls]
+partitionDMandel _ _ 1 ls = return [(1,ls)]
 partitionDMandel _ _ n ls 
   = do
-    infoM localLogger "partition DMandel"
+    infoM localLogger $ "partition DMandel: " ++ show n
     --debugM localLogger $ show ls
     -- calculate partition-Values
 --    let markedList = map (\t@(k,_) ->  (k,[t])) ls
@@ -83,10 +84,10 @@ dmandelAction
     where
       mapAction 
         = (defaultMapConfiguration mapDMandel)
-            { mc_Partition = partitionDMandel }
+            { mc_Partition = hashedPartition }
       reduceAction
         = (defaultReduceConfiguration reduceDMandel)
-            { rc_Partition = partitionDMandel }
+            { rc_Partition = hashedPartition }
 
 dmandelActionMap :: ActionMap
 dmandelActionMap
