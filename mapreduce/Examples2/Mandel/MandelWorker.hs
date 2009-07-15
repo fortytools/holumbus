@@ -31,7 +31,7 @@ main2 ( sport : logfile : xs )
     putStrLn version
     handleAll (\e -> putStrLn $ "EXCEPTION: " ++ show e) $
       do
-      initializeFileLogging logfile [("Holumbus.MapReduce.Types",WARNING),("Holumbus.FileSystem.FileSystem",WARNING)]
+      initializeFileLogging logfile [("Holumbus", ERROR),("Examples2",ERROR)] --  [("Holumbus.MapReduce.Types",DEBUG),("Holumbus.FileSystem.FileSystem",WARNING)]
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p
       (mr,fs) <- initializeData sport

@@ -48,21 +48,6 @@ reduceDMandel _ _ k vs
     let s = {-# SCC "dmandel4" #-}concat vs
     --debugM localLogger $ show $ "output: " ++ show s
     {-# SCC "dmandel5" #-} return (Just s)
-    
-  
-partitionDMandel :: ActionEnvironment -> (Int, Int, Double, Int) -> Int -> [(Int, [Lightness])] -> IO [(Int,[(Int, [Lightness])])]
---partitionDMandel _ _ _ ls@((k2,_):xs) = --return $ [foldr (\t (1,xs) -> (1,t:xs)) (1,[]) ls]
-partitionDMandel _ _ 1 ls = return [(1,ls)]
-partitionDMandel _ _ n ls 
-  = do
-    infoM localLogger $ "partition DMandel: " ++ show n
-    --debugM localLogger $ show ls
-    -- calculate partition-Values
---    let markedList = map (\t@(k,_) ->  (k,[t])) ls
-    let markedList = {-# SCC "markedList2" #-} map (\t@(k,_) ->  (k `mod` n,[t])) ls
-    -- merge them
-    let resultList = {-# SCC "resultList2" #-} AMap.toList $ AMap.fromList markedList
-    return resultList
 
 -- ----------------------------------------------------------------------------
 -- Actions

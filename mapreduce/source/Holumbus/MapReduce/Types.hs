@@ -778,6 +778,7 @@ getActionForTaskType _         _  = Nothing
 
 readActionConfiguration
   :: ( Ord k2, Binary a
+     , NFData k2, NFData v2, NFData v3
      , Binary k1, Binary v1
      , Binary k2, Binary v2
      , Binary v3, Binary v4)
@@ -940,6 +941,7 @@ type ReducePartition a k2 v3 = ActionEnvironment -> a -> Int -> [(k2,v3)] -> IO 
 
 performReduceAction
   :: (Ord k2,
+      NFData k2, NFData v2,
       Binary a, Binary k2, Binary v2, Binary v3)
   => OptionsDecoder a
   -> ReduceMerge a k2 v2
@@ -963,7 +965,7 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
     inputList <- readConnector reader env ls
     
     infoM localLogger "doing merge"
-    mergedList <- merge env a inputList
+    mergedList <- rnf inputList `seq` merge env a inputList
     
     infoM localLogger "doing reduce"
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction a k2 v2s) mergedList

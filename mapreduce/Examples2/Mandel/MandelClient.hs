@@ -122,5 +122,5 @@ deinitializeData mr
 
 pixels :: Int -> Int -> [(Int,[Int])]
 pixels w h
-  = [(y,take w [0..])|y<-[0..h-1]]   
+  = let t = [(y,take w [0..])|y<-[0..h-1]]   in rnf t`seq` t
 -- ----------------------------------------------------------------------------
