@@ -43,7 +43,7 @@ initializeData :: String -> IO (MR.DMapReduce, FS.FileSystem)
 initializeData port
   = do
     let name = "mandelworkerstorage_"++port
-    fs <- {-# SCC "initializeDatad" #-}FS.mkFileSystemNode FS.defaultFSNodeConfig -- $ FS.FSNodeConf name Nothing (name++"/") "directory"
+    fs <- {-# SCC "initializeDatad" #-}FS.mkFileSystemNode $ FS.FSNodeConf "FSController" Nothing (name++"/") "directory"
     let actions = dmandelActionMap
     let config  = MR.defaultMRWorkerConfig
     mr <- {-# SCC "initializeDatadddd" #-}MR.mkMapReduceWorker fs actions config

@@ -80,7 +80,7 @@ main2 (sw : sh : szmax : siter : outp : snum : _)
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
       mr <- initializeData
-      fs <- FS.mkFileSystemNode  FS.defaultFSNodeConfig -- $ FS.FSNodeConf "MandelClient" Nothing "MandelClientStorage/" "directory"
+      fs <- FS.mkFileSystemNode  $ FS.FSNodeConf "FSController" Nothing "MandelClientStorage/" "directory"
       FS.createFile "initial_input" (listToByteString $ pixels w h) fs
       (_, fids) <- doMapReduce (dmandelAction) (w,h,zmax,iter) [] ["initial_input"] num num num num TOTFile mr
       ls <- merge fids fs
