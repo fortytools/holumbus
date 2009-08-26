@@ -45,6 +45,9 @@ deleteURI		= S.delete
 unionURIs		:: URIs -> URIs	-> URIs
 unionURIs		= S.union
 
+diffURIs   :: URIs -> URIs -> URIs
+diffURIs   = S.difference
+
 fromListURIs		:: [URI] -> URIs
 fromListURIs		= S.fromList
 
