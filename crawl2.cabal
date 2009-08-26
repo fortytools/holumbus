@@ -1,0 +1,61 @@
+name:                crawl2
+version:             0.0.1
+synopsis:            A crawler for websites
+description:         Runs through websites and crawls all documents.
+category:            Web
+license:             OtherLicense
+license-file:        LICENSE
+author:              Schmidt
+maintainer:          uwe@fh-wedel.de
+build-depends:       base
+build-type:          Simple
+Cabal-Version: >= 1.2
+
+extra-source-files:
+  Examples2/Re/Worker.hs
+  Examples2/Re/SimpleSearch.hs
+  Examples2/Re/Client.hs
+  Examples2/Re/Makefile
+  Examples2/Re/Standalone.hs
+  Examples2/Re/MRIndexer.hs
+  Examples2/Re/Common.hs
+  Examples2/Re/CommonStandalone.hs
+
+library
+  build-depends:  base >= 3
+                , binary     >= 0.4
+                , bytestring >= 0.9
+                , containers >= 0.1
+                , directory  >= 1.0
+                , haskell98  >= 1
+                , hslogger   >= 1.0
+                , hxt        >= 8.2
+                , network    >= 2.1
+                , time       >= 1.1
+                , unix       >= 2.3
+                , parallel   >= 1.1.0.0
+                , mtl        >= 1.1.0.2
+                , Holumbus-Searchengine >= 0.0.7
+  ghc-options: -Wall -threaded
+  hs-source-dirs:
+                  src
+  exposed-modules:
+                Holumbus.Crawler.Robots
+                , Holumbus.Crawler.HtmlText
+                , Holumbus.Crawler.Core
+                , Holumbus.Crawler.URIChecker
+                , Holumbus.Crawler.IndexerCore
+                , Holumbus.Crawler.URIs
+                , Holumbus.Crawler.Constants
+                , Holumbus.Crawler.Util
+                , Holumbus.Crawler.Html
+                , Holumbus.DCrawler.Core
+                , Holumbus.DCrawler.IndexerCore
+                , Holumbus.DCrawler.Robots
+                , Holumbus.DCrawler.HtmlText
+                , Holumbus.DCrawler.URIs
+                , Holumbus.DCrawler.Constants
+                , Holumbus.DCrawler.Util
+                , Holumbus.DCrawler.Html
+                , Control.Monad.ReaderStateIO
+                , Data.Function.Selector
