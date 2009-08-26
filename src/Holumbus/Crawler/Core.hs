@@ -30,6 +30,7 @@ import		 Text.XML.HXT.Arrow		hiding
 						)
 
 -- import qualified Debug.Trace			as D
+import Control.Parallel.Strategies
 
 -- ------------------------------------------------------------
 
@@ -67,6 +68,10 @@ data CrawlerState r		= CrawlerState
 				  , cs_resultAccu       :: ! r					-- evaluate accumulated result, else memory leaks show up
 				  }
 				  deriving (Show)
+
+instance (NFData r) => NFData (CrawlerState r) where
+  rnf CrawlerState {cs_toBeProcessed = a, cs_alreadyProcessed = b, cs_robots  = c, cs_noOfDocs  = d, cs_resultAccu = e}
+    = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e
 
 type CrawlerAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
