@@ -49,7 +49,10 @@ data IndexContextConfig		= IndexContextConfig
 data IndexerState i d c		= IndexerState
 				  { ixs_index		:: ! i			-- the index type
 				  , ixs_documents	:: ! (d c)		-- the user defined type for document descriptions
-				  }
+				  } deriving (Show)
+
+instance (NFData i, NFData (d c)) => NFData (IndexerState i d c) where
+  rnf IndexerState { ixs_index = i, ixs_documents = d } = rnf i `seq` rnf d
 
 -- ------------------------------------------------------------
 
