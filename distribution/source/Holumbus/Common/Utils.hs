@@ -39,8 +39,8 @@ where
 import           Control.Exception	( SomeException
 					, handle
 					)
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 
 -- import qualified Data.Map as Map

@@ -31,8 +31,8 @@ module Holumbus.Distribution.DChan
 where
 
 import           Control.Concurrent.Chan
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger

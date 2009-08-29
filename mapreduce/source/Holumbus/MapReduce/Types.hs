@@ -107,8 +107,8 @@ module Holumbus.MapReduce.Types
 where
 
 import           Control.Concurrent
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import qualified Data.Map as Map
 import qualified Data.HashTable as Hash

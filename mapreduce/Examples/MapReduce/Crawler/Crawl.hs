@@ -40,8 +40,8 @@ where
 
 import           Control.Monad hiding (when)
 
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import           Data.Char
 import           Data.List
 import           Data.Maybe

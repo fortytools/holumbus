@@ -31,8 +31,8 @@ where
 import           Control.Monad
 import           Control.Exception
 import qualified Data.ByteString.Lazy as B
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import           Data.Maybe
 import           System.IO
 import           System.Directory

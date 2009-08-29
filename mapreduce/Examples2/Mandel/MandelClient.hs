@@ -8,8 +8,8 @@ import           Holumbus.Common.FileHandling (listToByteString, parseByteString
 import           Holumbus.Common.Logging
 import           Holumbus.Common.Utils                          ( handleAll )
 import           Data.Maybe
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import           Holumbus.MapReduce.Types

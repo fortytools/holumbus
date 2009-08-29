@@ -40,8 +40,8 @@ module Holumbus.Distribution.DStreamPort
 )
 where
 
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           System.Log.Logger
 

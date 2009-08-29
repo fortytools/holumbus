@@ -65,8 +65,8 @@ import           Prelude hiding (catch)
 import           Control.Exception
 import           Control.Concurrent
 import           Data.Typeable
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import           Data.Char
 import           Data.Maybe
 import           Data.Unique

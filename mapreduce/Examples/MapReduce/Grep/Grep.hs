@@ -23,8 +23,8 @@ module Examples.MapReduce.Grep.Grep
 )
 where
 
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 import           Data.Maybe
 
 import           System.Log.Logger

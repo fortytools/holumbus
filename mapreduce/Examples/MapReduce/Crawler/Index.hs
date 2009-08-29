@@ -37,8 +37,8 @@ module Examples.MapReduce.Crawler.Index
 where
 
 import           Data.List
---import           Data.Binary
-import           Holumbus.Common.MRBinary hiding (Word)
+import           Data.Binary hiding (Word)
+--import           Holumbus.Common.MRBinary
 import qualified Data.Map    as M
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS

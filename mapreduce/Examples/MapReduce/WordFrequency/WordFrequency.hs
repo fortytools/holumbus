@@ -23,8 +23,8 @@ module Examples.MapReduce.WordFrequency.WordFrequency
 )
 where
 
---import           Data.Binary
-import           Holumbus.Common.MRBinary
+import           Data.Binary
+--import           Holumbus.Common.MRBinary
 
 import           System.Log.Logger
 
