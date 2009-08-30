@@ -29,7 +29,7 @@ library
                 , directory  >= 1.0
                 , haskell98  >= 1
                 , hslogger   >= 1.0
-                , hxt        >= 8.2
+                , hxt        > 8.3.1
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3

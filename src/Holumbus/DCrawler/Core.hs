@@ -145,7 +145,7 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
 						  , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 mili seconds, 
 						  , (curl_connect_timeout,	show $ (10::Int))	 	-- connection must be established within 10 seconds
-              , (curl_ssl_verifypeer, show False)
+              , (curl_verifypeer, "False")
 						  ]
 			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
 			  , cc_processRefs	= none						-- don't extract refs
