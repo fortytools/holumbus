@@ -26,11 +26,13 @@ curl_location		= "curl-" ++ "-location"
 curl_max_redirects	:: String
 curl_max_redirects	= "curl-" ++ "-max-redirs"
 
+curl_ssl_verifypeer  :: String
+curl_ssl_verifypeer  = "curl-" ++ "-verify-peer"
+
 http_location		:: String
 http_location		= "http-location"
 
 http_last_modified	:: String
 http_last_modified	= "http-Last-Modified"
-
 -- ------------------------------------------------------------
 
