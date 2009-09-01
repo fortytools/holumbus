@@ -2,13 +2,12 @@
 
 {- |
   Module     : Holumbus.Index.Common
-  Copyright  : Copyright (C) 2007, 2008 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007 - 2009 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
-  Portability: portable
-  Version    : 0.3
+  Portability: none portable
 
   Common data types shared by all index types and a unified interface for
   all different index types. This module defines the common interfaces of
@@ -18,7 +17,7 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
+{-# OPTIONS -XMultiParamTypeClasses -XFlexibleContexts -XFlexibleInstances #-}
 
 module Holumbus.Index.Common 
   (
@@ -64,100 +63,180 @@ module Holumbus.Index.Common
   )
 where
 
-import Text.XML.HXT.Arrow
+import           Control.Monad  (liftM3, foldM)
+import           Control.Parallel.Strategies
 
-import Data.Maybe
-
+import           Data.Binary (Binary (..))
+import qualified Data.Binary    as B
+import           Data.IntMap    (IntMap)
+import qualified Data.IntMap    as IM
+import           Data.IntSet    (IntSet)
+import qualified Data.IntSet    as IS
 import qualified Data.List as L
+import           Data.Map       (Map)
+import qualified Data.Map       as M
+import           Data.Maybe
 
-import Data.Binary (Binary (..))
-import qualified Data.Binary as B
-
-import Control.Monad (liftM3, foldM)
-
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
-
-import Data.Map (Map)
-import qualified Data.Map as M
-
-import Data.IntSet (IntSet)
-import qualified Data.IntSet as IS
-
-import Control.Parallel.Strategies
-
-import Holumbus.Control.MapReduce.MapReducible
+import           Text.XML.HXT.Arrow
 
 -- | A document consists of a title and its unique identifier.
 data Document a = Document
-  { title  :: !Title
-  , uri    :: !URI
-  , custom :: !(Maybe a)
-  }
-  deriving (Show, Eq, Ord)
+    { title  :: !Title
+    , uri    :: !URI
+    , custom :: !(Maybe a)
+    }
+    deriving (Show, Eq, Ord)
 
 instance Binary a => Binary (Document a) where
-  put (Document t u c) = put t >> put u >> put c
-  get = liftM3 Document get get get
+    put (Document t u c)        = put t >> put u >> put c
+    get                         = liftM3 Document get get get
 
 instance XmlPickler a => XmlPickler (Document a) where
-  xpickle = xpWrap (\(t, u, i) -> Document t u i, \(Document t u i) -> (t, u, i)) (xpTriple xpTitle xpURI xpickle)
-    where
-    xpURI           = xpAttr "href" xpText0
-    xpTitle         = xpAttr "title" xpText0
+    xpickle             = xpWrap ( \ (t, u, i) -> Document t u i
+                                 , \ (Document t u i) -> (t, u, i)
+                                 ) (xpTriple xpTitle xpURI xpickle)
+        where
+        xpURI           = xpAttr "href"  xpText0
+        xpTitle         = xpAttr "title" xpText0
 
 instance NFData a => NFData (Document a) where
-  rnf (Document t u c) = rnf t `seq` rnf u `seq` rnf c
+    rnf (Document t u c) = rnf t `seq` rnf u `seq` rnf c
 
 -- | The unique identifier of a document (created upon insertion into the document table).
 type DocId         = Int
+
 -- | The URI describing the location of the original document.
 type URI           = String
+
 -- | The title of a document.
 type Title         = String
+
 -- | The content of a document.
 type Content       = String
 
 -- | The position of a word in the document.
 type Position      = Int
+
 -- | The name of a context.
 type Context       = String
+
 -- | A single word.
 type Word          = String
 
 -- | The occurrences in a number of documents. A mapping from document ids to the positions in the document.
 type Occurrences   = IntMap Positions
+
 -- | The positions of the word in the document.
 type Positions     = IntSet
 
 -- | The raw result returned when searching the index.
 type RawResult     = [(Word, Occurrences)]
 
-class (Monad m, MapReducible i (Context, Word) Occurrences ) => HolIndexM m i where
+-- ------------------------------------------------------------
+
+-- | This class provides a generic interface to different types of index implementations.
+
+class (Binary i) => HolIndex i where
+  -- | Returns the number of unique words in the index.
+  sizeWords     :: i -> Int
+
+  -- | Returns a list of all contexts avaliable in the index.
+  contexts      :: i -> [Context]
+
+  -- | Returns the occurrences for every word. A potentially expensive operation.
+  allWords      :: i -> Context -> RawResult
+
+  -- | Searches for words beginning with the prefix in a given context (case-sensitive).
+  prefixCase    :: i -> Context -> String -> RawResult
+
+  -- | Searches for words beginning with the prefix in a given context (case-insensitive).
+  prefixNoCase  :: i -> Context -> String -> RawResult
+
+  -- | Searches for and exact word in a given context (case-sensitive).
+  lookupCase    :: i -> Context -> String -> RawResult
+
+  -- | Searches for and exact word in a given context (case-insensitive).
+  lookupNoCase  :: i -> Context -> String -> RawResult
+  
+  -- | Insert occurrences.
+  insertOccurrences :: Context -> Word -> Occurrences -> i -> i
+
+  -- | Delete occurrences.
+  deleteOccurrences :: Context -> Word -> Occurrences -> i -> i
+
+  -- | Insert a position for a single document.
+  insertPosition :: Context -> Word -> DocId -> Position -> i -> i
+  insertPosition c w d p i = insertOccurrences c w (IM.singleton d (IS.singleton p)) i
+
+  -- | Delete a position for a single document.
+  deletePosition :: Context -> Word -> DocId -> Position -> i -> i
+  deletePosition c w d p i = deleteOccurrences c w (IM.singleton d (IS.singleton p)) i
+
+  -- | Merges two indexes. 
+  mergeIndexes  :: i -> i -> i
+
+  -- | Substract one index from another.
+  substractIndexes :: i -> i -> i
+
+  -- | Splitting an index by its contexts.
+  splitByContexts :: i -> Int -> [i]
+
+  -- | Splitting an index by its documents.
+  splitByDocuments :: i -> Int -> [i]
+
+  -- | Splitting an index by its words.
+  splitByWords :: i -> Int -> [i]
+
+  -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
+  -- to the same new id, the two sets of word positions will be merged if both old id's are present
+  -- in the occurrences for a word in a specific context.
+  updateDocIds:: (Context -> Word -> DocId -> DocId) -> i -> i
+  
+  -- Convert an Index to a list. Can be used for easy conversion between different index  
+  -- implementations
+  toList   :: i -> [(Context, Word, Occurrences)]
+  
+  -- Create an Index froma a list. Can be used vor easy conversion between different index  
+  -- implementations. Needs an empty index as first argument
+  fromList :: i -> [(Context, Word, Occurrences)] -> i
+  fromList e = foldl (\i (c,w,o) -> insertOccurrences c w o i) e
+
+-- ------------------------------------------------------------
+
+-- | This class provides a generic interface to different monadic types of index implementations.
+
+class (Monad m) => HolIndexM m i where
   -- | Returns the number of unique words in the index.
   sizeWordsM    :: i -> m Int
+
   -- | Returns a list of all contexts avaliable in the index.
   contextsM     :: i -> m [Context]
 
   -- | Returns the occurrences for every word. A potentially expensive operation.
   allWordsM     :: i -> Context -> m RawResult
+
   -- | Searches for words beginning with the prefix in a given context (case-sensitive).
   prefixCaseM   :: i -> Context -> String -> m RawResult
+
   -- | Searches for words beginning with the prefix in a given context (case-insensitive).
   prefixNoCaseM :: i -> Context -> String -> m RawResult
+
   -- | Searches for and exact word in a given context (case-sensitive).
   lookupCaseM   :: i -> Context -> String -> m RawResult
+
   -- | Searches for and exact word in a given context (case-insensitive).
   lookupNoCaseM :: i -> Context -> String -> m RawResult
 
   -- | Insert occurrences.
   insertOccurrencesM :: Context -> Word -> Occurrences -> i -> m i
+
   -- | Delete occurrences.
   deleteOccurrencesM :: Context -> Word -> Occurrences -> i -> m i
 
   -- | Insert a position for a single document.
   insertPositionM :: Context -> Word -> DocId -> Position -> i -> m i
   insertPositionM c w d p i = insertOccurrencesM c w (IM.singleton d (IS.singleton p)) i
+
   -- | Delete a position for a single document.
   deletePositionM :: Context -> Word -> DocId -> Position -> i -> m i
   deletePositionM c w d p i = deleteOccurrencesM c w (IM.singleton d (IS.singleton p)) i
@@ -179,63 +258,23 @@ class (Monad m, MapReducible i (Context, Word) Occurrences ) => HolIndexM m i wh
   fromListM :: i -> [(Context, Word, Occurrences)] -> m i
   fromListM e = foldM (\i (c,w,o) -> insertOccurrencesM c w o i) e
 
--- | This class provides a generic interface to different types of index implementations.
-class (Binary i, MapReducible i (Context, Word) Occurrences) => HolIndex i where
-  -- | Returns the number of unique words in the index.
-  sizeWords     :: i -> Int
-  -- | Returns a list of all contexts avaliable in the index.
-  contexts      :: i -> [Context]
+-- ------------------------------------------------------------
 
-  -- | Returns the occurrences for every word. A potentially expensive operation.
-  allWords      :: i -> Context -> RawResult
-  -- | Searches for words beginning with the prefix in a given context (case-sensitive).
-  prefixCase    :: i -> Context -> String -> RawResult
-  -- | Searches for words beginning with the prefix in a given context (case-insensitive).
-  prefixNoCase  :: i -> Context -> String -> RawResult
-  -- | Searches for and exact word in a given context (case-sensitive).
-  lookupCase    :: i -> Context -> String -> RawResult
-  -- | Searches for and exact word in a given context (case-insensitive).
-  lookupNoCase  :: i -> Context -> String -> RawResult
-  
-  -- | Insert occurrences.
-  insertOccurrences :: Context -> Word -> Occurrences -> i -> i
-  -- | Delete occurrences.
-  deleteOccurrences :: Context -> Word -> Occurrences -> i -> i
+instance (Monad m, HolIndex i) => HolIndexM m i where
+    sizeWordsM                  = return . sizeWords
+    contextsM                   = return . contexts
+    allWordsM i                 = return . allWords i
+    prefixCaseM i c             = return . prefixCase i c
+    prefixNoCaseM i c           = return . prefixNoCase i c
+    lookupCaseM i c             = return . lookupCase i c
+    lookupNoCaseM i c           = return . lookupNoCase i c
+    insertOccurrencesM c w o    = return . insertOccurrences c w o
+    deleteOccurrencesM c w o    = return . deleteOccurrences c w o
+    mergeIndexesM i1            = return . mergeIndexes i1
+    updateDocIdsM u             = return . updateDocIds u
+    toListM                     = return . toList
 
-  -- | Insert a position for a single document.
-  insertPosition :: Context -> Word -> DocId -> Position -> i -> i
-  insertPosition c w d p i = insertOccurrences c w (IM.singleton d (IS.singleton p)) i
-  -- | Delete a position for a single document.
-  deletePosition :: Context -> Word -> DocId -> Position -> i -> i
-  deletePosition c w d p i = deleteOccurrences c w (IM.singleton d (IS.singleton p)) i
-
-  -- | Merges two indexes. 
-  mergeIndexes  :: i -> i -> i
-  -- | Substract one index from another.
-  substractIndexes :: i -> i -> i
-
-  -- | Splitting an index by its contexts.
-  splitByContexts :: i -> Int -> [i]
-  -- | Splitting an index by its documents.
-  splitByDocuments :: i -> Int -> [i]
-  -- | Splitting an index by its words.
-  splitByWords :: i -> Int -> [i]
-
-  -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
-  -- to the same new id, the two sets of word positions will be merged if both old id's are present
-  -- in the occurrences for a word in a specific context.
-  updateDocIds:: (Context -> Word -> DocId -> DocId) -> i -> i
-  
-  -- Convert an Index to a list. Can be used for easy conversion between different index  
-  -- implementations
-  toList   :: i -> [(Context, Word, Occurrences)]
-  
-  -- Create an Index froma a list. Can be used vor easy conversion between different index  
-  -- implementations. Needs an empty index as first argument
-  fromList :: i -> [(Context, Word, Occurrences)] -> i
-  fromList e = foldl (\i (c,w,o) -> insertOccurrences c w o i) e
-
-
+-- ------------------------------------------------------------
 
 class Binary (d a) => HolDocuments d a where
   -- | Returns the number of unique documents in the table.
@@ -278,16 +317,23 @@ class Binary (d a) => HolDocuments d a where
   -- | Convert document table to a single map
   toMap :: d a -> IntMap (Document a)
 
+-- ------------------------------------------------------------
+
 class HolCache c where
   -- | Retrieves the full text of a document for a given context. Will never throw any exception,
   -- upon failure or if no text found for the document, @Nothing@ is returned.
   getDocText  :: c -> Context -> DocId -> IO (Maybe Content)
+
   -- | Store the full text of a document for a given context. May throw an exception if the 
   -- storage of the text failed.
+
   putDocText  :: c -> Context -> DocId -> Content -> IO ()
   -- | Merge two caches in the way that everything that is in the second cache is inserted into the
   --   first one.
+
   mergeCaches :: c -> c -> IO c
+
+-- ------------------------------------------------------------
 
 -- | The XML pickler for a set of positions.
 xpPositions :: PU Positions
@@ -300,6 +346,8 @@ xpOccurrences :: PU Occurrences
 xpOccurrences = xpWrap (IM.fromList, IM.toList) (xpList xpOccurrence)
   where
   xpOccurrence = xpElem "doc" (xpPair (xpAttr "idref" xpPrim) xpPositions)
+
+-- ------------------------------------------------------------
 
 -- | Merges an index with its documents table with another index and its documents table. 
 -- Conflicting id's for documents will be resolved automatically.
@@ -329,6 +377,8 @@ substractOccurrences = IM.differenceWith substractPositions
   substractPositions p1 p2 = if IS.null diffPos then Nothing else Just diffPos
     where
     diffPos = IS.difference p1 p2
+
+-- ------------------------------------------------------------
 
 -- | Transform the raw result into a tree structure ordered by word.
 resultByWord :: Context -> RawResult -> Map Word (Map Context Occurrences)
@@ -369,3 +419,5 @@ loadFromBinFile = B.decodeFile
 -- | Write to a binary file.
 writeToBinFile :: Binary a => FilePath -> a -> IO ()
 writeToBinFile = B.encodeFile
+
+-- ------------------------------------------------------------

@@ -130,7 +130,7 @@ data CrawlerState d a
       , cs_crawlerTimeOut   :: Int
       , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- applied before link extraction
       , cs_fGetReferences   :: ArrowXml a' => a' XmlTree [URI]
-      , cs_fCrawlFilter     :: (URI -> Bool)  -- decides if a link will be followed
+      , cs_fCrawlFilter     :: (URI -> Bool)			  -- decides if a link will be followed
       , cs_fGetCustom       :: Custom a
       , cs_docs             :: HolDocuments d a => d a       
       }    

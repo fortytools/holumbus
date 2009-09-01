@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}  -- Moving these to the top due to a bug in GHC.
+{-# OPTIONS -XBangPatterns #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -9,8 +9,7 @@
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
-  Portability: portable
-  Version    : 0.6
+  Portability: not portable
 
   An efficient implementation of maps from arbitrary byte key to arbitrary values.
 
@@ -374,7 +373,7 @@ lookup q n = case lookup' q n of
 -- | Internal lookup function which is generalised for arbitrary monads above.
 lookup' :: Key -> Trie a -> Maybe a
 lookup' q n | L.null pr = if L.null kr then value n else Nothing
-            | L.null kr = let xs = (filter isJust (L.map (lookup pr) (succ n))) in
+            | L.null kr = let xs = (filter isJust (L.map (lookup' pr) (succ n))) in
                           if L.null xs then Nothing else head xs
             | otherwise = Nothing
             where (_, pr, kr) = split q (key n)
