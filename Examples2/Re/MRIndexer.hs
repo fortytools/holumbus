@@ -16,9 +16,9 @@ import qualified Data.Map as M
   type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
   
 -}
-idxMap :: MapFunction String Int ResultState Int ResultState
-idxMap _ follow key (state, urimap)= do
-  (_, state') <- runCrawler (crawlDocs . M.keys $ urimap) (crawlerConfig follow 0) state
+idxMap :: MapFunction ([String],[String]) Int ResultState Int ResultState
+idxMap _ opts key (state, urimap)= do
+  (_, state') <- runCrawler (crawlDocs . M.keys $ urimap) (crawlerConfig opts (-1)) state
   return [(key,(state',urimap))]
 
 {-
@@ -29,7 +29,7 @@ idxMap _ follow key (state, urimap)= do
  type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
  
 -}
-idxReduce :: ReduceFunction String Int ResultState (ResultIndex, ResultState) -- (IndexerState Inverted Documents PlainText, ResultState)
+idxReduce :: ReduceFunction ([String],[String]) Int ResultState (ResultIndex, ResultState) -- (IndexerState Inverted Documents PlainText, ResultState)
 idxReduce _ _ _ states = do
   -- merge all states together 
   let state' = mergeStates states

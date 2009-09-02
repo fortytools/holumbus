@@ -38,9 +38,9 @@ set num of documents to sizeof uris
 
 main :: IO ()
 main = do 
-  ( baseUri : follow : num : [] ) <- getArgs
+  ( baseUri : follow : nofollow : num : [] ) <- getArgs
   initializeLogging [(localLogger, INFO)]
-  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) follow
+  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) (read follow,read nofollow)
   writeToBinFile "index.bin" (ixs_index index)
   writeToXmlFile "index.xml" (ixs_index index)
   writeToBinFile "docs.bin"  (ixs_documents index)
@@ -56,15 +56,15 @@ main = do
     , cs_resultAccu = []
     }
 
-loop :: Int -> Int -> DocId -> Result -> String -> IO Result
-loop count num nextId (index,state) follow = do
+loop :: Int -> Int -> DocId -> Result -> ([String],[String]) -> IO Result
+loop count num nextId (index,state) followopts = do
   -- do another loop
   if (nullURIs . cs_toBeProcessed . fst) state
     then return (setLastId index (nextId-1),state)
-    else iteration count num nextId (index,state) follow 
+    else iteration count num nextId (index,state) followopts 
 
-iteration :: Int -> Int -> DocId -> Result -> String -> IO Result
-iteration count num nextId (index,(state,_)) follow = do
+iteration :: Int -> Int -> DocId -> Result -> ([String],[String]) -> IO Result
+iteration count num nextId (index,(state,_)) followopts = do
   infoM localLogger ("\n~~~~~~~~~\niteration: " ++ show count)  
   debugM localLogger ("\n\n++++\ntheToBeProcessed URIs: " ++ (show . cs_toBeProcessed $ state))  
   -- split toBeProcessed uris by num of workers tbps and give each uri an unique id :: [(URI, Int)]
@@ -80,7 +80,7 @@ iteration count num nextId (index,(state,_)) follow = do
   
   -- do the mr
   infoM localLogger ("do the mr: ")
-  result <- client idxMap idxReduce follow num states  
+  result <- client idxMap idxReduce followopts num states  
   
   -- merge results
   infoM localLogger "merge the results"
@@ -105,7 +105,7 @@ iteration count num nextId (index,(state,_)) follow = do
   -- ----------------------------------------------------------------------------------------------------
   
   -- iterate
-  loop (count+1) num (nextId+idoffset) (index',newState) follow
+  loop (count+1) num (nextId+idoffset) (index',newState) followopts
   
 {-
  leftfolds a list of result to one.
