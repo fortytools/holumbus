@@ -18,7 +18,7 @@ import qualified Data.Map as M
 -}
 idxMap :: MapFunction (String) Int ResultState Int ResultState
 idxMap _ follow key (state, urimap)= do
-  (_, state') <- runCrawler (crawlDocs . M.keys $ urimap) (crawlerConfig follow 500) state
+  (_, state') <- runCrawler (crawlDocs . M.keys $ urimap) (crawlerConfig ([follow],[]) 0) state
   return [(key,(state',urimap))]
 
 {-
