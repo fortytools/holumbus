@@ -68,12 +68,12 @@ emptyIndex = emptyIndexerState emptyInverted emptyDocuments
 emptyState :: ResultState
 emptyState = crawlerInitState
 
-crawlerConfig	:: ([String],[String]) -> Int -> TextCrawlerConfig
-crawlerConfig	(follow,nofollow) num = addReadAttributes  defaultOpts				-- at the moment no more read attributes are neccessary
+crawlerConfig	:: String -> Int -> TextCrawlerConfig
+crawlerConfig	follow num = addReadAttributes  defaultOpts				-- at the moment no more read attributes are neccessary
   >>> setS theProcessRefs   ( getHtmlReferences  )
   >>> setS thePreDocFilter	documentOK
   >>> setS theProcessDoc	theDocs
-  >>> setS theFollowRef ( simpleFollowRef' follow nofollow )
+  >>> setS theFollowRef ( simpleFollowRef' [follow] [] )
   >>> setS theMaxNoOfDocs num
   >>> setS theSaveIntervall 10                                 -- every 10 documents the state is saved
   >>> setS theSavePathPrefix "./tmp/re-"                       -- states are saved in subdir "./tmp" in files starting with "re-"
