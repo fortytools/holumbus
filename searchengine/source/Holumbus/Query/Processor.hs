@@ -1,3 +1,5 @@
+{-# OPTIONS #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |
@@ -237,7 +239,9 @@ processFuzzyWordM s oq = do
   processFuzzyWordM' (F.toList $ F.fuzz cfg oq) sr
     where
     processFuzzyWordM' []     r = return r
-    processFuzzyWordM' (q:qs) r = if I.null r then processWordM s (fst q) >>= processFuzzyWordM' qs else return r
+    processFuzzyWordM' (q:qs) r = if I.null r
+				  then processWordM s (fst q) >>= processFuzzyWordM' qs
+				  else return r
 
 -- | Process a negation by getting all documents and substracting the result of the negated query.
 processNegation :: HolIndex i => ProcessState i -> Intermediate -> Intermediate

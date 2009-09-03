@@ -24,7 +24,7 @@ import System.Exit
 import System.IO
 import System.Environment
 import System.Console.GetOpt
-import System.Console.Readline
+import System.Console.Editline.Readline
 
 import Control.Parallel.Strategies
 

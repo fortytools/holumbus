@@ -1,3 +1,5 @@
+{-# OPTIONS -fno-warn-unused-binds -fno-warn-unused-imports -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |
@@ -17,16 +19,14 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fno-warn-unused-binds -fno-warn-unused-imports -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
-
 module Holumbus.Index.Hybrid.Memory 
-  (
-  -- * Hybrid index type
-  Hybrid
+    (
+     -- * Hybrid index type
+     Hybrid
   
-  -- * Construction
-  , emptyHybrid
-  )
+     -- * Construction
+    , emptyHybrid
+    ) 
 where
 
 import Data.Maybe
@@ -69,72 +69,68 @@ type Occurrence    = ( DocId, WordId, Position )
 type WordId        = Int
 type BlockId       = Int
 
-{-
-instance MapReducible Hybrid (Context, Word) Occurrences where
-  mergeMR         = mergeIndexes
-  reduceMR _ _ _  = undefined
-  
-
 instance HolIndex Hybrid where
-  sizeWords _ = undefined
-  contexts = map fst . M.toList . indexParts
+  sizeWords _ 		= undefined
+  contexts 		= map fst . M.toList . indexParts
 
-  allWords _ _ = undefined -- TODO: This is just a dummy
-  prefixCase _ _ _ = undefined -- TODO: This is just a dummy
-  prefixNoCase _ _ _ = undefined -- TODO: This is just a dummy
-  lookupCase _ _ _ = undefined -- TODO: This is just a dummy
-  lookupNoCase _ _ _ = undefined -- TODO: This is just a dummy
+  allWords _ _ 		= undefined -- TODO: This is just a dummy
+  prefixCase _ _ _ 	= undefined -- TODO: This is just a dummy
+  prefixNoCase _ _ _ 	= undefined -- TODO: This is just a dummy
+  lookupCase _ _ _ 	= undefined -- TODO: This is just a dummy
+  lookupNoCase _ _ _ 	= undefined -- TODO: This is just a dummy
 
-  mergeIndexes _ _ = undefined
-  substractIndexes _ _ = undefined
+  mergeIndexes _ _ 	= undefined
+  substractIndexes _ _ 	= undefined
 
-  insertOccurrences _ _ _ _ = undefined
-  deleteOccurrences _ _ _ _ = undefined
+  insertOccurrences _ _ _ _ 	= undefined
+  deleteOccurrences _ _ _ _ 	= undefined
   
-  splitByContexts _ _ = undefined
-  splitByDocuments _ _ = undefined
-  splitByWords _ _ = undefined
+  splitByContexts _ _ 	= undefined
+  splitByDocuments _ _ 	= undefined
+  splitByWords _ _ 	= undefined
   
-  updateDocIds _ _ = undefined
+  updateDocIds _ _ 	= undefined
  
-  toList _ = undefined
+  toList _ 		= undefined
 
 instance Binary Hybrid where
-  put _ = undefined
-  get = undefined
--}
+    put _ 		= undefined
+    get 		= undefined
+
 -- | Create an empty index.
-emptyHybrid :: Hybrid
-emptyHybrid = Hybrid M.empty
+emptyHybrid 		:: Hybrid
+emptyHybrid 		= Hybrid M.empty
 
 -- | Load Index from XML file
-loadFromXmlFile :: String -> IO Hybrid
-loadFromXmlFile f = do
-                    r <- runX (xunpickleDocument xpHybrid options f)
-                    return $ head r
-                    where
-                    options = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
+loadFromXmlFile 	:: String -> IO Hybrid
+loadFromXmlFile f 	= do
+			  r <- runX (xunpickleDocument xpHybrid options f)
+			  return $ head r
+    where
+    options 		= [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
 
 -- | Create an empty part.
-emptyPart :: Part
-emptyPart = Part emptyDictionary emptyBlocks
+emptyPart 		:: Part
+emptyPart 		= Part emptyDictionary emptyBlocks
 
 -- | Create an empty dictionary.
-emptyDictionary :: Dictionary
-emptyDictionary = Dictionary SM.empty 0
+emptyDictionary 	:: Dictionary
+emptyDictionary 	= Dictionary SM.empty 0
 
 -- | Create empty blocks.
-emptyBlocks :: Blocks
-emptyBlocks = Blocks IM.empty 0
+emptyBlocks 		:: Blocks
+emptyBlocks 		= Blocks IM.empty 0
 
 -- | Return a part of the index for a given context.
-getPart :: Context -> Hybrid -> Part
-getPart c i = fromMaybe emptyPart (M.lookup c $ indexParts i)
+getPart 		:: Context -> Hybrid -> Part
+getPart c i 		= fromMaybe emptyPart (M.lookup c $ indexParts i)
 
 -- | The pickler for an hybrid index.
-xpHybrid :: PU Hybrid
-xpHybrid = xpElem "indexes" $
-	    xpickle
+xpHybrid 		:: PU Hybrid
+xpHybrid 		= xpElem "indexes" $
+			  xpickle
 
 instance XmlPickler Hybrid where
-    xpickle =  xpZero
+    xpickle 		=  xpZero
+
+-- ----------------------------------------------------------------------------

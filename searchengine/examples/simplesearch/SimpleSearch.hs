@@ -24,7 +24,7 @@ module Main where
 import System.IO
 import System.Environment
 import System.Exit
-import System.Console.Readline
+import System.Console.Editline.Readline
 import System.Console.GetOpt
 import System.CPUTime
 

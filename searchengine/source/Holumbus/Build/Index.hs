@@ -15,7 +15,7 @@
 -}
 
 -- -----------------------------------------------------------------------------
-{-# OPTIONS -fglasgow-exts #-}
+{-# OPTIONS -XFlexibleContexts #-}
 -- -----------------------------------------------------------------------------
 
 module Holumbus.Build.Index 
@@ -44,6 +44,7 @@ import           Data.Maybe
 import           Control.Monad
 
 import           Holumbus.Build.Config
+import           Holumbus.Control.MapReduce.MapReducible
 import           Holumbus.Control.MapReduce.ParallelWithClass 
 import           Holumbus.Index.Common
 import           Holumbus.Utility
@@ -54,7 +55,7 @@ import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stu
 
 -- -----------------------------------------------------------------------------
 
-buildIndex :: (HolDocuments d a, HolIndex i, HolCache c) => 
+buildIndex :: (HolDocuments d a, HolIndex i, HolCache c, MapReducible i (Context, Word) Occurrences) => 
               Int                -- ^ Number of parallel threads for MapReduce
            -> Int                -- ^ TraceLevel for Arrows
            -> d a                -- ^ List of input Data
@@ -80,7 +81,7 @@ buildIndex workerThreads traceLevel docs idxConfig emptyIndex cache
                  )
 
 
-buildIndexM :: (HolDocuments d a, HolIndexM m i, HolCache c) => 
+buildIndexM :: (HolDocuments d a, HolIndexM m i, HolCache c, MapReducible i (Context, Word) Occurrences) => 
               Int                -- ^ Number of parallel threads for MapReduce
            -> Int                -- ^ TraceLevel for Arrows
            -> d a                -- ^ List of input Data

@@ -8,7 +8,7 @@
   Maintainer : Sebastian M. Schlatt (sms@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
+
   MapReduce with Local Parallelization
 
 -}
@@ -125,6 +125,7 @@ reducePerKey reduceFunction m
             then rpk reduceFunction' (drop 1 toProcess) (M.union result (M.singleton (fst firstP) (fromJust applied)))
             else rpk reduceFunction' (drop 1 toProcess) result
           
+-- ----------------------------------------------------------------------------
 
 
          

@@ -260,7 +260,12 @@ class (Monad m) => HolIndexM m i where
 
 -- ------------------------------------------------------------
 
-instance (Monad m, HolIndex i) => HolIndexM m i where
+-- don't change IO into Monad m
+-- this leads to ambiguities and error messages, when a context (HolIndexM m i) is used
+--
+-- NOT: instance (Monad m, HolIndex i) => HolIndexM m i where
+
+instance (HolIndex i) => HolIndexM IO i where
     sizeWordsM                  = return . sizeWords
     contextsM                   = return . contexts
     allWordsM i                 = return . allWords i

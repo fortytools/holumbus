@@ -1,4 +1,4 @@
-{-# OPTIONS -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
+{-# OPTIONS -XTypeSynonymInstances -XMultiParamTypeClasses #-}
 -- ----------------------------------------------------------------------------
 
 
@@ -22,39 +22,45 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Index.Inverted.Database 
-{- (
-  -- * Persistent index types
-  InvertedWithDatabase (..)
-, emptyInvertedWithDatabase
-) -}
+    (
+     -- * Persistent index types
+      InvertedM
+    , emptyInvertedM
+    , makeInvertedM
+    )
 where
 
-import Control.Monad
+import           Control.Monad
 
-import Data.List 
-import Data.Maybe
-import Data.Binary hiding (Word)
+import           Data.Binary            hiding (Word)
+import qualified Data.ByteString        as B 
+import qualified Data.ByteString.Lazy   as BL -- hiding (head, map, foldl)
+import           Data.List 
+import           Data.Map               (Map)
+import qualified Data.Map               as M
+import           Data.Maybe
 
-import qualified Data.ByteString as B 
-import qualified Data.ByteString.Lazy as BL -- hiding (head, map, foldl)
+import           Database.HDBC
+import           Database.HDBC.Sqlite3
 
-import Data.Map (Map)
-import qualified Data.Map as M
+import           Holumbus.Data.StrMap   (StrMap)
+import qualified Holumbus.Data.StrMap   as SM
+import           Holumbus.Index.Common
+import           Holumbus.Index.Inverted.Memory (Inverted)
 
-import Holumbus.Index.Common
-import Holumbus.Index.Inverted.Memory (Inverted)
+import           System.IO.Unsafe
 
-import Holumbus.Control.MapReduce.MapReducible
+-- ------------------------------------------------------------
 
-import Holumbus.Data.StrMap (StrMap)
-import qualified Holumbus.Data.StrMap as SM
+-- | The index parts are identified by a name, which should denote the context of the words.
+type Parts       = Map Context Part
 
-import System.IO.Unsafe
+-- | The index part is the real inverted index. Words are mapped to a file pointer.
+type Part        = StrMap Int
 
--- import Holumbus.Utility
+type DatabaseIndex = Int
 
-import Database.HDBC
-import Database.HDBC.Sqlite3
+-- ------------------------------------------------------------
 
 -- | The index consists of a table which maps documents to ids and a number of index parts.
 data InvertedM = InvertedM 
@@ -64,70 +70,49 @@ data InvertedM = InvertedM
   , connection  :: Connection
   } -- deriving (Show, Eq)
 
+-- ------------------------------------------------------------
 
 instance Binary InvertedM where
   put (InvertedM ps pa ni _ ) = put ps >> put pa >> put ni
   get = do
         ps  <- get
-        pa   <- get
+        pa  <- get
         ni <- get
         return $! InvertedM ps pa ni (unsafePerformIO (createConnection pa)) 
 --         undefined -- liftM2 InvertedM get get 
 
-
-instance MapReducible InvertedM (Context, Word) Occurrences
-  where
-    reduceMR _ (_, _) _ = undefined -- do let idx = singleton c
-    mergeMR  = undefined
+-- ------------------------------------------------------------
 
 instance Show InvertedM where
   show i = "InvertedM{ path="++ show (path i)  ++ " ; indexParts=" ++ show (indexParts i) ++"}"
 
--- | The index parts are identified by a name, which should denote the context of the words.
-type Parts       = Map Context Part
--- | The index part is the real inverted index. Words are mapped to a file pointer.
-type Part        = StrMap Int
-
-type DatabaseIndex = Int
-
-instance HolIndex InvertedM where
-  sizeWords i = unsafePerformIO (sizeWordsM i)
-  contexts = map fst . M.toList . indexParts
-
-  allWords     i c   = map (rawHelper i) $ SM.toList                      $ getPart c i
-  prefixCase   i c q = map (rawHelper i) $ SM.prefixFindWithKey q         $ getPart c i
-  prefixNoCase i c q = map (rawHelper i) $ SM.prefixFindNoCaseWithKey q   $ getPart c i
-  lookupCase   i c q = map (rawHelper i) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i))
-  lookupNoCase i c q = map (rawHelper i) $ SM.lookupNoCase q              $ getPart c i
-
-  mergeIndexes i1 i2 = unsafePerformIO (mergeIndexesM i1 i2)
-  substractIndexes = undefined
-  
-  insertOccurrences c w o i = unsafePerformIO (insertOccurrencesM c w o i) 
-  deleteOccurrences _ _ _ _ = error "Holumbus.Index.Inverted.Database: deleteOccurences not supported"
-  
-  splitByContexts = undefined
-  splitByDocuments = undefined
-  splitByWords = undefined
-
-  updateDocIds _ _ = error "Holumbus.Index.Inverted.Database: updateDocIds not supported"
-  
-  toList i = unsafePerformIO (toListM i) 
-
+-- ------------------------------------------------------------
 
 instance HolIndexM IO InvertedM where
-  sizeWordsM i = foldM (\c p -> return $ c + (SM.size p)) 0 (map snd . M.toList $ indexParts i)
-  contextsM = return . map fst . M.toList . indexParts
+  sizeWordsM i          = foldM (\c p -> return $ c + (SM.size p)) 0 (map snd . M.toList $ indexParts i)
+  contextsM             = return . map fst . M.toList . indexParts
 
-  allWordsM     i c   = mapM (rawHelperM i) $ SM.toList                      $ getPart c i
-  prefixCaseM   i c q = mapM (rawHelperM i) $ SM.prefixFindWithKey q         $ getPart c i
-  prefixNoCaseM i c q = mapM (rawHelperM i) $ SM.prefixFindNoCaseWithKey q   $ getPart c i
-  lookupCaseM   i c q = mapM (rawHelperM i) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i))
-  lookupNoCaseM i c q = mapM (rawHelperM i) $ SM.lookupNoCase q              $ getPart c i
+  allWordsM     i c     = mapM (rawHelperM i) $ SM.toList                      $ getPart c i
+  prefixCaseM   i c q   = mapM (rawHelperM i) $ SM.prefixFindWithKey q         $ getPart c i
+  prefixNoCaseM i c q   = mapM (rawHelperM i) $ SM.prefixFindNoCaseWithKey q   $ getPart c i
+  lookupCaseM   i c q   = mapM (rawHelperM i) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i))
+  lookupNoCaseM i c q   = mapM (rawHelperM i) $ SM.lookupNoCase q              $ getPart c i
 
-  mergeIndexesM i1 i2 = do; l <- toListM i2; foldM (\i (c,w,o) -> insertOccurrencesM c w o i) i1 l
+  mergeIndexesM i1 i2   = do
+                          l <- toListM' i2
+                          foldM (\i (c,w,o) -> insertOccurrencesM' c w o i) i1 l
 
-  insertOccurrencesM c w o i 
+  insertOccurrencesM    =  insertOccurrencesM'
+
+  deleteOccurrencesM _ _ _ _ 	= error "Holumbus.Index.Inverted.Database: deleteOccurences not YET supported"
+  updateDocIdsM _ _     	= error "Holumbus.Index.Inverted.Database: updateDocIds not YET supported"
+  
+  toListM               = toListM'
+
+-- the ' functions are neccessary to prevent possible "overlapping instances" errors
+
+insertOccurrencesM'     :: Context -> String -> Occurrences -> InvertedM -> IO InvertedM
+insertOccurrencesM' c w o i 
     =   let part = M.findWithDefault SM.empty c (indexParts i) in 
         if (not $ SM.member w part)
           then do
@@ -141,78 +126,78 @@ instance HolIndexM IO InvertedM where
                storeOccM i di (mergeOccurrences o occ)
                return i
 
-  deleteOccurrencesM _ _ _ _ = error "Holumbus.Index.Inverted.Database: deleteOccurences not YET supported"
-
-  updateDocIdsM _ _ = error "Holumbus.Index.Inverted.Database: updateDocIds not YET supported"
-  
-  toListM i = foldM convertPart [] (M.toList $ indexParts i) 
+toListM'                :: InvertedM -> IO [(Context, Word, Occurrences)]
+toListM' i              = foldM convertPart [] (M.toList $ indexParts i) 
     where 
-    convertPart :: [(Context, Word, Occurrences)] -> (Context, Part) -> IO [(Context, Word, Occurrences)]
+    convertPart         :: [(Context, Word, Occurrences)] -> (Context, Part) -> IO [(Context, Word, Occurrences)]
     convertPart l (c,p) = do
-                          res <- mapM (\(w, di) -> do; o <- retrieveOcc i di; return (c, w, o)) $ SM.toList $ p
+                          res <- mapM ( \ (w, di) ->
+                                        do
+                                        o <- retrieveOcc i di
+                                        return (c, w, o)
+                                      ) $ SM.toList $ p
                           return $ res ++ l
 
-makeDatabase :: FilePath -> Inverted -> InvertedM
-makeDatabase f i = unsafePerformIO (makeDatabaseM f i)
+-- ------------------------------------------------------------
 
-makeDatabaseM :: FilePath -> Inverted -> IO InvertedM
-makeDatabaseM f i
-  = do
-    i' <- emptyInvertedM f
-    foldM (\i'' (c,w,o) -> insertOccurrencesM c w o i'') i' (toList i) 
+makeInvertedM           :: FilePath -> Inverted -> IO InvertedM
+makeInvertedM f i       = do
+                          i' <- emptyInvertedM f
+                          foldM (\i'' (c,w,o) -> insertOccurrencesM' c w o i'') i' (toList i) 
     
-    
+emptyInvertedM          :: FilePath -> IO InvertedM
+emptyInvertedM f        = do
+                          conn <- createConnection f
+                          return $ InvertedM M.empty f 1 conn
 
-emptyInvertedM :: FilePath -> IO InvertedM
-emptyInvertedM f = do; conn <- createConnection f; return $ InvertedM M.empty f 1 conn
-
-createConnection :: FilePath -> IO Connection
-createConnection f =   do
-                       conn <- connectSqlite3 f
-                       t <- getTables conn
-                       if "holumbus_occurrences" `elem` t
-                         then return () -- error "Holumbus.Index.Inverted.Database: Table holumbus_occurrences already exists in this database"
-                         else quickQuery conn createQuery [] >> commit conn >> return ()
-                       return (conn)
+createConnection        :: FilePath -> IO Connection
+createConnection f      = do
+                          conn <- connectSqlite3 f
+                          t <- getTables conn
+                          if "holumbus_occurrences" `elem` t
+                             then return () -- error "Holumbus.Index.Inverted.Database: Table holumbus_occurrences already exists in this database"
+                             else quickQuery conn createQuery [] >> commit conn >> return ()
+                          return (conn)
   
 -- | Return a part of the index for a given context.
-getPart :: Context -> InvertedM -> Part
-getPart c i = fromMaybe SM.empty (M.lookup c $ indexParts i)
+getPart                 :: Context -> InvertedM -> Part
+getPart c i             = fromMaybe SM.empty (M.lookup c $ indexParts i)
 
-rawHelper :: InvertedM -> (Word, DatabaseIndex) -> (Word, Occurrences)
-rawHelper i (w, di) = unsafePerformIO (rawHelperM i (w,di))
-
-rawHelperM :: InvertedM -> (Word, DatabaseIndex) -> IO (Word, Occurrences)
-rawHelperM i (w, di) = do; o <- retrieveOcc i di; return (w, o)
+rawHelperM              :: InvertedM -> (Word, DatabaseIndex) -> IO (Word, Occurrences)
+rawHelperM i (w, di)    = do
+                          o <- retrieveOcc i di
+                          return (w, o)
 
 -- | Read occurrences from database
-retrieveOcc :: InvertedM -> Int -> IO Occurrences
-retrieveOcc i di = let conn = connection i in
-                   do
-                   r <- quickQuery conn lookupQuery [toSql di] 
-                   return $ decode $ BL.fromChunks [fromSql $ head $ head r]
+retrieveOcc             :: InvertedM -> Int -> IO Occurrences
+retrieveOcc i di        = let
+                          conn = connection i
+                          in
+                          do
+                          r <- quickQuery conn lookupQuery [toSql di] 
+                          return $ decode $ BL.fromChunks [fromSql $ head $ head r]
 
-storeOcc :: InvertedM -> Int -> Occurrences -> Int
-storeOcc i di o = unsafePerformIO (storeOccM i di o)
-
-storeOcc' :: Connection -> Int -> Occurrences -> Int
-storeOcc' conn di o = unsafePerformIO (storeOccM' conn di o)
-
-storeOccM :: InvertedM -> Int -> Occurrences -> IO (Int)
-storeOccM i di o = 
-  let conn = connection i in storeOccM' conn di o
+storeOccM               :: InvertedM -> Int -> Occurrences -> IO (Int)
+storeOccM i di o        = let
+                          conn = connection i
+                          in
+                          storeOccM' conn di o
 
   
-storeOccM' :: Connection -> Int -> Occurrences -> IO (Int)
-storeOccM' conn di o =  
-  quickQuery conn insertQuery [toSql (di), toSql (B.concat . BL.toChunks $ encode o)] 
-  >> commit conn >> return di
+storeOccM'              :: Connection -> Int -> Occurrences -> IO (Int)
+storeOccM' conn di o    =  quickQuery conn 
+                                      insertQuery
+                                      [toSql (di), toSql (B.concat . BL.toChunks $ encode o)] 
+                           >> commit conn
+                           >> return di
   
-createQuery :: String
-createQuery = "CREATE TABLE holumbus_occurrences (id INTEGER PRIMARY KEY, occurrences BLOB)"
+createQuery             :: String
+createQuery             = "CREATE TABLE holumbus_occurrences (id INTEGER PRIMARY KEY, occurrences BLOB)"
 
-insertQuery :: String
-insertQuery = "INSERT OR REPLACE INTO holumbus_occurrences (id, occurrences) VALUES (?, ?)"
+insertQuery             :: String
+insertQuery             = "INSERT OR REPLACE INTO holumbus_occurrences (id, occurrences) VALUES (?, ?)"
 
-lookupQuery :: String
-lookupQuery = "SELECT occurrences FROM holumbus_occurrences WHERE (id = ?)"
+lookupQuery             :: String
+lookupQuery             = "SELECT occurrences FROM holumbus_occurrences WHERE (id = ?)"
+
+-- ------------------------------------------------------------
