@@ -1,9 +1,9 @@
 name:          Holumbus-Searchengine
-version:       0.0.7
+version:       0.0.8
 license:       OtherLicense
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
-copyright:     Copyright (c) 2007, 2008 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Huebel
+copyright:     Copyright (c) 2007 - 2009 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Huebel
 maintainer:    Timo B. Huebel <tbh@holumbus.org>
 stability:     experimental
 category:      Text, Data
@@ -121,4 +121,4 @@ library
     Holumbus.Query.Result
   hs-source-dirs: source
   ghc-options: -Wall -funbox-strict-fields
-  extensions: Arrows BangPatterns FlexibleInstances MultiParamTypeClasses ScopedTypeVariables
+  extensions: BangPatterns FlexibleInstances MultiParamTypeClasses
