@@ -38,9 +38,9 @@ set num of documents to sizeof uris
 
 main :: IO ()
 main = do 
-  ( baseUri : follow : nofollow : num : [] ) <- getArgs
+  ( baseUri : num : [] ) <- getArgs
   initializeLogging [(localLogger, INFO)]
-  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) (read follow,read nofollow)
+  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) (follow,nofollow)
   writeToBinFile "index.bin" (ixs_index index)
   writeToXmlFile "index.xml" (ixs_index index)
   writeToBinFile "docs.bin"  (ixs_documents index)
@@ -184,3 +184,48 @@ setLastId IndexerState { ixs_index=idx, ixs_documents=docs} id' = IndexerState {
   where
   setLastId' :: Documents a -> Documents a
   setLastId' Documents {idToDoc = a,docToId=b,lastDocId=_} = Documents {idToDoc = a,docToId=b,lastDocId=id'}
+
+nofollow :: [String]
+nofollow =
+  [
+    ".*(pdf|PDF|jpg|gif|png|tar.gz|tgz|ppt|exe|txt|zip|doc|dot|ps|gz|nb|swf|JPG|tex|rss|mpg|mp3|m3u|java|svg|mdb|xls|docx|xslx|pptx|dta|lst|rar|avi|mp4)"
+  , ".*/hdoc.*"
+  , ".*/javadoc/.*"
+  , ".*/java/.*/doc.*"
+  , ".*/fileadmin/.*"
+  , ".*/vorlesungen/c/beispiele/.*"
+  , ".*/TclTk/program1.html"
+  , ".*/~splan/.*"
+  , ".*/\\?L=.*"
+  ]
+{-nofollow = ["tx_fhwunternehmensforum_pi3"                     -- deny
+  , "http://asta.fh-wedel.de/.*"                -- slow
+  , "http://biblserv.fh-wedel.de/.*"            -- slow
+  , "http://darcs.fh-wedel.de/.*"               -- hackers only
+  , "http://stud.fh-wedel.de/.*"                -- boring
+  , "http://holumbus.fh-wedel.de/.*"
+  , ".*/HXmlToolbox/hdoc.*", ".*/si/doc/javadoc/docs/.*"
+  , ".*/java/jdk1.1.1/docs.*"
+--                                       , "/~", "/%7E", "http://www.fh-wedel.de/mitarbeiter/"
+  , ".*\\?L=0.*", ".*\\&L=0.*"
+  , ".*.pdf$", ".*.jpg$", ".*.gif$", ".*.png$", ".*.tar.gz$"
+  , ".*.ppt$", ".*.exe$", ".*.txt$", ".*.zip$", ".*.doc$"
+  , ".*.dot$", ".*.png$", ".*.ps$", ".*.ps.gz$", ".*.nb$"
+  , ".*.swf$", ".*.JPG$", ".*.tex$", ".*.rss$", ".*.mpg$"
+  , ".*.mp3$", ".*.m3u$", ".*.java$", ".*.tgz$", ".*.svg", ".*.mdb$" 
+  , ".*.PDF$", ".*.xls$", ".*.dta$", ".*.lst$", ".*.rar", ".*.avi$", ".*.mp4$" 
+  , ".*%7Edi.*", ".*/~di.*"
+  , ".*ws99/Ausarbeitung/mico/Beispiel.*"
+  , ".*/rundgang/id=.*", ".*/vorlesungsplan/id=.*"
+  , ".*/vorlesungsplan/sem=.*", ".*/tv-infosystem/.*", ".*/~splan/.*"
+  , "http://www\\.fh-wedel\\.de/index\\.php\\?eID=tx_cms_showpic.*"
+  , "http://www.fh-wedel.de/fileadmin/mitarbeiter/ne/CG/opengl_man.*"
+  , "http://www.fh-wedel.de/%7Esi/vorlesungen/c/beispiele.*"
+  , "http://www.fh-wedel.de/~si/vorlesungen/c/beispiele.*"
+  , "http://www.fh-wedel.de/~wol/fhtml.*" -- very slow and boring pages
+  , "http://www.fh-wedel.de/%7Esi/vorlesungen/internet/TclTk/program1.html" -- slow
+  ]-}
+
+follow :: [String]
+follow = [ "http://www.fh-wedel.de/.*" ]
+--follow = [ "http://www.fh-wedel.de/.*" ]
