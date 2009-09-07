@@ -71,8 +71,10 @@ iteration count num nextId (index,(state,_)) followopts = do
   infoM localLogger "split the uris"
   let uris = toListURIs . cs_toBeProcessed $ state
       idoffset = length uris
-      tbps = partition num (idoffset `div` num) (zip uris [nextId..])
+      -- tbps = partition num (idoffset `div` num) (zip uris [nextId..])
+      tbps = partition' (zip uris [nextId..]) [[] |_<- [1..num]]
   debugM localLogger ("\n\n++++\npartitioned uris: " ++ show tbps)  
+  infoM localLogger ("partitioned length: " ++ show (map length tbps))  
 
   infoM localLogger "create states and assign map reduce keys to it"  
   let states = (zip [0..num-1] . map (mkState (cs_alreadyProcessed state))) tbps -- [(Int,ResultState)]
@@ -112,6 +114,18 @@ iteration count num nextId (index,(state,_)) followopts = do
 -}
 mergeResults :: Result -> [Result] -> Result
 mergeResults = L.foldl' (\(i', s') (i,s) -> (mergeIndices' i' i, mergeStates' s' s))
+
+{-
+
+partition'
+
+first list, list of 
+ -}
+partition' :: [a] -> [[a]] -> [[a]]
+partition' _   [] = []
+partition' [] xss = xss
+partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
+  where xs' = (u:xs)
 
 {-
   partition
