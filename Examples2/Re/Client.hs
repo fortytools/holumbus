@@ -38,9 +38,9 @@ set num of documents to sizeof uris
 
 main :: IO ()
 main = do 
-  ( baseUri : num : [] ) <- getArgs
+  ( baseUri : num : f : nf : [] ) <- getArgs
   initializeLogging [(localLogger, INFO)]
-  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) (follow,nofollow)
+  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) (maybeStringlist f follow, maybeStringlist nf nofollow)
   writeToBinFile "index.bin" (ixs_index index)
   writeToXmlFile "index.xml" (ixs_index index)
   writeToBinFile "docs.bin"  (ixs_documents index)
@@ -184,6 +184,12 @@ setLastId IndexerState { ixs_index=idx, ixs_documents=docs} id' = IndexerState {
   where
   setLastId' :: Documents a -> Documents a
   setLastId' Documents {idToDoc = a,docToId=b,lastDocId=_} = Documents {idToDoc = a,docToId=b,lastDocId=id'}
+
+maybeStringlist :: String -> [String] -> [String]
+maybeStringlist s l
+  | null s = l
+  | otherwise = words s
+
 
 nofollow :: [String]
 nofollow =
