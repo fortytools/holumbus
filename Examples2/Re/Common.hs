@@ -143,7 +143,7 @@ getHeadlines :: ArrowXml a => a XmlTree XmlTree
 getHeadlines = getBody //> hasNameWith (localPart >>> (`elem` ["h1","h2","h3","h4","h5","h6"]))
 
 getDivCol2 :: ArrowXml a => a XmlTree XmlTree
-getDivCol2 = getBody //> ( hasName "div" >>> hasAttrValue "id" (== "col2_content")) -- contents part of fh layout
+getDivCol2 = getBody //> ( hasName "div" >>> hasAttrValue "id" (== "col3_content")) -- contents part of fh layout
 
 getPlainText128   :: ArrowXml a => a XmlTree PlainText
 getPlainText128   = getAllText getBody

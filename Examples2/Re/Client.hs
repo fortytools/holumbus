@@ -72,9 +72,11 @@ iteration count num nextId (index,(state,_)) followopts = do
   let uris = toListURIs . cs_toBeProcessed $ state
       idoffset = length uris
       -- tbps = partition num (idoffset `div` num) (zip uris [nextId..])
-      tbps = partition' (zip uris [nextId..]) [[] |_<- [1..num]]
+      numbereduris = (zip uris [nextId..])
+      tbps = partition' numbereduris [[] |_<- [1..num]]
   debugM localLogger ("\n\n++++\npartitioned uris: " ++ show tbps)  
-  infoM localLogger ("partitioned length: " ++ show (map length tbps))  
+  infoM localLogger ("partitioned length: " ++ show (map length tbps))
+  (appendFile "./uri.map" . unwords . map (\x -> show x ++ "\n")) numbereduris
 
   infoM localLogger "create states and assign map reduce keys to it"  
   let states = (zip [0..num-1] . map (mkState (cs_alreadyProcessed state))) tbps -- [(Int,ResultState)]
@@ -216,6 +218,11 @@ nofollow =
   , ".*/vorlesungen/c/beispiele/.*"
   , ".*/TclTk/program1.html"
   , ".*/~splan/.*"
+  , ".*/~wk/.*"
+  , ".*/~si/projekte/.*"
+  , ".*/archiv/.*"
+  , ".*/src/.*"
+  , ".*/news/.*"
   , ".*/\\?L=.*"
   ]
 {-nofollow = ["tx_fhwunternehmensforum_pi3"                     -- deny
