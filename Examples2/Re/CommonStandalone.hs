@@ -47,14 +47,13 @@ emptyIndex = emptyIndexerState emptyInverted emptyDocuments
 emptyState :: ResultState
 emptyState = crawlerInitState
 
-crawlerConfig	:: String -> Int -> TextCrawlerConfig
-crawlerConfig	follow num = addReadAttributes  defaultOpts				-- at the moment no more read attributes are neccessary
+crawlerConfig	:: ([String],[String]) -> Int -> TextCrawlerConfig
+crawlerConfig	(follow,nofollow) num = addReadAttributes  defaultOpts				-- at the moment no more read attributes are neccessary
   >>> setS theProcessRefs   ( getHtmlReferences  )
   >>> setS thePreDocFilter	documentOK
   >>> setS theProcessDoc	theHeadings
-  >>> setS theFollowRef ( simpleFollowRef' [ follow ] [] )
+  >>> setS theFollowRef ( simpleFollowRef' follow nofollow )
   >>> setS theMaxNoOfDocs num
---  >>> setS theMaxNoOfDocs doc                                  -- limit of docs to be crawled
   >>> setS theSaveIntervall 10                                 -- every 10 documents the state is saved
   >>> setS theSavePathPrefix "./tmp/re-"                       -- states are saved in subdir "./tmp" in files starting with "re-"
   >>> setS theTraceLevel 1                                     -- trace actions with lowest level
@@ -144,7 +143,7 @@ getBody     = this
 
 getHeadlines    = getBody //> hasNameWith (localPart >>> (`elem` ["h1","h2","h3","h4","h5","h6"]))
 
-getDivCol2    = getBody //> ( hasName "div" >>> hasAttrValue "id" (== "col2_content")) -- contents part of fh layout
+getDivCol2    = getBody //> ( hasName "div" >>> hasAttrValue "id" (== "col3_content")) -- contents part of fh layout
 
 --getLecture    = getBody         -- content part of lecture page
 --        //>
@@ -169,6 +168,7 @@ getPlainText128   = getAllText getBody
 boringWord :: String -> Bool
 boringWord w = length w <= 1
   || all isXmlDigit w
+  || elem w stopwords
 
 isAllowedWordChar :: Char -> Bool
 isAllowedWordChar c = isXmlLetter c
@@ -216,4 +216,136 @@ mergeStates' first' second' = CrawlerState {
     c' = cs_robots second'
     d' = cs_noOfDocs second'
     e' = cs_resultAccu second'
--- ------------------------------------------------------------    
+-- ------------------------------------------------------------  
+stopwords :: [String]
+stopwords = 
+  [ "aber"
+  , "als"
+  , "am"
+  , "an"
+  , "auch"
+  , "auf"
+  , "aus"
+  , "bei"
+  , "bin"
+  , "bis"
+  , "bist"
+  , "da"
+  , "dadurch"
+  , "daher"
+  , "darum"
+  , "das"
+  , "daß"
+  , "dass"
+  , "dein"
+  , "deine"
+  , "dem"
+  , "den"
+  , "der"
+  , "des"
+  , "dessen"
+  , "deshalb"
+  , "die"
+  , "dies"
+  , "dieser"
+  , "dieses"
+  , "doch"
+  , "dort"
+  , "du"
+  , "durch"
+  , "ein"
+  , "eine"
+  , "einem"
+  , "einen"
+  , "einer"
+  , "eines"
+  , "er"
+  , "es"
+  , "euer"
+  , "eure"
+  , "für"
+  , "hatte"
+  , "hatten"
+  , "hattest"
+  , "hattet"
+  , "hier"
+  , "hinter"
+  , "ich"
+  , "ihr"
+  , "ihre"
+  , "im"
+  , "in"
+  , "ist"
+  , "ja"
+  , "jede"
+  , "jedem"
+  , "jeden"
+  , "jeder"
+  , "jedes"
+  , "jener"
+  , "jenes"
+  , "jetzt"
+  , "kann"
+  , "kannst"
+  , "können"
+  , "könnt"
+  , "machen"
+  , "mein"
+  , "meine"
+  , "mit"
+  , "muß"
+  , "mußt"
+  , "musst"
+  , "müssen"
+  , "müßt"
+  , "nach"
+  , "nachdem"
+  , "nein"
+  , "nicht"
+  , "nun"
+  , "oder"
+  , "seid"
+  , "sein"
+  , "seine"
+  , "sich"
+  , "sie"
+  , "sind"
+  , "soll"
+  , "sollen"
+  , "sollst"
+  , "sollt"
+  , "sonst"
+  , "soweit"
+  , "sowie"
+  , "und"
+  , "unser"
+  , "unsere"
+  , "unter"
+  , "vom"
+  , "von"
+  , "vor"
+  , "wann"
+  , "warum"
+  , "was"
+  , "weiter"
+  , "weitere"
+  , "wenn"
+  , "wer"
+  , "werde"
+  , "werden"
+  , "werdet"
+  , "weshalb"
+  , "wie"
+  , "wieder"
+  , "wieso"
+  , "wir"
+  , "wird"
+  , "wirst"
+  , "wo"
+  , "woher"
+  , "wohin"
+  , "zu"
+  , "zum"
+  , "zur"
+  , "über"
+  ]  

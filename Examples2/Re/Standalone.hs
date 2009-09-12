@@ -22,11 +22,33 @@ main  = do
   ( base : [] ) <- getArgs
   let action	= crawlDocs [base]
   -- crawls all sites and makes plaindocs out of em
-  (_, state) <- runCrawler action (crawlerConfig (base++".*") 500) crawlerInitState
-  putStrLn . show $ state
+  (_, state) <- runCrawler action (crawlerConfig (follow,nofollow) (-1)) crawlerInitState
+  -- putStrLn . show $ state
   let docs = cs_resultAccu state
   (IndexerState {ixs_index=idx, ixs_documents=docs'} ) <- foldM (\n p -> insertRawDoc p n) (emptyIndex) docs
   writeToXmlFile ( "index.xml") idx
   writeToBinFile( "index.bin") idx
   writeToBinFile( "docs.bin") docs'  
   writeToXmlFile ( "docs.xml") docs'
+
+follow :: [String]
+follow = [ "http://www.fh-wedel.de/.*" ]
+
+nofollow :: [String]
+nofollow =
+  [
+    ".*(pdf|PDF|jpg|gif|png|tar.gz|tgz|ppt|exe|txt|zip|doc|dot|ps|gz|nb|swf|JPG|tex|rss|mpg|mp3|m3u|java|svg|mdb|xls|docx|xslx|pptx|dta|lst|rar|avi|mp4)"
+  , ".*/hdoc.*"
+  , ".*/javadoc/.*"
+  , ".*/java/.*/doc.*"
+  , ".*/fileadmin/.*"
+  , ".*/vorlesungen/c/beispiele/.*"
+  , ".*/TclTk/program1.html"
+  , ".*/~splan/.*"
+  , ".*/~wk/.*"
+  , ".*/~si/projekte/.*"
+  , ".*/archiv/.*"
+  , ".*/src/.*"
+  , ".*/news/.*"
+  , ".*/\\?L=.*"
+  ]
