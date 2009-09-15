@@ -178,7 +178,7 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
     defaultOpts                 = [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
                                   , (curl_location,             v_1)            -- automatically follow redirects
                                   , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
-                                  , (a_accept_mimetypes,        "text/html")
+                                  , (a_accept_mimetypes,        "text/html text/xhtml")
                                   , (a_encoding,                isoLatin1)
                                   , (a_ignore_encoding_errors,  v_1)            -- encoding errors and parser warnings are boring
                                   , (a_validate,                v_0)

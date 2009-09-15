@@ -13,6 +13,8 @@ import		 Data.Maybe
 import		 Holumbus.Crawler.URIs
 import		 Holumbus.Crawler.Core
 
+import		 System.FilePath
+
 import		 Text.XML.HXT.Arrow		hiding ( when
 						       , getState
 						       )
@@ -133,6 +135,26 @@ getAllText getText'		= ( getText'
 				    (" " ++)						-- text parts are separated by a space
 				  )
 				  >. (concat >>> normalizeWS)				-- normalize Space
+
+isHtmlContents			:: ArrowXml a => a XmlTree XmlTree
+isHtmlContents			= ( getAttrValue transferMimeType
+				    >>>
+				    isA ( `elem` [text_html, application_xhtml] )
+				  ) `guards` this
+
+isPdfContents			:: ArrowXml a => a XmlTree XmlTree
+isPdfContents			= ( getAttrValue transferMimeType
+				    >>>
+				    isA ( == application_pdf )
+				  ) `guards` this
+
+getTitleOrDocName		:: ArrowXml a => a XmlTree String
+getTitleOrDocName		= ( getHtmlTitle >>> isA (not . null) )
+				  `orElse`
+				  ( getAttrValue transferURI >>^ takeFileName )
+
+application_pdf			:: String
+application_pdf			= "application/pdf"
 
 -- ------------------------------------------------------------
 

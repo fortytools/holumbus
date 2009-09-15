@@ -2,7 +2,8 @@
 
 -- ------------------------------------------------------------
 
-module SimpleIndexer
+-- module SimpleIndexer
+module Main
 where
 import           Control.Parallel.Strategies
 
@@ -11,10 +12,12 @@ import qualified Data.Binary                    as B                    -- else 
 import           Data.Char
 
 import           Holumbus.Crawler.Constants     ( )
+import		 Holumbus.Crawler.Core
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.Html
 import           Holumbus.Crawler.URIs
 import           Holumbus.Crawler.Util
+import		 Holumbus.Crawler.PdfToText
 
 import           Holumbus.Index.Documents       ( Documents
                                                 , emptyDocuments
@@ -42,6 +45,8 @@ instance XmlPickler PlainText where
                                   xpWrap (PT , unPT)
                                   xpText0
 
+-- ------------------------------------------------------------
+
 type SimpleIndexerState         = IndexerState       Inverted Documents PlainText
 type SimpleIndexerConfig        = IndexCrawlerConfig Inverted Documents PlainText
 
@@ -50,11 +55,14 @@ simpleIndexerConfig             :: (URI -> Bool)
                                 -> SimpleIndexerConfig
 simpleIndexerConfig followRef ixc
                                 = indexCrawlerConfig
-                                  [ ]                                                   -- use default read options
+                                  [ (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
+				  , (a_parse_html,              v_0)
+				  , (a_parse_by_mimetype,	v_1)
+				  ]                                                     -- use default read options, but accept pdfs too
                                   followRef                                             -- the set of URIs to be followed and processed 
                                   Nothing                                               -- use default collection filter
-                                  Nothing                                               -- use the pre hrefs filter as  pre document filter
-                                  (Just getHtmlTitle)                                   -- the document title
+                                  (Just $ checkDocumentStatus >>> preDocumentFilter)    -- filter for pdf extraction
+                                  (Just getTitleOrDocName)                              -- the document title
                                   (Just $ getPlainText128)                              -- the customized doc info: the first 128 chars of the the plain text
                                   ixc                                                   -- the context configs
 
@@ -66,8 +74,11 @@ simpleIndexer refs ixc startUris
                                 = stdIndexer
                                   Nothing
                                   startUris
-                                  ( simpleIndexerConfig refs ixc )
+                                  (setCrawlerTraceLevel indexerTraceLevel $ simpleIndexerConfig refs ixc )
                                   ( emptyIndexerState emptyInverted emptyDocuments )
+
+indexerTraceLevel		:: Int
+indexerTraceLevel		= 2
 
 -- ------------------------------------------------------------
 
@@ -84,16 +95,23 @@ siIndexer                       = simpleIndexer refs ixc startUris
                                   [ ".*[?].*"                                           -- no query string
                                   , "http://localhost/~si/vorlesungen/.*"               -- no lecture pages, currently redundant
                                   ]
+    startUris                   = [ "tmp.pdf"
+				  -- , "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
+				  -- , "http://www.fh-wedel.de/~si/vorlesungen/fp/handouts/vortraege/ws2004/AbstrakteDatentypen.pdf"
+				  ]
 -}
-    startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html" ]
+    startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
+				  , "tmp.pdf"
+				  ]
     refs                        = simpleFollowRef'
-                                  [ "http://www.fh-wedel.de/~si/vorlesungen/fp/.*.html"
+                                  [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.]html"
+				  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.]pdf"
                                   ]
-                                  [ "http://www.fh-wedel.de/~si/vorlesungen/fp/welcome.html"
-                                  , "http://www.fh-wedel.de/~si/vorlesungen/fp/handouts/.*"
-                                  , "http://www.fh-wedel.de/~si/vorlesungen/fp/.*[?]VAR=0"
-                                  , "http://www.fh-wedel.de/~si/vorlesungen/fp/.*/exec.html[?].*"
-                                  , "http://www.fh-wedel.de/~si/vorlesungen/fp/.*/download[a-zA-Z0-9]*.html[?].*SRC=.*"
+                                  [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/welcome[.]html"
+                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/handouts/.*.html"
+                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[?]VAR=0"
+                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*/exec[.]html[?].*"
+                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*/download[a-zA-Z0-9]*[.]html[?].*SRC=.*"
                                   ]
 
     ixDefault                   =  IndexContextConfig
@@ -114,7 +132,28 @@ siIndexer                       = simpleIndexer refs ixc startUris
                                     { ixc_name          = "content"
                                     , ixc_collectText   = getAllText getBody
                                     }
+				  , ixDefault
+                                    { ixc_name           = "pdf"
+                                    , ixc_collectText    = getAllText (isPdfContents `guards` getChildren)
+                                    , ixc_textToWords    = deleteNotAllowedChars >>> words
+                                    , ixc_boringWord     = boringWord
+				    }
                                   ]
+
+-- ------------------------------------------------------------
+
+preDocumentFilter	:: IOSArrow XmlTree XmlTree
+preDocumentFilter	= choiceA
+			  [ isHtmlContents	:-> this			-- do nothing
+			  , isPdfContents	:-> extractPdfText		-- extract the text from a pdf
+			  , this		:-> replaceChildren none	-- throw away every contents
+			  ]
+    where
+    extractPdfText	= traceDoc "extractPdfText: start"
+			  >>>
+			  processChildren ( deep getText >>> pdfToTextA >>> mkText )
+			  >>>
+			  traceDoc "extractPdfText: result"
 
 getDivCol2, getLecture, getBody, getHeadlines
                         :: ArrowXml a => a XmlTree XmlTree
@@ -153,20 +192,20 @@ getMetaText             = getAllText $
 
 -- ------------------------------------------------------------
 
-boringWord              :: String -> Bool
-boringWord w            = length w <= 1
-                          ||
-                          all isXmlDigit w
+boringWord              	:: String -> Bool
+boringWord w            	= length w <= 1
+				  ||
+				  not (any isXmlLetter w)
 
-isAllowedWordChar       :: Char -> Bool
-isAllowedWordChar c     = isXmlLetter c
-                          ||
-                          isXmlDigit c
-                          ||
-                          c `elem` "_-"
+isAllowedWordChar       	:: Char -> Bool
+isAllowedWordChar c     	= isXmlLetter c
+				  ||
+				  isXmlDigit c
+				  ||
+				  c `elem` "_-"
 
-deleteNotAllowedChars   :: String -> String
-deleteNotAllowedChars   = map notAllowedToSpace
+deleteNotAllowedChars  		:: String -> String
+deleteNotAllowedChars   	= map notAllowedToSpace
     where
     notAllowedToSpace c
         | isAllowedWordChar c   = c

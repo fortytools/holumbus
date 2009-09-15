@@ -207,6 +207,11 @@ enableRobotsTxt c	= setS theAddRobotsAction (robotsAddHost attrs) c
 disableRobotsTxt	:: CrawlerConfig a r -> CrawlerConfig a r
 disableRobotsTxt	= setS theAddRobotsAction (const return)
 
+-- | Set trace level in config
+
+setCrawlerTraceLevel	:: Int -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerTraceLevel	= setS theTraceLevel
+
 -- ------------------------------------------------------------
 
 instance (Binary r) => Binary (CrawlerState r) where
