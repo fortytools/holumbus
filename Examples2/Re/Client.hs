@@ -220,6 +220,7 @@ nofollow =
   , ".*/~splan/.*"
   , ".*/~wk/.*"
   , ".*/~si/projekte/.*"
+  , ".*/~si/vorlesungen/.*" -- makes strange base tags? 
   , ".*/archiv/.*"
   , ".*/src/.*"
   , ".*/news/.*"
