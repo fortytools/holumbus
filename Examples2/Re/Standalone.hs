@@ -19,10 +19,10 @@ import Examples2.Re.CommonStandalone
 
 main	:: IO ()
 main  = do
-  ( base : [] ) <- getArgs
+  ( base : f : n : [] ) <- getArgs
   let action	= crawlDocs [base]
   -- crawls all sites and makes plaindocs out of em
-  (_, state) <- runCrawler action (crawlerConfig (follow,nofollow) (-1)) crawlerInitState
+  (_, state) <- runCrawler action (crawlerConfig (maybeStringlist f follow,maybeStringlist n nofollow) (-1)) crawlerInitState
   -- putStrLn . show $ state
   let docs = cs_resultAccu state
   (IndexerState {ixs_index=idx, ixs_documents=docs'} ) <- foldM (\n p -> insertRawDoc p n) (emptyIndex) docs
@@ -52,3 +52,8 @@ nofollow =
   , ".*/news/.*"
   , ".*/\\?L=.*"
   ]
+
+maybeStringlist :: String -> [String] -> [String]
+maybeStringlist s l
+  | null s = l
+  | otherwise = words s
