@@ -62,6 +62,7 @@ library
                 , parallel   >= 1.1.0.0
                 , Holumbus-Distribution >= 0.0.1
                 , Holumbus-Storage >= 0.0.1
+                , extensible-exceptions
 
   hs-source-dirs: 
                   source
