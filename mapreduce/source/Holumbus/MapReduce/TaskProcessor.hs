@@ -48,7 +48,7 @@ where
 
 import           Prelude hiding                 ( catch )
 
-import		 Control.Exception		( Exception
+import		 Control.Exception.Extensible		( Exception
 						, throw
 						, throwTo
 						, catch
