@@ -6,7 +6,7 @@ where
 
 
 import Holumbus.Distribution.SimpleDMapReduce
-import Examples2.IdWithSimpleDMR.Id
+import Examples2.SumWithSimpleDMR.Sum
 
 main :: IO ()
-main = simpleWorker idMap idReduce
+main = simpleWorker sumMap sumReduce

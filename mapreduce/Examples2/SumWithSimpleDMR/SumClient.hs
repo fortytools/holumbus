@@ -6,12 +6,15 @@ where
 
 
 import Holumbus.Distribution.SimpleDMapReduce
-import Examples2.IdWithSimpleDMR.Id
+import Examples2.SumWithSimpleDMR.Sum
+import System.Environment
 
 main :: IO ()
 main = do
-  result <- simpleClient idMap idReduce () num ls
+  ( mappers : [] ) <- getArgs
+  let num = read mappers
+  result <- simpleClient sumMap sumReduce () num (ls num)
+  putStrLn . show . length $ result
   putStrLn . show . sum . map snd $ result
   where
-  num = 2
-  ls = [(x`mod`num,[0+10*x..9+10*x])|x<-[0..99]] -- == [[0..9],[10..19],[20..29],..,[990..999]]
+  ls num =[(x`mod`num,[0+10000*x..9999+10000*x])|x<-[0..99]] -- == [[0..9999],[10000..19999],..,[y..999999]]

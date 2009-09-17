@@ -1,7 +1,7 @@
-module Examples2.IdWithSimpleDMR.Id
+module Examples2.SumWithSimpleDMR.Sum
 (
-   idMap
- , idReduce
+   sumMap
+ , sumReduce
 )
 where
 
@@ -10,12 +10,11 @@ import Holumbus.Distribution.SimpleDMapReduce
 {-
   The mapping function
 -}
-idMap :: SimpleMapFunction () Int [Int] Int Int
-idMap _ key ls = (key, sum ls)
+sumMap :: SimpleMapFunction () Int [Int] Int Int
+sumMap _ key ls = (key, sum ls)
 
 {-
  The reduce function
 -}
-idReduce :: SimpleReduceFunction () Int Int Int
-idReduce _ _ = sum
-
+sumReduce :: SimpleReduceFunction () Int Int Int
+sumReduce _ _ = sum
