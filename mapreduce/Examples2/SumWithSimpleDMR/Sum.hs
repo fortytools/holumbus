@@ -10,11 +10,11 @@ import Holumbus.Distribution.SimpleDMapReduce
 {-
   The mapping function
 -}
-sumMap :: SimpleMapFunction () Int [Int] Int Int
+sumMap :: SimpleMapFunction () Integer [Integer] Integer Integer
 sumMap _ key ls = (key, sum ls)
 
 {-
  The reduce function
 -}
-sumReduce :: SimpleReduceFunction () Int Int Int
+sumReduce :: SimpleReduceFunction () Integer Integer Integer
 sumReduce _ _ = sum

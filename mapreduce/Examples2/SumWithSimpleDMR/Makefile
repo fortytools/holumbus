@@ -2,7 +2,7 @@ HOME		= ../../
 
 SOURCE		= .
 OPTIMIZATION=-O2
-GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main 
+GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main
 GHC		= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
