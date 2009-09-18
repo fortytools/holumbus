@@ -16,7 +16,9 @@ main = do
   (filename : mappers : wordsToCount : []) <- getArgs
   file <- readFile filename
   let num = read mappers
-  result <- client countMap countReduce (words wordsToCount) num . prepare $ rnf file `seq` partition file num
+  let  prepared =  prepare $ rnf file `seq` partition file num
+  putStrLn . show . map (length .snd) $ prepared
+  result <- client countMap countReduce (words wordsToCount) num prepared
   let result' = sum . map snd $ result
   putStrLn ("Occurence of word(s) \""++wordsToCount++"\"is " ++ (show result'))
   return ()
