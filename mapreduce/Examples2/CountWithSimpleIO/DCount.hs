@@ -26,4 +26,4 @@ countMap _env wordsToCount k1 v1 = rnf v1 `seq` return $ zip (repeat 0) (map cou
 type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
 -}
 countReduce :: ReduceFunction [String]  Int Int Int
-countReduce _env _opts k2 = return . Just . sum 
+countReduce _env _opts k2 v2s = rnf v2s `seq` return . Just . sum $ v2s
