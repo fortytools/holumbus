@@ -14,7 +14,9 @@ import Control.Parallel.Strategies
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 -}
 countMap :: MapFunction [String] Int [String] Int Int
-countMap _env wordsToCount k1 v1 = rnf v1 `seq` return $ zip (repeat k1) (map counts v1)
+countMap _env wordsToCount k1 v1 = do
+  putStrLn $ "map: ("++show k1++" / "++(show . length $ v1)++" )"
+  return $ zip (repeat k1) (map counts v1)
   where
   counts :: String -> Int
   counts word = (b2int . or . map (==word)) wordsToCount
@@ -26,4 +28,6 @@ countMap _env wordsToCount k1 v1 = rnf v1 `seq` return $ zip (repeat k1) (map co
 type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
 -}
 countReduce :: ReduceFunction [String]  Int Int Int
-countReduce _env _opts k2 v2s = rnf v2s `seq` return . Just . sum $ v2s
+countReduce _env _opts k2 v2s = do
+  putStrLn $ "reduce: ("++show k2++" / "++(show . length $ v2s)++" )"
+  return . Just . sum $ v2s
