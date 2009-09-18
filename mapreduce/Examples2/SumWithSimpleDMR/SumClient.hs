@@ -17,5 +17,4 @@ main = do
   putStrLn . show . length $ result
   putStrLn . show . sum . map snd $ result
   where
-  ls :: Integer -> [(Integer,[Integer])]
-  ls num =[(x`mod`num,[0+100000*x..99999+100000*x])|x<-[0..99]] -- == [[0..9999],[10000..19999],..,[y..999999]]
+  ls num =[(x`mod`num,[0+10000*x..9999+10000*x])|x<-[0..99]] -- == [[0..9999],[10000..19999],..,[y..999999]]
