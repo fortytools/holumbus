@@ -14,7 +14,7 @@ import Control.Parallel.Strategies
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 -}
 countMap :: MapFunction [String] Int [String] Int Int
-countMap _env wordsToCount k1 v1 = rnf v1 `seq` return $ zip (repeat 0) (map counts v1)
+countMap _env wordsToCount k1 v1 = rnf v1 `seq` return $ zip (repeat k1) (map counts v1)
   where
   counts :: String -> Int
   counts word = (b2int . or . map (==word)) wordsToCount
