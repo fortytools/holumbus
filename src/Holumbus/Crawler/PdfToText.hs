@@ -32,11 +32,11 @@ pdfToText inp	= ( do
 		  ) `catch` ( const $ return "" )
 
 pdfToTextA	:: IOSArrow String String
-pdfToTextA	= perform ( traceString 2 (("pdfToTextA input:\n" ++) . (take 1024)) )
+pdfToTextA	= perform ( traceString 2 (("pdfToTextA input:\n" ++) . take 256 . show) )
 		  >>>
 		  arrIO pdfToText
 		  >>>
-		  perform ( traceString 2 ( "pdfToText result:\n" ++ ) )
+		  perform ( traceString 2 (( "pdfToText result:\n" ++ ) . take 256 . show) )
 
 -- ------------------------------------------------------------
 

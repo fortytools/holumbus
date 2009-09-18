@@ -1,4 +1,4 @@
 :set -hide-package Holumbus-Searchengine
-:set -i../../src:../../../holumbus/trunk/searchengine/source
+:set -i../../src:../../../../holumbus/trunk/searchengine/source
 :set -Wall
 :load SimpleIndexer
