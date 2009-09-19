@@ -135,7 +135,7 @@ worker m r = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
     (s_cport:logfile:[]) <- params
-    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO)]
+    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("Holumbus.MapReduce.Types", INFO)]
     p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
     setPortRegistry p
     (mr,fs) <- initWorker m r
