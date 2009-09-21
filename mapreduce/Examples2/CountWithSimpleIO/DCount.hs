@@ -16,7 +16,8 @@ type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, 
 countMap :: MapFunction [String] Int [String] Int Int
 countMap _env wordsToCount k1 v1 = do
   putStrLn $ "map: ("++show k1++" / "++(show . length $ v1)++" )"
-  return $ zip (repeat k1) (map counts v1)
+  let result =  zip (repeat k1) (map counts v1)
+  return $ rnf result `seq` result
   where
   counts :: String -> Int
   counts word = (b2int . or . map (==word)) wordsToCount
