@@ -1,0 +1,44 @@
+#!/bin/bash
+
+NUM="1 5 10 15 20 25"
+NUMOFTESTS="$1"
+CLIENT="/home/re/holumbus/mapreduce/Examples2/CountWithSimpleIO/client/Client"
+
+for Y in `seq 1 $NUMOFTESTS`
+do
+
+  # make a dir for current run
+  mkdir "run_$Y"
+
+  # change into testdir
+  cd "run_$Y"
+  
+  # start the actual tests
+  for I in $NUM
+  do
+    # Start MR sytem and wait a sec
+    /etc/init.d/MR start && sleep 1
+
+    # Start I workers
+    startworkercount2 1 $I
+
+    # Wait for workers to be started
+    while [ `cat /tmp/master.state|wc -l` -ne $I ]; do echo "Waiting for workers to be started" && sleep 1; done
+
+    # delete clients storage folder
+    rm storage/*
+  
+    # run sum function
+    /usr/bin/time -o time_$I.txt -v "$CLIENT" "/root/Count/nt" $I "God" +RTS -N3 -K4G -RTS
+
+    # stop workers
+    killworker 1 $I
+  
+    # stop mr system and wait a sec
+    /etc/init.d/MR stop && sleep 1
+  done
+  
+  # change to root dir
+  cd ..
+
+done
