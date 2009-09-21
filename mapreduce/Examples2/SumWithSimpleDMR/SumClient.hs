@@ -8,6 +8,7 @@ where
 import Holumbus.Distribution.SimpleDMapReduce
 import Examples2.SumWithSimpleDMR.Sum
 import System.Environment
+import Control.Parallel.Strategies 
 
 main :: IO ()
 main = do
@@ -17,7 +18,7 @@ main = do
   putStrLn . show . length $ result
   putStrLn . show . sum . map snd $ result
   where
-  ls num = zip [0..] $ partition' [0..9999999] [[] |_<- [1..num]] 
+  ls num = let t =  [1..10^7] in rnf t `seq` zip [0..] $ partition' t [[] |_<- [1..num]]
 
 {-
 
