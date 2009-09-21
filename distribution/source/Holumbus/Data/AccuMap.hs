@@ -40,7 +40,7 @@ module Holumbus.Data.AccuMap
 where
 
 import           Prelude hiding (null, lookup)
-
+import qualified Data.List as L
 import qualified Data.Map as Map
 
 
@@ -109,7 +109,7 @@ union (AM m1) (AM m2) = AM $ Map.unionWith (\l1 l2 -> l1 ++ l2) m1 m2
 
 -- | Creates an AccuMap from a list.
 fromList :: (Ord k) => [(k,[a])] -> AccuMap k a
-fromList ks = foldl (\m (k,as) -> insertList k as m) empty ks
+fromList ks = L.foldl' (\m (k,as) -> insertList k as m) empty ks
 
 
 -- | Creates an AccuMap from a tuple list.
