@@ -533,6 +533,17 @@ readConnector ic ae ls
             d <- ic $ fromJust mbc
             return $ Just d
 
+myMapM :: (a -> IO b) -> [a] -> IO [b]
+myMapM f [] = return []
+myMapM f (x:xs) = do
+   infoM localLogger $ "myMapM: do f"
+   b <- f x
+   infoM localLogger $ "myMapM: do recursiv map"
+   bs <- myMapM f xs
+   infoM localLogger $ "myMapM: do return"
+   return (b:bs)
+   
+     
 
 writeConnector 
   :: (Binary k2, Binary v2)
@@ -542,8 +553,8 @@ writeConnector
   -> IO [(Int,[FunctionData])]
 writeConnector oc ae ls
   = do
-    debugM localLogger $ "writeConnector: "
-    os <- mapM (writeOutput (ae_FileSystem ae) tot) ls
+    infoM localLogger $ "writeConnector: " ++ (show . length $ ls)
+    os <- myMapM (writeOutput (ae_FileSystem ae) tot) ls
     return $ catMaybes os
     where 
     td   = ae_TaskData ae
@@ -556,11 +567,11 @@ writeConnector oc ae ls
     -- TODO exception werfen 
     writeOutput fs _ (i,ts)
       = do
-        debugM localLogger "oc ts"
+        infoM localLogger "oc ts"
         c <-  oc ts        
-        debugM localLogger "appendfile"
+        infoM localLogger "appendfile"
         FS.appendFile fn c fs
-        debugM localLogger "return just"
+        infoM localLogger "return just"
         return $ Just (i,[FileFunctionData fn])
         where
         fn =  "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i
@@ -686,9 +697,17 @@ defaultSplit _ _ n ls
     ps = zip ns is
 
 
-hashedPartition :: (Hash k2, Binary k2, Binary v2) => MapPartition a k2 v2
-hashedPartition _ _ 1 = return . (:[]) . (,) 1
-hashedPartition _ _ n = return . AMap.toList . AMap.fromList . map (\t -> (hash n (fst t),[t]))
+hashedPartition :: (Hash k2, Binary k2, Binary v2, NFData k2, NFData v2) => MapPartition a k2 v2
+hashedPartition _ _ 1 l = return . (:[]) . (,) 1 $ l
+hashedPartition _ _ n l = do 
+  infoM localLogger "hashedPartition: map"
+  let a =  map (\t -> (hash n (fst t),[t])) l
+  infoM localLogger "hashedPartition: fromList"
+  let b = AMap.fromList a
+  infoM localLogger "hashedPartition: toList"
+  let c = AMap.toList b
+  infoM localLogger "hashedPartition: return"
+  return $ c
 
 defaultPartition
   :: (Binary k2, Binary v2)
@@ -778,6 +797,7 @@ getActionForTaskType _         _  = Nothing
 
 readActionConfiguration
   :: ( Ord k2, Binary a
+     , NFData k1, NFData v1
      , NFData k2, NFData v2, NFData v3
      , Binary k1, Binary v1
      , Binary k2, Binary v2
@@ -883,7 +903,7 @@ type MapPartition a k2 v2 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(I
 
 performMapAction
   :: (Ord k2,
-      Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
+      Binary a, Binary k1, Binary v1, Binary k2, Binary v2, NFData k2, NFData v2, NFData v1, NFData k1)
   => OptionsDecoder a
   -> MapFunction a k1 v1 k2 v2
   -> MapPartition a k2 v2
@@ -913,9 +933,9 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)]
     
-    debugM localLogger "writing outputlist: begin"
+    infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList
-    debugM localLogger "writing outputlist: done"    
+    infoM localLogger "writing outputlist: done"    
     return outputList
 
 
@@ -965,7 +985,7 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
     inputList <- readConnector reader env ls
     
     infoM localLogger "doing merge"
-    mergedList <- rnf inputList `seq` merge env a inputList
+    mergedList <- merge env a inputList
     
     infoM localLogger "doing reduce"
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction a k2 v2s) mergedList
@@ -976,8 +996,9 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)] 
     
-    infoM localLogger "writing outputlist"
+    infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList
+    infoM localLogger "writing outputlist: done"
     
     return outputList
     where
