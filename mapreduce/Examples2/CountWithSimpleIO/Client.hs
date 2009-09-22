@@ -12,31 +12,31 @@ import Control.Parallel.Strategies
 
 
 main :: IO ()
-main = do 
-  (filename : mappers : wordsToCount : []) <- getArgs
+main = do
+  -- get command line arguments
+  (filename : splitmapreduresult : wordsToCount : []) <- getArgs
+  
+  -- convert number of mappers, reducers...
+  let (splitters,mappers,reducers) = read splitmapreduresult
+    
+  -- read the input textfile
   file <- readFile filename
-  let num = read mappers
-  let  prepared =  prepare $ rnf file `seq` partition file num
-  putStrLn . show . map (length .snd) $ prepared
-  result <- client countMap countReduce (words wordsToCount) num prepared
+  
+  -- give each word a key and split list into number of splitters peaces
+  let  splitted =  partition' (zip [0..] (words file)) [[]| _<- [1..splitters]]
+  
+  -- debug
+  putStrLn . show . map length $ splitted
+  
+  -- do the map reduce processing
+  result <- client countMap countReduce (words wordsToCount) (splitters,mappers,reducers) splitted
+  
+  -- debug
+  putStrLn . show $ result
+  
+  -- process the result and show it
   let result' = sum . map snd $ result
-  putStrLn ("Occurence of word(s) \""++wordsToCount++"\"is " ++ (show result'))
+  putStrLn ("Occurence of word(s) \""++wordsToCount++"\" is " ++ (show result'))
+  
+  -- the end 
   return ()
-
-prepare :: [[String]] -> [(Int,[String])]
-prepare = zip [0..]
-
-partition :: String -> Int -> [[String]]
-partition s i = partition' (words s) [[]|_<-[1..i]]
-
-{-
-
-partition'
-
-first list, list of 
- -}
-partition' :: [a] -> [[a]] -> [[a]]
-partition' _   [] = []
-partition' [] xss = xss
-partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
-  where xs' = (u:xs)

@@ -12,31 +12,41 @@ do
 
   # change into testdir
   cd "run_$Y"
+
+  for SPLITTERS in $NUM
+	do
+    for MAPPERS in $NUM
+		do
+      for REDUCERS in $NUM
+      do
+  			# start the actual tests
+			  for WORKERS in $NUM
+			  do
+    			# Start MR sytem and wait a sec
+		  	  /etc/init.d/MR start && sleep 1
+
+    			# Start I workers
+			    startworkercount2 1 $WORKERS
+
+  	  		# Wait for workers to be started
+			    while [ `cat /tmp/master.state|wc -l` -ne $WORKERS ]; do echo "Waiting for workers to be started" && sleep 1; done
+
+    			# delete clients storage folder
+		    	rm storage/*
   
-  # start the actual tests
-  for I in $NUM
-  do
-    # Start MR sytem and wait a sec
-    /etc/init.d/MR start && sleep 1
+	    		# run sum function
+          FILENAME_PREFIX="$WORKERS_$SPLITTERS_$MAPPERS_$REDUCERS.txt"
+			    /usr/bin/time -o "time_$FILENAME_PREFIX" -v "$CLIENT" "/root/Count/nt" "($SPLITTERS,$MAPPERS,$REDUCERS)" "God" +RTS -N3 -K4G -o"Memory_$FILENAME_PREFIX"-RTS
 
-    # Start I workers
-    startworkercount2 1 $I
-
-    # Wait for workers to be started
-    while [ `cat /tmp/master.state|wc -l` -ne $I ]; do echo "Waiting for workers to be started" && sleep 1; done
-
-    # delete clients storage folder
-    rm storage/*
+    			# stop workers
+		  	  killworker 1 $WORKERS
   
-    # run sum function
-    /usr/bin/time -o time_$I.txt -v "$CLIENT" "/root/Count/nt" $I "God" +RTS -N3 -K4G -RTS
-
-    # stop workers
-    killworker 1 $I
-  
-    # stop mr system and wait a sec
-    /etc/init.d/MR stop && sleep 1
-  done
+    			# stop mr system and wait a sec
+			    /etc/init.d/MR stop && sleep 1
+				done
+		  done
+		done
+	done
   
   # change to root dir
   cd ..
