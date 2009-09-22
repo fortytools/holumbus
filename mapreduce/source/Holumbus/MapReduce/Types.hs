@@ -532,16 +532,16 @@ readConnector ic ae ls
           else do
             d <- ic $ fromJust mbc
             return $ Just d
-
-myMapM :: (a -> IO b) -> [a] -> IO [b]
-myMapM f [] = return []
-myMapM f (x:xs) = do
-   infoM localLogger $ "myMapM: do f"
-   b <- f x
-   infoM localLogger $ "myMapM: do recursiv map"
-   bs <- myMapM f xs
-   infoM localLogger $ "myMapM: do return"
-   return (b:bs)
+--
+--myMapM :: (a -> IO b) -> [a] -> IO [b]
+--myMapM f [] = return []
+--myMapM f (x:xs) = do
+--   infoM localLogger $ "myMapM: do f"
+--   b <- f x
+--   infoM localLogger $ "myMapM: do recursiv map"
+--   bs <- myMapM f xs
+--   infoM localLogger $ "myMapM: do return"
+--   return (b:bs)
    
      
 
@@ -554,7 +554,7 @@ writeConnector
 writeConnector oc ae ls
   = do
     infoM localLogger $ "writeConnector: " ++ (show . length $ ls)
-    os <- myMapM (writeOutput (ae_FileSystem ae) tot) ls
+    os <- mapM (writeOutput (ae_FileSystem ae) tot) ls
     return $ catMaybes os
     where 
     td   = ae_TaskData ae
@@ -700,13 +700,13 @@ defaultSplit _ _ n ls
 hashedPartition :: (Hash k2, Binary k2, Binary v2, NFData k2, NFData v2) => MapPartition a k2 v2
 hashedPartition _ _ 1 l = return . (:[]) . (,) 1 $ l
 hashedPartition _ _ n l = do 
-  infoM localLogger "hashedPartition: map"
+  debugM localLogger "hashedPartition: map"
   let a =  map (\t -> (hash n (fst t),[t])) l
-  infoM localLogger "hashedPartition: fromList"
+  debugM localLogger "hashedPartition: fromList"
   let b = AMap.fromList a
-  infoM localLogger "hashedPartition: toList"
+  debugM localLogger "hashedPartition: toList"
   let c = AMap.toList b
-  infoM localLogger "hashedPartition: return"
+  debugM localLogger "hashedPartition: return"
   return $ c
 
 defaultPartition
@@ -797,6 +797,8 @@ getActionForTaskType _         _  = Nothing
 
 readActionConfiguration
   :: ( Ord k2, Binary a
+     , Show k1, Show v1
+     , Show k2, Show v2, Show v3, Show v4
      , NFData k1, NFData v1
      , NFData k2, NFData v2, NFData v3
      , Binary k1, Binary v1
@@ -856,7 +858,7 @@ type BinarySplitAction = ActionEnvironment -> B.ByteString -> Maybe Int -> (Int,
 type SplitFunction a k1 v1 = SplitAction a k1 v1
 
 performSplitAction
-  :: (Binary a, Binary k1, Binary v1)
+  :: (Binary a, Binary k1, Binary v1, Show k1, Show v1)
   => OptionsDecoder a
   -> SplitFunction a k1 v1
   -> InputReader k1 v1
@@ -874,12 +876,13 @@ performSplitAction optDec fct reader writer env opts n (i,ls)
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
-        
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
     infoM localLogger "doing split"
     partedList <- case n of
       (Just n') -> fct env a n' inputList
       (Nothing) -> return [(i,inputList)]
     
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>> splittet list is: " ++ show partedList ++ "\n\n"
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList
     return outputList
@@ -902,7 +905,7 @@ type MapPartition a k2 v2 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(I
     
 
 performMapAction
-  :: (Ord k2,
+  :: (Ord k2, Show k1, Show k2, Show v1, Show v2,
       Binary a, Binary k1, Binary v1, Binary k2, Binary v2, NFData k2, NFData v2, NFData v1, NFData k1)
   => OptionsDecoder a
   -> MapFunction a k1 v1 k2 v2
@@ -923,15 +926,20 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
-    
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
+        
     infoM localLogger "doing map"
     mappedList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
     let tupleList = concat mappedList
-     
+
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  mapped list is: " ++ show tupleList ++ "\n\n"
+
     infoM localLogger "doing partition"
     partedList <- case n of
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)]
+    
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  partitioned list is: " ++ show partedList ++ "\n\n"
     
     infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList
@@ -960,7 +968,7 @@ type ReducePartition a k2 v3 = ActionEnvironment -> a -> Int -> [(k2,v3)] -> IO 
     
 
 performReduceAction
-  :: (Ord k2,
+  :: (Ord k2, Show k2, Show v2, Show v3,
       NFData k2, NFData v2,
       Binary a, Binary k2, Binary v2, Binary v3)
   => OptionsDecoder a
@@ -983,18 +991,23 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
-    
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
+        
     infoM localLogger "doing merge"
     mergedList <- merge env a inputList
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  mergedList is: " ++ show mergedList     ++ "\n\n"
     
     infoM localLogger "doing reduce"
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction a k2 v2s) mergedList
     let tupleList = catMaybes maybesList
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  tupleList is: " ++ show tupleList ++ "\n\n"
     
     infoM localLogger "doing partition" 
     partedList <- case n of
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)] 
+
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  partedList is: " ++ show partedList ++ "\n\n"
     
     infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList

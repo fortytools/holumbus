@@ -92,7 +92,7 @@ actionConfig m r = (defaultActionConfiguration "ID") {
   -> TaskOutputType  -- ^ type of the result (file of raw)
   -> mr -> IO ([(k2,v4)],[FileId])
 -}
-simpleClient :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> a -> Int -> [(k1,v1)] -> IO [(k2,v4)]
+simpleClient :: (Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2 -> SimpleReduceFunction a k2 v3 v4 -> a -> Int -> [(k1,v1)] -> IO [(k2,v4)]
 simpleClient m r a num ls = do
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
@@ -105,7 +105,7 @@ simpleClient m r a num ls = do
       FS.closeFileSystem fs
       return result
       
-merge :: (Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
+merge :: (Show k2,Show v4, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
 merge fids fs = do
    mayberesult <- mapM ( flip FS.getFileContent fs) fids
    let result = concat . map parseByteStringToList $ catMaybes mayberesult
@@ -158,7 +158,7 @@ params = do
 {-
  The simpleWorker
 -}
-simpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO ()
+simpleWorker :: (Show k1, Show k2, Show v1, Show v2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO ()
 simpleWorker m r = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -173,7 +173,7 @@ simpleWorker m r = do
 {-
  The simpleWorker's init functin
 -}
-initSimpleWorker :: (Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initSimpleWorker :: (Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => SimpleMapFunction a k1 v1 k2 v2  -> SimpleReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
 initSimpleWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig

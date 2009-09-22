@@ -16,6 +16,7 @@ module Holumbus.Distribution.SimpleDMapReduceIO
  , ReduceFunction
  , client
  , worker
+ , partition'
 )
 where
 
@@ -67,8 +68,7 @@ actionConfig
 -}
 actionConfig :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 actionConfig m r = (defaultActionConfiguration "ID") {
-           ac_Split   = Nothing -- Just . mapConfiguration    $ m
-         , ac_Map     = Just . mapConfiguration    $ m
+           ac_Map     = Just . mapConfiguration    $ m
          , ac_Reduce  = Just . reduceConfiguration $ r
          }
 
@@ -91,20 +91,41 @@ actionConfig m r = (defaultActionConfiguration "ID") {
   -> TaskOutputType  -- ^ type of the result (file of raw)
   -> mr -> IO ([(k2,v4)],[FileId])
 -}
-client :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> a -> Int -> [(k1,v1)] -> IO [(k2,v4)]
-client m r a num ls = do
+client :: ( Show k1, Show k2, Show v1, Show v2, Show v3, Show v4
+          , Binary v1, Binary v3, Binary v2, Binary v4
+          , Binary a, Binary k1, Binary k2
+          , NFData k1, NFData k2, NFData v1, NFData v4, NFData v2, NFData v3
+          , Ord k2, Hash k2) =>
+          MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4
+          -> a -> (Int,Int,Int) -> [[(k1,v1)]] -> IO [(k2,v4)]
+client m r a (splitters,mappers,reducers) lss = do
+      -- create port registry
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
+      
+      -- create mapreduce data
       mr <- initializeData
+      
+      -- make filesystem
       fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
-      FS.createFile "initial_input" (listToByteString ls) fs
-      (_,fids) <- MR.doMapReduce (actionConfig m r) a [] ["initial_input"] num num num num TOTFile mr
+      -- create the filenames and store the data to the map reduce filesystem
+      let filenames = map (\i -> "initial_input_"++show i) [0..(length lss)]
+      mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+      
+      -- do the map reduce job
+      (_,fids) <- MR.doMapReduce (actionConfig m r) a [] filenames splitters mappers reducers 1 TOTFile mr
+      
+      -- get the results from filesystem
       result <- merge fids fs
+      
+      -- close file- and mapreducesystem
       deinitializeData mr
       FS.closeFileSystem fs
+      
+      -- finally, return the result
       return result
       
-merge :: (Hash k2, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
+merge :: (Show k2, Show v4, Hash k2, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
 merge fids fs = do
    mayberesult <- mapM ( flip FS.getFileContent fs) fids
    let result = concat . map parseByteStringToList $ catMaybes mayberesult
@@ -157,7 +178,7 @@ params = do
 {-
  The simpleWorker
 -}
-worker :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO ()
+worker :: (Show k1, Show k2, Show v1, Show v2, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO ()
 worker m r = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -172,7 +193,7 @@ worker m r = do
 {-
  The simpleWorker's init functin
 -}
-initWorker :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initWorker :: (Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
 initWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
@@ -191,3 +212,14 @@ deinitWorker (mr,fs)
     MR.closeMapReduce mr
     FS.closeFileSystem fs
     
+{-
+
+partition'
+
+first list, list of 
+ -}
+partition' :: [a] -> [[a]] -> [[a]]
+partition' _   [] = []
+partition' [] xss = xss
+partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
+  where xs' = (u:xs)
