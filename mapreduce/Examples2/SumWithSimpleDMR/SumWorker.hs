@@ -5,8 +5,9 @@ module Main
 where
 
 
-import Holumbus.Distribution.SimpleDMapReduce
+import Holumbus.Distribution.SimpleDMapReduceIO
 import Examples2.SumWithSimpleDMR.Sum
+import System.Log
 
 main :: IO ()
-main = simpleWorker sumMap sumReduce
+main = worker sumMap sumReduce [("Holumbus.MapReduce.Types",DEBUG)]
