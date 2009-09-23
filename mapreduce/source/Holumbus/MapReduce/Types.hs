@@ -700,13 +700,13 @@ defaultSplit _ _ n ls
 hashedPartition :: (Hash k2, Binary k2, Binary v2, NFData k2, NFData v2) => MapPartition a k2 v2
 hashedPartition _ _ 1 l = return . (:[]) . (,) 1 $ l
 hashedPartition _ _ n l = do 
-  debugM localLogger "hashedPartition: map"
+  infoM localLogger "hashedPartition: map"
   let a =  map (\t -> (hash n (fst t),[t])) l
-  debugM localLogger "hashedPartition: fromList"
+  infoM localLogger "hashedPartition: fromList"
   let b = AMap.fromList a
-  debugM localLogger "hashedPartition: toList"
+  infoM localLogger "hashedPartition: toList"
   let c = AMap.toList b
-  debugM localLogger "hashedPartition: return"
+  infoM localLogger "hashedPartition: return"
   return $ c
 
 defaultPartition
@@ -876,13 +876,13 @@ performSplitAction optDec fct reader writer env opts n (i,ls)
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
     infoM localLogger "doing split"
     partedList <- case n of
       (Just n') -> fct env a n' inputList
       (Nothing) -> return [(i,inputList)]
     
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>> splittet list is: " ++ show partedList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>> splittet list is: " ++ show partedList ++ "\n\n"
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList
     return outputList
@@ -926,20 +926,20 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
         
     infoM localLogger "doing map"
     mappedList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
     let tupleList = concat mappedList
 
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  mapped list is: " ++ show tupleList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  mapped list is: " ++ show tupleList ++ "\n\n"
 
     infoM localLogger "doing partition"
     partedList <- case n of
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)]
     
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  partitioned list is: " ++ show partedList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  partitioned list is: " ++ show partedList ++ "\n\n"
     
     infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList
@@ -991,23 +991,24 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
+    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ (show . length $ inputList) ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
         
     infoM localLogger "doing merge"
     mergedList <- merge env a inputList
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  mergedList is: " ++ show mergedList     ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  mergedList is: " ++ show mergedList     ++ "\n\n"
     
     infoM localLogger "doing reduce"
     maybesList <- mapM (\(k2,v2s) -> performReduceFunction a k2 v2s) mergedList
     let tupleList = catMaybes maybesList
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  tupleList is: " ++ show tupleList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  tupleList is: " ++ show tupleList ++ "\n\n"
     
     infoM localLogger "doing partition" 
     partedList <- case n of
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)] 
 
-    infoM localLogger $ ">>>>>>>>>>>>>>>>>>  partedList is: " ++ show partedList ++ "\n\n"
+    debugM localLogger $ ">>>>>>>>>>>>>>>>>>  partedList is: " ++ show partedList ++ "\n\n"
     
     infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList

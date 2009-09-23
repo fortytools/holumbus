@@ -1,0 +1,45 @@
+#!/bin/bash
+
+CLIENT="/home/re/holumbus/mapreduce/Examples2/CountWithSimpleIO/Client"
+WORKERS="$1"
+SPLITTERS="$2"
+MAPPERS="$3"
+REDUCERS="$4"
+FILENAME="$5"
+WORDS="$6"
+
+echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $REDUCERS"
+# Start MR sytem and wait a sec
+/etc/init.d/MR start && sleep 1
+
+# Start I workers
+startworkercount2 1 $WORKERS
+
+# Wait for workers to be started
+while [ `cat /tmp/master.state|wc -l` -ne $WORKERS ]; do echo "Waiting for workers to be started" && sleep 1; done
+
+# delete clients storage folder
+rm storage/*
+
+sleep 2
+# run function
+FILENAME_PREFIX="$WORKERS""_""$SPLITTERS""_""$MAPPERS""_""$REDUCERS.txt"
+/usr/bin/time -o "time_$FILENAME_PREFIX" -v "$CLIENT" "$FILENAME" "($SPLITTERS,$MAPPERS,$REDUCERS)" "$WORDS" +RTS -N3 -K4G -s"Memory_$FILENAME_PREFIX" -RTS
+
+# stop workers
+stopworkercount2 1 $WORKERS
+
+# copy workers memory data to here
+sleep 2
+mkdir workerdata_"$WORKERS""_""$SPLITTERS""_""$MAPPERS""_""$REDUCERS"
+cd workerdata_"$WORKERS""_""$SPLITTERS""_""$MAPPERS""_""$REDUCERS"
+for I in `seq 1 $WORKERS`
+do
+  mkdir "worker_$I"
+  cd "worker_$I"
+  scp root@172.16.3.$I:/tmp/worker/Memory* . > /dev/null
+  cd ..
+done
+
+# stop mr system and wait a sec
+/etc/init.d/MR stop && sleep 1

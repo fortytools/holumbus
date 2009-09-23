@@ -23,7 +23,9 @@ main = do
   file <- readFile filename
   
   -- give each word a key and split list into number of splitters peaces
-  let  splitted =  partition' (zip [0..] (words file)) [[]| _<- [1..splitters]]
+  -- blub2 let  splitted =  partition' (zip [0..] (words file)) [[]| _<- [1..splitters]]
+  -- blub3 let  splitted =  map (:[]) . zip [0..] $  partition' (words file) [[]| _<- [1..splitters]]
+  let  splitted =  (:[]) . zip [0..] $  partition' (words file) [[]| _<- [1..mappers]]
   
   -- debug
   putStrLn . show . map length $ splitted

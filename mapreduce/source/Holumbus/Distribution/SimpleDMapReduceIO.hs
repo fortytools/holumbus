@@ -178,12 +178,13 @@ params = do
 {-
  The simpleWorker
 -}
-worker :: (Show k1, Show k2, Show v1, Show v2, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO ()
-worker m r = do
+worker :: (Show k1, Show k2, Show v1, Show v2, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
+worker m r loggers = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
     (s_cport:logfile:[]) <- params
-    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("Holumbus.MapReduce.Types", INFO)]
+    --initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("Holumbus.MapReduce.Types", INFO)]
+    initializeFileLogging logfile ([(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO)]++loggers)
     p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
     setPortRegistry p
     (mr,fs) <- initWorker m r
