@@ -159,7 +159,7 @@ prompt :: String
 prompt = "# "++version++" > "
 
 localLogger :: String
-localLogger = "Holumbus.Distribution..SimpleDMapReduce.simpleWorker"
+localLogger = "Holumbus.Distribution.SimpleDMapReduceIO.worker"
 
 pUsage :: IO ()
 pUsage = do
