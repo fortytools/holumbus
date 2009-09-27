@@ -14,9 +14,9 @@ main :: IO ()
 main = do
   ( quadrupel : [] ) <- getArgs
   let (splitters,mappers,reducers) = read quadrupel
-  result <- client sumMap sumReduce () (splitters,mappers,reducers) [(ls mappers)]
+  result <- client sumMap sumReduce () (splitters,mappers,reducers) $ map (:[]) (ls (2*mappers))
   putStrLn . show . length $ result
   putStrLn . show . sum . map snd $ result
   where
   t =  [1..10^7]
-  ls num = rnf t `seq` zip [0..] $ partition' t [[] |_<- [1..num]]
+  ls num = zip [1..] $ partition' t [[] |_<- [1..num]]

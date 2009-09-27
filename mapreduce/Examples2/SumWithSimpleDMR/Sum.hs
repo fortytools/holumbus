@@ -7,6 +7,11 @@ where
 
 import Holumbus.Distribution.SimpleDMapReduceIO
 import Holumbus.MapReduce.Types
+import qualified Holumbus.Common.FileHandling as F
+import System.Log.Logger
+import Control.Parallel.Strategies
+
+localLogger = "Examples2.SumWithSimpleDMR.Sum"
 
 {-
   The mapping function
