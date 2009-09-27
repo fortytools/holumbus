@@ -152,7 +152,7 @@ getStream getter = do
     then return []
     else do x <- getter
             xs <- getStream getter
-            return (x:xs)
+            x `seq` return (x:xs)
 
 -- | Write list of values.
 putStream :: (a -> Put) -> [a] -> Put
