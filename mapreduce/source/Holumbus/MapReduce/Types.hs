@@ -509,7 +509,7 @@ type InputReader k1 v1 = B.ByteString -> IO [(k1,v1)]
 type OutputWriter k2 v2 = [(k2,v2)] -> IO B.ByteString
 
 readConnector
-  :: (Binary k1, Binary v1)
+  :: (NFData k1, NFData v1, Binary k1, Binary v1)
   => InputReader k1 v1
   -> ActionEnvironment
   -> [FunctionData] 
@@ -517,7 +517,7 @@ readConnector
 readConnector ic ae ls
   = do
     os <- mapM (readInput (ae_FileSystem ae)) ls
-    return $ concat $ catMaybes os
+    return . concat . catMaybes $ os
     where    
     -- readInput :: FS.FileSystem -> FunctionData -> IO (Maybe [(k1,v1)])
     readInput _  (TupleFunctionData t) = return $ Just $ [decode t] 
@@ -578,12 +578,11 @@ writeConnector oc ae ls
 
 
 defaultInputReader :: (NFData v1, NFData k1, Binary k1, Binary v1) => InputReader k1 v1
-defaultInputReader b
-  = return $ parseByteStringToList b
+defaultInputReader = return . parseByteStringToList
 
 
 defaultOutputWriter :: (NFData v2, NFData k2, Binary k2, Binary v2) => OutputWriter k2 v2
-defaultOutputWriter = return . listToByteString
+defaultOutputWriter = return . listToByteString 
 --  = return $ B.concat $ map encode ls
 
 
@@ -687,9 +686,10 @@ defaultReduceConfiguration fct
 
 
 defaultSplit
-  :: SplitFunction a k1 v1
-defaultSplit _ _ n ls 
-  = return partedList
+  :: (NFData k1, NFData v1) => SplitFunction a k1 v1
+defaultSplit _ _ n ls = do
+  infoM localLogger "defaultSplit"
+  return partedList
     where
     partedList = AMap.toList $ AMap.fromList ps
     ns = [(x `mod` n) + 1 | x <- [0..]]
@@ -858,7 +858,7 @@ type BinarySplitAction = ActionEnvironment -> B.ByteString -> Maybe Int -> (Int,
 type SplitFunction a k1 v1 = SplitAction a k1 v1
 
 performSplitAction
-  :: (Binary a, Binary k1, Binary v1, Show k1, Show v1)
+  :: (NFData k1, NFData v1, Binary a, Binary k1, Binary v1, Show k1, Show v1)
   => OptionsDecoder a
   -> SplitFunction a k1 v1
   -> InputReader k1 v1
