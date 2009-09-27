@@ -33,5 +33,4 @@ countMap _env wordsToCount k1 v1 = do
 type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
 -}
 countReduce :: ReduceFunction [String]  Int Int Int
-countReduce _env _opts  0 _v2s = return Nothing
 countReduce _env _opts _k2 v2s = let b = Just . sum $ v2s in rnf b `seq` return b
