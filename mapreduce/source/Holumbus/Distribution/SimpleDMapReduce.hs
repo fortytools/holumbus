@@ -10,7 +10,7 @@
   Version    : 0.1
 -}
 -- ----------------------------------------------------------------------------
-module Holumbus.Distribution.SimpleDMapReduce
+module Holumbus.Distribution.SimpleDMapReduce {-# DEPRECATED "Use Holumbus.Distribution.SimpleDMapReduceIO instead" #-}
 (
    SimpleMapFunction
  , SimpleReduceFunction

@@ -17,6 +17,7 @@ module Holumbus.Distribution.SimpleDMapReduceIO
  , client
  , worker
  , partition'
+ , Priority(..)
 )
 where
 
@@ -109,7 +110,7 @@ client m r a (splitters,mappers,reducers) lss = do
       -- make filesystem
       fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
       -- create the filenames and store the data to the map reduce filesystem
-      let filenames = map (\i -> "initial_input_"++show i) [0..(length lss)]
+      let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
       mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
       
       -- do the map reduce job
@@ -220,7 +221,8 @@ partition'
 first list, list of 
  -}
 partition' :: [a] -> [[a]] -> [[a]]
-partition' _   [] = []
-partition' [] xss = xss
+partition'     _        [] = []
+partition'    []       xss = xss
+partition'    us   (xs:[]) = [us]
 partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
   where xs' = (u:xs)
