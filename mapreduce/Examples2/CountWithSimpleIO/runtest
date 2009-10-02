@@ -1,7 +1,7 @@
 #!/bin/bash
 
-NUM="1 5 10 15 20"
-NUMOFTESTS="1"
+NUM="1 5 10 15 20 25"
+NUMOFTESTS="2"
 RUNTEST2="/home/re/holumbus/mapreduce/Examples2/CountWithSimpleIO/runtest2"
 FILENAME="/root/Count/nt"
 WORDS="God"
@@ -22,7 +22,7 @@ do
       for REDUCERS in $NUM
       do
   			# start the actual tests
-			  for WORKERS in 25
+			  for WORKERS in $NUM
 			  do
         $RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$WORDS"
 				done

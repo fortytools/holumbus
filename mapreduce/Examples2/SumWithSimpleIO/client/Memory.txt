@@ -1,0 +1,45 @@
+./Test +RTS -N2 -K1G -sMemory.txt 
+   3,269,576,668 bytes allocated in the heap
+       1,061,832 bytes copied during GC
+      30,432,176 bytes maximum residency (7 sample(s))
+       6,273,828 bytes maximum slop
+              58 MB total memory in use (3 MB lost due to fragmentation)
+
+  Generation 0:  6123 collections,     0 parallel,  0.08s,  0.07s elapsed
+  Generation 1:     7 collections,     4 parallel,  0.00s,  0.00s elapsed
+
+  Parallel GC work balance: 1.07 (16919 / 15817, ideal 2)
+
+  Task  0 (worker) :  MUT time:   0.00s  (  1.73s elapsed)
+                      GC  time:   0.00s  (  0.00s elapsed)
+
+  Task  1 (worker) :  MUT time:   0.00s  (  1.73s elapsed)
+                      GC  time:   0.00s  (  0.00s elapsed)
+
+  Task  2 (worker) :  MUT time:   1.72s  (  1.73s elapsed)
+                      GC  time:   0.08s  (  0.07s elapsed)
+
+  Task  3 (worker) :  MUT time:   0.00s  (  1.73s elapsed)
+                      GC  time:   0.00s  (  0.00s elapsed)
+
+  INIT  time    0.00s  (  0.00s elapsed)
+  MUT   time    1.55s  (  1.73s elapsed)
+  GC    time    0.08s  (  0.07s elapsed)
+  EXIT  time    0.00s  (  0.00s elapsed)
+  Total time    1.63s  (  1.81s elapsed)
+
+  %GC time       4.9%  (4.1% elapsed)
+
+  Alloc rate    2,106,555,695 bytes per MUT second
+
+  Productivity  95.1% of total user, 86.0% of total elapsed
+
+recordMutableGen_sync: 0
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_todo: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_todo: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_todo: 0
+gen[1].steps[0].sync_large_objects: 0
