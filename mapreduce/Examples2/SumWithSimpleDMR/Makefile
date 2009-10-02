@@ -8,7 +8,7 @@ GHC		= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM		= rm $(RM_FLAGS)
 
-PROG		= Sum SumWorker SumClient Standalone
+PROG		= Sum Worker Client Standalone
 
 OUTPUT		= output
 
