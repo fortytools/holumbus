@@ -39,6 +39,15 @@ import           System.Environment
 import           System.Exit
 
 
+splitConfiguration
+  :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
+  => SplitConfiguration a k1 v1
+splitConfiguration
+  = SplitConfiguration
+      hashedPartition
+      defaultInputReader
+      defaultOutputWriter
+
 mapConfiguration
   :: (Hash k2, NFData v1, NFData k1, NFData v2, NFData k2, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
   => MapFunction a k1 v1 k2 v2
@@ -49,7 +58,6 @@ mapConfiguration fct
       hashedPartition
       defaultInputReader
       defaultOutputWriter
-
 
 reduceConfiguration
   :: (Hash k2, NFData v2, NFData k2, NFData v3, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
@@ -67,9 +75,10 @@ reduceConfiguration fct
 {-
 actionConfig
 -}
-actionConfig :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
+actionConfig :: (Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 actionConfig m r = (defaultActionConfiguration "ID") {
-           ac_Map     = Just . mapConfiguration    $ m
+           ac_Split   = Just splitConfiguration  
+         , ac_Map     = Just . mapConfiguration    $ m
          , ac_Reduce  = Just . reduceConfiguration $ r
          }
 
@@ -96,7 +105,7 @@ client :: ( Show k1, Show k2, Show v1, Show v2, Show v3, Show v4
           , Binary v1, Binary v3, Binary v2, Binary v4
           , Binary a, Binary k1, Binary k2
           , NFData k1, NFData k2, NFData v1, NFData v4, NFData v2, NFData v3
-          , Ord k2, Hash k2) =>
+          , Ord k2, Hash k1, Hash k2) =>
           MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4
           -> a -> (Int,Int,Int) -> [[(k1,v1)]] -> IO [(k2,v4)]
 client m r a (splitters,mappers,reducers) lss = do
@@ -179,7 +188,7 @@ params = do
 {-
  The simpleWorker
 -}
-worker :: (Show k1, Show k2, Show v1, Show v2, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
+worker :: (Show k1, Show k2, Show v1, Show v2, Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
 worker m r loggers = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -195,7 +204,7 @@ worker m r loggers = do
 {-
  The simpleWorker's init functin
 -}
-initWorker :: (Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initWorker :: (Hash k1, Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
 initWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
