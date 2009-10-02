@@ -13,7 +13,6 @@ import Examples2.MandelWithoutReduce.ImageTypes
 
 -- system libs
 import System.Environment
-import Control.Parallel.Strategies
 import Data.List
 
 main :: IO ()
@@ -36,9 +35,7 @@ main = do
  generate the pixlist
 -}
 pixels :: Int -> Int -> [(Int,[Int])]
-pixels w h
-  = let t = [(y,[0..w-1])|y<-[0..h-1]] in rnf t`seq` t
-  
+pixels w h = [(y,[0..w-1])|y<-[0..h-1]]  
 
 {-
   order function the pixels 
