@@ -38,6 +38,14 @@ import           System.Log.Logger
 import           System.Environment
 import           System.Exit
 
+splitConfiguration
+  :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
+  => SplitConfiguration a k1 v1
+splitConfiguration
+  = SplitConfiguration
+      hashedPartition
+      defaultInputReader
+      defaultOutputWriter
 
 mapConfiguration
   :: (Hash k2, NFData v1, NFData k1, NFData v2, NFData k2, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
@@ -69,8 +77,9 @@ actionConfig
 -}
 actionConfig :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 actionConfig m _r = (defaultActionConfiguration "ID") {
-           ac_Map     = Just . mapConfiguration    $ m
-         , ac_Reduce  = Nothing -- Just . reduceConfiguration $ r
+           ac_Map    = Just . mapConfiguration    $ m
+         , ac_Reduce = Nothing -- Just . reduceConfiguration $ r
+         , ac_Split  = Nothing -- Just SplitConfiguration
          }
 
 {- ---------------------------------------------------------------------------------------------------------

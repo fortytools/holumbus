@@ -11,8 +11,8 @@ import System.Environment
 
 main :: IO ()
 main = do
-  ( quadrupel : [] ) <- getArgs
-  let (splitters,mappers,reducers) = read quadrupel
+  ( triplet : [] ) <- getArgs
+  let (splitters,mappers,reducers) = read triplet
   result <- client sumMap sumReduce () (splitters,mappers,reducers) $ partition' (ls mappers) [[]|_<-[1..splitters]]
   putStrLn . show . length $ result
   putStrLn . show . sum . map snd $ result

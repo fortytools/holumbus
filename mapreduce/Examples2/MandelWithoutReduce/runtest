@@ -1,0 +1,40 @@
+#!/bin/bash
+
+NUM="20 15 10 5 1"
+SEQ_SPLITTERS="$NUM"
+SEQ_MAPPERS="$NUM"
+SEQ_REDUCERS="$NUM"
+SEQ_WORKERS="$NUM"
+NUMOFTESTS="1"
+RUNTEST2="/home/re/holumbus/mapreduce/Examples2/MandelWithoutReduce/runtest2"
+FILENAME="test.pgm"
+OPTS="(1280,1024,2.0,100)"
+
+for Y in `seq 1 $NUMOFTESTS`
+do
+
+  # make a dir for current run
+  mkdir "run_$Y"
+
+  # change into testdir
+  cd "run_$Y"
+
+  for SPLITTERS in $SEQ_SPLITTERS
+	do
+    for MAPPERS in $SEQ_MAPPERS
+		do
+      for REDUCERS in $SEQ_REDUCERS
+      do
+  			# start the actual tests
+			  for WORKERS in $SEQ_WORKERS
+			  do
+        $RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$OPTS"
+				done
+		  done
+		done
+	done
+  
+  # change to root dir
+  cd ..
+
+done
