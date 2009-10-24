@@ -137,10 +137,15 @@ changeStorage f (Node node)
 
 readStorage :: (FS.FileStorage-> IO a) -> Node -> IO a
 readStorage f (Node node)
-  = withMVar node $ \nd -> f (nd_Storage nd)
+  = do
+    a <- withMVar node $ \nd -> f (nd_Storage nd)    
+    return a
 
-
-
+logStorage :: Node -> IO ()
+logStorage (Node node) = withMVar node $ \nd ->  logStorage2 (nd_Client nd) 
+  where
+  logStorage2 (Client client) = withMVar client $ \cd -> debugM "measure.readStorage" ((show . cd_SiteId) cd)
+  
 -- ----------------------------------------------------------------------------
 -- Typeclass instanciation (NodeClass)
 -- ----------------------------------------------------------------------------
@@ -248,6 +253,7 @@ instance NodeClass Node where
     = do
       c <- readStorage (\stor -> S.getFileContent stor i) n
       debugM localLogger $ "getFileContent: " ++ show c
+      logStorage n 
       return c
     
 

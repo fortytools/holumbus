@@ -54,7 +54,8 @@ module Holumbus.Network.Communication
 
 -- * client operations
 , ClientClass(..)
-, Client
+, ClientData(..)
+, Client(..)
 , newClient
 , closeClient
 , ClientPort(..)

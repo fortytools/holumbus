@@ -288,6 +288,7 @@ putMessage msg hdl
       errorM localLogger $ "putMessage: " ++ show e
       errorM localLogger $ "message: " ++ show msg 
      ) $ do
+      debugM "measure.putMessage" "1"
       hPutStrLn hdl ((show $ B.length msg) ++ " ")
       B.hPut hdl msg
 
@@ -297,6 +298,7 @@ putMessage msg hdl
 getMessage :: Handle -> IO (B.ByteString)
 getMessage hdl
   = do
+    debugM "measure.getMessage" "1"
     line <- hGetLine hdl
     let pkg = words line
     raw <- B.hGet hdl (read $ head pkg)
