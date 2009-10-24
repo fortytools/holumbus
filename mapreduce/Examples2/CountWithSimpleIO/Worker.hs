@@ -10,4 +10,7 @@ import Examples2.CountWithSimpleIO.DCount
 import System.Log
 
 main :: IO ()
-main = worker countMap countReduce [("Holumbus.MapReduce.Types", DEBUG)]
+main = worker countMap countReduce [ ("Holumbus.MapReduce.Types", DEBUG)
+                                    ,("measure.putMessage", DEBUG)
+                                    ,("measure.getMessage", DEBUG)
+                                    ,("measure.readStorage", DEBUG)]
