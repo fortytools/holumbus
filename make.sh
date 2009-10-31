@@ -6,15 +6,15 @@ PROFILE="--enable-library-profiling --enable-executable-profiling"
 function doIt() {
   DIR=$1
   PROF=""
-  [ "$2" = "prof" ] && PROF="-p --enable-executable-profiling"
+  [ "$2" = "prof" ] && PROF=$PROFILE #"-p --enable-executable-profiling"
   echo $PROF
   cd $DIR && \
-  sudo cabal clean && \
-  sudo cabal install --global $PROF
-#  runhaskell Setup.hs clean && \
-#  runhaskell Setup.hs configure $PROFILE && \
-#  runhaskell Setup.hs build  && \
-#  sudo runhaskell Setup.hs install --global
+#  sudo cabal clean && \
+#  sudo cabal install --global $PROF
+  runhaskell Setup.hs clean && \
+  runhaskell Setup.hs configure $PRO && \
+  runhaskell Setup.hs build  && \
+  sudo runhaskell Setup.hs install --global
   cd $BASE
 }
 
