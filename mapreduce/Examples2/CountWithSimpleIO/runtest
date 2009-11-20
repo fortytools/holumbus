@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NUM="1 5 10 15 20 25"
+NUM="1 2 5 10 15 20"
 NUMOFTESTS="2"
 RUNTEST2="/home/re/holumbus/mapreduce/Examples2/CountWithSimpleIO/runtest2"
 FILENAME="/root/Count/nt"

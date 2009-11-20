@@ -37,9 +37,14 @@ mkdir workerdata
 cd workerdata
 for I in `seq 1 $WORKERS`
 do
+  [ $I -eq 25 ] && continue
+  [ $I -eq 24 ] && continue
+  [ $I -eq 23 ] && continue
+  [ $I -eq 15 ] && I=24
+  [ $I -eq 19 ] && I=23
   mkdir "worker_$I"
   cd "worker_$I"
-  scp root@172.16.3.$I:/tmp/worker/Memory* . > /dev/null
+  scp -r root@172.16.3.$I:/tmp/worker/* . > /dev/null
   cd ..
 done
 
