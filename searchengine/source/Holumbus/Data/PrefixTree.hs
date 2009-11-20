@@ -121,7 +121,7 @@ data PrefixTree v	= Empty
                         | Val	 { value' :: ! v
                                  , tree   :: ! (PrefixTree v)
                                  }
-                        | Branch { key    :: ! Sym
+                        | Branch { sym    :: ! Sym
                                  , child  :: ! (PrefixTree v)
                                  , next   :: ! (PrefixTree v)
                                  }
@@ -132,11 +132,15 @@ data PrefixTree v	= Empty
 
                         | Leaf   { value' :: ! v		-- a value at a leaf of the tree
                                  }
-                        | Single { key    :: ! Sym		-- the last entry in a branch list
+                        | Last   { sym    :: ! Sym		-- the last entry in a branch list
                                  , child  :: ! (PrefixTree v)	-- or no branch but a single child
                                  }
-                        | SiSeq  { keys   :: ! Key		-- a sequence of single childs
-                                 , child  :: (PrefixTree v)
+                        | LsSeq  { key    :: ! Key		-- a sequence of single childs
+                                 , child  :: (PrefixTree v)	-- in a last node
+                                 } 
+                        | BrSeq  { key    :: ! Key		-- a sequence of single childs
+                                 , child  :: ! (PrefixTree v)	-- in a branch node
+                                 , next   :: ! (PrefixTree v)
                                  } 
                           deriving (Show, Eq, Ord)
 
@@ -160,17 +164,19 @@ val v t		= Val v t
 
 branch		:: Sym -> PrefixTree v -> PrefixTree v -> PrefixTree v
 branch k Empty         n	= n
-branch k (Single k1 c) Empty	= SiSeq [k,k1] c
-branch k (SiSeq  ks c) Empty	= SiSeq (k:ks) c
-branch k            c  Empty	= Single k c
+branch k (Last   k1 c) Empty	= LsSeq [k,k1] c
+branch k (LsSeq  ks c) Empty	= LsSeq (k:ks) c
+branch k (Last   k1 c) n	= BrSeq [k,k1] c n
+branch k (LsSeq  ks c) n	= BrSeq (k:ks) c n
+branch k            c  Empty	= Last k c
 branch k            c  n	= Branch k c n
 
 {-# INLINE branch #-}
 
 siseq		:: Key -> PrefixTree v -> PrefixTree v
 siseq []   c    = c
-siseq [k1] c	= Single k1 c
-siseq k    c    = SiSeq  k  c
+siseq [k1] c	= Last k1 c
+siseq k    c    = LsSeq  k  c
 
 {-# INLINE siseq #-}
 
@@ -178,9 +184,11 @@ siseq k    c    = SiSeq  k  c
 
 norm			:: PrefixTree v -> PrefixTree v
 norm (Leaf v)		= Val v empty
-norm (Single k c)	= Branch k c empty
-norm (SiSeq [k] c)	= Branch k c empty
-norm (SiSeq (k:ks) c)   = Branch k (siseq ks c) empty 
+norm (Last k c)		= Branch k c empty
+norm (LsSeq [k] c)	= Branch k c empty
+norm (LsSeq (k:ks) c)   = Branch k (siseq ks c) empty 
+norm (BrSeq [k]    c n)	= Branch k c n
+norm (BrSeq (k:ks) c n) = Branch k (siseq ks c) n 
 norm t			= t
 
 {-# INLINE norm #-}
@@ -244,6 +252,12 @@ member k m 		= maybe False (const True) $ lookup k m
 
 {-# INLINE member #-}
 
+-- | /O(min(n,L))/ Find the value at a key. Calls error when the element can not be found.
+
+(!) 			:: PrefixTree a -> Key -> a
+(!) m k 		= fromMaybe (error "PrefixTree.! : element not in the map")
+			  . lookup k $ m
+
 -- | /O(min(n,L))/ Insert a new key and value into the map. If the key is already present in
 -- the map, the associated value will be replaced with the new value.
 
@@ -259,6 +273,15 @@ insertWith 			:: (a -> a -> a) -> Key -> a -> PrefixTree a -> PrefixTree a
 insertWith f			= flip $ insert' f
 
 {-# INLINE insertWith #-}
+
+-- | /O(min(n,L))/ Insert with a combining function. If the key is already present in the map,
+-- the value of @f key new_value old_value@ will be inserted.
+
+insertWithKey 			:: (Key -> a -> a -> a) -> Key -> a -> PrefixTree a -> PrefixTree a
+insertWithKey f k	 	= insertWith (f k) k
+
+
+{-# INLINE insertWithKey #-}
 
 -- | /O(min(n,L))/ Updates a value at a given key (if that key is in the trie) or deletes the 
 -- element if the result of the updating function is 'Nothing'. If the key is not found, the trie
@@ -366,53 +389,162 @@ union' f t1 t2			= uni (norm t1) (norm t2)
 
 -- ----------------------------------------
 
+-- | /O(n)/ Map a function over all values in the prefix tree.
+
+map 				:: (a -> b) -> PrefixTree a -> PrefixTree b
+map f 				= mapWithKey (const f)
+
+
+mapWithKey 			:: (Key -> a -> b) -> PrefixTree a -> PrefixTree b
+mapWithKey f 			= map' f id
+
+
+map'				:: (Key -> a -> b) -> (Key -> Key) -> PrefixTree a -> PrefixTree b
+map' f k (Empty)		= Empty
+map' f k (Val v t)		= Val    (f (k []) v)    (map' f k t)
+map' f k (Branch c s n)         = Branch c (map' f ((c :) . k) s) (map' f k n)
+map' f k (Leaf v)		= Leaf   (f (k []) v)
+map' f k (Last c s)		= Last c  (map' f ((c :)   . k) s)
+map' f k (LsSeq cs s)		= LsSeq  cs (map' f ((cs ++) . k) s)
+map' f k (BrSeq cs s n)         = BrSeq  cs (map' f ((cs ++) . k) s) (map' f k n)
+
+-- ----------------------------------------
+
+-- | /O(n)/ Fold over all key\/value pairs in the map.
+
+foldWithKey 			:: (Key -> a -> b -> b) -> b -> PrefixTree a -> b
+foldWithKey f e 		= fold' f e id
+
+{-# INLINE foldWithKey #-}
+
+-- | /O(n)/ Fold over all values in the map.
+
+fold :: (a -> b -> b) -> b -> PrefixTree a -> b
+fold f = foldWithKey $ const f
+
+{-# INLINE fold #-}
+
+foldTopDown			:: (Key -> a -> b -> b) -> b -> (Key -> Key) -> PrefixTree a -> b
+foldTopDown f r k		= fo k . norm
+    where
+    fo k (Branch c' s' n')	= let r' = foldTopDown f r ((c' :) . k) s' in foldTopDown f r' k n'
+    fo k (Empty)		= r
+    fo k (Val v' t')		= let r' = f (k []) v' r                   in foldTopDown f r' k t'
+
+
+fold'				:: (Key -> a -> b -> b) -> b -> (Key -> Key) -> PrefixTree a -> b
+fold' f r k			= fo k . norm
+    where
+    fo k (Branch c' s' n')	= let r' = fold' f r k n' in fold' f r' ((c' :) . k) s'
+    fo k (Empty)		= r
+    fo k (Val v' t')		= let r' = fold' f r k t' in f (k []) v' r'
+
+-- | /O(n)/ Convert into an ordinary map.
+
+toMap 				:: PrefixTree a -> M.Map Key a
+toMap 				= foldWithKey M.insert M.empty
+
+-- | /O(n)/ Convert an ordinary map into a Prefix tree
+
+fromMap 			:: M.Map Key a -> PrefixTree a
+fromMap 			= M.foldWithKey insert empty
+
+-- | /O(n)/ Returns all elements as list of key value pairs,
+
+toList 				:: PrefixTree a -> [(Key, a)]
+toList 				= foldWithKey (\k v r -> (k, v) : r) []
+
+-- | /O(n)/ Creates a trie from a list of key\/value pairs.
+fromList 			:: [(Key, a)] -> PrefixTree a
+fromList 			= L.foldl' (\p (k, v) -> insert k v p) empty
+
+-- | /O(n)/ The number of elements.
+size 				:: PrefixTree a -> Int
+size 				= fold (const (+1)) 0
+
+-- | /O(n)/ Returns all values.
+elems 				:: PrefixTree a -> [a]
+elems   			= fold (:) []
+
+-- | /O(n)/ Returns all values.
+keys 				:: PrefixTree a -> [Key]
+keys	   			= foldWithKey (\ k v r -> k : r) []
+
+-- ----------------------------------------
+
 instance Functor PrefixTree where
   fmap = map
 
-{-
-
--- Simple instance of Functor.
-instance Functor PrefixTree where
-  fmap = map
-
--- Simple instance of Data.Foldable
 instance Foldable PrefixTree where
   foldr = fold
 
--- Stolen from Data.IntMap
+{- for debugging not yet enabled
+
 instance Show a => Show (PrefixTree a) where
   showsPrec d m   = showParen (d > 10) $
     showString "fromList " . shows (toList m)
 
--- Stolen from Data.IntMap
-instance Read a => Read (PrefixTree a) where
-  readsPrec p = readParen (p > 10) $ \ r -> do
-    ("fromList",s) <- lex r
-    (xs,t) <- reads s
-    return (fromList xs,t)
+-}
 
--- Providing strict evaluation for 'StrMap'.
+instance Read a => Read (PrefixTree a) where
+  readsPrec p = readParen (p > 10) $
+    \ r -> do
+	   ("fromList",s) <- lex r
+	   (xs,t) <- reads s
+	   return (fromList xs,t)
+
 instance NFData a => NFData (PrefixTree a) where
-  rnf (End k v t) = rnf k `seq` rnf v `seq` rnf t
-  rnf (Seq k t)   = rnf k `seq` rnf t
+    rnf (Empty)		= ()
+    rnf (Val v t)	= rnf v `seq` rnf t
+    rnf (Branch _c s n)	= rnf s `seq` rnf n
+    rnf (Leaf v)	= rnf v
+    rnf (Last _c s)	= rnf s
+    rnf (LsSeq ks s)	= rnf ks `seq` rnf s
+    rnf (BrSeq ks s n)	= rnf ks `seq` rnf s `seq` rnf n
 
 -- Provide native binary serialization (not via to-/fromList).
-instance (Binary a) => Binary (PrefixTree a) where
-  put (End k v t) = put (0 :: Word8) >> put k >> put v >> put t 
-  put (Seq k t)   = put (1 :: Word8) >> put k >> put t
 
-  get = do !tag <- getWord8
-           case tag of
-             0 -> do
-               !k <- get
-               !v <- get
-               !t <- get
-               return $! End k v t
-             1 -> do
-               !k <- get
-               !t <- get
-               return $! Seq k t
-             _ -> fail "PrefixTree.get: error while decoding StrMap"
+instance (Binary a) => Binary (PrefixTree a) where
+    put (Empty)		= put (0::Word8)
+    put (Val v t)	= put (1::Word8) >> put v >> put t
+    put (Branch c s n)  = put (2::Word8) >> put c >> put s >> put n
+    put (Leaf v)	= put (3::Word8) >> put v
+    put (Last c s)	= put (4::Word8) >> put c >> put s
+    put (LsSeq k s)	= put (5::Word8) >> put k >> put s
+    put (BrSeq k s n) 	= put (6::Word8) >> put k >> put s >> put n
+
+    get = do
+	  !tag <- getWord8
+	  case tag of
+		   0 -> return Empty
+		   1 -> do
+			!v <- get
+			!t <- get
+			return $! Val v t
+		   2 -> do
+			!c <- get
+			!s <- get
+			!n <- get
+			return $! Branch c s n
+		   3 -> do
+			!v <- get
+			return $! Leaf v
+		   4 -> do
+			!c <- get
+			!s <- get
+			return $! Last c s
+		   5 -> do
+			!k <- get
+			!s <- get
+			return $! LsSeq k s
+		   6 -> do
+			!k <- get
+			!s <- get
+			!n <- get
+			return $! BrSeq k s n
+		   _ -> fail "PrefixTree.get: error while decoding PrefixTree"
+
+{-
 
 -- | /O(1)/ Extract the key of a node
 key :: PrefixTree a -> Key
@@ -434,24 +566,6 @@ setSucc :: [PrefixTree a] -> PrefixTree a -> PrefixTree a
 setSucc t (End k v _) = End k v t
 setSucc t (Seq k _)   = Seq k t
 
--- | /O(min(n,L))/ Find the value at a key. Calls error when the element can not be found.
-(!) :: PrefixTree a -> Key -> a
-(!) m k = if isNothing r then error ("PrefixTree.!: element not in the map")
-          else fromJust r
-          where r = lookup k m
-
--- | /O(min(n,L))/ Delete an element from the map. If no element exists for the key, the map 
--- remains unchanged.
-delete :: Key -> PrefixTree a -> PrefixTree a
-delete = (fromMaybe empty .) . delete'
-
--- | The internal delete function.
-delete' :: Key -> PrefixTree a -> Maybe (PrefixTree a)
-delete' d n | L.null dr && L.null kr       = deleteNode n
-            | not (L.null dr) && L.null kr = Just (mergeNode n (mapMaybe (delete' dr) (succ n)))
-            | otherwise                    = Just n
-            where (_, dr, kr) = split d (key n)
-
 -- | Merge a node with its successor if only one successor is left.
 mergeNode :: PrefixTree a -> [PrefixTree a] -> PrefixTree a
 mergeNode (End k v _) t = End k v t
@@ -464,37 +578,6 @@ deleteNode (End _ _ [])  = Nothing
 deleteNode (End k _ [t]) = Just (setKey (k ++ key t) t)
 deleteNode (End k _ t)   = Just (Seq k t)
 deleteNode n             = Just n
-
--- | /O(min(n,L))/ Insert with a combining function. If the key is already present in the map,
--- the value of @f key new_value old_value@ will be inserted.
-insertWithKey :: (Key -> a -> a -> a) -> Key -> a -> PrefixTree a -> PrefixTree a
-insertWithKey f nk nv n = insert' f nk nv nk n
-
--- | /O(min(n,L))/ Insert with a combining function. If the key is already present in the map,
--- the value of @f new_value old_value@ will be inserted.
-insertWith :: (a -> a -> a) -> Key -> a -> PrefixTree a -> PrefixTree a
-insertWith f nk nv n = insert' (\_ new old -> f new old) nk nv nk n
-
--- | /O(min(n,L))/ Insert a new key and value into the map. If the key is already present in
--- the map, the associated value will be replaced with the new value.
-insert :: Key -> a -> PrefixTree a -> PrefixTree a
-insert nk nv n = insertWith const nk nv n
-
--- | The internal insert function which does the real work. The original new key has to
--- be put through because otherwise it will be shortened on every recursive call.
-insert' :: (Key -> a -> a -> a) -> Key -> a -> Key -> PrefixTree a -> PrefixTree a
-insert' f nk nv ok n | L.null nk                    = error "Empty key!"
-                     -- Key already exists, the current value will be replaced with the new value.
-                     | L.null cr && L.null nr       = End s (maybe nv (f ok nv) (value n)) (succ n) 
-                     -- Insert into list of successors.
-                     | L.null cr && not (L.null nr) = setSucc (insertSub f nr nv ok (succ n)) n
-                     -- New intermediate End node with the new value and the current node with the
-                     -- remainder of the key as successor.
-                     | L.null nr && not (L.null cr) = End s nv [setKey cr n]
-                     -- New intermediate Seq node which shares the prefix of the new key and the 
-                     -- key of the current node.
-                     | otherwise = Seq s [setKey cr n, (End nr nv [])]
-                     where (s, nr, cr) = split nk (key n)
 
 -- | Internal support function for insert which searches the correct successor to insert into
 -- within a list of nodes (the successors of the current node, see call in insert' above).
@@ -593,43 +676,6 @@ lookupBy f = lookupBy' []
 -- was found.
 findWithDefault :: a -> Key -> PrefixTree a -> a
 findWithDefault d q n = maybe d id (lookup q n)
-
--- | /O(n)/ Fold over all key\/value pairs in the map.
-foldWithKey :: (Key -> a -> b -> b) -> b -> PrefixTree a -> b
-foldWithKey f n m = fold' [] m n
-  where
-  fold' ck (End k v t) r = let nk = ck ++ k in foldr (fold' nk) (f nk v r) t
-  fold' ck (Seq k t) r   = let nk = ck ++ k in foldr (fold' nk) r t
-
--- | /O(n)/ Fold over all values in the map.
-fold :: (a -> b -> b) -> b -> PrefixTree a -> b
-fold f = foldWithKey (\_ v r -> f v r)
-
--- | /O(n)/ Map over all key\/value pairs in the map.
-mapWithKey :: (Key -> a -> b) -> PrefixTree a -> PrefixTree b
-mapWithKey f m = map' [] m
-  where
-  map' ck (End k v t) = let nk = ck ++ k in End k (f nk v) (L.map (map' nk) t)
-  map' ck (Seq k t)   = let nk = ck ++ k in Seq k (L.map (map' nk) t)
-
--}
-
--- | /O(n)/ Map a function over all values in the prefix tree.
-map :: (a -> b) -> PrefixTree a -> PrefixTree b
-map f = mapWithKey (\_ v -> f v)
-
-
-mapWithKey :: (Key -> a -> b) -> PrefixTree a -> PrefixTree b
-mapWithKey f m = undefined -- map' [] m
-
-{-
--- | /O(n)/ Convert into an ordinary map.
-toMap :: PrefixTree a -> M.Map Key a
-toMap = foldWithKey M.insert M.empty
-
--- | /O(n)/ Convert an ordinary map into a StrMap.
-fromMap :: M.Map Key a -> PrefixTree a
-fromMap = M.foldWithKey insert empty
 
 -- | /O(n+m)/ Left-biased union of two maps. It prefers the first map when duplicate keys are 
 -- encountered, i.e. ('union' == 'unionWith' 'const').
