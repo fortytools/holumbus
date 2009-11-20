@@ -8,6 +8,7 @@ where
 import Holumbus.Distribution.SimpleDMapReduceIO
 import Examples2.MandelWithoutReduce.ImageTypes
 import Examples2.MandelWithoutReduce.ImageMandel
+import Control.Parallel.Strategies
 
 {- 
 
@@ -15,7 +16,7 @@ type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, 
 -}
 mandelMap :: MapFunction (Int, Int, Double, Int) Int [Int] Int [Lightness]
 mandelMap _env (w,h,zmax,iter) y xs = do
-  let xs' = map (\x -> (y,[(gamma 4.0 . x') x])) xs 
+  let xs' = parMap rnf (\x -> (y,[(gamma 4.0 . x') x])) xs 
   return xs'
   where
     x' x = imageMandel (Geo w h) zmax iter x y -- calc the value

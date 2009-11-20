@@ -1,9 +1,9 @@
 #!/bin/bash
 
-NUMOFTESTS="3"
+NUMOFTESTS="1"
 RUNTEST2="/home/re/holumbus/mapreduce/Examples2/MandelWithoutReduce/runtest2"
 FILENAME="test.pgm"
-OPTS="(1280,1024,2.0,100)"
+OPTS="(2560,2048,2.0,100)"
 
 
 TESTS=`cat $1`

@@ -4,8 +4,7 @@ module Main
 )
 where
 
-
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Examples2.MandelWithoutReduce.MapReduceFacade
 import Examples2.MandelWithoutReduce.DMandel
 
 main :: IO ()

@@ -37,6 +37,7 @@ import           Holumbus.Common.Utils ( handleAll )
 import           System.Log.Logger
 import           System.Environment
 import           System.Exit
+import Data.Time.Clock.POSIX
 
 splitConfiguration
   :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
@@ -123,7 +124,11 @@ client m r a (splitters,mappers,reducers) lss = do
       mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
       
       -- do the map reduce job
+      t1 <- getPOSIXTime
+      putStrLn ("Begin MR: " ++ show t1)
       (_,fids) <- MR.doMapReduce (actionConfig m r) a [] filenames splitters mappers reducers 1 TOTFile mr
+      t2 <- getPOSIXTime
+      putStrLn ("END MR: " ++ show t2)
       
       -- get the results from filesystem
       result <- merge fids fs

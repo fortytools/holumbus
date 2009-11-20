@@ -44,6 +44,7 @@ do
   [ $I -eq 23 ] && continue
   [ $I -eq 15 ] && I=24
   [ $I -eq 19 ] && I=23
+  [ $I -eq 17 ] && I=25
 
   mkdir "worker_$I"
   cd "worker_$I"
