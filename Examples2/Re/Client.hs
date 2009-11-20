@@ -38,13 +38,15 @@ set num of documents to sizeof uris
 
 main :: IO ()
 main = do 
-  ( baseUri : num : f : nf : [] ) <- getArgs
+  putTimeStamp ("main begin")
+  ( baseUri : triplet : f : nf : [] ) <- getArgs
   initializeLogging [(localLogger, INFO)]
-  (index, _state) <- loop 0 (read num) 0 (emptyIndex, (firstState baseUri, M.empty)) (maybeStringlist f follow, maybeStringlist nf nofollow)
+  (index, _state) <- loop 0 (read triplet) 0 (emptyIndex, (firstState baseUri, M.empty)) (maybeStringlist f follow, maybeStringlist nf nofollow)
   writeToBinFile "index.bin" (ixs_index index)
   writeToXmlFile "index.xml" (ixs_index index)
   writeToBinFile "docs.bin"  (ixs_documents index)
   writeToXmlFile "docs.xml"  (ixs_documents index)  
+  putTimeStamp ("main end")
   
   where
   firstState baseUri = CrawlerState
@@ -56,35 +58,36 @@ main = do
     , cs_resultAccu = []
     }
 
-loop :: Int -> Int -> DocId -> Result -> ([String],[String]) -> IO Result
-loop count num nextId (index,state) followopts = do
+loop :: Int -> (Int,Int,Int) -> DocId -> Result -> ([String],[String]) -> IO Result
+loop count (splitters,mappers,reducers) nextId (index,state) followopts = do
   -- do another loop
   if (nullURIs . cs_toBeProcessed . fst) state
     then return (setLastId index (nextId-1),state)
-    else iteration count num nextId (index,state) followopts 
+    else iteration count (splitters,mappers,reducers) nextId (index,state) followopts 
 
-iteration :: Int -> Int -> DocId -> Result -> ([String],[String]) -> IO Result
-iteration count num nextId (index,(state,_)) followopts = do
-  infoM localLogger ("\n~~~~~~~~~\niteration: " ++ show count)  
+iteration :: Int -> (Int,Int,Int) -> DocId -> Result -> ([String],[String]) -> IO Result
+iteration count (splitters,mappers,reducers) nextId (index,(state,_)) followopts = do
+--  infoM localLogger ("\n~~~~~~~~~\niteration: " ++ show count)  
   debugM localLogger ("\n\n++++\ntheToBeProcessed URIs: " ++ (show . cs_toBeProcessed $ state))  
+  putTimeStamp ("iteration begin: " ++ show count)
   -- split toBeProcessed uris by num of workers tbps and give each uri an unique id :: [(URI, Int)]
   infoM localLogger "split the uris"
   let uris = toListURIs . cs_toBeProcessed $ state
       idoffset = length uris
       -- tbps = partition num (idoffset `div` num) (zip uris [nextId..])
       numbereduris = (zip uris [nextId..])
-      tbps = partition' numbereduris [[] |_<- [1..num]]
+      tbps = partition' numbereduris [[] |_<- [1..mappers]] -- <<<<<<<<------------------------------- ??????????????
   debugM localLogger ("\n\n++++\npartitioned uris: " ++ show tbps)  
   infoM localLogger ("partitioned length: " ++ show (map length tbps))
   (appendFile "./uri.map" . unwords . map (\x -> show x ++ "\n")) numbereduris
 
   infoM localLogger "create states and assign map reduce keys to it"  
-  let states = (zip [0..num-1] . map (mkState (cs_alreadyProcessed state))) tbps -- [(Int,ResultState)]
+  let states = (zip [0..mappers-1] . map (mkState (cs_alreadyProcessed state))) tbps -- [(Int,ResultState)] <<<<<<<<<<<<<<<<<<<
   debugM localLogger ("\n\n++++\nkeyd states: " ++ show states)    
   
   -- do the mr
   infoM localLogger ("do the mr: ")
-  result <- client idxMap idxReduce followopts num states  
+  result <- client idxMap idxReduce followopts (splitters,mappers,reducers) [states]
   
   -- merge results
   infoM localLogger "merge the results"
@@ -109,37 +112,14 @@ iteration count num nextId (index,(state,_)) followopts = do
   -- ----------------------------------------------------------------------------------------------------
   
   -- iterate
-  loop (count+1) num (nextId+idoffset) (index',newState) followopts
+  putTimeStamp ("iteration end: " ++ show count)
+  loop (count+1) (splitters,mappers,reducers) (nextId+idoffset) (index',newState) followopts
   
 {-
  leftfolds a list of result to one.
 -}
 mergeResults :: Result -> [Result] -> Result
 mergeResults = L.foldl' (\(i', s') (i,s) -> (mergeIndices' i' i, mergeStates' s' s))
-
-{-
-
-partition'
-
-first list, list of 
- -}
-partition' :: [a] -> [[a]] -> [[a]]
-partition' _   [] = []
-partition' [] xss = xss
-partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
-  where xs' = (u:xs)
-
-{-
-  partition
-  fst Int -> how many list do we want to have?
-  snd Int -> how many elements should each list have?
--}
-partition :: Int -> Int -> [a] -> [[a]]
-partition 1     _ ls = [ls]
-partition _     _ [] = []
-partition count i ls = first : (partition (count-1) i rest)
-  where
-  (first,rest) = splitAt i ls
 
 {-
   copystate and do a merging over all tbp, new and ap uris.

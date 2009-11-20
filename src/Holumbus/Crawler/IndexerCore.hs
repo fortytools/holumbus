@@ -5,6 +5,7 @@
 module Holumbus.Crawler.IndexerCore
     ( RawDoc
     , RawContexts
+    , RawContext
     , RawWords
     , RawWord
     , RawTitle

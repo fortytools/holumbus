@@ -8,7 +8,7 @@ GHC		= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM		= rm $(RM_FLAGS)
 
-PROG		= MRIndexer Client Worker Standalone SimpleSearch
+PROG		= MRIndexer Client Worker SimpleSearch
 
 OUTPUT		= output
 

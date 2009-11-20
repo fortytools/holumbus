@@ -36,6 +36,7 @@ library
                 , parallel   >= 1.1.0.0
                 , mtl        >= 1.1.0.2
                 , Holumbus-Searchengine >= 0.0.7
+                , filepath   >= 1.1.0.2
   ghc-options: -Wall -threaded
   hs-source-dirs:
                   src
