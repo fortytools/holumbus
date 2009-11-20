@@ -1,0 +1,36 @@
+#!/bin/bash
+
+NUM="1 5 10 15 20 25"
+NUMOFTESTS="2"
+RUNTEST2="/home/re/holumbus/mapreduce/Examples2/CountWithSimpleIO2/runtest2"
+FILENAME="/root/Count/nt"
+WORDS="God"
+
+for Y in `seq 1 $NUMOFTESTS`
+do
+
+  # make a dir for current run
+  mkdir "run_$Y"
+
+  # change into testdir
+  cd "run_$Y"
+
+  for SPLITTERS in $NUM
+	do
+    for MAPPERS in $NUM
+		do
+      for REDUCERS in $NUM
+      do
+  			# start the actual tests
+			  for WORKERS in $NUM
+			  do
+        $RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$WORDS"
+				done
+		  done
+		done
+	done
+  
+  # change to root dir
+  cd ..
+
+done
