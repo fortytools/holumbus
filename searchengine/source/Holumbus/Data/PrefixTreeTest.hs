@@ -123,10 +123,10 @@ test6b		= testBinary ["a","b","c","aa","ac","cccc","cccd","","xxx", "xxyyy"]
 main	= do
           c <- runTestTT $ TestList $ reverse $
                [ test1
-	       -- , test2
-	       -- , test3a, test3b, test3c
-	       -- , test4a, test4b
-	       -- , test5
+	       , test2
+	       , test3a, test3b, test3c
+	       , test4a, test4b
+	       , test5
 	       , test6a, test6b
 	       ]
           putStrLn $ show c

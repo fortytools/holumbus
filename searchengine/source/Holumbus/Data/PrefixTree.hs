@@ -49,8 +49,6 @@ module Holumbus.Data.PrefixTree
   , (!)
 
   -- * Query
-  , key
-  , succ
   , value
   , valueWithDefault
   , null
@@ -135,10 +133,10 @@ data PrefixTree v	= Empty
                         | Last   { sym    :: ! Sym		-- the last entry in a branch list
                                  , child  :: ! (PrefixTree v)	-- or no branch but a single child
                                  }
-                        | LsSeq  { key    :: ! Key		-- a sequence of single childs
+                        | LsSeq  { syms   :: ! Key		-- a sequence of single childs
                                  , child  :: (PrefixTree v)	-- in a last node
                                  } 
-                        | BrSeq  { key    :: ! Key		-- a sequence of single childs
+                        | BrSeq  { syms   :: ! Key		-- a sequence of single childs
                                  , child  :: ! (PrefixTree v)	-- in a branch node
                                  , next   :: ! (PrefixTree v)
                                  } 
@@ -303,6 +301,7 @@ delete 				= update' (const Nothing)
 -- ----------------------------------------
 -- Internal lookup function which is generalised for arbitrary monads above.
 
+{-
 lookup' 		:: Key -> PrefixTree a -> Maybe a
 lookup' []     t	= value t
 lookup' (k:ks) t
@@ -319,6 +318,30 @@ lookup' (k:ks) t
                                                   then ch
                                                   else lookupBr s nx
                           _               -> empty
+-}
+-- ----------------------------------------
+
+lookupPx'		:: Key -> PrefixTree a -> [PrefixTree a]
+lookupPx' k		= look k . norm
+    where
+    look k (Branch c' s' n')
+        = case k of
+          []			-> []
+          (c : k1)
+              | c <  c'		-> []
+              | c == c'		-> lookupPx' k1 s'
+              | otherwise	-> lookupPx' k  n'
+    look k Empty		=  []
+    look k t@(Val v' t')
+	= case k of
+          []			-> [t]
+          _			-> lookupPx' k t'
+
+lookup' 		:: Key -> PrefixTree a -> Maybe a
+lookup' k t
+    = case lookupPx' k t of
+      [Val v _]			-> Just v
+      _				-> Nothing
 
 -- ----------------------------------------
 
@@ -545,26 +568,6 @@ instance (Binary a) => Binary (PrefixTree a) where
 		   _ -> fail "PrefixTree.get: error while decoding PrefixTree"
 
 {-
-
--- | /O(1)/ Extract the key of a node
-key :: PrefixTree a -> Key
-key (End k _ _) = k
-key (Seq k _)   = k
-
--- | /O(1)/ Extract the successors of a node
-succ :: PrefixTree a -> [PrefixTree a]
-succ (End _ _ t) = t
-succ (Seq _ t)   = t
-
--- | /O(1)/ Sets the key of a node.
-setKey :: Key -> PrefixTree a -> PrefixTree a
-setKey k (End _ v t) = End k v t
-setKey k (Seq _ t)   = Seq k t
-
--- | /O(1)/ Sets the successors of a node.
-setSucc :: [PrefixTree a] -> PrefixTree a -> PrefixTree a
-setSucc t (End k v _) = End k v t
-setSucc t (Seq k _)   = Seq k t
 
 -- | Merge a node with its successor if only one successor is left.
 mergeNode :: PrefixTree a -> [PrefixTree a] -> PrefixTree a
