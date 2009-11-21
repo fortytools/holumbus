@@ -18,6 +18,7 @@ module Holumbus.Distribution.SimpleDMapReduceIO
  , worker
  , partition'
  , Priority(..)
+ , putTimeStamp
 )
 where
 
@@ -37,7 +38,7 @@ import           Holumbus.Common.Utils ( handleAll )
 import           System.Log.Logger
 import           System.Environment
 import           System.Exit
-
+import           Data.Time.Clock.POSIX
 
 splitConfiguration
   :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
@@ -123,7 +124,9 @@ client m r a (splitters,mappers,reducers) lss = do
       mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
       
       -- do the map reduce job
+      putTimeStamp "SimpleDMR Begin MR"
       (_,fids) <- MR.doMapReduce (actionConfig m r) a [] filenames splitters mappers reducers 1 TOTFile mr
+      putTimeStamp "SimpleDMR End MR"
       
       -- get the results from filesystem
       result <- merge fids fs
@@ -235,3 +238,8 @@ partition'    []       xss = xss
 partition'    us   (xs:[]) = [us]
 partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
   where xs' = (u:xs)
+
+putTimeStamp :: String -> IO ()
+putTimeStamp s = do
+  t1 <- getPOSIXTime
+  putStrLn (s++" : "++ show t1)
