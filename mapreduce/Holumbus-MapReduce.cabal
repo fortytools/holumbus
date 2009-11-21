@@ -68,7 +68,6 @@ library
                   source
   exposed-modules:  
                   Holumbus.Distribution.DMapReduce
-                , Holumbus.Distribution.SimpleDMapReduce
                 , Holumbus.Distribution.SimpleDMapReduceIO
                 , Holumbus.Distribution.Messages
                 , Holumbus.Distribution.Worker
