@@ -6,9 +6,8 @@ where
 
 
 import Holumbus.Distribution.SimpleDMapReduceIO
-import Examples2.SumWithSimpleIO.Sum
+import Holumbus.MapReduce.Examples.Sum
 import System.Environment
-import Data.Time.Clock.POSIX
 import Control.Parallel.Strategies
 import Holumbus.Common.FileHandling
 
@@ -24,7 +23,6 @@ main = do
   putTimeStamp "Client Begin MR"
   result <- client sumMap sumReduce () (splitters,mappers,reducers) list
   putTimeStamp "Client End MR"
-  t2 <- getPOSIXTime
   putStrLn . show . length $ result
   putStrLn . show . sum . map snd $ result
   putTimeStamp "Client End"

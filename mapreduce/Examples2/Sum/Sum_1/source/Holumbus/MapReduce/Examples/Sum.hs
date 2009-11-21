@@ -1,4 +1,4 @@
-module Examples2.SumWithSimpleIO.Sum
+module Holumbus.MapReduce.Examples.Sum 
 (
    sumMap
  , sumReduce

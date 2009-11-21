@@ -1,14 +1,12 @@
-HOME		= ../../
-
-SOURCE		= .
+SOURCE		= ./source
 OPTIMIZATION=-O2
-GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main
+GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(SOURCE) -main-is main
 GHC		= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
 RM		= rm $(RM_FLAGS)
 
-PROG		= Sum Worker Client Standalone
+PROG		= Worker Client
 
 OUTPUT		= output
 

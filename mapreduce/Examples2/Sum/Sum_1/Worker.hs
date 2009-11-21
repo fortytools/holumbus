@@ -6,7 +6,7 @@ where
 
 
 import Holumbus.Distribution.SimpleDMapReduceIO
-import Examples2.SumWithSimpleIO.Sum
+import Holumbus.MapReduce.Examples.Sum
 import System.Log
 
 main :: IO ()
