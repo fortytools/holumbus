@@ -1,6 +1,6 @@
 -- ----------------------------------------------------------------------------
 {- |
-  Module     : Examples2.SimpleMR.SimpleDMapReduce
+  Module     : Holumbus.MapReduce.Examples.Count.DCount 
   Copyright  : Copyright (C) 2009 Sebastian Reese
   License    : MIT
 
@@ -10,7 +10,7 @@
   Version    : 0.1
 -}
 -- ----------------------------------------------------------------------------
-module Examples2.CountWithSimpleIO2.DCount
+module Holumbus.MapReduce.Examples.Count.DCount
 (
    MapFunction
  , ReduceFunction

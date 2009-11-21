@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Examples2.CountWithSimpleIO2.DCount (client)
+import Holumbus.MapReduce.Examples.Count.DCount 
 
 main :: IO ()
 main = client

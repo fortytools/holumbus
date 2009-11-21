@@ -5,7 +5,7 @@ module Main
 where
 
 
-import Examples2.CountWithSimpleIO2.DCount
+import Holumbus.MapReduce.Examples.Count.DCount 
 import System.Log
 
 main :: IO ()
