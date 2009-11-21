@@ -1,6 +1,0 @@
-#!/bin/bash
-
-DIR=$1
-cd $DIR 
-./MandelWorker $2 logfile +RTS -p -K500M -sMemory.txt -RTS &
-echo $! > Worker.pid

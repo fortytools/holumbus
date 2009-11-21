@@ -1,6 +1,0 @@
-#!/bin/bash
-
-for I in mapreduce distribution storage
-do
-	cp /home/re/FH/holumbus/$I/source/Holumbus . -R
-done
