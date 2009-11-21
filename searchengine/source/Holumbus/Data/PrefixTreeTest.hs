@@ -7,10 +7,14 @@ import		 Data.Binary		( encode
 					)
 import           Data.List              ( permutations
 					, tails
+                                        , sort
+                                        , isPrefixOf
 					)
 import qualified Data.List      	as L
 
 import           Holumbus.Data.PrefixTree
+import 		 Holumbus.Data.PrefixTreeFuzzySearch
+
 import           Prelude 		hiding ( succ, lookup, map, null )
 import           Test.HUnit
 import           System
@@ -42,6 +46,9 @@ test1	= TestLabel "simple trees" $
           , TestCase $ assertEqual "no delete"  m2 $ delete "x" m2
           , TestCase $ assertEqual "delete seq" m1 $ delete "xxx" m4
           , TestCase $ assertEqual "delete y"   m3 $ delete "y"   m3
+          , TestCase $ assertEqual "keys"       (sort ws) $ keys ts
+          , TestCase $ assertEqual "prefix"     (sort ws) $ prefixFind "" ts
+          , TestCase $ assertEqual "prefix b"   (filter ("b" `isPrefixOf`) (sort ws)) $ prefixFind "b" ts
           ]
 
 test2	= TestLabel "insert / delete" $
@@ -103,7 +110,7 @@ testBinary ws	= TestLabel "put/get" $
 
 mktree		= foldl (\ t x -> insert x x t) empty
 
-ws		= ["","a","b","c","bb","bbbbb","bbc"]
+ws		= ["","B","b","C","bb","bbbbb","bbc"]
 ts		= mktree ws
 
 test3a		= testIns ws
@@ -124,8 +131,8 @@ main	= do
           c <- runTestTT $ TestList $ reverse $
                [ test1
 	       , test2
-	       , test3a, test3b, test3c
-	       , test4a, test4b
+	       -- , test3a, test3b, test3c
+	       -- , test4a, test4b
 	       , test5
 	       , test6a, test6b
 	       ]
