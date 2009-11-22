@@ -28,6 +28,7 @@ export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy c
 export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
 
 NUMOFTESTS="3" # how many runs?
+CMD='$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILE" "$WORDS"'
 
 TESTS=`cat $1` # read the test's config file
 FILE="$2"      # read the input file, where to count the words from
@@ -54,10 +55,11 @@ do
     MAPPERS=`echo $TEST | cut -d: -f3`
     REDUCERS=`echo $TEST | cut -d: -f4`
     # copy the registry data
-    [ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
-    COPIED="1"    
+    [ ! -f registry_copied ] && $COPY_REGISTRY 1 $WORKERS
+    touch registry_copied
     # start current test
-    $RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILE" "$WORDS"
+    #$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILE" "$WORDS"
+    eval $CMD
 	done
   
   # change to root dir

@@ -1,37 +1,63 @@
 #!/bin/bash
 
-NUM="20 15 10 5 1"
-SEQ_SPLITTERS="$NUM"
-SEQ_MAPPERS="$NUM"
-SEQ_REDUCERS="$NUM"
-SEQ_WORKERS="$NUM"
-NUMOFTESTS="1"
-RUNTEST2="/home/re/holumbus/mapreduce/Examples2/MandelWithoutReduce/runtest2"
+[ -n "$1" ] || { echo "Parameter missing: TEST_CONFIG"; exit 1; }
+
+# paths
+export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Mandelbrot-set/Mandelbrot-set_3" # absolut path to this directory
+
+# scripts adn binaries
+export MR_BIN="sudo /etc/init.d/MR"                                 # start script for MR system
+export CLIENT="$INSTALL_PATH/Client"                                # the client binary
+export START_WORKER_SCRIPT="$INSTALL_PATH/scripts/startstopworkers" # start script for all workers
+export DOSSH="$INSTALL_PATH/scripts/dossh"                          # the ssh command for the dossh script
+export COPY_WORKER_DATA="$INSTALL_PATH/scripts/copyworkerdata"      # the ssh command for the dossh script
+export COPY_REGISTRY="$INSTALL_PATH/scripts/copyregistry"           # the ssh command for the dossh script
+RUNTEST2="$INSTALL_PATH/scripts/runtest2"                           # the actual runtest skript
+
+# config
+SUBNET="172.16.3"                                        # the workers net adress prefix
+export DOSSH_CMD="ssh root@$SUBNET"                      # the ssh command for the dossh script
+export WORKER_DIR="/tmp/worker"                          # path where to store the workers data
+export WORKER_PID="Worker.pid"                           # the workers process store
+export WORKER_BIN="Worker"                               # Worker binary
+export WORKER_SH="worker.sh"                     # the workers start skript
+export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this directory
+export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
+export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
+
+NUMOFTESTS="3" # how many runs?
+CMD='$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$OPTS"'
+
+TESTS=`cat $1` # read the test's config file
 FILENAME="test.pgm"
-OPTS="(1280,1024,2.0,100)"
+OPTS="(2560,2048,2.0,100)"
+
+# - ---------------------- -
+# - Start the whole test   -
+# - ---------------------  -
+
 
 for Y in `seq 1 $NUMOFTESTS`
 do
 
   # make a dir for current run
-  mkdir "run_$Y"
+  mkdir "run_$Y" || exit 1
 
   # change into testdir
   cd "run_$Y"
 
-  for SPLITTERS in $SEQ_SPLITTERS
+  for TEST in $TESTS
 	do
-    for MAPPERS in $SEQ_MAPPERS
-		do
-      for REDUCERS in $SEQ_REDUCERS
-      do
-  			# start the actual tests
-			  for WORKERS in $SEQ_WORKERS
-			  do
-        $RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$OPTS"
-				done
-		  done
-		done
+    WORKERS=`echo $TEST | cut -d: -f1`
+    SPLITTERS=`echo $TEST | cut -d: -f2`
+    MAPPERS=`echo $TEST | cut -d: -f3`
+    REDUCERS=`echo $TEST | cut -d: -f4`
+    # copy the registry data
+    [ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
+    COPIED=1
+    # start current test
+    #$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILE" "$WORDS"
+    eval $CMD
 	done
   
   # change to root dir
