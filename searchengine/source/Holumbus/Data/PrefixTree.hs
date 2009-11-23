@@ -135,12 +135,26 @@ data PrefixTree v	= Empty
                                  , child  :: ! (PrefixTree v)	-- or no branch but a single child
                                  }
                         | LsSeq  { syms   :: ! Key		-- a sequence of single childs
-                                 , child  :: (PrefixTree v)	-- in a last node
+                                 , child  :: ! (PrefixTree v)	-- in a last node
                                  } 
                         | BrSeq  { syms   :: ! Key		-- a sequence of single childs
                                  , child  :: ! (PrefixTree v)	-- in a branch node
                                  , next   :: ! (PrefixTree v)
                                  } 
+                        | LsSeL  { syms   :: ! Key		-- a sequence of single childs
+                                 , value' :: ! v		-- with a leaf 
+                                 } 
+                        | BrSeL  { syms   :: ! Key		-- a sequence of single childs
+                                 , value' :: ! v 		-- with a leaf in a branch node
+                                 , next   :: ! (PrefixTree v)
+                                 } 
+                        | BrVal  { sym    :: ! Sym		-- a branch with a single char
+                                 , value' :: ! v		-- and a value
+                                 , next   :: ! (PrefixTree v)
+                                 }
+                        | LsVal  { sym    :: ! Sym		-- a last node with a single char
+                                 , value' :: ! v		-- and a value
+                                 }
                           deriving (Show, Eq, Ord)
 
 type Sym		= Char
@@ -161,21 +175,35 @@ val v t		= Val v t
 
 {-# INLINE val #-}
 
-branch		:: Sym -> PrefixTree v -> PrefixTree v -> PrefixTree v
-branch _ Empty         n	= n
-branch k (Last   k1 c) Empty	= LsSeq [k,k1] c
-branch k (LsSeq  ks c) Empty	= LsSeq (k:ks) c
-branch k (Last   k1 c) n	= BrSeq [k,k1] c n
-branch k (LsSeq  ks c) n	= BrSeq (k:ks) c n
+branch				:: Sym -> PrefixTree v -> PrefixTree v -> PrefixTree v
+branch _  Empty        n	= n
+
+branch k (Leaf   v   ) Empty    = LsVal  k     v
+branch k (LsVal  k1 v) Empty	= LsSeL [k,k1] v
+branch k (LsSeL  ks v) Empty	= LsSeL (k:ks) v
+branch k (Last   k1 c) Empty	= lsseq [k,k1] c
+branch k (LsSeq  ks c) Empty	= lsseq (k:ks) c
 branch k            c  Empty	= Last k c
+
+branch k (Leaf   v   ) n        = BrVal  k     v n
+branch k (LsVal  k1 v) n	= BrSeL [k,k1] v n
+branch k (LsSeL  ks v) n	= BrSeL (k:ks) v n
+branch k (Last   k1 c) n	= brseq [k,k1] c n
+branch k (LsSeq  ks c) n	= brseq (k:ks) c n
 branch k            c  n	= Branch k c n
 
-{-# INLINE branch #-}
+lsseq				:: Key -> PrefixTree v -> PrefixTree v
+lsseq k (Leaf v)		= LsSeL k v
+lsseq k c			= LsSeq k c
+
+brseq				:: Key -> PrefixTree v -> PrefixTree v -> PrefixTree v
+brseq k (Leaf v) n		= BrSeL k v n
+brseq k c        n              = BrSeq k c n
 
 siseq		:: Key -> PrefixTree v -> PrefixTree v
 siseq []   c    = c
-siseq [k1] c	= Last k1 c
-siseq k    c    = LsSeq  k  c
+siseq [k1] c	= Last  k1 c
+siseq k    c    = LsSeq k  c
 
 {-# INLINE siseq #-}
 
@@ -188,9 +216,13 @@ norm (LsSeq [k] c)	= Branch k c empty
 norm (LsSeq (k:ks) c)   = Branch k (siseq ks c) empty 
 norm (BrSeq [k]    c n)	= Branch k c n
 norm (BrSeq (k:ks) c n) = Branch k (siseq ks c) n 
+norm (LsSeL    ks  v)   = norm (LsSeq ks  (val v empty))
+norm (BrSeL    ks  v n) = norm (BrSeq ks  (val v empty) n)
+norm (LsVal    k   v)   = norm (LsSeq [k] (val v empty))
+norm (BrVal    k   v n) = norm (BrSeq [k] (val v empty) n)
 norm t			= t
 
-{-# INLINE norm #-}
+{- INLINE norm -}
 
 -- ----------------------------------------
 
@@ -220,7 +252,7 @@ null _			= False
 -- | /O(1)/ Create a map with a single element.
 
 singleton 		:: Key -> a -> PrefixTree a
-singleton k v 		= siseq k (val v empty)
+singleton k v 		= foldr (\ c r -> branch c r empty) (val v empty) $ k -- siseq k (val v empty)
 
 {-# INLINE singleton #-}
 
@@ -519,14 +551,81 @@ map'				:: (Key -> a -> b) -> (Key -> Key) -> PrefixTree a -> PrefixTree b
 map' _ _ (Empty)		= Empty
 map' f k (Val v t)		= Val    (f (k []) v)    (map' f k t)
 map' f k (Branch c s n)         = Branch c (map' f ((c :) . k) s) (map' f k n)
-map' f k (Leaf v)		= Leaf   (f (k []) v)
-map' f k (Last c s)		= Last c  (map' f ((c :)   . k) s)
+map' f k (Leaf v)		= Leaf      (f (k []) v)
+map' f k (Last c s)		= Last c    (map' f ((c :)   . k) s)
 map' f k (LsSeq cs s)		= LsSeq  cs (map' f ((cs ++) . k) s)
 map' f k (BrSeq cs s n)         = BrSeq  cs (map' f ((cs ++) . k) s) (map' f k n)
+map' f k (LsSeL cs v)		= LsSeL  cs (f (k []) v)
+map' f k (BrSeL cs v n)         = BrSeL  cs (f (k []) v) (map' f k n)
+map' f k (LsVal c  v)		= LsVal  c  (f (k []) v)
+map' f k (BrVal c  v n)         = BrVal  c  (f (k []) v) (map' f k n)
 
 -- ----------------------------------------
 
-space				:: PrefixTree a -> Int
+data PrefixTreeVisitor a b	= PTV
+    { v_empty		:: b
+    , v_val		:: a   -> b -> b
+    , v_branch		:: Sym -> b -> b -> b
+    , v_leaf		:: a   -> b
+    , v_last		:: Sym -> b -> b
+    , v_lsseq		:: Key -> b -> b
+    , v_brseq		:: Key -> b -> b -> b
+    , v_lssel		:: Key -> a -> b
+    , v_brsel		:: Key -> a -> b -> b
+    , v_lsval		:: Sym -> a -> b
+    , v_brval		:: Sym -> a -> b -> b
+    }
+
+visit			:: PrefixTreeVisitor a b -> PrefixTree a -> b
+
+visit v (Empty)		= v_empty  v
+visit v (Val v' t)	= v_val    v v' (visit v t)
+visit v (Branch c s n)  = v_branch v c (visit v s) (visit v n)
+visit v (Leaf v')	= v_leaf   v v'
+visit v (Last c s)	= v_last   v c (visit v s)
+visit v (LsSeq cs s)	= v_lsseq  v cs (visit v s)
+visit v (BrSeq cs s n)  = v_brseq  v cs (visit v s) (visit v n)
+visit v (LsSeL cs v')	= v_lssel  v cs v'
+visit v (BrSeL cs v' n) = v_brsel  v cs v'          (visit v n)
+visit v (LsVal c  v')	= v_lsval  v c  v'
+visit v (BrVal c  v' n) = v_brval  v c  v'          (visit v n)
+
+space			:: PrefixTree a -> Int
+
+space			= visit $
+                          PTV
+                          { v_empty		= 0
+                          , v_val		= const (3+)
+                          , v_branch		= const $ \ s n -> 4 + s + n
+                          , v_leaf		= const 2
+                          , v_last		= const (3+)
+                          , v_lsseq		= \ cs s   -> 3 + 2 * length cs + s
+                          , v_brseq		= \ cs s n -> 4 + 2 * length cs + s + n
+                          , v_lssel		= \ cs _   -> 3 + 2 * length cs
+                          , v_brsel		= \ cs _ n -> 4 + 2 * length cs     + n
+                          , v_lsval		= \ _  _   -> 3
+                          , v_brval		= \ _  _ n -> 4                     + n
+                          }
+
+stat			:: PrefixTree a -> PrefixTree Int
+stat			=  visit $
+                          PTV
+                          { v_empty		=             singleton "empty"  1
+                          , v_val		= const $    (singleton "val"    1 `add`)
+                          , v_branch		= \ _  s n -> singleton "branch" 1 `add` (s `add` n)
+                          , v_leaf		= const $     singleton "leaf"   1
+                          , v_last		= const $    (singleton "last"   1 `add`)
+                          , v_lsseq		= \ cs s   -> singleton ("lsseq" ++ show (length cs)) 1 `add` s
+                          , v_brseq		= \ cs s n -> singleton ("brseq" ++ show (length cs)) 1 `add` (s `add` n)
+                          , v_lssel		= \ cs _   -> singleton ("lssel" ++ show (length cs)) 1
+                          , v_brsel		= \ cs _ n -> singleton ("brseq" ++ show (length cs)) 1 `add`          n
+                          , v_lsval		= \ _  _   -> singleton "lsval" 1
+                          , v_brval		= \ _  _ n -> singleton "brval" 1                       `add`          n
+                          }
+    where
+    add			= unionWith (+)
+
+{-
 space (Empty)		= 0
 space (Val _ t)		= 3                 + space t
 space (Branch _ s n)    = 4                 + space s + space n
@@ -534,6 +633,7 @@ space (Leaf _)		= 2
 space (Last _ s)	= 3                 + space s
 space (LsSeq cs s)	= 3 + 2 * length cs + space s
 space (BrSeq cs s n)    = 4 + 2 * length cs + space s + space n
+-}
 
 -- ----------------------------------------
 
@@ -632,17 +732,25 @@ instance NFData a => NFData (PrefixTree a) where
     rnf (Last _c s)	= rnf s
     rnf (LsSeq ks s)	= rnf ks `seq` rnf s
     rnf (BrSeq ks s n)	= rnf ks `seq` rnf s `seq` rnf n
+    rnf (LsSeL ks v)	= rnf ks `seq` rnf v
+    rnf (BrSeL ks v n)	= rnf ks `seq` rnf v `seq` rnf n
+    rnf (LsVal k  v)	= rnf k  `seq` rnf v
+    rnf (BrVal k  v n)	= rnf k  `seq` rnf v `seq` rnf n
 
 -- Provide native binary serialization (not via to-/fromList).
 
 instance (Binary a) => Binary (PrefixTree a) where
     put (Empty)		= put (0::Word8)
-    put (Val v t)	= put (1::Word8) >> put v >> put t
-    put (Branch c s n)  = put (2::Word8) >> put c >> put s >> put n
-    put (Leaf v)	= put (3::Word8) >> put v
-    put (Last c s)	= put (4::Word8) >> put c >> put s
-    put (LsSeq k s)	= put (5::Word8) >> put k >> put s
-    put (BrSeq k s n) 	= put (6::Word8) >> put k >> put s >> put n
+    put (Val v t)	= put (1::Word8)  >> put v >> put t
+    put (Branch c s n)  = put (2::Word8)  >> put c >> put s >> put n
+    put (Leaf v)	= put (3::Word8)  >> put v
+    put (Last c s)	= put (4::Word8)  >> put c >> put s
+    put (LsSeq k s)	= put (5::Word8)  >> put k >> put s
+    put (BrSeq k s n) 	= put (6::Word8)  >> put k >> put s >> put n
+    put (LsSeL k v)	= put (7::Word8)  >> put k >> put v
+    put (BrSeL k v n) 	= put (8::Word8)  >> put k >> put v >> put n
+    put (LsVal k v)	= put (9::Word8)  >> put k >> put v
+    put (BrVal k v n) 	= put (10::Word8) >> put k >> put v >> put n
 
     get = do
 	  !tag <- getWord8
@@ -673,6 +781,24 @@ instance (Binary a) => Binary (PrefixTree a) where
 			!s <- get
 			!n <- get
 			return $! BrSeq k s n
+		   7 -> do
+			!k <- get
+			!v <- get
+			return $! LsSeL k v
+		   8 -> do
+			!k <- get
+			!v <- get
+			!n <- get
+			return $! BrSeL k v n
+		   9 -> do
+			!k <- get
+			!v <- get
+			return $! LsVal k v
+		   10 -> do
+			!k <- get
+			!v <- get
+			!n <- get
+			return $! BrVal k v n
 		   _ -> fail "PrefixTree.get: error while decoding PrefixTree"
 
 {-
