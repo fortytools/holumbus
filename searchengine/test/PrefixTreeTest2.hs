@@ -1,4 +1,4 @@
-module Main -- Holumbus.Data.PrefixTreeTest
+module PrefixTreeTest2
 where
 
 
@@ -22,6 +22,18 @@ import           System
 
 -- ----------------------------------------
 
+allTests	= TestLabel "PrefixTreeTest2" $
+                  TestList $
+                  [ test1
+	          , test2
+	          , test3a, test3b, test3c
+	          , test4a, test4b
+	          , test5
+	          , test6a, test6b
+	          ]
+
+-- ----------------------------------------
+
 type M	= PrefixTree Int
 
 m1, m2, m3, m4, m5	:: M
@@ -37,12 +49,12 @@ m7	= insert "aaa" 44 $ insert "bbb" 45 $ empty
 test1	= TestLabel "simple trees" $
           TestList $
           [ TestCase $ assertEqual "empty" 	Empty m1
-          , TestCase $ assertEqual "val"	(Leaf 42) m2
-          , TestCase $ assertEqual "single" 	(Last 'x' (Leaf 53)) m3
-          , TestCase $ assertEqual "seq" 	(LsSeq  "xxx" (Leaf 64)) m4
-          , TestCase $ assertEqual "val"        (Val 42 (Last 'x' (Leaf 23))) m5
-          , TestCase $ assertEqual "branch"     (Branch 'x' (Leaf 53) (Last 'y' (Leaf 43))) $ m6
-	  , TestCase $ assertEqual "BrSeq"      (BrSeq "aaa" (Leaf 44) (LsSeq "bbb" (Leaf 45))) $ m7 
+          , TestCase $ assertEqual "val"	(Leaf 42) 			m2
+          , TestCase $ assertEqual "single" 	(LsVal 'x' 53) 			m3		-- (Last 'x' (Leaf 53)) m3
+          , TestCase $ assertEqual "seq" 	(LsSeL "xxx" 64)		m4		-- (LsSeq  "xxx" (Leaf 64)) m4
+          , TestCase $ assertEqual "val"        (Val 42 (LsVal 'x' 23))		m5		-- (Val 42 (Last 'x' (Leaf 23))) m5
+          , TestCase $ assertEqual "branch"     (BrVal 'x' 53 (LsVal 'y' 43))   m6		-- (Branch 'x' (Leaf 53) (Last 'y' (Leaf 43))) $ m6
+	  , TestCase $ assertEqual "BrSeq"      (BrSeL "aaa" 44 (LsSeL "bbb" 45)) m7		-- (BrSeq "aaa" (Leaf 44) (LsSeq "bbb" (Leaf 45))) $ m7 
 	  , TestCase $ assertEqual "delete"	m1 $ delete "x" m3
           , TestCase $ assertEqual "no delete"  m2 $ delete "x" m2
           , TestCase $ assertEqual "delete seq" m1 $ delete "xxx" m4
@@ -136,26 +148,5 @@ test7 t         = TestLabel "words" $
                   , TestCase $ assertEqual "norm"  1 (space $ deepNorm t)
                   , TestCase $ assertEqual "stat" [] (toList . stat $ t)
                   ]
-
--- ----------------------------------------
-
-main	= do
-          t <- do
-               d <- readFile "/usr/share/dict/words"
-               return $! mktree $ words d
-          c <- runTestTT $ TestList $ reverse $
-               [ test1
-	       , test2
-	       -- , test3a, test3b, test3c
-	       -- , test4a, test4b
-	       , test5
-	       , test6a, test6b
-               , test7 t
-	       ]
-          putStrLn $ show c
-          let errs = errors c
-	      fails = failures c
-          return ()
-          -- System.exitWith (codeGet errs fails)
 
 -- ----------------------------------------

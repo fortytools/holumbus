@@ -32,6 +32,7 @@ import qualified BinaryTest as Binary
 import qualified InvertedTest as Inverted
 import qualified DocumentsTest as Documents
 import qualified CrunchTest as Crunch
+import qualified PrefixTreeTest as Prefix
 
 allTests :: Test
 allTests = TestList
@@ -44,6 +45,7 @@ allTests = TestList
            , Inverted.allTests
            , Documents.allTests
            , Crunch.allTests
+           , Prefix.allTests
            ]
 
 allProperties :: [(String, [TestOptions -> IO TestResult])]
@@ -53,6 +55,7 @@ allProperties = [ Parser.allProperties
                 , Documents.allProperties
                 , Inverted.allProperties
                 , StrMap.allProperties
+                , Prefix.allProperties
                 ]
 
 testOptions :: TestOptions
@@ -77,17 +80,28 @@ runQuickCheckTests = do
                                                     runTests d testOptions t
                                                     quickCheckList ts
 
+runPrefixTests :: IO Bool
+runPrefixTests = do
+               putStrLn "=== Running Prefix unit tests ==="
+               (c, _) <- runTestText (putTextToHandle stderr False) Prefix.allTests
+               let errs = errors c
+                   fails = failures c
+               return (errs == 0 && fails == 0)
+
+
 main :: IO ()
 main = do
        argv <- getArgs
-       if null argv || (not ("-u" `elem` argv) && not ("-q" `elem` argv)) then usage else return ()
+       if null argv || (not ("-u" `elem` argv) && not ("-q" `elem` argv) && not ("-p" `elem` argv)) then usage else return ()
        ut <- if "-u" `elem` argv then runUnitTests else return True
        qt <- if "-q" `elem` argv then runQuickCheckTests else return True
-       if ut && qt then return () else exitFailure
+       pt <- if "-p" `elem` argv then runPrefixTests else return True
+       if ut && qt && pt then return () else exitFailure
 
 usage :: IO ()
 usage = do
         putStrLn "AllTests - Execute all Holumbus tests\n"
         putStrLn "Usage: AllTests [OPTIONS]"
         putStrLn "  -u  Run HUnit tests"
-        putStrLn "  -q  Run QuickCheck tests\n"
+        putStrLn "  -q  Run QuickCheck tests"
+        putStrLn "  -p  Run prefix tree tests\n"

@@ -339,10 +339,10 @@ insertWithKey f k	 	= insertWith (f k) k
 -- element if the result of the updating function is 'Nothing'. If the key is not found, the trie
 -- is returned unchanged.
 
-updateWith			:: (a -> Maybe a) -> Key -> PrefixTree a -> PrefixTree a
-updateWith			= update'
+update				:: (a -> Maybe a) -> Key -> PrefixTree a -> PrefixTree a
+update				= update'
 
-{-# INLINE updateWith #-}
+{-# INLINE update #-}
 
 -- | /O(min(n,L))/ Updates a value at a given key (if that key is in the trie) or deletes the 
 -- element if the result of the updating function is 'Nothing'. If the key is not found, the trie
@@ -362,7 +362,6 @@ delete 				= update' (const Nothing)
 {-# INLINE delete #-}
 
 -- ----------------------------------------
--- Internal lookup function which is generalised for arbitrary monads above.
 
 lookupPx'			:: Key -> PrefixTree a -> PrefixTree a
 lookupPx' k0			= look k0 . norm
@@ -381,6 +380,8 @@ lookupPx' k0			= look k0 . norm
           _			-> lookupPx' k t'
 
     look _ _			= normError "lookupPx'"
+
+-- Internal lookup function which is generalised for arbitrary monads above.
 
 lookup' 			:: Key -> PrefixTree a -> Maybe a
 lookup' k t
@@ -522,18 +523,27 @@ union'' f kf pt1 pt2		= uni (norm pt1) (norm pt2)
 --
 -- @lookup' k' . cutPx' (singleton k ()) $ t == Nothing@ for every @k'@ with @k@ not being a prefix of @k'@ 
  
-cutPx'				:: PrefixTree b -> PrefixTree a -> PrefixTree a
-cutPx' t1' t2'			= cut (norm t1') (norm t2')
+cutPx''				:: (PrefixTree a -> PrefixTree a) -> PrefixTree b -> PrefixTree a -> PrefixTree a
+cutPx'' cf t1' t2'		= cut (norm t1') (norm t2')
     where
     cut     Empty            _t2		= empty
-    cut    (Val _v1 _t1)      t2		= t2
+    cut    (Val _v1 _t1)      t2		= cf t2
     cut    (Branch _  _  _ )  Empty		= empty
     cut t1@(Branch _  _  _ ) (Val _ t2)		= cut t1 (norm t2)
     cut t1@(Branch c1 s1 n1) t2@(Branch c2 s2 n2)
         | c1 <  c2				= cut (norm n1) t2
         | c1 >  c2				= cut t1 (norm n2)
-        | otherwise				= branch c1 (cutPx' s1 s2) (cutPx' n1 n2)
-    cut _                    _                  = normError "cutPx"
+        | otherwise				= branch c1 (cutPx'' cf s1 s2) (cutPx'' cf n1 n2)
+    cut _                    _                  = normError "cutPx''"
+
+cutPx'				:: PrefixTree b -> PrefixTree a -> PrefixTree a
+cutPx'				= cutPx'' id
+
+cutAllPx'			:: PrefixTree b -> PrefixTree a -> PrefixTree a
+cutAllPx'			= cutPx'' (cv . norm)
+    where
+    cv t@(Val v _)		= val v empty
+    cv _			= empty
 
 -- ----------------------------------------
 

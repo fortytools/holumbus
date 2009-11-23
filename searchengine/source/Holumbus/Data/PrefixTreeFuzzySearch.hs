@@ -18,6 +18,9 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Data.PrefixTreeFuzzySearch
+    ( module Holumbus.Data.PrefixTreeFuzzySearch
+    , module Holumbus.Data.PrefixTree
+    )
 where
 
 import		 Data.Char
@@ -35,11 +38,14 @@ type PrefixSet		= PrefixTree ()
 
 -- | /O(max(L,R))/ Find all values where the string is a prefix of the key.
 
-prefixFindWithKeyIgnoreCase	:: Key -> PrefixTree a -> [(Key, a)] 
-prefixFindWithKeyIgnoreCase k	= toList . cutPx' (similarKeys kpIgnoreCase k)
+prefixFindNoCaseWithKey		:: Key -> PrefixTree a -> [(Key, a)] 
+prefixFindNoCaseWithKey k	= toList . cutPx' (similarKeys kpIgnoreCase k)
 
-prefixFindIgnoreCase		:: Key -> PrefixTree a -> [a] 
-prefixFindIgnoreCase k		= elems . cutPx' (similarKeys kpIgnoreCase k)
+prefixFindNoCase		:: Key -> PrefixTree a -> [a] 
+prefixFindNoCase k		= elems . cutPx' (similarKeys kpIgnoreCase k)
+
+lookupNoCase			:: Key -> PrefixTree a -> [(Key, a)]
+lookupNoCase k			= toList . cutAllPx' (similarKeys kpIgnoreCase k)
 
 -- ----------------------------------------
 
