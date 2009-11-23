@@ -1,4 +1,4 @@
-module Holumbus.Data.PrefixTreeTest
+module Main -- Holumbus.Data.PrefixTreeTest
 where
 
 
@@ -7,10 +7,15 @@ import		 Data.Binary		( encode
 					)
 import           Data.List              ( permutations
 					, tails
+                                        , sort
+                                        , isPrefixOf
+                                        , foldl'
 					)
 import qualified Data.List      	as L
 
 import           Holumbus.Data.PrefixTree
+import 		 Holumbus.Data.PrefixTreeFuzzySearch
+
 import           Prelude 		hiding ( succ, lookup, map, null )
 import           Test.HUnit
 import           System
@@ -42,6 +47,9 @@ test1	= TestLabel "simple trees" $
           , TestCase $ assertEqual "no delete"  m2 $ delete "x" m2
           , TestCase $ assertEqual "delete seq" m1 $ delete "xxx" m4
           , TestCase $ assertEqual "delete y"   m3 $ delete "y"   m3
+          , TestCase $ assertEqual "keys"       (sort ws) $ keys ts
+          , TestCase $ assertEqual "prefix"     (sort ws) $ prefixFind "" ts
+          , TestCase $ assertEqual "prefix b"   (filter ("b" `isPrefixOf`) (sort ws)) $ prefixFind "b" ts
           ]
 
 test2	= TestLabel "insert / delete" $
@@ -101,10 +109,13 @@ testBinary ws	= TestLabel "put/get" $
                     , ts1 <- [mktree ws1]
 		  ]
 
-mktree		= foldl (\ t x -> insert x x t) empty
+mktree		= foldl' (\ t x -> insert x x t) empty
 
-ws		= ["","a","b","c","bb","bbbbb","bbc"]
+ws		= ["","B","b","C","bb","bbbbb","bbc"]
 ts		= mktree ws
+
+ws2		= concat . fmap tails . words $ "hahshs djajajshdhdh dhh1223344 56djdjdd hhjdjd xxxxxx hahaahhahah ahahahha"
+ts2		= mktree ws2
 
 test3a		= testIns ws
 test3b		= testIns ["a","b","c","aa","ac","cccc","cccd"]
@@ -118,16 +129,28 @@ test5           = testSize  ["a","b","c","aa","ac","cccc","cccd","","xxx", "xxyy
 test6a		= testBinary ws
 test6b		= testBinary ["a","b","c","aa","ac","cccc","cccd","","xxx", "xxyyy"]
 
+test7 t         = TestLabel "words" $
+                  TestList $
+                  [ TestCase $ assertEqual "size" 1 (size t)
+                  , TestCase $ assertEqual "space" 1 (space t)
+                  , TestCase $ assertEqual "norm"  1 (space $ deepNorm t)
+                  , TestCase $ assertEqual "stat" [] (toList . stat $ t)
+                  ]
+
 -- ----------------------------------------
 
 main	= do
+          t <- do
+               d <- readFile "/usr/share/dict/words"
+               return $! mktree $ words d
           c <- runTestTT $ TestList $ reverse $
                [ test1
 	       , test2
-	       , test3a, test3b, test3c
-	       , test4a, test4b
+	       -- , test3a, test3b, test3c
+	       -- , test4a, test4b
 	       , test5
 	       , test6a, test6b
+               , test7 t
 	       ]
           putStrLn $ show c
           let errs = errors c
