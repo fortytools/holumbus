@@ -59,6 +59,8 @@ import           System.Directory
 
 import           Text.XML.HXT.Arrow     
 import           Text.XML.HXT.Arrow.XmlRegex
+import           Text.Regex
+
 main :: IO ()
 main 
   = do
@@ -69,17 +71,22 @@ main
 
     let traceLevel    = 0
         workerThreads = 8 
-        docsPerCrawl  = 00
+        docsPerCrawl  = 256
         indexPath     = dir ++ "/indexes/hayoo"
 --        idxConfig     = ic_HTTP { ic_indexPath = dir ++ "/indexes/hxt" }
-        idxConfig     = ic_Hayoo { ic_indexPath = indexPath }
+	idxConfig     = ic_Hayoo { ic_indexPath = indexPath }
+	
         additionalConfig = ic_Hayoo_additional 
                            { ic_indexPath    = indexPath
 --                           , ic_startPages   = ["http://www.haskell.org/gtk2hs/docs/current/Graphics-UI-Gtk-General-Drag.html"]
 --                           , ic_fCrawlFilter = const False
                            } 
         
-        crawlerState  = initialCrawlerState idxConfig emptyDocuments customCrawlFunc
+	crawlerState'  = (initialCrawlerState idxConfig emptyDocuments customCrawlFunc)
+	crawlerState  = crawlerState' {
+	  cs_fGetReferences = appendLinkUnifier (cs_fGetReferences crawlerState')
+	}
+
     
       -- we don't want to shipwreck because of missing dirs
     createDirectoryIfMissing True  ((fromJust (ic_tempPath idxConfig)) ++ "split/")
@@ -164,6 +171,12 @@ main
     putStrLn "---------------------------------------------------------------"
     return ()
 
+
+appendLinkUnifier :: ArrowXml a' => a' XmlTree [URI] -> a' XmlTree [URI]
+appendLinkUnifier a = 
+  a >>> arr (map (\s -> subRegex (mkRegex "http://hackage.haskell.org/packages/archive/([^/]*)/[^/]*/doc/html/(.*)") 
+				 s
+				 "http://hackage.haskell.org/packages/archive/\\1/latest/doc/html/\\2"))
 
 packageFromURI :: String -> String
 packageFromURI u = if "http://www.haskell.org/gtk2hs/docs/current/" `isPrefixOf` u
