@@ -514,6 +514,49 @@ union'' f kf pt1 pt2		= uni (norm pt1) (norm pt2)
     uni _                    _                  = normError "union''"
 
 -- ----------------------------------------
+--
+-- | /(O(min(n,m))/ Difference between two tries (based on keys).
+
+difference 			:: PrefixTree a -> PrefixTree b -> PrefixTree a
+difference 			= differenceWith (const (const Nothing))
+
+-- | /(O(min(n,m))/ Difference with a combining function. If the combining function always returns
+-- 'Nothing', this is equal to proper set difference.
+
+differenceWith 			:: (a -> b -> Maybe a) -> PrefixTree a -> PrefixTree b -> PrefixTree a
+differenceWith f 		= differenceWithKey (const f)
+
+-- | /O(min(n,m))/ Difference with a combining function, including the key. If two equal keys are
+-- encountered, the combining function is applied to the key and both values. If it returns
+-- 'Nothing', the element is discarded, if it returns 'Just' a value, the element is updated
+-- with the new value.
+
+differenceWithKey 		:: (Key -> a -> b -> Maybe a) -> PrefixTree a -> PrefixTree b -> PrefixTree a
+differenceWithKey f		= diff'' f id
+
+diff'' f kf pt1 pt2 		= dif (norm pt1) (norm pt2)
+    where
+    dif' t1' t2'		= diff'' f kf (norm t1') (norm t2')
+
+    dif     Empty               _		= empty
+
+    dif    (Val v1 t1)           Empty		= val  v1       t1
+    dif    (Val v1 t1)          (Val v2 t2)	=
+	case f (kf []) v1 v2 of
+			     Nothing 		->         dif' t1 t2
+			     Just nv 		-> val nv (dif' t1 t2)
+    dif    (Val v1 t1)       t2@(Branch _ _ _)	=  val v1 (dif' t1 t2)
+
+    dif    (Branch c1 s1 n1)     Empty		= branch c1 s1 n1
+    dif t1@(Branch _  _  _ )    (Val v2 t2)	= dif' t1 t2 
+    dif t1@(Branch c1 s1 n1) t2@(Branch c2 s2 n2)
+        | c1 <  c2				= branch c1                        s1       (dif' n1 t2)
+        | c1 >  c2				=                                            dif' t1 n2
+        | otherwise				= branch c1 (diff'' f (kf . (c1:)) s1 s2)   (dif' n1 n2)
+    dif _                    _                  = normError "diff''"
+
+
+-- ----------------------------------------
 
 -- | cut off all branches from a tree @t2@ that are not part of tree @t1@
 --
@@ -768,12 +811,16 @@ instance Show a => Show (PrefixTree a) where
 
 -}
 
+-- ----------------------------------------
+
 instance Read a => Read (PrefixTree a) where
   readsPrec p = readParen (p > 10) $
     \ r -> do
 	   ("fromList",s) <- lex r
 	   (xs,t) <- reads s
 	   return (fromList xs,t)
+
+-- ----------------------------------------
 
 instance NFData a => NFData (PrefixTree a) where
     rnf (Empty)		= ()
@@ -788,6 +835,8 @@ instance NFData a => NFData (PrefixTree a) where
     rnf (LsVal k  v)	= rnf k  `seq` rnf v
     rnf (BrVal k  v n)	= rnf k  `seq` rnf v `seq` rnf n
 
+-- ----------------------------------------
+--
 -- Provide native binary serialization (not via to-/fromList).
 
 instance (Binary a) => Binary (PrefixTree a) where
@@ -852,37 +901,4 @@ instance (Binary a) => Binary (PrefixTree a) where
 			return $! BrVal k v n
 		   _ -> fail "PrefixTree.get: error while decoding PrefixTree"
 
-{-
--- | /(O(n+m)/ Difference between two tries (based on keys).
-difference :: PrefixTree a -> PrefixTree b -> PrefixTree a
-difference = differenceWith (const (const Nothing))
-
--- | /(O(n+m)/ Difference with a combining function. If the combining function always returns
--- 'Nothing', this is equal to proper set difference.
-differenceWith :: (a -> b -> Maybe a) -> PrefixTree a -> PrefixTree b -> PrefixTree a
-differenceWith f = differenceWithKey (const f)
-
--- | /O(n+m)/ Difference with a combining function, including the key. If two equal keys are
--- encountered, the combining function is applied to the key and both values. If it returns
--- 'Nothing', the element is discarded, if it returns 'Just' a value, the element is updated
--- with the new value.
-differenceWithKey :: (Key -> a -> b -> Maybe a) -> PrefixTree a -> PrefixTree b -> PrefixTree a
-differenceWithKey f t1 t2 = foldWithKey (\k v t -> updateWithKey (\k' v' -> f k' v' v) k t) t1 t2
-
--- | /O(n)/ Returns the lengths of all keys (including keys of intermediate nodes). For 
--- debugging purposes.
-lengths :: PrefixTree a -> [Int]
-lengths t = (length (key t)):(foldr (flip (++) . lengths) [] (succ t))
-
--- | /O(n)/ Check some invariants to detect inconsistencies.
-check :: PrefixTree a -> Bool
-check (Seq [] s) = foldr check' True s
-  where
-  check' (Seq _ []) _   = False -- Seq node without any successor is not allowed.
-  check' (Seq _ [_]) _  = False -- Seq node with just one successor is not allowed.
-  check' (Seq [] _) _   = False -- Seq node with empty key is not allowed.
-  check' (End [] _ _) _ = False -- End node with empty key is not allowed
-  check' t r = foldr check' r (succ t)
-check _ = False
-
--}
+-- ----------------------------------------
