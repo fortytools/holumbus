@@ -56,6 +56,8 @@ import           Holumbus.Utility
 import           Network.URI(unEscapeString)
 
 import           System.Directory
+import           System.Environment
+import	         System.Exit
 
 import           Text.XML.HXT.Arrow     
 import           Text.XML.HXT.Arrow.XmlRegex
@@ -64,6 +66,10 @@ import           Text.Regex
 main :: IO ()
 main 
   = do
+
+    argv <- getArgs
+    if length argv > 1 then exitWith (ExitFailure (-1)) else return ()
+    if (length argv == 1) && (not ((argv !! 0) `elem` ["-c", "-s", "-i"])) then exitWith (ExitFailure (-1)) else return ()
     -- ---------------------------------------------------------------------------------------------
     --   Configuration
     -- ---------------------------------------------------------------------------------------------
@@ -97,16 +103,17 @@ main
     
     
     -- ---------------------------------------------------------------------------------------------
+    -- crawl or load documents from file 
+    runX (traceMsg 0 (" crawling  ----------------------------- " ))
+    hayooDocs <- 
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
-    runX (traceMsg 0 (" crawling  ----------------------------- " ))
-    runX (traceMsg 0 ("           (1) Hackage " ))
-
-    hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
---    hackageCrawled <- loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
---    let hackageCrawled = emptyDocuments
-      
-    let hackageDocs =  filterDocuments -- TODO clean this up
+      if (length argv) == 0 || (argv !! 0) == "-c"
+      then 
+	do
+	  runX (traceMsg 0 ("           (1) Hackage " ))
+	  hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
+	  let hackageDocs =  filterDocuments -- TODO clean this up
                          ( isPrefixOf "http://hackage.haskell.org/packages/archive/" . uri) $
                        filterDocuments 
                          (\d -> (not $ isSuffixOf "pkg-list.html" $ uri d))  $ 
@@ -114,62 +121,71 @@ main
                          (\d -> (not $ isSuffixOf "recent.html"  $ uri d )) 
                        hackageCrawled
 
-        hackageDocs'  = filterDocuments (hackageFilter . uri) hackageDocs
-        hackageLatest = filterDocuments (isLatestVersion (getVersions hackageDocs')) hackageDocs'
+	      hackageDocs'  = filterDocuments (hackageFilter . uri) hackageDocs
+	      hackageLatest = filterDocuments (isLatestVersion (getVersions hackageDocs')) hackageDocs'
 
-    runX (traceMsg 0 ("           (2) Additional libraries " ))
-    
-    let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
-    additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
---    let additionalDocs = emptyDocuments
+	  runX (traceMsg 0 ("           (2) Additional libraries " ))
+	  let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
+	  additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
       
-    let hayooDocs = snd $ mergeDocs hackageLatest additionalDocs
-    
-    writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs
-    writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs
+	  let hayooDocs' = snd $ mergeDocs hackageLatest additionalDocs
+    	  writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs'
+	  writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs'
+	  return hayooDocs'
+      else (loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo))
+
   
 --    hayooDocs <- loadFromBinFile  ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
     hayooDocsSize <- return $! sizeDocs hayooDocs
     
+
     -- ---------------------------------------------------------------------------------------------
+    -- split files or load documents from file
+    runX (traceMsg 0 (" splitting ----------------------------- " ))
        -- split the locally saved documents into several small xml files
        -- where each file contains declaration & documentation of one function
-    runX (traceMsg 0 (" splitting ----------------------------- " ))
-    splitDocs' <- mapReduce 
-                    workerThreads 
-                    (getVirtualDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/"))
-                    mkVirtualDocList
-                    (IM.toList (IM.map uri (toMap hayooDocs)))
-    splitDocs  <-  return $! snd (M.elemAt 0 splitDocs')
-    
-    writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs)
-    writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs)
-
---    splitDocs <- loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
+    splitDocs <-
+      if (length argv) == 0 || (argv !! 0) == "-s"
+      then
+	do
+	  splitDocs'' <- mapReduce 
+			workerThreads 
+			(getVirtualDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/"))
+			mkVirtualDocList
+			(IM.toList (IM.map uri (toMap hayooDocs)))
+	  splitDocs'  <-  return $! snd (M.elemAt 0 splitDocs'')
+	  writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs')
+	  writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs')
+	  return splitDocs'
+      else
+	loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
 
     splitDocsSize <- return $! sizeDocs splitDocs
 
     -- ---------------------------------------------------------------------------------------------
-       -- build an index over the split xml files
-    runX (traceMsg 0 (" indexing  ------------------------------ " ))
-    localDocs <- return $ tmpDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/") splitDocs
+    -- build an index over the split xml files if wanted
     
-    cache     <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
-    
-    idx       <- buildIndex workerThreads traceLevel localDocs idxConfig
+    if (length argv) == 0 || (argv !! 0) == "-i"
+      then
+      do
+	runX (traceMsg 0 (" indexing  ------------------------------ " ))
+	localDocs <- return $ tmpDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/") splitDocs
+    	cache     <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
+	idx       <- buildIndex workerThreads traceLevel localDocs idxConfig
                             emptyInverted (Just cache)
+	writeToXmlFile ( indexPath ++ "-index.xml") idx
+	writeToBinFile ( indexPath ++ "-index.bin") idx
     
-    writeToXmlFile ( indexPath ++ "-index.xml") idx
-    writeToBinFile ( indexPath ++ "-index.bin") idx
-    
-    -- ---------------------------------------------------------------------------------------------
-       -- display some statistics
-    putStrLn "---------------------------------------------------------------"
-    putStrLn $ "Documents: " ++ show hayooDocsSize
-    putStrLn $ "Split documents: " ++ show splitDocsSize
-    putStrLn $ "Unique Words: " ++ show (sizeWords idx)    
-    putStrLn "---------------------------------------------------------------"
-    return ()
+	  -- ---------------------------------------------------------------------------------------------
+	  -- display some statistics
+	putStrLn "---------------------------------------------------------------"
+	putStrLn $ "Documents: " ++ show hayooDocsSize
+	putStrLn $ "Split documents: " ++ show splitDocsSize
+	putStrLn $ "Unique Words: " ++ show (sizeWords idx)    
+	putStrLn "---------------------------------------------------------------"
+	return ()
+      else
+	return ()
 
 
 appendLinkUnifier :: ArrowXml a' => a' XmlTree [URI] -> a' XmlTree [URI]
