@@ -571,6 +571,8 @@ map' f k (LsVal c  v)		= LsVal  c  (f (k []) v)
 map' f k (BrVal c  v n)         = BrVal  c  (f (k []) v) (map' f k n)
 
 -- ----------------------------------------
+--
+-- A prefix tree visitor
 
 data PrefixTreeVisitor a b	= PTV
     { v_empty		:: b
@@ -600,6 +602,16 @@ visit v (BrSeL cs v' n) = v_brsel  v cs v'          (visit v n)
 visit v (LsVal c  v')	= v_lsval  v c  v'
 visit v (BrVal c  v' n) = v_brval  v c  v'          (visit v n)
 
+-- ----------------------------------------
+--
+-- | space required by a prefix tree (logically)
+--
+-- Singletons are counted as 0, all other n-ary constructors
+-- are counted as n+1 (1 for the constructor and 1 for every field)
+-- cons nodes of char lists are counted 2, 1 for the cons, 1 for the char
+-- for values only the ref to the value is counted, not the space for the value itself
+-- key chars are assumed to be unboxed
+
 space			:: PrefixTree a -> Int
 
 space			= visit $
@@ -617,33 +629,62 @@ space			= visit $
                           , v_brval		= \ _  _ n -> 4                     + n
                           }
 
+keyChars		= visit $
+                          PTV
+                          { v_empty		= 0
+                          , v_val		= \ _  t   -> t
+                          , v_branch		= \ _  s n -> 1 + s + n
+                          , v_leaf		= \ _      -> 0
+                          , v_last		= \ _  s   -> 1 + s
+                          , v_lsseq		= \ cs s   -> length cs + s
+                          , v_brseq		= \ cs s n -> length cs + s + n
+                          , v_lssel		= \ cs _   -> length cs
+                          , v_brsel		= \ cs _ n -> length cs     + n
+                          , v_lsval		= \ _  _   -> 1
+                          , v_brval		= \ _  _ n -> 1             + n
+                          }
+
+-- ----------------------------------------
+--
+-- | count the # of values in the tree, the # of key chars and the total space required for the tree.
+--
+
+spaceChar		:: PrefixTree a -> (Int, Int, Int)
+spaceChar t		= (size t, keyChars t, space t)
+
+-- | relation between the data contained in a tree, the sum of the # of key chars and the # of values
+-- and the space required for the whole tree
+
+spaceRel		:: PrefixTree a -> Double
+spaceRel t		= let
+			  (v, k, s) = spaceChar t
+			  vk        = v + k
+			  in
+			  (fromInteger . toInteger) ((100 * s + vk `div` 2) `div` vk) / 100.0
+
+--			  (fromInteger . toInteger $ s) / (fromInteger . toInteger $ (v + k))
+ 
+-- ----------------------------------------
+--
+-- | statistics about the # of different nodes in an optimized prefix tree
+
 stat			:: PrefixTree a -> PrefixTree Int
 stat			=  visit $
                           PTV
                           { v_empty		=             singleton "empty"  1
-                          , v_val		= const $    (singleton "val"    1 `add`)
+                          , v_val		= \ _  t   -> singleton "val"    1 `add`  t
                           , v_branch		= \ _  s n -> singleton "branch" 1 `add` (s `add` n)
-                          , v_leaf		= const $     singleton "leaf"   1
-                          , v_last		= const $    (singleton "last"   1 `add`)
-                          , v_lsseq		= \ cs s   -> singleton ("lsseq" ++ show (length cs)) 1 `add` s
-                          , v_brseq		= \ cs s n -> singleton ("brseq" ++ show (length cs)) 1 `add` (s `add` n)
-                          , v_lssel		= \ cs _   -> singleton ("lssel" ++ show (length cs)) 1
-                          , v_brsel		= \ cs _ n -> singleton ("brseq" ++ show (length cs)) 1 `add`          n
+                          , v_leaf		= \ _      -> singleton "leaf"   1
+                          , v_last		= \ _  s   -> singleton "last"   1 `add`  s
+                          , v_lsseq		= \ cs s   -> singleton ("lsseq-" ++ show (length cs)) 1 `add` s
+                          , v_brseq		= \ cs s n -> singleton ("brseq-" ++ show (length cs)) 1 `add` (s `add` n)
+                          , v_lssel		= \ cs _   -> singleton ("lssel-" ++ show (length cs)) 1
+                          , v_brsel		= \ cs _ n -> singleton ("brseq-" ++ show (length cs)) 1 `add`          n
                           , v_lsval		= \ _  _   -> singleton "lsval" 1
                           , v_brval		= \ _  _ n -> singleton "brval" 1                       `add`          n
                           }
     where
     add			= unionWith (+)
-
-{-
-space (Empty)		= 0
-space (Val _ t)		= 3                 + space t
-space (Branch _ s n)    = 4                 + space s + space n
-space (Leaf _)		= 2
-space (Last _ s)	= 3                 + space s
-space (LsSeq cs s)	= 3 + 2 * length cs + space s
-space (BrSeq cs s n)    = 4 + 2 * length cs + space s + space n
--}
 
 -- ----------------------------------------
 
