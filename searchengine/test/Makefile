@@ -18,18 +18,35 @@ COVERAGE  = coverage
 TESTS     = BinaryTest CrunchTest DocumentsTest FuzzyTest InvertedTest \
             ParserTest PickleTest StrMapTest DiffListTest
 
-PROG			= AllTests
+PROG	= AllTests
 
-all : build test
+all 	: build test
 
-build :
+build 	:
 	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
 	$(GHC) -odir $(OUTPUT) -hidir $(OUTPUT) --make -o $(PROG) $(PROG).hs
 
-test :
+test 	:
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Running Holumbus tests..."
 	./$(PROG) -u -q
+
+PROG2	= SpaceTest
+
+space	: bibel.txt $(PROG2)
+
+$(PROG2): $(PROG2).hs
+	$(GHC) -odir $(OUTPUT) -hidir $(OUTPUT) --make -o $(PROG2) $(PROG2).hs
+
+spacetest	: space
+	@echo "Running Holumbus space tests..."
+	./$(PROG2)
+
+bibel.txt	:
+	wget -O bibel.zip http://www.kahal.de/bibel_elb_bibel.zip
+	unzip bibel.zip
+	mv -f elb_bibel.txt bibel.txt
+	rm -f bibel.zip
 
 hpc :
 	[ -d $(OUTPUT)_hpc ] || mkdir $(OUTPUT)_hpc
@@ -45,4 +62,4 @@ wc :
 	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`
 
 clean :
-	$(RM) $(PROG) $(PROG)_hpc *.hi *.o *.tix .hpc $(OUTPUT) $(OUTPUT)_hpc $(TESTDATA) $(COVERAGE)
+	$(RM) $(PROG) $(PROG)_hpc *.hi *.o *.tix .hpc $(OUTPUT) $(OUTPUT)_hpc $(TESTDATA) $(COVERAGE) bibel.txt

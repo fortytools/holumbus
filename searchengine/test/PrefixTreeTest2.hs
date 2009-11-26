@@ -14,7 +14,6 @@ import           Data.List              ( permutations
 import qualified Data.List      	as L
 
 import           Holumbus.Data.PrefixTree
-import 		 Holumbus.Data.PrefixTreeFuzzySearch
 
 import           Prelude 		hiding ( succ, lookup, map, null )
 import           Test.HUnit

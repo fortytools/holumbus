@@ -27,9 +27,8 @@ import Data.Function
 
 import qualified Data.Map as M
 
-import qualified Holumbus.Data.PrefixTreeFuzzySearch 	as PT
-
-import qualified PrefixTreeTest2			as PT2
+import qualified Holumbus.Data.PrefixTree 	as PT
+import qualified PrefixTreeTest2		as PT2
 
 import Test.HUnit
 import Test.QuickCheck
