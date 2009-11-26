@@ -39,65 +39,6 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Data.PrefixTreeCore
-{-
-  (
-  -- * Prefix tree types
-  PrefixTree (..)
-  , Key
-
-  -- * Operators
-  , (!)
-
-  -- * Query
-  , value
-  , valueWithDefault
-  , null
-  , size
-  , member
-  , lookup
-  , lookupBy
-  , findWithDefault  
-  , prefixFind
-  , prefixFindWithKey
-  , prefixFindBy
-  , prefixFindWithKeyBy
-
-  -- * Construction
-  , empty
-  , singleton
-  , insert
-  , insertWith
-  , insertWithKey
-  , delete
-  , update
-  , updateWithKey
-
-  -- * Traversal
-  , map
-  , mapWithKey
-  , fold
-  , foldWithKey
-
-  -- * Combine
-  , union
-  , unionWith
-  , unionWithKey
-  , difference
-  , differenceWith
-  , differenceWithKey
-
-  -- * Conversion
-  , elems
-  , toList
-  , fromList
-  , toMap
-  , fromMap
-  
-  -- * Debug
-  , lengths
-  , check
-  )
--}
 where
 
 import           Prelude 	hiding ( succ, lookup, map, null )
@@ -293,10 +234,10 @@ lookup k t 		= case lookup' k t of
 -- | /O(min(n,L))/ Find the value associated with a key. The function will @return@ the result in
 -- the monad or @fail@ in it if the key isn't in the map.
 
-lookupWithDefault	:: a -> Key -> PrefixTree a -> a
-lookupWithDefault v0 k	= fromMaybe v0 . lookup' k
+findWithDefault	:: a -> Key -> PrefixTree a -> a
+findWithDefault v0 k	= fromMaybe v0 . lookup' k
 
-{-# INLINE lookupWithDefault #-}
+{-# INLINE findWithDefault #-}
 
 -- | /O(min(n,L))/ Is the key a member of the map?
 
@@ -308,7 +249,7 @@ member k 		= maybe False (const True) . lookup k
 -- | /O(min(n,L))/ Find the value at a key. Calls error when the element can not be found.
 
 (!) 			:: PrefixTree a -> Key -> a
-(!)	 		= flip $ lookupWithDefault (error "PrefixTree.! : element not in the map")
+(!)	 		= flip $ findWithDefault (error "PrefixTree.! : element not in the map")
 
 -- | /O(min(n,L))/ Insert a new key and value into the map. If the key is already present in
 -- the map, the associated value will be replaced with the new value.
@@ -534,6 +475,9 @@ differenceWith f 		= differenceWithKey (const f)
 differenceWithKey 		:: (Key -> a -> b -> Maybe a) -> PrefixTree a -> PrefixTree b -> PrefixTree a
 differenceWithKey f		= diff'' f id
 
+diff''		 		:: (Key -> a -> b -> Maybe a) ->
+                                   (Key -> Key) ->
+                                   PrefixTree a -> PrefixTree b -> PrefixTree a
 diff'' f kf pt1 pt2 		= dif (norm pt1) (norm pt2)
     where
     dif' t1' t2'		= diff'' f kf (norm t1') (norm t2')
@@ -548,7 +492,7 @@ diff'' f kf pt1 pt2 		= dif (norm pt1) (norm pt2)
     dif    (Val v1 t1)       t2@(Branch _ _ _)	=  val v1 (dif' t1 t2)
 
     dif    (Branch c1 s1 n1)     Empty		= branch c1 s1 n1
-    dif t1@(Branch _  _  _ )    (Val v2 t2)	= dif' t1 t2 
+    dif t1@(Branch _  _  _ )    (Val _  t2)	= dif' t1 t2 
     dif t1@(Branch c1 s1 n1) t2@(Branch c2 s2 n2)
         | c1 <  c2				= branch c1                        s1       (dif' n1 t2)
         | c1 >  c2				=                                            dif' t1 n2
@@ -585,7 +529,7 @@ cutPx'				= cutPx'' id
 cutAllPx'			:: PrefixTree b -> PrefixTree a -> PrefixTree a
 cutAllPx'			= cutPx'' (cv . norm)
     where
-    cv t@(Val v _)		= val v empty
+    cv (Val v _)		= val v empty
     cv _			= empty
 
 -- ----------------------------------------
@@ -656,7 +600,6 @@ visit v (BrVal c  v' n) = v_brval  v c  v'          (visit v n)
 -- key chars are assumed to be unboxed
 
 space			:: PrefixTree a -> Int
-
 space			= visit $
                           PTV
                           { v_empty		= 0
@@ -672,6 +615,7 @@ space			= visit $
                           , v_brval		= \ _  _ n -> 4                     + n
                           }
 
+keyChars		:: PrefixTree a -> Int
 keyChars		= visit $
                           PTV
                           { v_empty		= 0
@@ -687,26 +631,6 @@ keyChars		= visit $
                           , v_brval		= \ _  _ n -> 1             + n
                           }
 
--- ----------------------------------------
---
--- | count the # of values in the tree, the # of key chars and the total space required for the tree.
---
-
-spaceChar		:: PrefixTree a -> (Int, Int, Int)
-spaceChar t		= (size t, keyChars t, space t)
-
--- | relation between the data contained in a tree, the sum of the # of key chars and the # of values
--- and the space required for the whole tree
-
-spaceRel		:: PrefixTree a -> Double
-spaceRel t		= let
-			  (v, k, s) = spaceChar t
-			  vk        = v + k
-			  in
-			  (fromInteger . toInteger) ((100 * s + vk `div` 2) `div` vk) / 100.0
-
---			  (fromInteger . toInteger $ s) / (fromInteger . toInteger $ (v + k))
- 
 -- ----------------------------------------
 --
 -- | statistics about the # of different nodes in an optimized prefix tree

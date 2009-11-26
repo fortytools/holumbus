@@ -16,10 +16,52 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Data.PrefixTree
-    ( module Holumbus.Data.PrefixTreeCore
-    , module Holumbus.Data.PrefixTreeFuzzySearch
+    ( PrefixTree (..)
+    , Key
+    , (!)
+    , value
+    , valueWithDefault
+    , null
+    , size
+    , member
+    , lookup
+    , findWithDefault  
+    , prefixFind
+    , prefixFindWithKey
+    , empty
+    , singleton
+    , insert
+    , insertWith
+    , insertWithKey
+    , delete
+    , update
+    , updateWithKey
+    , map
+    , mapWithKey
+    , fold
+    , foldWithKey
+    , union
+    , unionWith
+    , unionWithKey
+    , difference
+    , differenceWith
+    , differenceWithKey
+    , keys
+    , elems
+    , toList
+    , fromList
+    , toMap
+    , fromMap
+    , space
+    , keyChars
+
+    , prefixFindNoCaseWithKey
+    , prefixFindNoCase
+    , lookupNoCase
     )
 where
+
+import Prelude 	hiding ( succ, lookup, map, null )
 
 import Holumbus.Data.PrefixTreeCore
 import Holumbus.Data.PrefixTreeFuzzySearch
