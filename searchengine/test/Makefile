@@ -29,7 +29,7 @@ build 	:
 test 	:
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Running Holumbus tests..."
-	./$(PROG) -u -q
+	./$(PROG) +RTS -K20M -RTS -u -q
 
 PROG2	= SpaceTest
 
