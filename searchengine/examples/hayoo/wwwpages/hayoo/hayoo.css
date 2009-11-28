@@ -185,30 +185,50 @@ a.rootModuleName {
 	padding:10px;
 }
 
-tr.description td {
-	padding-bottom: 10px;
-}
-
-td.module {
+div.module {
+        float:left;
 	text-align: right;
 	vertical-align: top;
 }
 
-td.function {
-	vertical-align: top;
+div.name {
+  float:left;
+}
+
+div.function {
+  width:100%;
 }	
 
-td.description {
-	color: gray;
-	text-align: left;
+div.details {
+  width:100%;
+  clear:both;
 }
 
-td.signature {
-	color: black;
-	width: 100%;
+div.description {
+/*   min-width:50%; */
+  max-width:80%;
+  max-height:1.2em;
+  overflow:hidden;
+  color: gray;
+  text-align: left;
+  float:left;
+  margin-left:5px;
 }
 
-td.package {
+div.signature {
+  float:left;
+  color: black;
+  margin-left:5px;
+}
+
+div.hit {
+  clear:both;
+  width:100%;
+  margin-bottom:10px;
+}
+
+div.package {
+  float:left;
 	text-align: right;
 	vertical-align: top;
 	color: #25CA00;
@@ -252,11 +272,6 @@ a.source:hover {
 	text-decoration: underline;
 }
 
-.description div {
-	max-height:1.2em;
-	overflow:hidden;
-}
-
 div.unfold {
 	max-height:none;
 }
@@ -265,15 +280,6 @@ a.toggleFold {
 	float:left;
 	margin-right:2px;
 	cursor:pointer;
-}
-
-span.description {
-	float:left;
-	max-width:90%;
-}
-
-span.source {
-	padding-left:5px;
 }
 
 #queryinterface {

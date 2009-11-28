@@ -116,7 +116,7 @@ xpPrepend t p = xpWrap (\(_, v) -> v, \v -> (t, v)) (xpPair xpText p)
 xpDocHitsHtml :: PickleState -> PU (Int, DocHits FunctionInfo)
 xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs (psCache s)) (xpPager s (psStart s)))
   where
-  xpDocs c = xpDivId "documents" $ xpElem "table" $ xpId "functions" (xpWrap (IM.fromList, toListSorted) (xpList $ xpDocInfoHtml c))
+  xpDocs c = xpDivId "documents" (xpWrap (IM.fromList, toListSorted) (xpList $ xpDocInfoHtml c))
   toListSorted = take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
 xpPager :: PickleState -> Int -> PU Int
@@ -125,29 +125,31 @@ xpPager ps s = xpWrap wrapper (xpOption $ xpDivId "pager" (xpWrap (\_ -> 0, make
   wrapper = (undefined, \v -> if v > 0 then Just v else Nothing)
 
 xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContextHits))
-xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
+xpDocInfoHtml c = xpElemClass "div" "hit" $ xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
   docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
   docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = 
-    (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
+    (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), getDesc i, liftM B.toString $ l))
     where
     modLink = takeWhile ((/=) '#')
     pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
     pkgLink p' = "http://hackage.haskell.org/cgi-bin/hackage-scripts/package/" ++ p'
     getDesc = unsafePerformIO . getDocText c "description" 
-  xpQualified = xpElem "tr" $ xpClass "function" $ xpTriple xpModule xpFunction xpSignature
+  xpQualified = xpElemClass "div" "function" $ xpTriple xpModule xpFunction xpSignature
     where
-    xpModule = xpCell "module" $ xpPair (xpElemClass "a" "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)
-    xpFunction = xpCell "function" $ xpPair (xpElemClass "a" "function" $ xpAttr "href" $ xpText) xpText
+    xpModule = xpCell "module" $ xpLink "module" xpText (xpAppend "." $ xpText)
+    xpFunction = xpCell "name" $ xpLink "function" xpText xpText
     xpSignature = xpCell "signature" $ xpPrepend ":: " xpSigDecl
-  xpAdditional = xpElemClass "tr" "description" $ xpPair xpPackage $ xpDescSource
+  xpAdditional = xpElemClass "div" "details" $ xpTriple xpPackage xpDescription xpSource
     where
-    xpPackage = xpCell "package" $ xpPair (xpElemClass "a" "package" $ xpAttr "href" $ xpText) xpText
-    xpDescSource = xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpElem "div" $ xpPair xpDescription xpSource
-    xpDescription = xpWrap (undefined, limitDescription) $ xpPair xpUnfoldLink (xpElemClass "span" "description" $ xpText)
-    xpUnfoldLink = xpElemClass "a" "toggleFold" $ xpAddFixedAttr "onclick" "toggleFold(this);" $xpText
-    xpSource = xpOption $ (xpElemClass "span" "source" $ xpElemClass "a" "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
+    xpPackage = xpCell "package" $ xpLink "package" xpText xpText
+    xpDescription = xpCell "description" $ xpWrap (undefined, limitDescription) $ xpPair xpUnfoldLink (xpElem "div" $ xpText)
+    xpUnfoldLink = xpElemClass "a" "toggleFold" $ xpAddFixedAttr "onclick" "toggleFold(this);" $ xpText
+    xpSource = xpOption $ (xpElemClass "div" "source" $ xpElemClass "a" "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
     limitDescription = maybe ("+", "No description. ") (\d -> ("+", d))
+
+xpLink :: String -> PU String -> PU String -> PU (String, String)
+xpLink c pa pb = xpElemClass "a" c $ xpPair (xpAttr "href" pa) pb
 
 data Signature = Signature String
                | Declaration String
@@ -164,7 +166,7 @@ xpSigDecl = xpWrap (undefined, makeSignature) (xpAlt tag [xpSig, xpDecl])
                     else Signature s
 
 xpCell :: String -> PU a -> PU a
-xpCell c p = xpElem "td" $ xpClass c $ p
+xpCell c p = xpElem "div" $ xpClass c $ p
 
 xpWordHitsHtml :: PickleState -> PU (Score, WordHits)
 xpWordHitsHtml ps = xpDivId "words" $ xpElemClass "p" "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)

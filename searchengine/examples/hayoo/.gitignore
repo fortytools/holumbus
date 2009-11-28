@@ -1,3 +1,10 @@
 Hebalizer
 Indexer
 output
+indexes
+*.o
+*.hi
+*.log
+janus
+Janus.hs
+*~
