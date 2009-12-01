@@ -12,6 +12,13 @@
 
   Indexer for the Haskell API Documentation Search Engine Hayoo!
 
+  Usage: Indexer [-c|-s|-i|-d]
+    no options given: crawl, split and index
+    -c: crawl
+    -s: split
+    -i: index
+    -d: debug with limited document set (crawl, split and index)
+
   Current scope:
     - <http://hackage.haskell.org/>
     - <http://www.haskell.org/gtk2hs/docs/current/>
@@ -27,7 +34,7 @@
 
 module Main where
 
--- import           HayooConfig
+-- import           Hayoo.Common
 
 import           Control.Monad hiding (join, when)
 import qualified Control.Monad as CM (when)
@@ -69,7 +76,7 @@ main
 
     argv <- getArgs
     if length argv > 1 then exitWith (ExitFailure (-1)) else return ()
-    if (length argv == 1) && (not ((argv !! 0) `elem` ["-c", "-s", "-i"])) then exitWith (ExitFailure (-1)) else return ()
+    if (length argv == 1) && (not ((argv !! 0) `elem` ["-c", "-s", "-i", "-d"])) then exitWith (ExitFailure (-1)) else return ()
     -- ---------------------------------------------------------------------------------------------
     --   Configuration
     -- ---------------------------------------------------------------------------------------------
@@ -79,19 +86,18 @@ main
         workerThreads = 8 
         docsPerCrawl  = 256
         indexPath     = dir ++ "/indexes/hayoo"
---        idxConfig     = ic_HTTP { ic_indexPath = dir ++ "/indexes/hxt" }
-	idxConfig     = ic_Hayoo { ic_indexPath = indexPath }
+
+        idxConfig     = 
+          if (length argv) > 0 && (argv !! 0) == "-d"
+            then ic_HTTP  { ic_indexPath = dir ++ "/indexes/hxt" }
+            else ic_Hayoo { ic_indexPath = indexPath }
 	
-        additionalConfig = ic_Hayoo_additional 
-                           { ic_indexPath    = indexPath
---                           , ic_startPages   = ["http://www.haskell.org/gtk2hs/docs/current/Graphics-UI-Gtk-General-Drag.html"]
---                           , ic_fCrawlFilter = const False
-                           } 
+        additionalConfig = ic_Hayoo_additional { ic_indexPath    = indexPath } 
         
-	crawlerState'  = (initialCrawlerState idxConfig emptyDocuments customCrawlFunc)
-	crawlerState  = crawlerState' {
-	  cs_fGetReferences = appendLinkUnifier (cs_fGetReferences crawlerState')
-	}
+        crawlerState' = (initialCrawlerState idxConfig emptyDocuments customCrawlFunc)
+        crawlerState  = crawlerState' {
+          cs_fGetReferences = appendLinkUnifier (cs_fGetReferences crawlerState')
+        }
 
     
       -- we don't want to shipwreck because of missing dirs
@@ -104,92 +110,98 @@ main
     
     -- ---------------------------------------------------------------------------------------------
     -- crawl or load documents from file 
-    runX (traceMsg 0 (" crawling  ----------------------------- " ))
     hayooDocs <- 
        -- find available documents and save local copies as configured 
        -- in the IndexerConfig
-      if (length argv) == 0 || (argv !! 0) == "-c"
+      if (length argv) == 0 || (argv !! 0) `elem` ["-c", "-d"]
       then 
-	do
-	  runX (traceMsg 0 ("           (1) Hackage " ))
-	  hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
-	  let hackageDocs =  filterDocuments -- TODO clean this up
-                         ( isPrefixOf "http://hackage.haskell.org/packages/archive/" . uri) $
-                       filterDocuments 
-                         (\d -> (not $ isSuffixOf "pkg-list.html" $ uri d))  $ 
-                       filterDocuments 
-                         (\d -> (not $ isSuffixOf "recent.html"  $ uri d )) 
-                       hackageCrawled
+        do
+        runX (traceMsg 0 (" crawling  ----------------------------- " ))
+        runX (traceMsg 0 ("           (1) Hackage " ))
+        hackageCrawled <- crawl traceLevel workerThreads docsPerCrawl crawlerState 
+        let hackageDocs = filterDocuments -- TODO clean this up
+                            ( isPrefixOf "http://hackage.haskell.org/packages/archive/" . uri) $
+                          filterDocuments 
+                            (\d -> (not $ isSuffixOf "pkg-list.html" $ uri d))  $ 
+                          filterDocuments 
+                            (\d -> (not $ isSuffixOf "recent.html"  $ uri d )) 
+                          hackageCrawled
 
-	      hackageDocs'  = filterDocuments (hackageFilter . uri) hackageDocs
-	      hackageLatest = filterDocuments (isLatestVersion (getVersions hackageDocs')) hackageDocs'
+            hackageLatest = filterDocuments (hackageFilter . uri) hackageDocs
 
-	  runX (traceMsg 0 ("           (2) Additional libraries " ))
-	  let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
-	  additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
-      
-	  let hayooDocs' = snd $ mergeDocs hackageLatest additionalDocs
-    	  -- writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs'
-	  writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs'
-	  return hayooDocs'
-      else (loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo))
+        runX (traceMsg 0 ("           (2) Additional libraries " ))
+        let additionalState = initialCrawlerState additionalConfig emptyDocuments customCrawlFunc
+        additionalDocs <- 
+          if (argv !! 0) == "-d"
+            then return emptyDocuments
+            else crawl traceLevel workerThreads docsPerCrawl additionalState
+    
+        let hayooDocs' = snd $ mergeDocs hackageLatest additionalDocs
+
+        if (argv !! 0) == "-d" 
+          then writeToXmlFile ( indexPath ++ "-predocs.xml") hayooDocs'
+          else return ()
+        writeToBinFile ( indexPath ++ "-predocs.bin") hayooDocs'
+        return hayooDocs'
+      else (loadFromBinFile ( indexPath ++ "-predocs.bin") :: IO (Documents FunctionInfo))
 
   
---    hayooDocs <- loadFromBinFile  ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo)
     hayooDocsSize <- return $! sizeDocs hayooDocs
     
 
     -- ---------------------------------------------------------------------------------------------
     -- split files or load documents from file
-    runX (traceMsg 0 (" splitting ----------------------------- " ))
        -- split the locally saved documents into several small xml files
        -- where each file contains declaration & documentation of one function
     splitDocs <-
-      if ((length argv) == 0 || (argv !! 0) == "-s") && hayooDocsSize > 0
+      if ((length argv) == 0 || (argv !! 0) `elem` ["-s", "-d"]) && hayooDocsSize > 0
       then
-	do
-	  splitDocs'' <- mapReduce 
-			workerThreads 
-			(getVirtualDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/"))
-			mkVirtualDocList
-			(IM.toList (IM.map uri (toMap hayooDocs)))
-	  splitDocs'  <-  return $! snd (M.elemAt 0 splitDocs'')
-	  writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs')
-	  writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs')
-	  return splitDocs'
+        do
+        runX (traceMsg 0 (" splitting ----------------------------- " ))
+        splitDocs'' <- mapReduce 
+            workerThreads 
+            (getVirtualDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/"))
+            mkVirtualDocList
+            (IM.toList (IM.map uri (toMap hayooDocs)))
+        splitDocs'  <-  return $! snd (M.elemAt 0 splitDocs'')
+        if (argv !! 0) == "-d"
+          then writeToXmlFile ( indexPath ++ "-docs.xml") (splitDocs')
+          else return ()
+        writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs')
+        return splitDocs'
       else
-       if (argv !! 0) == "-i"
-       then
-         loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
-       else
-         return emptyDocuments
+        if (argv !! 0) == "-i"
+        then
+          loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
+        else
+          return emptyDocuments
 
     splitDocsSize <- return $! sizeDocs splitDocs
 
     -- ---------------------------------------------------------------------------------------------
     -- build an index over the split xml files if wanted
     
-    if (length argv) == 0 || (argv !! 0) == "-i"
+    if (length argv) == 0 || (argv !! 0) `elem` ["-i", "-d"]
       then
-      do
-	runX (traceMsg 0 (" indexing  ------------------------------ " ))
-	localDocs <- return $ tmpDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/") splitDocs
-    	cache     <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
-	idx       <- buildIndex workerThreads traceLevel localDocs idxConfig
+        do
+        runX (traceMsg 0 (" indexing  ------------------------------ " ))
+        localDocs <- return $ tmpDocs ((fromJust $ ic_tempPath idxConfig) ++ "split/") splitDocs
+        cache     <- createCache ( indexPath ++ "-cache.db")
+        idx       <- buildIndex workerThreads traceLevel localDocs idxConfig
                             emptyInverted (Just cache)
-	-- writeToXmlFile ( indexPath ++ "-index.xml") idx
-	writeToBinFile ( indexPath ++ "-index.bin") idx
+        if (argv !! 0) == "-d" then writeToXmlFile ( indexPath ++ "-index.xml") idx else return ()
+        writeToBinFile ( indexPath ++ "-index.bin") idx
     
-	  -- ---------------------------------------------------------------------------------------------
-	  -- display some statistics
-	putStrLn "---------------------------------------------------------------"
-	putStrLn $ "Documents: " ++ show hayooDocsSize
-	putStrLn $ "Split documents: " ++ show splitDocsSize
-	putStrLn $ "Unique Words: " ++ show (sizeWords idx)    
-	putStrLn "---------------------------------------------------------------"
-	return ()
+        -- ---------------------------------------------------------------------------------------------
+        -- display some statistics
+        putStrLn "---------------------------------------------------------------"
+        putStrLn $ "Documents: " ++ show hayooDocsSize
+        putStrLn $ "Split documents: " ++ show splitDocsSize
+        putStrLn $ "Unique Words: " ++ show (sizeWords idx)    
+        putStrLn "---------------------------------------------------------------"
+        return ()
       else
-	return ()
+        return ()
 
 
 appendLinkUnifier :: ArrowXml a' => a' XmlTree [URI] -> a' XmlTree [URI]
@@ -205,22 +217,6 @@ packageFromURI u = if "http://www.haskell.org/gtk2hs/docs/current/" `isPrefixOf`
                             then (split "/" u) !! 5
                             else "unknown package"
 
-
-
-isLatestVersion :: M.Map String String -> Document a -> Bool
-isLatestVersion m d = ver == M.findWithDefault "0" pkg m
-  where 
-  pkg = (split "/" (uri d)) !! 5
-  ver = (split "/" (uri d)) !! 6
-
-getVersions :: Binary a => Documents a -> M.Map String String
-getVersions docs = foldl' (\m d -> M.insertWith cmp (pkg d) (ver d) m) M.empty
-                          (map snd $ IM.toList $ toMap docs)
-  where 
-  cmp v1 v2 = if v1 >= v2 then v1 else v2
-  pkg d     = (split "/" (uri d)) !! 5
-  ver d     = (split "/" (uri d)) !! 6
-          
 
 hackageFilter :: URI -> Bool
 hackageFilter = simpleCrawlFilter [ "http://hackage.haskell.org/" ]                  -- allow
@@ -485,7 +481,7 @@ isSig
 
 getDeclName     :: LA XmlTree String
 getDeclName
-    = listA (hasName "tr" /> hasName "td" /> hasName "a"  >>> getAttrValue "name")>>. (take 1) . concat
+    = listA (hasName "tr" /> hasName "td" /> hasName "a"  >>> getAttrValue "name")>>. (drop 1) . concat
       >>> (arr $ drop 4)
 
 processTableRows      :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
@@ -606,13 +602,13 @@ theHayooXPath =  "//td[@class='decl']"
   
 ccs_Hayoo :: [ContextConfig]
 ccs_Hayoo = [  ccModule
-            , ccHierarchy
+--            , ccHierarchy
             , ccHayooName     
-            , ccHayooPartialName 
-            , ccHayooSignature 
-            , ccHayooNormalizedSignature
-            , ccHayooDescription
-            , ccPackage
+--            , ccHayooPartialName 
+--            , ccHayooSignature 
+--            , ccHayooNormalizedSignature
+--            , ccHayooDescription
+--            , ccPackage
             ]
             
 ccHayooName :: ContextConfig
@@ -690,7 +686,7 @@ ccPackage
   = ContextConfig { cc_name        = "package"
                   , cc_preFilter   = this
                   , cc_fExtract    = getXPathTrees "/table/tr/td[@id='package']"
-                  , cc_fTokenize   = \a -> [a]
+                  , cc_fTokenize   = \a -> [stripWith (==' ') a]
                   , cc_fIsStopWord = (flip elem) ["unknownpackage"]
                   , cc_addToCache  = False
                   }
@@ -771,13 +767,13 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
 ic_HTTP :: IndexerConfig
 ic_HTTP 
   = IndexerConfig
-    { ic_startPages     = [ "http://hackage.haskell.org/packages/archive/HTTP/4000.0.7/doc/html/Network-Browser.html"]
+    { ic_startPages     = [ "http://hackage.haskell.org/packages/archive/HTTP/latest/doc/html/Network-Browser.html"]
     , ic_tempPath        = Just "/tmp/"
     , ic_indexPath        = "/home/sms/indexes/http"
     , ic_indexerTimeOut  = 10 * 60 * 1000000
     , ic_contextConfigs = ccs_Hayoo
     , ic_readAttributes = standardReadDocumentAttributes
-    , ic_fCrawlFilter   = simpleCrawlFilter [ "http://hackage.haskell.org/packages/archive/HTTP/4000.0.7/doc/html/"]
+    , ic_fCrawlFilter   = simpleCrawlFilter [ "http://hackage.haskell.org/packages/archive/HTTP/latest/doc/html/"]
                                             [ "/src/"]
     }  
 
