@@ -52,18 +52,20 @@ extra-source-files:
     examples/cgicomplete/source/Server.hs
     examples/cgicomplete/Makefile
     test/AllTests.hs
-    test/ParserTest.hs
-    test/Makefile
-    test/StrMapTest.hs
-    test/FuzzyTest.hs
-    test/PickleTest.hs
-    test/DiffListTest.hs
     test/BinaryTest.hs
-    test/InvertedTest.hs
-    test/SampleData.hs
-    test/DocumentsTest.hs
     test/CrunchTest.hs
-    test/data/pickle.xml
+    test/DiffListTest.hs
+    test/DocumentsTest.hs
+    test/FuzzyTest.hs
+    test/InvertedTest.hs
+    test/Makefile
+    test/ParserTest.hs
+    test/PickleTest.hs
+    test/PrefixTreeTest2.hs
+    test/PrefixTreeTest.hs
+    test/SampleData.hs
+    test/SpaceTest.hs
+    test/StrMapTest.hs
 
 library
   build-depends: base           >= 4
@@ -72,7 +74,7 @@ library
                , directory      >= 1.0
                , old-time       >= 1.0
                , parallel       >= 1.0
-               , parsec         >= 2.1 && < 3
+               , parsec         >= 2.1 && < 4
                , network        >= 2.1
                , bytestring     >= 0.9
                , unix           >= 2.3
@@ -95,10 +97,13 @@ library
     Holumbus.Control.MapReduce.ParallelWithClassPersistent,
     Holumbus.Control.MapReduce.Parallel,
     Holumbus.Control.Registry,
-    Holumbus.Data.Crunch,
-    Holumbus.Data.DiffList,
-    Holumbus.Data.StrMap,
-    Holumbus.Data.Trie,
+    Holumbus.Data.Crunch
+    Holumbus.Data.DiffList
+    Holumbus.Data.PrefixTreeCore
+    Holumbus.Data.PrefixTreeFuzzySearch
+    Holumbus.Data.PrefixTree
+    Holumbus.Data.StrMap
+    Holumbus.Data.Trie
     Holumbus.Index.Cache,
     Holumbus.Index.Common,
     Holumbus.Index.Compression,
@@ -106,6 +111,7 @@ library
     Holumbus.Index.SmallDocuments,
     Holumbus.Index.Hybrid.Memory,
     Holumbus.Index.Inverted.Memory,
+    Holumbus.Index.Inverted.PrefixMem,
     Holumbus.Index.Inverted.Persistent,
     Holumbus.Index.Inverted.OneFile,
     Holumbus.Index.Inverted.Database,

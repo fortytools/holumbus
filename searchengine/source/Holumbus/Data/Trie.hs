@@ -103,6 +103,8 @@ module Holumbus.Data.Trie
   -- * Debug
   , lengths
   , check
+  , space
+  , keyChars
   )
 where
 
@@ -482,3 +484,13 @@ check (Seq [] s) = foldr check' True s
   check' (End [] _ _) _ = False -- End node with empty key is not allowed
   check' t r = foldr check' r (succ t)
 check _ = False
+
+-- | /O(n)/ Space required for the whole trie
+
+space	:: Trie a -> Int
+space (End k _ ts)	= 4 + 2 * length k + 2 * length ts + sum (fmap space ts)
+space (Seq k   ts)	= 3 + 2 * length k + 2 * length ts + sum (fmap space ts)
+
+keyChars	:: Trie a -> Int
+keyChars (End k _ ts)	= length k + sum (fmap keyChars ts)
+keyChars (Seq k   ts)	= length k + sum (fmap keyChars ts)

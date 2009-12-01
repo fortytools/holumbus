@@ -18,16 +18,13 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Data.PrefixTreeFuzzySearch
-    ( module Holumbus.Data.PrefixTreeFuzzySearch
-    , module Holumbus.Data.PrefixTree
-    )
 where
 
 import		 Data.Char
 import		 Data.Maybe
 import qualified Data.List		as L
 
-import 		 Holumbus.Data.PrefixTree
+import 		 Holumbus.Data.PrefixTreeCore
 
 -- ----------------------------------------
 
