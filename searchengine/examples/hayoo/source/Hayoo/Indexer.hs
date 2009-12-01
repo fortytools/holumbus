@@ -129,7 +129,7 @@ main
 	  additionalDocs <- crawl traceLevel workerThreads docsPerCrawl additionalState
       
 	  let hayooDocs' = snd $ mergeDocs hackageLatest additionalDocs
-    	  writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs'
+    	  -- writeToXmlFile ( (ic_indexPath idxConfig) ++ "-predocs.xml") hayooDocs'
 	  writeToBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") hayooDocs'
 	  return hayooDocs'
       else (loadFromBinFile ( (ic_indexPath idxConfig) ++ "-predocs.bin") :: IO (Documents FunctionInfo))
@@ -145,7 +145,7 @@ main
        -- split the locally saved documents into several small xml files
        -- where each file contains declaration & documentation of one function
     splitDocs <-
-      if (length argv) == 0 || (argv !! 0) == "-s"
+      if ((length argv) == 0 || (argv !! 0) == "-s") && hayooDocsSize > 0
       then
 	do
 	  splitDocs'' <- mapReduce 
@@ -158,7 +158,11 @@ main
 	  writeToBinFile ( indexPath ++ "-docs.bin") (splitDocs')
 	  return splitDocs'
       else
-	loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
+       if (argv !! 0) == "-i"
+       then
+         loadFromBinFile ( indexPath ++ "-docs.bin") :: IO (Documents FunctionInfo)
+       else
+         return emptyDocuments
 
     splitDocsSize <- return $! sizeDocs splitDocs
 
@@ -173,7 +177,7 @@ main
     	cache     <- createCache ((ic_indexPath idxConfig) ++ "-cache.db")
 	idx       <- buildIndex workerThreads traceLevel localDocs idxConfig
                             emptyInverted (Just cache)
-	writeToXmlFile ( indexPath ++ "-index.xml") idx
+	-- writeToXmlFile ( indexPath ++ "-index.xml") idx
 	writeToBinFile ( indexPath ++ "-index.bin") idx
     
 	  -- ---------------------------------------------------------------------------------------------
