@@ -1,5 +1,5 @@
 
-{-# OPTIONS -fglasgow-exts -fbang-patterns #-}
+ {-# LANGUAGE BangPatterns #-} 
 
 import Holumbus.Index.Common
 

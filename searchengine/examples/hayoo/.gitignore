@@ -8,3 +8,8 @@ indexes
 janus
 Janus.hs
 *~
+source/ConvDoc
+source/ConvIdx
+source/Search
+source/Stats
+

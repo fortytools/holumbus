@@ -37,7 +37,7 @@ import Holumbus.Utility
 import Holumbus.Query.Result
 
 -- Status information of query processing.
-type StatusResult = (String, Result FunctionInfo, [(String, Int)])
+type StatusResult = (String, Result FunctionInfo, [(String, Int)], [(String, Int)])
 
 -- | Additional information about a function.
 data FunctionInfo = FunctionInfo 
@@ -95,3 +95,4 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
 -- | Replace a given list with another list in a list.
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace old new l = join new . split old $ l
+

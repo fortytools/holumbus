@@ -24,6 +24,7 @@ import Prelude
 
 import Data.Function
 import Data.Maybe
+import Data.Char
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -217,7 +218,7 @@ replaceElem x y = map (\z -> if z == x then y else z)
 
 -- | Perform some postprocessing on the status and the result.
 arrFilterStatusResult :: ArrowXml a => a StatusResult StatusResult
-arrFilterStatusResult = arr $ (\(s, r, m) -> (s, filterResult r, m))
+arrFilterStatusResult = arr $ (\(s, r, m, p) -> (s, filterResult r, m, p))
   where
   filterResult (Result dh wh) = Result dh (M.filterWithKey (\w _ -> not ("->" `L.isInfixOf` w)) wh)
 
@@ -282,17 +283,19 @@ hayooRanking ws ts _ di dch = baseScore
 
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) StatusResult
-genResult = --ifP (\(q, _) -> checkWith ((> 1) . length) q)
+genResult = ifP (\(q, _) -> checkWith isEnough q)
               (proc (q, idc) -> do
                 res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
                 cfg <- (arr $ (\q' -> RankConfig (hayooRanking contextWeights (extractTerms q')) wordRankByCount)) -< q
                 rnk <- (arr $ rank cfg)            -<< res -- Rank the results
-                (arr $ (\r -> (msgSuccess r, r, genModules r))) -< rnk -- Include a success message in the status
+                (arr $ (\r -> (msgSuccess r, r, genModules r, genPackages r))) -< rnk -- Include a success message in the status
               )
-
               -- Tell the user to enter more characters if the search terms are too short.
---              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult)))
--- TH 12.04.2008: Preventing one-character queries makes searches for operators almost impossible.
+              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult, [], [])))
+
+isEnough :: String -> Bool
+isEnough (c:[]) = not (isAlpha c)
+isEnough _ = True
 
 -- | Generate a success status response from a query result.
 msgSuccess :: Result FunctionInfo -> String
@@ -317,7 +320,13 @@ genModules r = reverse $ L.sortBy (compare `on` snd) $ M.toList $ IM.fold collec
   where
   collectModules ((DocInfo d _), _)  modules = maybe modules (\fi -> M.insertWith (+) (takeWhile (/= '.') $ B.toString $ moduleName fi) 1 modules) (custom d)
 
+genPackages :: Result FunctionInfo -> [(String, Int)]
+genPackages r = reverse $ L.sortBy (compare `on` snd) $ M.toList $ IM.fold collectPackages M.empty (docHits r)
+  where
+  collectPackages ((DocInfo d _), _) packages = maybe packages (\fi -> M.insertWith (+) (B.toString $ package fi) 1 packages) (custom d)
+
 -- | Generate an error message in case the query could not be parsed.
 genError :: ArrowXml a => a (String, Core) StatusResult
-genError = arr $ (\(msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult, []))
+genError = arr $ (\(msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult, [], []))
+
 
