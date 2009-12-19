@@ -1,22 +1,26 @@
 #!/bin/bash
 
-[ -n "$MR_BIN" ] || { echo "Undefined variable: MR_BIN"; exit 1; }
-[ -n "$START_WORKER_SCRIPT" ] || { echo "Undefined variable: START_WORKER_SCRIPT"; exit 1; }
-[ -n "$CLIENT" ] || { echo "Undefined variable: CLIENT"; exit 1; }
-[ -n "$COPY_WORKER_DATA" ] || { echo "Undefined variable: COPY_WORKER_DATA"; exit 1; }
-[ -n "$1" ] || { echo "Parameter missing: WORKERS"; exit 1; }
-[ -n "$2" ] || { echo "Parameter missing: SPLITTERS"; exit 1; }
-[ -n "$3" ] || { echo "Parameter missing: MAPPERS"; exit 1; }
-[ -n "$4" ] || { echo "Parameter missing: REDUCERS"; exit 1; }
-[ -n "$5" ] || { echo "Parameter missing: FILENAME"; exit 1; }
-[ -n "$6" ] || { echo "Parameter missing: WORDS"; exit 1; }
+[ -n "$MR_BIN" ] || { echo "$0 Undefined variable: MR_BIN"; exit 1; }
+[ -n "$START_WORKER_SCRIPT" ] || { echo "$0 Undefined variable: START_WORKER_SCRIPT"; exit 1; }
+[ -n "$CLIENT" ] || { echo "$0 Undefined variable: CLIENT"; exit 1; }
+[ -n "$COPY_WORKER_DATA" ] || { echo "$0 Undefined variable: COPY_WORKER_DATA"; exit 1; }
+[ -n "$1" ] || { echo "$0 Parameter missing: WORKERS"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: SPLITTERS"; exit 1; }
+[ -n "$3" ] || { echo "$0 Parameter missing: MAPPERS"; exit 1; }
+[ -n "$4" ] || { echo "$0 Parameter missing: FILENAME"; exit 1; }
+[ -n "$5" ] || { echo "$0 Parameter missing: W"; exit 1; }
+[ -n "$6" ] || { echo "$0 Parameter missing: H"; exit 1; }
+[ -n "$7" ] || { echo "$0 Parameter missing: Z"; exit 1; }
+[ -n "$8" ] || { echo "$0 Parameter missing: IT"; exit 1; }
 
 WORKERS="$1"
 SPLITTERS="$2"
 MAPPERS="$3"
-REDUCERS="$4"
-FILENAME="$5"
-WORDS="$6"
+FILENAME="$4"
+W="$5"
+H="$6"
+Z="$7"
+IT="$8"
 
 echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $REDUCERS"
 # Start MR sytem and wait a sec
@@ -36,7 +40,7 @@ mkdir "data_$FILENAME_PREFIX" || { echo "dir exist do not overwrite it: exit"; e
 cd "data_$FILENAME_PREFIX"
 
 # run function
-/usr/bin/time -o "time.txt" -v "$CLIENT" "$FILENAME" "($SPLITTERS,$MAPPERS,$REDUCERS)" "$WORDS" +RTS -N3 -K4G -s"Memory.txt"
+/usr/bin/time -o "time.txt" -v "$CLIENT" "$FILENAME" "($W,$H,$Z,$IT)" "($SPLITTERS,$MAPPERS)" +RTS -N3 -K4G -s"Memory.txt"
 
 # stop workers
 $START_WORKER_SCRIPT stop 1 $WORKERS

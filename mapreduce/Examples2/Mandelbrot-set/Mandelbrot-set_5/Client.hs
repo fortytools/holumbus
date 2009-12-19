@@ -20,6 +20,7 @@ localLogger = "Holumbus.MapReduce.Examples2.Client"
 
 main :: IO ()
 main = do
+  putTimeStamp "Begin Client"
   -- read command line arguments
   (filename : quintet : duo : [] ) <- getArgs
   let (w,h,zmax,iterations) = read quintet
@@ -27,11 +28,16 @@ main = do
       ; list = map (:[]) $ part splitters h $ pixels w h
     
   -- call map reduce
+  putTimeStamp "Begin Client MR"
   result <- client splitF mapF reduceF (w,h,zmax,iterations) (splitters, mappers) list
+  putTimeStamp "Begin Client MR"
   let image = concatMap snd . sortBy sortImage $ result
   debugM localLogger $ show image 
   -- make the image
+  putTimeStamp "Begin Save"
   saveImage (Geo w h) (concatMap snd $ image) filename
+  putTimeStamp "End Save"
+  putTimeStamp "End Client"
 
 {-
  generate the pixlist

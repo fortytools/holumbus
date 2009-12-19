@@ -1,8 +1,8 @@
 #!/bin/bash
 
-[ -n "$DOSSH_CMD" ] || { echo "Undefined variable: DOSSH_CMD"; exit 1; }
-[ -n "$1" ] || { echo "Parameter missing: IP1"; exit 1; }
-[ -n "$2" ] || { echo "Parameter missing: IP2"; exit 1; }
+[ -n "$DOSSH_CMD" ] || { echo "$0 Undefined variable: DOSSH_CMD"; exit 1; }
+[ -n "$1" ] || { echo "$0 Parameter missing: IP1"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: IP2"; exit 1; }
 
 IP1=$1
 shift

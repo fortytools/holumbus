@@ -33,6 +33,7 @@ module Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO
  , V2
  , V3
  , V4
+ , putTimeStamp
 )
 where
 
@@ -54,6 +55,8 @@ import           System.Environment
 import           System.Exit
 import Data.Time.Clock.POSIX
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageTypes hiding (Image)
+import Data.Time.Clock.POSIX
+
 -- the x,y coordinates
 type XCoord = Int
 type YCoord = Int
@@ -280,3 +283,8 @@ deinitWorker (mr,fs)
   = do
     MR.closeMapReduce mr
     FS.closeFileSystem fs
+
+putTimeStamp :: String -> IO ()
+putTimeStamp s = do
+  t1 <- getPOSIXTime
+  putStrLn (s++" : "++ show t1)

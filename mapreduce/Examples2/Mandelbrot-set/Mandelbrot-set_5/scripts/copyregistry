@@ -1,9 +1,9 @@
 #!/bin/bash
 
-[ -n "$MR_BIN" ] || { echo "Undefined variable: MR_BIN"; exit 1; }
-[ -n "$COPY_REGISTRY_COMMAND" ] || { echo "Undefined variable: COPY_REGISTRY_COMMAND"; exit 1; }
-[ -n "$1" ] || { echo "Parameter missing: IP1"; exit 1; }
-[ -n "$2" ] || { echo "Parameter missing: IP2"; exit 1; }
+[ -n "$MR_BIN" ] || { echo "$0 Undefined variable: MR_BIN"; exit 1; }
+[ -n "$COPY_REGISTRY_COMMAND" ] || { echo "$0 Undefined variable: COPY_REGISTRY_COMMAND"; exit 1; }
+[ -n "$1" ] || { echo "$0 Parameter missing: IP1"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: IP2"; exit 1; }
 
 IP1="$1"
 IP2="$2"
