@@ -103,6 +103,8 @@ module Holumbus.MapReduce.Types
 , ReduceMerge 
 , ReduceFunction
 , ReducePartition
+, SplitFunction
+, SplitAction
 )
 where
 

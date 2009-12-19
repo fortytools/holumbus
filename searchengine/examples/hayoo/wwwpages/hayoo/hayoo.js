@@ -32,13 +32,12 @@ function checkForQuery () {
     lastLocation = window.location.hash;
     var prev = window.location.hash.split(":");
 
-    if (prev.length == 2) {
-      $("querytext").value = decodeURIComponent(prev[1]);
-      processQuery(parseInt(prev[0].substr(1)));
-    }
-    else {
-      window.setTimeout(checkForQuery, 200);
-    }
+    var start = prev[0].substr(1);
+    prev.shift();
+    var query = decodeURIComponent(prev.join(":"));
+
+    $("querytext").value = query;
+    processQuery(parseInt(start));
   }
   else {
     window.setTimeout(checkForQuery, 200);

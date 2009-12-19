@@ -1,0 +1,31 @@
+#!/bin/bash
+
+[ -n "$DOSSH" ] || { echo "Undefined variable: DOSSH"; exit 1; }
+[ -n "$WORKERS" ] || { echo "Undefined variable: WORKERS"; exit 1; }
+[ -n "$WORKER_DIR" ] || { echo "Undefined variable: WORKER_DIR"; exit 1; }
+[ -n "$WORKER_SSH_LOCATION" ] || { echo "Undefined variable: WORKER_SSH_LOCATION"; exit 1; }
+[ -n "$WORKER_BIN" ] || { echo "Undefined variable: WORKER_BIN"; exit 1; }
+[ -n "$WORKER_SH" ] || { echo "Undefined variable: WORKER_SH"; exit 1; }
+[ -n "$WORKER_PID" ] || { echo "Undefined variable: WORKER_PID"; exit 1; }
+[ -n "$1" ] || { echo "Parameter missing: OPT"; exit 1; }
+[ -n "$2" ] || { echo "Parameter missing: IP1"; exit 1; }
+[ -n "$3" ] || { echo "Parameter missing: IP2"; exit 1; }
+
+OPT="$1"
+shift
+case $OPT in
+  start)
+  for I in $WORKERS
+  do
+    WORKER_DIR2="${WORKER_DIR}_${I}"
+    $DOSSH $1 $2 "rm $WORKER_DIR2 -rf && mkdir -p $WORKER_DIR2 && cd $WORKER_DIR2 && scp $WORKER_SSH_LOCATION/$WORKER_BIN .  &&  scp $WORKER_SSH_LOCATION/scripts/$WORKER_SH . && start-stop-daemon --start -p $WORKER_DIR2/$WORKER_PID --background --startas $WORKER_DIR2/$WORKER_SH $WORKER_DIR2 10000 $WORKER_PID"
+  done
+  ;;
+  stop)
+  for I in $WORKERS
+  do
+    WORKER_DIR2="${WORKER_DIR}_${I}"
+    $DOSSH $1 $2 "start-stop-daemon --stop --signal 2 -p $WORKER_DIR2/$WORKER_PID"
+  done
+  ;; 
+esac

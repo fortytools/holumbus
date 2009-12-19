@@ -75,6 +75,9 @@ module Holumbus.Data.StrMap
   -- * Debug
   , lengths
   , check
+  , space
+  , keyChars
+  , keys
   )
 where
 
@@ -130,6 +133,9 @@ update f k m = T.update f (encode k) m
 
 updateWithKey :: (String -> a -> Maybe a) -> String -> StrMap a -> StrMap a
 updateWithKey f k m = T.updateWithKey (f . decode) (encode k) m
+
+keys	:: StrMap a -> [String]
+keys	= fmap fst . toList
 
 elems :: StrMap a -> [a]
 elems = T.elems
@@ -205,3 +211,9 @@ lengths = T.lengths
 
 check :: StrMap a -> Bool
 check = T.check
+
+space	:: StrMap a -> Int
+space	= T.space
+
+keyChars	:: StrMap a -> Int
+keyChars	= T.keyChars

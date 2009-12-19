@@ -1,0 +1,3 @@
+Mandelbrot set calulation with CUT strategy.
+
+The image ist cut into coherent pieces making the final sorting more efficent 
