@@ -118,7 +118,7 @@ import           Data.Maybe
 import           Data.Time
 
 import           System.Log.Logger
-import           System.Time.Clock.POSIX
+import           Data.Time.Clock.POSIX
 
 import           Text.XML.HXT.Arrow
 
@@ -1035,4 +1035,4 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
 putTimeStamp :: String -> IO ()
 putTimeStamp s = do
   t1 <- getPOSIXTime
-  putStrLn (s++" : "++ show t1)
+  infoM localLogger (s++" : "++ show t1)
