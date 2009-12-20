@@ -10,7 +10,7 @@ import Holumbus.MapReduce.Examples.MandelbrotSet.DMandel
 main :: IO ()
 main = worker splitF mapF reduceF
   [
-  ("Holumbus.MapReduce.Examples",DEBUG)
+   ("measure",ERROR)
   ,("Holumbus.MapReduce.Types",INFO)
-  ,("Holumbus.MapReduce.Examples2",INFO)
+  ,("Holumbus.MapReduce.Examples2",DEBUG)
   ]

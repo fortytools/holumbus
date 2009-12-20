@@ -11,6 +11,9 @@ import Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.MandelbrotSet.DMandel
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageTypes hiding (Image)
 
+-- holumbus libs
+import Holumbus.Common.Logging
+
 -- system libs
 import System.Environment
 import System.Log.Logger
@@ -20,6 +23,7 @@ localLogger = "Holumbus.MapReduce.Examples2.Client"
 
 main :: IO ()
 main = do
+  initializeFileLogging "/dev/stdout" ([(localLogger, DEBUG),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)])
   putTimeStamp "Begin Client"
   -- read command line arguments
   (filename : quintet : duo : [] ) <- getArgs
@@ -31,6 +35,7 @@ main = do
   putTimeStamp "Begin Client MR"
   result <- client splitF mapF reduceF (w,h,zmax,iterations) (splitters, mappers) list
   putTimeStamp "Begin Client MR"
+  debugM localLogger $ show result
   let image = concatMap snd . sortBy sortImage $ result
   debugM localLogger $ show image 
   -- make the image

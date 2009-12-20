@@ -167,6 +167,7 @@ actionConfig s m r = (defaultActionConfiguration "ID") {
 -}
 client :: SplitF -> MapF -> ReduceF -> Options -> (Int,Int) -> [[(K1,V1)]] -> IO [(K2,V4)]
 client s m r a (splitters, mappers) lss = do
+     
       -- create port registry
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
