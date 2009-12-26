@@ -24,7 +24,7 @@ processCrazySignatures
                            /> hasName "td" >>> hasAttrValue "class" ( (==) "body") 
                            /> hasName "table" 
                            /> hasName "tr" 
-                           /> hasName "td" >>> hasAttrValue "class" ( (==) "ndoc") 
+                           /> hasName "td" >>> hasAttrValue "class" ( (==) "rdoc") 
                          ) 
                        )
     >>> processChildren (processDocumentRootElement groupDeclSig declAndDocAndSignatureChildren)                      
@@ -33,12 +33,12 @@ preProcessCrazySignature :: LA XmlTree XmlTree
 preProcessCrazySignature = 
          ( selem "tr" 
                   [ mkelem "td" [sattr "class" "signature"] 
-                                [getXPathTrees "//td[@class='arg']" >>> getChildren  ]  
+                  [getXPathTrees "//td[@class='arg']" >>> getChildren ]  
                   ] 
            &&&   
            selem "tr" 
                   [ mkelem "td" [sattr "class" "doc"]
-                                [getXPathTrees "//td[@class='ndoc']" >>> getChildren ]
+                                [getXPathTrees "//td[@class='rdoc']" >>> getChildren ]
                   ]
          ) >>> mergeA (<+>)
          
@@ -69,8 +69,9 @@ isSig
 
 getDeclName     :: LA XmlTree String
 getDeclName
-    = listA (hasName "tr" /> hasName "td" /> hasName "a"  >>> getAttrValue "name")>>. (drop 1) . concat
-      >>> (arr $ drop 4)
+    = (xshow $ getXPathTrees "//tr/td/a/@name/text()" >>. take 1) >>^ drop 2
+--    = xshow $ (hasName "tr" /> hasName "td" /> hasName "a"  >>> getAttrValue "name") >>^ (drop 1) )
+--    >>^ drop 4
 
 processTableRows      :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
 processTableRows theGrouping ts
@@ -109,6 +110,7 @@ groupDeclSig ts =
                           [unlistA >>> getXPathTrees "//td[@class='doc']" >>> getChildren] 
                  ]
 
+{-
 groupDeclDoc    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
 groupDeclDoc ts   
       = scanRegexA declDoc ts >>>
@@ -116,6 +118,7 @@ groupDeclDoc ts
         [ sattr "class" "decl"
         , attr  "id" (unlistA >>> getDeclName >>> mkText)
         ] [unlistA >>> getChildren]
+-}
 
 isArg :: LA XmlTree XmlTree
 isArg = hasName "tr" />  hasName "td" >>> hasAttrValue "class" (== "arg")

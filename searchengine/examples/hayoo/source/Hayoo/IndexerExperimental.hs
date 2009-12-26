@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : HayooIndexer
+  Module     : HayooIndexerExperimental
   Copyright  : Copyright (C) 2008 Sebastian M. Schlatt
   License    : MIT
 
@@ -48,8 +48,8 @@ import           Data.Maybe
 import           qualified Data.IntMap as IM
 import           qualified Data.Map    as M
 
-import           Holumbus.Build.Crawl
-import           Holumbus.Build.Index
+import           Holumbus.Build.Crawl -- Experimental
+import           Holumbus.Build.IndexExperimental
 
 import           Holumbus.Control.MapReduce.Parallel
 -- import           Holumbus.Index.Cache
@@ -86,7 +86,7 @@ main
 
         idxConfig     = 
           if (length argv) > 0 && (argv !! 0) == "-d"
-            then ic_Holumbus  { ic_indexPath = dir ++ "/indexes/holumbus" }
+            then ic_HTTP  { ic_indexPath = dir ++ "/indexes/hxt" }
             else ic_Hayoo { ic_indexPath = indexPath }
 	
         additionalConfig = ic_Hayoo_additional { ic_indexPath    = indexPath } 
@@ -101,7 +101,6 @@ main
     createDirectoryIfMissing True  ((fromJust (ic_tempPath idxConfig)) ++ "split/")
     createDirectoryIfMissing True  (fromJust (ic_tempPath idxConfig))
     createDirectoryIfMissing False indexPath
-    
     e <- doesFileExist (indexPath ++ "-cache.db")      -- remove cache if already existing
     CM.when e (removeFile (indexPath ++ "-cache.db"))
     

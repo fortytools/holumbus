@@ -30,6 +30,7 @@ import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as B
 
 import Control.Monad hiding (join)
+import Control.Parallel.Strategies
 
 import Text.XML.HXT.Arrow
 
@@ -59,6 +60,17 @@ instance XmlPickler FunctionInfo where
       xpSignature = xpAttr "signature" xpText0
       xpPackage = xpAttr "package" xpText0
       xpSource = xpOption (xpAttr "source" xpText0)
+
+instance NFData FunctionInfo 
+{-
+where
+  rnf fi = fi
+            { moduleName = rnf (moduleName fi)
+            , signature  = rnf (signature fi)
+            , package    = rnf (package fi)
+            , sourceURI  = rnf (sourceURI fi)
+            } `seq` ()
+-}
 
 instance Binary FunctionInfo where
   put (FunctionInfo m s p r) = put m >> put s >> put p >> put r

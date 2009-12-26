@@ -71,6 +71,19 @@ ic_HTTP
                                             [ "/src/"]
     }  
 
+-- | this config is used for debugging. it uses a small set of documents
+ic_Holumbus :: IndexerConfig
+ic_Holumbus
+  = IndexerConfig
+    { ic_startPages     = [ "http://hackage.haskell.org/packages/archive/Holumbus-MapReduce/latest/doc/html/Holumbus-Standalone-SMapReduce.html"]
+    , ic_tempPath        = Just "/tmp/"
+    , ic_indexPath        = "/home/sms/indexes/http"
+    , ic_indexerTimeOut  = 10 * 60 * 1000000
+    , ic_contextConfigs = ccs_Hayoo
+    , ic_readAttributes = standardReadDocumentAttributes
+    , ic_fCrawlFilter   = simpleCrawlFilter [ "http://hackage.haskell.org/packages/archive/Holumbus-MapReduce/latest/doc/html/"]
+                                            [ "/src/"]
+    }  
 
 -- -----------------------------------------------------------------------------    
 
@@ -199,19 +212,23 @@ ccPackage
                   }
                               
 getSignature :: String -> String
-getSignature s = if "=>" `isInfixOf` s  then stripSignature $ drop 3 $ dropWhile ((/=) '=') s
-                                        else stripSignature $ drop 3 $ dropWhile ((/=) ':') s
+getSignature s = stripWith (==' ') $ 
+                  if "=>" `isInfixOf` s  then stripSignature $ drop 3 $ dropWhile ((/=) '=') s
+                                         else stripSignature $ drop 3 $ dropWhile ((/=) ':') s
 
 
 -- | TODO some of this is redundant, some important. find out what and why and simplify
 preFilterSignatures :: LA XmlTree XmlTree
 preFilterSignatures = this
-{-       >>> flattenElementsByType "b"
+--      >>> topDeclToDecl
+      >>> flattenElementsByType "a"
+      >>> flattenElementsByType "b"
       >>> flattenElementsByType "span"
       >>> flattenElementsByType "em"
       >>> flattenElementsByType "p"
-      >>> flattenElementsByType "pre"
-     >>> removeDeclbut  -- redundant !?
+      >>> flattenElementsByType "pre" 
+--      >>> removeDeclbut
+
 
 flattenElementsByType :: String -> LA XmlTree XmlTree
 flattenElementsByType s = processTopDown ( getChildren `when` hasName s )
@@ -220,4 +237,3 @@ removeDeclbut :: ArrowXml a => a XmlTree XmlTree
 removeDeclbut = processTopDown (  none `when` isDeclbut )
   where isDeclbut = isElem  >>> hasName "td" >>> hasAttrValue "class" (isPrefixOf "declbut") 
 
--}
