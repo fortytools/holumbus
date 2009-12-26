@@ -41,7 +41,7 @@
 module Holumbus.Data.PrefixTreeCore
 where
 
-import           Prelude 	hiding ( succ, lookup, map, null )
+import           Prelude 	hiding ( succ, lookup, map, mapM, null )
 
 import           Control.Arrow
 import           Control.Monad
@@ -556,6 +556,49 @@ map' f k (LsSeL cs v)		= LsSeL  cs (f (k []) v)
 map' f k (BrSeL cs v n)         = BrSeL  cs (f (k []) v) (map' f k n)
 map' f k (LsVal c  v)		= LsVal  c  (f (k []) v)
 map' f k (BrVal c  v n)         = BrVal  c  (f (k []) v) (map' f k n)
+
+-- ----------------------------------------
+
+-- | Variant of map that works on normalized trees
+
+mapN 				:: (a -> b) -> PrefixTree a -> PrefixTree b
+mapN f 				= mapWithKeyN (const f)
+
+
+mapWithKeyN 			:: (Key -> a -> b) -> PrefixTree a -> PrefixTree b
+mapWithKeyN f 			= map'' f id
+
+map''				:: (Key -> a -> b) -> (Key -> Key) -> PrefixTree a -> PrefixTree b
+map'' f k			= mapn . norm
+    where
+    mapn Empty			= empty
+    mapn (Val v t)		= val (f (k []) v) (map'' f k t)
+    mapn (Branch c s n)		= branch c (map'' f ((c :) . k) s) (map'' f k n)
+
+-- ----------------------------------------
+
+-- | Monadic map
+
+mapM 				:: Monad m => (a -> m b) -> PrefixTree a -> m (PrefixTree b)
+mapM f 				= mapWithKeyM (const f)
+
+-- | Monadic mapWithKey
+
+mapWithKeyM			:: Monad m => (Key -> a -> m b) -> PrefixTree a -> m (PrefixTree b)
+mapWithKeyM f                   = mapM'' f id
+
+mapM''				:: Monad m => (Key -> a -> m b) -> (Key -> Key) -> PrefixTree a -> m (PrefixTree b)
+mapM'' f k			= mapn . norm
+    where
+    mapn Empty			= return $ empty
+    mapn (Val v t)		= do
+				  v' <- f (k []) v
+				  t' <- mapM'' f k t
+				  return $ val v' t'
+    mapn (Branch c s n)		= do
+				  s' <- mapM'' f ((c :) . k) s
+				  n' <- mapM'' f          k  n
+				  return $ branch c s' n'
 
 -- ----------------------------------------
 --

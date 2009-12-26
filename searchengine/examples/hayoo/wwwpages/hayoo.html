@@ -4,7 +4,6 @@
 
 <head>
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-  <meta content="nofollow" name="robots"/>
 
   <meta name="keywords" content="Haskell, API, Search, Hackage, Functions, Types, Packages" />
   <meta name="description" lang="en" content="A Haskell API search engine with find-as-you-type and suggestions. Searches for function and type defintions in all Haskell packages from Hackage." />
@@ -17,15 +16,14 @@
 
   <script src="hayoo/prototype.js" type="text/javascript">&nbsp;</script>
   <script src="hayoo/hayoo.js" type="text/javascript">&nbsp;</script>
-  <script src="hayoo/content.js" type="text/javascript">&nbsp;</script>
 
 </head>
 
 <body>
   <div id="container">	
     <div id="info">
-      <a href="help.html" onclick="showHelp(); return false;">Help</a> |
-      <a href="about.html" onclick="showAbout(); return false;">About</a> |
+      <a href="help.html">Help</a> |
+      <a href="about.html">About</a> |
       <a href="/blog">Blog</a> |
       <a href="http://hackage.haskell.org">Hackage</a> |
       <a href="http://www.haskell.org">Haskell</a>
@@ -33,7 +31,7 @@
 
     <div id="query">
       <div id="logo">
-        <a href="http://holumbus.fh-wedel.de/hayoo"><img class="logo" src="hayoo/hayoo.png" alt="Hayoo logo"/></a>
+        <a href="hayoo.html"><img class="logo" src="hayoo/hayoo.png" alt="Hayoo logo"/></a>
       </div>
 
       <form id="queryform" onsubmit="return forceProcessQuery()" method="get" action="hayoo.html">
@@ -51,7 +49,7 @@
       <div id="documents">
         <div id="examples">
           Hayoo! will search all packages from <a href="http://hackage.haskell.org">Hackage</a> (and additionally <a href="http://haskell.org/gtk2hs">gtk2hs</a>),
-          currently 111.946 function and type definitions. Here are some example queries:
+          currently 135.940 function and type definitions. Here are some example queries:
           <div class="example">
             <p>
               <a onclick="replaceInQuery('','map'); return false;" href="hayoo.html?query=map&start=0">map</a>
@@ -109,11 +107,22 @@
 
       <div id="authors">
         <div id="feedback">Please send any feedback to <a href="mailto:hayoo@holumbus.org">hayoo@holumbus.org</a></div>
-        <div id="copyright">Hayoo! beta 0.4 © 2009 <span class="author">Timo B. Hübel</span> &amp;
+        <div id="copyright">Hayoo! beta 0.5 © 2009 <span class="author">Timo B. Hübel</span> &amp;
         <span class="author">Sebastian M. Schlatt</span></div>
       </div>
     </div>
   </div>
+
+  <script type="text/javascript">
+    var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+    document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+  </script>
+  <script type="text/javascript">
+    try {
+      var pageTracker = _gat._getTracker("UA-11923812-1");
+      pageTracker._trackPageview();
+    } catch(err) {}
+  </script>
 
 </body>
 

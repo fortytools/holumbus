@@ -103,6 +103,8 @@ module Holumbus.MapReduce.Types
 , ReduceMerge 
 , ReduceFunction
 , ReducePartition
+, SplitFunction
+, SplitAction
 )
 where
 
@@ -116,6 +118,7 @@ import           Data.Maybe
 import           Data.Time
 
 import           System.Log.Logger
+import           Data.Time.Clock.POSIX
 
 import           Text.XML.HXT.Arrow
 
@@ -873,6 +876,7 @@ performSplitAction optDec fct reader writer env opts n (i,ls)
     let a = optDec opts
     
     infoM localLogger "performSplitAction"
+    putTimeStamp "Begin performSplitAction"
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
@@ -885,6 +889,7 @@ performSplitAction optDec fct reader writer env opts n (i,ls)
     debugM localLogger $ ">>>>>>>>>>>>>>>>>> splittet list is: " ++ show partedList ++ "\n\n"
     infoM localLogger "writing outputlist"
     outputList <- writeConnector writer env partedList
+    putTimeStamp "End performSplitAction"
     return outputList
 
 
@@ -923,6 +928,7 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
     let a = optDec opts
     
     infoM localLogger "performMapAction"
+    putTimeStamp "Begin performMapAction"
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
@@ -944,6 +950,7 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
     infoM localLogger "writing outputlist: begin"
     outputList <- writeConnector writer env partedList
     infoM localLogger "writing outputlist: done"    
+    putTimeStamp "End performMapAction"
     return outputList
 
 
@@ -988,6 +995,7 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
     let a = optDec opts
   
     infoM localLogger "performReduceAction"
+    putTimeStamp "Begin performReduceAction"
     
     infoM localLogger "reading inputList"
     inputList <- readConnector reader env ls
@@ -1014,6 +1022,7 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
     outputList <- writeConnector writer env partedList
     infoM localLogger "writing outputlist: done"
     
+    putTimeStamp "End performReduceAction"
     return outputList
     where
       performReduceFunction a k2 v2s
@@ -1022,3 +1031,8 @@ performReduceAction optDec merge fct part reader writer env opts n (i,ls)
           case mbV3 of
             (Nothing) -> return Nothing
             (Just v3) -> return $ Just (k2,v3)
+
+putTimeStamp :: String -> IO ()
+putTimeStamp s = do
+  t1 <- getPOSIXTime
+  infoM localLogger (s++" : "++ show t1)

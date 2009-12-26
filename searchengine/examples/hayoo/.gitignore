@@ -1,3 +1,15 @@
 Hebalizer
 Indexer
 output
+indexes
+*.o
+*.hi
+*.log
+janus
+Janus.hs
+*~
+source/ConvDoc
+source/ConvIdx
+source/Search
+source/Stats
+

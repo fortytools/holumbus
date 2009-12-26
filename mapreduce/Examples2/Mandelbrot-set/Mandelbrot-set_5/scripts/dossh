@@ -1,0 +1,16 @@
+#!/bin/bash
+
+[ -n "$DOSSH_CMD" ] || { echo "$0 Undefined variable: DOSSH_CMD"; exit 1; }
+[ -n "$1" ] || { echo "$0 Parameter missing: IP1"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: IP2"; exit 1; }
+
+IP1=$1
+shift
+IP2=$1
+shift
+
+for I in `seq $IP1 $IP2`
+do
+  echo -e '\E[33;31m'"\033[1m  ===== 172.16.3.$I ======\033[0m"
+  $DOSSH_CMD.$I "$*"
+done

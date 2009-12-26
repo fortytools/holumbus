@@ -77,7 +77,16 @@ instance HolIndexM IO Persistent where
   lookupCaseM i c q     = mapM (rawHelperM (occurrences i)) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i))
   lookupNoCaseM i c q   = mapM (rawHelperM (occurrences i)) $ SM.lookupNoCase q $ getPart c i
 
-  insertOccurrencesM c w o i 
+  insertOccurrencesM    = insertOccurrencesM'
+                                                    
+  mergeIndexesM _ _             = error "Holumbus.Index.Inverted.OneFile: mergeIndexesM not supported"
+  deleteOccurrencesM _ _ _ _    = error "Holumbus.Index.Inverted.OneFile: deleteOccurrencesM not supported"
+  updateDocIdsM _ _             = error "Holumbus.Index.Inverted.OneFile: updateDocIdsM not supported"
+  toListM _                     = error "Holumbus.Index.Inverted.OneFile: toListM not supported"
+
+-- Required to avoid overlapping instances
+insertOccurrencesM' :: (Monad m) => Context -> Word -> Occurrences -> Persistent -> m Persistent
+insertOccurrencesM' c w o i 
                         = let
                           part = M.findWithDefault SM.empty c (indexParts i)
                           in
@@ -86,11 +95,32 @@ instance HolIndexM IO Persistent where
                              else do
                                   op <- return $ storeOcc (occurrences i) o
                                   return i {indexParts = M.insertWith (SM.union) c (SM.singleton w op) (indexParts i)}
-                                                    
-  mergeIndexesM _ _             = error "Holumbus.Index.Inverted.OneFile: mergeIndexesM not supported"
-  deleteOccurrencesM _ _ _ _    = error "Holumbus.Index.Inverted.OneFile: deleteOccurrencesM not supported"
-  updateDocIdsM _ _             = error "Holumbus.Index.Inverted.OneFile: updateDocIdsM not supported"
-  toListM _                     = error "Holumbus.Index.Inverted.OneFile: toListM not supported"
+
+
+-- This is a little bit dirty due to the use of unsafePerformIO, but Hayoo! currently uses this instance...
+instance HolIndex Persistent where 
+  sizeWords                 = M.fold ((+) . SM.size) 0 . indexParts 
+  contexts                  = map fst . M.toList . indexParts 
+
+  allWords i c              = map (rawHelper (occurrences i)) $ SM.toList $ getPart c i 
+  prefixCase i c q          = map (rawHelper (occurrences i)) $ SM.prefixFindWithKey q $ getPart c i 
+  prefixNoCase i c q        = map (rawHelper (occurrences i)) $ SM.prefixFindNoCaseWithKey q $ getPart c i 
+  lookupCase i c q          = map (rawHelper (occurrences i)) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i)) 
+  lookupNoCase i c q        = map (rawHelper (occurrences i)) $ SM.lookupNoCase q $ getPart c i 
+
+  mergeIndexes _ _          = error "Holumbus.Index.Inverted.OneFile: mergeIndexes not supported" 
+  substractIndexes          = error "Holumbus.Index.Inverted.OneFile: substractIndexes not supported" 
+
+  insertOccurrences c w o i = unsafePerformIO (insertOccurrencesM' c w o i) 
+  deleteOccurrences _ _ _ _ = error "Holumbus.Index.Inverted.OneFile: deleteOccurrences not supported" 
+
+  splitByContexts           = error "Holumbus.Index.Inverted.OneFile: splitByContexts not supported" 
+  splitByDocuments          = error "Holumbus.Index.Inverted.OneFile: splitByDocuments not supported" 
+  splitByWords              = error "Holumbus.Index.Inverted.OneFile: splitByWords not supported"  
+
+  updateDocIds _ _          = error "Holumbus.Index.Inverted.OneFile: updateDocIds not supported" 
+
+  toList _                  = error "Holumbus.Index.Inverted.OneFile: toList not supported" 
   
 instance XmlPickler Persistent where
   xpickle               =  xpZero               -- DUMMY
@@ -119,6 +149,10 @@ emptyPersistent         = Persistent M.empty
 -- | Return a part of the index for a given context.
 getPart                 :: Context -> Persistent -> Part
 getPart c i             = fromMaybe SM.empty (M.lookup c $ indexParts i)
+
+-- Read the note about the HolIndex instance above...
+rawHelper :: FilePath -> (Word, (Integer, Int)) -> (Word, Occurrences) 
+rawHelper f (w,o) = unsafePerformIO (rawHelperM f (w,o)) 
 
 rawHelperM              :: FilePath -> (Word, (Integer, Int)) -> IO (Word, Occurrences)
 rawHelperM f (w,o)      = do

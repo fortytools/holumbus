@@ -62,11 +62,13 @@ staticRoot = "hayoo.html"
 
 -- | The combined pickler for the status response and the result.
 xpStatusResult :: PickleState -> PU StatusResult
-xpStatusResult ps = xpDivId "result" $ xpWrap (undefined, \(s, r, m) -> (s, m, r)) $ xpTriple xpStatus (xpModules ps) (xpResultHtml ps)
+xpStatusResult ps = xpDivId "result" $ xpWrap (undefined, \(s, r, m, p) -> (s, (m, p), r)) $ xpTriple xpStatus xpAggregation (xpResultHtml ps)
+  where
+  xpAggregation = xpDivId "aggregation" $ xpPair (xpModules ps) (xpPackages ps) 
 
 -- | The aggregated modules list.
 xpModules :: PickleState -> PU [(String, Int)]
-xpModules ps = xpDivId "modules" $ xpWrap (undefined, take 40) $ xpList xpRootModule
+xpModules ps = xpDivId "modules" $ xpWrap (undefined, \l -> ("Top 15 Modules", take 15 l)) $ xpPair (xpElemClass "div" "headline" $ xpText) (xpList xpRootModule)
   where
   xpRootModule = xpElemClass "div" "rootModule" $ xpPair (xpRootModuleLink $ psQuery ps) (xpElemClass "span" "rootModuleCount" $ xpPrim)
 
@@ -77,6 +79,18 @@ xpRootModuleLink q = xpElemClass "a" "rootModuleName" $ xpDuplicate $ xpPair (xp
   xpStaticLink = xpAttr "href" $ xpWrap (undefined, makeQueryString) $ xpText
   makeQueryString s = staticRoot ++ "?query=" ++ q ++ "%20module%3A" ++ s
 
+-- | The aggregated package list.
+xpPackages :: PickleState -> PU [(String, Int)]
+xpPackages ps = xpDivId "packages" $ xpWrap (undefined, \l -> ("Top 15 Packages", take 15 l)) $ xpPair (xpElemClass "div" "headline" $ xpText) (xpList xpPackage)
+  where
+  xpPackage = xpElemClass "div" "package" $ xpPair (xpPackageLink $ psQuery ps) (xpElemClass "span" "packageCount" $ xpPrim)
+ 
+xpPackageLink :: String -> PU String
+xpPackageLink q = xpElemClass "a" "packageLink" $ xpDuplicate $ xpPair (xpDuplicate $ xpPair xpStaticLink xpReplace) xpText
+  where
+  xpReplace = xpAttr "onclick" $ xpPrepend "addToQuery('package:" $ xpAppend "'); return false;" $ xpEscape
+  xpStaticLink = xpAttr "href" $ xpWrap (undefined, makeQueryString) $ xpText
+  makeQueryString s = staticRoot ++ "?query=" ++ q ++ "%20package%3A" ++ s
 
 
 -- | Enclose the status message in a <div> tag.
@@ -116,7 +130,7 @@ xpPrepend t p = xpWrap (\(_, v) -> v, \v -> (t, v)) (xpPair xpText p)
 xpDocHitsHtml :: PickleState -> PU (Int, DocHits FunctionInfo)
 xpDocHitsHtml s = xpWrap (\(d, n) -> (n, d) ,\(n, d) -> (d, n)) (xpPair (xpDocs (psCache s)) (xpPager s (psStart s)))
   where
-  xpDocs c = xpDivId "documents" $ xpElem "table" $ xpId "functions" (xpWrap (IM.fromList, toListSorted) (xpList $ xpDocInfoHtml c))
+  xpDocs c = xpDivId "documents" $ xpElem "table" (xpWrap (IM.fromList, toListSorted) (xpList $ xpDocInfoHtml c))
   toListSorted = take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
 xpPager :: PickleState -> Int -> PU Int
@@ -128,26 +142,29 @@ xpDocInfoHtml :: HolCache c => c -> PU (DocId, (DocInfo FunctionInfo, DocContext
 xpDocInfoHtml c = xpWrap (undefined, docToHtml) (xpPair xpQualified xpAdditional)
   where
   docToHtml (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom information for document"
-  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) _, _)) = 
-    (((modLink u, B.toString m), (u, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
+  docToHtml (i, (DocInfo (Document t u (Just (FunctionInfo m s p l))) r, _)) = 
+    (((modLink u, B.toString m), (u, "Score: " ++ show r, t), B.toString s), ((pkgLink $ B.toString p, B.toString p), (getDesc i, liftM B.toString $ l)))
     where
     modLink = takeWhile ((/=) '#')
     pkgLink "gtk2hs" = "http://www.haskell.org/gtk2hs"
     pkgLink p' = "http://hackage.haskell.org/cgi-bin/hackage-scripts/package/" ++ p'
     getDesc = unsafePerformIO . getDocText c "description" 
-  xpQualified = xpElem "tr" $ xpClass "function" $ xpTriple xpModule xpFunction xpSignature
+  xpQualified = xpElemClass "tr" "function" $ xpTriple xpModule xpFunction xpSignature
     where
-    xpModule = xpCell "module" $ xpPair (xpElemClass "a" "module" $ xpAttr "href" $ xpText) (xpAppend "." $ xpText)
-    xpFunction = xpCell "function" $ xpPair (xpElemClass "a" "function" $ xpAttr "href" $ xpText) xpText
+    xpModule = xpCell "module" $ xpLink "module" xpText (xpAppend "." $ xpText)
+    xpFunction = xpCell "name" $ xpElemClass "a" "function" $ xpTriple (xpAttr "href" xpText) (xpAttr "title" xpText) xpText
     xpSignature = xpCell "signature" $ xpPrepend ":: " xpSigDecl
-  xpAdditional = xpElemClass "tr" "description" $ xpPair xpPackage $ xpDescSource
+  xpAdditional = xpElemClass "tr" "details" $ xpPair xpPackage xpDescSrc
     where
-    xpPackage = xpCell "package" $ xpPair (xpElemClass "a" "package" $ xpAttr "href" $ xpText) xpText
-    xpDescSource = xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpElem "div" $ xpPair xpDescription xpSource
-    xpDescription = xpWrap (undefined, limitDescription) $ xpPair xpUnfoldLink (xpElemClass "span" "description" $ xpText)
-    xpUnfoldLink = xpElemClass "a" "toggleFold" $ xpAddFixedAttr "onclick" "toggleFold(this);" $xpText
+    xpPackage = xpCell "package" $ xpLink "package" xpText xpText
+    xpDescSrc = xpCell "description" $ xpAddFixedAttr "colspan" "2" $ xpElem "div" $ xpPair xpDescription xpSource
+    xpDescription = xpWrap (undefined, limitDescription) $ xpPair xpUnfoldLink (xpElemClass "span" "description" xpText)
+    xpUnfoldLink = xpElemClass "a" "toggleFold" $ xpAddFixedAttr "onclick" "toggleFold(this);" $ xpText
     xpSource = xpOption $ (xpElemClass "span" "source" $ xpElemClass "a" "source" $ xpAppend "Source" $ xpAttr "href" $ xpText)
     limitDescription = maybe ("+", "No description. ") (\d -> ("+", d))
+
+xpLink :: String -> PU String -> PU String -> PU (String, String)
+xpLink c pa pb = xpElemClass "a" c $ xpPair (xpAttr "href" pa) pb
 
 data Signature = Signature String
                | Declaration String
@@ -161,13 +178,13 @@ xpSigDecl = xpWrap (undefined, makeSignature) (xpAlt tag [xpSig, xpDecl])
   tag (Declaration _) = 1
   makeSignature s = if (strip s == "data") || (strip s == "type") || (strip s == "newtype") || (strip s == "class")
                     then Declaration s
-                    else Signature s
+                    else Signature (replace "->" " -> " s)
 
 xpCell :: String -> PU a -> PU a
 xpCell c p = xpElem "td" $ xpClass c $ p
 
 xpWordHitsHtml :: PickleState -> PU (Score, WordHits)
-xpWordHitsHtml ps = xpDivId "words" $ xpElemClass "p" "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)
+xpWordHitsHtml ps = xpDivId "words" $ xpElemClass "div" "cloud" $ xpWrap (fromListSorted, toListSorted) (xpList xpWordHitHtml)
   where
   fromListSorted _ = (0.0, M.empty)
   toListSorted (s, wh) = map (\a -> (s, a)) $ L.sortBy (compare `on` fst) $ M.toList wh -- Sort by word
@@ -235,3 +252,4 @@ makePager s p n = if n > p then Just $ Pager pv (drop (length pd - 10) pd) (leng
 
 xpDuplicate :: PU (a, a) -> PU a
 xpDuplicate = xpWrap (\(v, _) -> v, \v -> (v, v))
+

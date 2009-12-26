@@ -1,21 +1,27 @@
 #!/bin/bash
 
-CLIENT="/home/re/holumbus/mapreduce/Examples2/SumWithSimpleIO/Client"
-STARTWORKER_BIN="startworker SumWithSimpleIO"
-STOPWORKER_BIN="stopworker"
+[ -n "$MR_BIN" ] || { echo "Undefined variable: MR_BIN"; exit 1; }
+[ -n "$START_WORKER_SCRIPT" ] || { echo "Undefined variable: START_WORKER_SCRIPT"; exit 1; }
+[ -n "$CLIENT" ] || { echo "Undefined variable: CLIENT"; exit 1; }
+[ -n "$COPY_WORKER_DATA" ] || { echo "Undefined variable: COPY_WORKER_DATA"; exit 1; }
+[ -n "$1" ] || { echo "Parameter missing: WORKERS"; exit 1; }
+[ -n "$2" ] || { echo "Parameter missing: SPLITTERS"; exit 1; }
+[ -n "$3" ] || { echo "Parameter missing: MAPPERS"; exit 1; }
+[ -n "$4" ] || { echo "Parameter missing: REDUCERS"; exit 1; }
+
 WORKERS="$1"
 SPLITTERS="$2"
 MAPPERS="$3"
 REDUCERS="$4"
 FILENAME="$5"
-OPTS="$6"
+WORDS="$6"
 
 echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $REDUCERS"
 # Start MR sytem and wait a sec
-/etc/init.d/MR start && sleep 1
+$MR_BIN start && sleep 1
 
 # Start I workers
-$STARTWORKER_BIN 1 $WORKERS
+$START_WORKER_SCRIPT start 1 $WORKERS
 
 # Wait for workers to be started
 while [ `cat /tmp/master.state|wc -l` -ne $WORKERS ]; do echo "Waiting for workers to be started" && sleep 1; done
@@ -24,36 +30,24 @@ sleep 2
 
 # make a new dir for curretn constelation
 FILENAME_PREFIX="$WORKERS""_""$SPLITTERS""_""$MAPPERS""_""$REDUCERS"
-mkdir "data_$FILENAME_PREFIX" || { echo "dir exist do not overwrite it: exit"; $STOPWORKER_BIN 1 $WORKERS; /etc/init.d/MR stop; exit 1; }
+mkdir "data_$FILENAME_PREFIX" || { echo "dir exist do not overwrite it: exit"; exit 1; }
 cd "data_$FILENAME_PREFIX"
 
 # run function
 /usr/bin/time -o "time.txt" -v "$CLIENT" "($SPLITTERS,$MAPPERS,$REDUCERS)" +RTS -N3 -K4G -s"Memory.txt"
 
 # stop workers
-$STOPWORKER_BIN 1 $WORKERS
+$START_WORKER_SCRIPT stop 1 $WORKERS
 
 # copy workers memory data to here
 sleep 2
 mkdir workerdata
 cd workerdata
-for I in `seq 1 $WORKERS`
-do
-  [ $I -eq 25 ] && continue
-  [ $I -eq 24 ] && continue
-  [ $I -eq 23 ] && continue
-  [ $I -eq 15 ] && I=24
-  [ $I -eq 19 ] && I=23
-  [ $I -eq 17 ] && I=25
+$COPY_WORKER_DATA 1 $WORKERS
+cd .. 
 
-  mkdir "worker_$I"
-  cd "worker_$I"
-  scp root@172.16.3.$I:/tmp/worker/*.txt . > /dev/null
-  cd ..
-done
-
-# leave curren tdir
+# leave current dir
 cd ..
 
 # stop mr system and wait a sec
-/etc/init.d/MR stop && sleep 1
+$MR_BIN stop && sleep 1
