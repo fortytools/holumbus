@@ -28,6 +28,7 @@ module Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO
  , V3
  , V4 
  , Priority(..)
+ , putTimeStamp
 )
 where
 
@@ -252,3 +253,8 @@ partition'    []       xss = xss
 partition'    us   (xs:[]) = [us]
 partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
   where xs' = (u:xs)
+
+putTimeStamp :: String -> IO ()
+putTimeStamp s = do
+  t1 <- getPOSIXTime
+  putStrLn (s++" : "++ show t1)

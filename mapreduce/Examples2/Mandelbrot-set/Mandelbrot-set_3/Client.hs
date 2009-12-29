@@ -20,7 +20,7 @@ import Holumbus.Common.FileHandling
 main :: IO ()
 main = do 
   -- read command line arguments
-
+  putTimeStamp "Begin Client"
   (filename : quartet : triplet : [] ) <- getArgs
   t <- getPOSIXTime
   let (w,h,zmax,iterations) = read quartet
@@ -29,11 +29,16 @@ main = do
   --writeToListFile "/dev/null" list
     
   -- call map reduce
+  putTimeStamp "Begin Client MR"
   result <- client mandelMap mandelReduce (w,h,zmax,iterations) (mappers,reducers) list
+  putTimeStamp "End Client MR"
   
   -- make the image
+  putTimeStamp "Begin Save"
   let pix = (concatMap snd . concatMap snd . sortBy sortPixels) result -- [(Int,[(Int,[Lightness])])]
   saveImage (Geo w h) pix filename
+  putTimeStamp "End Save"
+  putTimeStamp "End Client"
 
 {-
   devide image into coherent blocks

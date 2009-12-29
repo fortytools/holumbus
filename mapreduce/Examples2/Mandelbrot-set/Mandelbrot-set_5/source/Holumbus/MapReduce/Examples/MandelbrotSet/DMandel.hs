@@ -22,6 +22,7 @@ import Data.List
 import Control.Parallel.Strategies
 import System.Log.Logger
 import Control.Exception
+import Control.Parallel.Strategies
 
 {- ------------------------------------------------------------------------------------------------------------- -}
 
@@ -43,19 +44,23 @@ l = [(k1,v1)] = [(BlockId, Image XCoord)] = [(BlockId, [(YCoord, [a])])]
 
 -}
 splitF :: SplitF
-splitF _env (_,h,_,_) n l@((blockid,image):[]) = do
+splitF _env (split,_,_,_,_) _n l = do
+  m <- mapM (splitF' split) l
+  let t= concat m in rnf t `seq` return t
+
+splitF' :: Int -> (K1,V1) -> IO [(Int, [(K1,V1)])]
+splitF' split (blockid,image) = do
   debugM localLogger $ "length:  " ++ show len
-  debugM localLogger $ "list:  " ++ show l    
-  debugM localLogger $ "n: " ++ show n
+  debugM localLogger $ "split: " ++ show split
   debugM localLogger $ "list':  " ++ show l'  
   return l'
   where
-  l' = zipWith f [1..] (p image)
-  f i image = (i,[(blockid,image)])
+  l' = p image -- zipWith f [(blockid*10)..] (p image)
+--  f i image = (i,[(blockid,image)])
   len = (length image)
-  p image = part2 n len image
+  p image = part2 blockid split len image
   
-part2 :: Int -> Int -> [a] -> [[a]]
+{-part2 :: Int -> Int -> [a] -> [[a]]
 part2 parts len images = part' parts (len `div` parts) 1 images
   where
   part' :: Int -> Int -> Int -> [a] -> [[a]]
@@ -65,9 +70,18 @@ part2 parts len images = part' parts (len `div` parts) 1 images
     where
     (fst,rst) = splitAt size l
     i' = i + 1
-
+-}
   
-
+part2 :: K1 -> Int -> Int -> V1 -> [(K1,[(K1,V1)])]
+part2 key parts len images = part2' key parts (len `div` parts) (1+10*key) images
+  where
+  part2' :: K1 -> Int -> Int -> K1 -> V1 -> [(K1,[(K1,V1)])]
+  part2' key parts size i l
+    | i == (parts+10*key) = [(i, [(key,l)])]
+    | otherwise  = ((i, [(key,fst)]) : part2' key parts size i' rst)
+    where
+    (fst,rst) = splitAt size l
+    i' = i + 1
 
   
 {- 
@@ -80,8 +94,7 @@ type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, 
   
 -}
 mapF :: MapF -- unction Options BlockID (SplitImage XCoord) BlockID (BlockID, BlockID, Image Lightness)
--- mapF = undefined
-mapF env (w,h,zmax,iter) key image  = do
+mapF env (_, w,h,zmax,iter) key image  = do
   debugM localLogger $ "Map Key:" ++ show key
   debugM localLogger $ "Map Key:" ++ show image
   return [(key, image')]
@@ -94,6 +107,7 @@ mapF env (w,h,zmax,iter) key image  = do
 
     gamma :: Double -> Lightness -> Lightness
     gamma g x = x ** (1/g)
+
 {-
 
 type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
@@ -103,12 +117,13 @@ reduceF _env _opts key images = do
   debugM localLogger $ "Reduce Key:" ++ show key
   debugM localLogger $ "sorted:" ++ show sorted
   debugM localLogger $ "concated:" ++ show concated  
+  debugM localLogger $ "images:" ++ show images
   
-  (return . Just) sorted
+  return . Just $sorted
   where
   concated = concat images
   sorted = sortBy sortImage concated
-  
+
 {-
   order function the pixels 
 -}

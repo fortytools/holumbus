@@ -11,6 +11,7 @@ do
   mkdir "worker_$I"
   cd "worker_$I"
   $SCP_WORKER_DATA.$I:$WORKER_DIR/* . > /dev/null
+  find . -type d -and -name storage -or -name Worker -and -type f | xargs rm -r
   cd ..
 done
 

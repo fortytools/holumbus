@@ -23,23 +23,23 @@ localLogger = "Holumbus.MapReduce.Examples2.Client"
 
 main :: IO ()
 main = do
-  initializeFileLogging "/dev/stdout" ([(localLogger, DEBUG),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)])
+  initializeFileLogging "/dev/stdout" ([(localLogger, ERROR),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)])
   putTimeStamp "Begin Client"
   -- read command line arguments
-  (filename : quintet : duo : [] ) <- getArgs
-  let (w,h,zmax,iterations) = read quintet
+  (filename : firstsplit : quintet : duo : [] ) <- getArgs
+  let (split,w,h,zmax,iterations) = read quintet
       ; (splitters, mappers) = read duo
-      ; list = map (:[]) $ part splitters h $ pixels w h
+      ; list = map (:[]) $ part (read firstsplit) h $ pixels w h
     
   -- call map reduce
   putTimeStamp "Begin Client MR"
-  result <- client splitF mapF reduceF (w,h,zmax,iterations) (splitters, mappers) list
-  putTimeStamp "Begin Client MR"
+  result <- client splitF mapF reduceF (split,w,h,zmax,iterations) (splitters, mappers) list
+  putTimeStamp "End Client MR"
   debugM localLogger $ show result
-  let image = concatMap snd . sortBy sortImage $ result
-  debugM localLogger $ show image 
-  -- make the image
   putTimeStamp "Begin Save"
+  let image = concatMap snd . sortBy sortImage $ result
+  --debugM localLogger $ show image 
+  -- make the image
   saveImage (Geo w h) (concatMap snd $ image) filename
   putTimeStamp "End Save"
   putTimeStamp "End Client"

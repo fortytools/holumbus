@@ -20,22 +20,27 @@ import Holumbus.Common.FileHandling
 main :: IO ()
 main = do 
   -- read command line arguments
+  putTimeStamp "Begin Client"
   (filename : quartet : triplet : [] ) <- getArgs
   t <- getPOSIXTime
   let (w,h,zmax,iterations) = read quartet
       ; (splitters,mappers,reducers) = read triplet
 --      ; list = let p=partition' (pixels w h) [[]|_<-[1..splitters]] in rnf p `seq` p
       ; list = partition' (pixels w h) [[]|_<-[1..splitters]]
-  writeToListFile "/tmp/blub.bin" list
+--  writeToListFile "/tmp/blub.bin" list
     
   -- call map reduce
+  putTimeStamp "Begin Client MR"
   result <- client mandelMap mandelReduce (w,h,zmax,iterations) (splitters,mappers,reducers) list
-  
+  putTimeStamp "End Client MR"
+
   -- make the image
+  putTimeStamp "Begin Save"
   let pix = (concat . map snd . sortBy sortPixels) result
   saveImage (Geo w h) pix filename
+  putTimeStamp "End Save"
+  putTimeStamp "End Client"
 
-  
 {-
  generate the pixlist
 -}
