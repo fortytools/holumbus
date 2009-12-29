@@ -20,21 +20,25 @@ import Holumbus.Common.FileHandling
 main :: IO ()
 main = do 
   -- read command line arguments
-
+  putTimeStamp "Begin Client"
   (filename : quartet : triplet : [] ) <- getArgs
   t <- getPOSIXTime
   let (w,h,zmax,iterations) = read quartet
       ; (splitters,mappers,reducers) = read triplet
 --      ; list = let p=partition' (pixels w h) [[]|_<-[1..splitters]] in rnf p `seq` p
       ; list = devide (div h mappers) (pixels w h) -- partition' (pixels w h) [[]|_<-[1..splitters]]
-  writeToListFile "/dev/null" list
+--  writeToListFile "/dev/null" list
     
   -- call map reduce
+  putTimeStamp "Begin Client MR"
   result <- client mandelMap mandelReduce (w,h,zmax,iterations) (splitters,mappers,reducers) list
-  
+  putTimeStamp "End Client MR"
   -- make the image
-  let pix = (concat . map snd . concat . map snd . sortBy sortPixels) result -- [(Int,[(Int,[Lightness])])]
+  putTimeStamp "Begin Save"
+  let pix = (concatMap snd . concatMap snd . sortBy sortPixels) result -- [(Int,[(Int,[Lightness])])]
   saveImage (Geo w h) pix filename
+  putTimeStamp "End Save"
+  putTimeStamp "End Client"
 
 {-
   devide image into coherent blocks

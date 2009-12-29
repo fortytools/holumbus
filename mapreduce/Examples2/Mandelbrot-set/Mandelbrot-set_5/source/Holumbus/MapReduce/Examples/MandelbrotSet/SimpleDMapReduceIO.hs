@@ -71,7 +71,7 @@ type Line a = (YCoord, [a])
 type Image  a = [Line a]
  
 -- the options, which are Width, Height, Z-factor, Repetitions
-type Options = (Int, Int, Double, Int)
+type Options = (Int, Int, Int, Double, Int)
 
 -- the actual image send over to the splitters and workers
 type BlockImage a = (BlockID, Image a)
@@ -84,7 +84,7 @@ type K2 = BlockID
 type V1 = Image XCoord
 type V2 = Image Lightness
 type V3 = V2
-type V4 = (Image Lightness)
+type V4 = Image Lightness
 
 type SplitF  = SplitFunction A K1 V1
 type MapF    = MapFunction A K1 V1 K2 V2
@@ -96,7 +96,7 @@ the null partition
 type MapPartition a k2 v2 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v2)])]
 -}
 nullPart :: MapPartition A K2 V4
-nullPart _env _opts _n l = return $ map (\t -> (fst t,[t])) l
+nullPart _env _opts _n l = let m = map (\t -> (fst t,[t])) l in rnf m `seq` return m
 
 {-
 the map partition
@@ -104,7 +104,7 @@ the map partition
 type MapPartition a k2 v2 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v2)])]
 -}
 mapPart :: MapPartition A K1 V2
-mapPart _env _opts _n l = return $ map (\t -> (fst t,[t])) l
+mapPart = nullPart
 
 {-
 type MapPartition a k2 v2 = ActionEnvironment -> a -> Int -> [(k2,v2)] -> IO [(Int, [(k2,v2)])]

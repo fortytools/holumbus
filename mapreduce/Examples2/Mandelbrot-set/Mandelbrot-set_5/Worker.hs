@@ -12,5 +12,5 @@ main = worker splitF mapF reduceF
   [
    ("measure",ERROR)
   ,("Holumbus.MapReduce.Types",INFO)
-  ,("Holumbus.MapReduce.Examples2",DEBUG)
+  ,("Holumbus.MapReduce.Examples2",ERROR)
   ]
