@@ -178,7 +178,7 @@ xpSigDecl = xpWrap (undefined, makeSignature) (xpAlt tag [xpSig, xpDecl])
   tag (Declaration _) = 1
   makeSignature s = if (strip s == "data") || (strip s == "type") || (strip s == "newtype") || (strip s == "class")
                     then Declaration s
-                    else Signature s
+                    else Signature (replace "->" " -> " s)
 
 xpCell :: String -> PU a -> PU a
 xpCell c p = xpElem "td" $ xpClass c $ p
@@ -252,3 +252,4 @@ makePager s p n = if n > p then Just $ Pager pv (drop (length pd - 10) pd) (leng
 
 xpDuplicate :: PU (a, a) -> PU a
 xpDuplicate = xpWrap (\(v, _) -> v, \v -> (v, v))
+

@@ -77,15 +77,15 @@ getVirtualDocs splitPath docId theUri =
                                               ]
                                  ]
                  ]
-     >>> writeDocument [("a_output_xml", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape (theLinkPrefix ++ theTitle)))
+                 >>> writeDocument [("a_output_xml", "1"), ("a_indent", "1")] ((splitPath ++ tmpFile docId theUri) ++ (escape (theLinkPrefix ++ theTitle)))
      >>> (     constA theTitle 
            &&& constA (theUri ++ theLinkPrefix ++ theTitle)
            &&& constA (FunctionInfo (pack theModule) (pack theSignature) (pack thePackage) (theSourceURI))
          )
      >>^ (\(a,(b,c)) -> (a,b,c)) 
   getTheSignature =     removeSourceLinks 
-                    >>> fromLA ( listA ( xshow ( (cc_fExtract ccHayooSignature) >>> getTexts)))
-                    >>^ concat >>^ dropWhile ( /= ':' ) >>^ drop 3                              
+                    >>> fromLA ( listA ( xshow ( (cc_fExtract ccHayooSignature) >>> getTexts))) --TODO 
+                    >>^ concat >>^ getSignature
   getSourceLink :: ArrowXml a => a XmlTree (Maybe ByteString)
   getSourceLink = 
       (      processTopDown ( getChildren `when` (isElem >>> hasName "a" >>> hasAttr "name")  )
@@ -142,7 +142,7 @@ topdeclToDecl
               ( isElem >>> hasName "td" >>> hasAttrValue "class" (== "topdecl") )
             ) 
 
--- | The REDUCE phase of the virtual document creation MapReduce computation.
+-- | The REDUCE phase of the virtual d>>^ drop 1 >>^ headocument creation MapReduce computation.
 --   The virtual Documents from the MAP phase are collected and a new Documents data is created
 mkVirtualDocList :: Int -> [(String, String, FunctionInfo)] -> IO (Maybe (Documents  FunctionInfo))
 mkVirtualDocList _ vDocs
@@ -152,6 +152,59 @@ mkVirtualDocList _ vDocs
             
 
 -- -----------------------------------------------------------------------------
+{-
+processDataTypeAndNewtypeDeclarations :: LA XmlTree XmlTree
+processDataTypeAndNewtypeDeclarations 
+  =  processTopDown
+          ( ( ( mkTheElem $<<<< ( getTheName
+                              &&& getTheType
+                              &&& getTheRef
+                              &&& getTheSrc
+                            ) 
+          ) 
+          `when`
+          (   hasName "table" >>> hasAttrValue "class" (== "declbar")   -- declbar table -> table for declarations
+           /> hasName "tbody"
+           /> hasName "tr"
+           /> hasName "td"    >>> hasAttrValue "class" (=="declname")   -- "declname", not "decl"
+           /> hasName "span"  >>> hasAttrValue "class" (=="keyword")    -- for data, type or class
+           /> hasText (`elem` ["data", "type", "class"]) 
+          )
+        )
+      ) 
+  where
+  getTheSrc
+      = ( getXPathTrees "//td[@class='declbut']/a[@href]"               -- source link
+          >>>
+          ( ( getChildren >>> hasText (== "Source") )
+            `guards`
+            getAttrValue "href"
+          )
+        ) `withDefault` ""                                              -- make it deterministic
+
+  getTheName = xshow $ getXPathTrees "//td[@class='declname']/b/text()"                        -- xshow is deterministic
+  getTheRef  = xshow $ getXPathTrees "//td[@class='declname']/a/@name/text()" >>. take 1        -- the 1. <a name="..."> is the interesting
+  getTheType = xshow $ getXPathTrees "//td[@class='declname']/span[@class='keyword']/text()"    -- data, type or newtype
+
+  mkTheElem n t r s
+      = eelem "table"                                                   -- another way of building xml trees
+        += sattr "class" "declbar"                                      -- make an empty element and add attributes and contents
+        += sattr "title" "data, type or newtype"                        -- just a marker for transformed xml trees
+        += ( eelem "tbody"
+             += ( eelem "tr"
+                  += ( eelem "td"
+                       += sattr "class" "decl"
+                       += ( eelem "a"
+                            += sattr "name" r )
+                       += txt (n ++ " :: " ++ t)
+                       += ( eelem "a"
+                            += sattr "href" s
+                            += txt "" )
+                     )
+                )
+           )
+
+-}
 
 processDataTypeAndNewtypeDeclarations :: LA XmlTree XmlTree
 processDataTypeAndNewtypeDeclarations 
@@ -170,19 +223,27 @@ processDataTypeAndNewtypeDeclarations
          )
       ) 
     where
-      getTheSrc  =  listA ( 
-                       getXPathTrees "//a[@href]/@href/text()"                 >>> getText
-                   >>> arr (\a -> if "src/" `isPrefixOf` a then Just a else Nothing) ) >>^ catMaybes 
-                   >>^ (\a -> if length a == 0 then "" else last a)  -- TODO this could be done more beautiful
-      getTheRef  = getXPathTrees "//a[@name]/@name/child::text()"          >>> getText
-      getTheName = getXPathTrees "//b/text()"                              >>> getText
-      getTheType = listA (getXPathTrees "//span[@class='keyword']/text ()" >>> getText) >>^ head
+      getTheSrc = ( getXPathTrees "//td[@class='declbut']/a[@href]"               -- source link
+                    >>>
+                    ( ( getChildren >>> hasText (== "Source") )
+                      `guards`
+                      getAttrValue "href"
+                    )
+                  ) `withDefault` ""  
+--                listA ( 
+--                       getXPathTrees "//a[@href]/@href/text()"                 >>> getText
+--                   >>> arr (\a -> if "src/" `isPrefixOf` a then Just a else Nothing) ) >>^ catMaybes 
+--                   >>^ (\a -> if length a == 0 then "" else last a)  -- TODO this could be done more beautiful
+      getTheName = xshow $ getXPathTrees "//b/text()"                            
+      getTheRef  = xshow $ getXPathTrees "//a/@name/text()" >>. take 1 -- >>> constA "fooblubb" -- >>> traceMsg 0 "foo" >>> this -- >>> arr (\s -> traceMsg 0 s) -- >>^ drop 1 >>^ take 1
+      getTheType = xshow $ getXPathTrees "//span[@class='keyword']/text ()" >>. take 1
       mkTheElem n t r s = 
             mkelem "td" [sattr "class" "decl"]
-                        [ aelem "a" [sattr "name" r] 
+            [ aelem "a" [sattr "name" r] 
                         , constA (n ++ " :: " ++ t) >>> mkText
-                        , mkelem "a" [sattr "href" s] [constA " " >>> mkText] -- [constA "Source" >>> mkText]
-                        ]
+                        , mkelem "a" [sattr "href" s] [constA " " >>> mkText] 
+                        ] 
+
 
 removeDataDocumentation :: LA XmlTree XmlTree
 removeDataDocumentation 
