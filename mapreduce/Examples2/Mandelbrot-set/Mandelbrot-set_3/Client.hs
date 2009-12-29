@@ -24,22 +24,21 @@ main = do
   (filename : quartet : triplet : [] ) <- getArgs
   t <- getPOSIXTime
   let (w,h,zmax,iterations) = read quartet
-      ; (splitters,mappers,reducers) = read triplet
---      ; list = let p=partition' (pixels w h) [[]|_<-[1..splitters]] in rnf p `seq` p
-      ; list = devide (div h mappers) (pixels w h) -- partition' (pixels w h) [[]|_<-[1..splitters]]
-  writeToListFile "/dev/null" list
+      ; (mappers,reducers) = read triplet
+      ; list = devide (div h mappers) (pixels w h) 
+  --writeToListFile "/dev/null" list
     
   -- call map reduce
-  result <- client mandelMap mandelReduce (w,h,zmax,iterations) (splitters,mappers,reducers) list
+  result <- client mandelMap mandelReduce (w,h,zmax,iterations) (mappers,reducers) list
   
   -- make the image
-  let pix = (concat . map snd . concat . map snd . sortBy sortPixels) result -- [(Int,[(Int,[Lightness])])]
+  let pix = (concatMap snd . concatMap snd . sortBy sortPixels) result -- [(Int,[(Int,[Lightness])])]
   saveImage (Geo w h) pix filename
 
 {-
   devide image into coherent blocks
 -}
-devide :: Int -> [(Int,[Int])] -> [[(Int,[(Int,[Int])])]]
+devide :: Int -> V1 -> [[(K1,V1)]]
 devide = devide' 0 []
   where
   devide' key xss n [] = xss
@@ -52,7 +51,7 @@ devide = devide' 0 []
 {-
  generate the pixlist
 -}
-pixels :: Int -> Int -> [(Int,[Int])]
+pixels :: Int -> Int -> V1
 pixels w h = [(y,[0..w-1])|y<-[0..h-1]]
 
 {-

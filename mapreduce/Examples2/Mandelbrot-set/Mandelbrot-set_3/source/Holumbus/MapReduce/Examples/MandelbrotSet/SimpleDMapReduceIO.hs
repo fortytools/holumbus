@@ -17,6 +17,16 @@ module Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO
  , client
  , worker
  , partition'
+ , SplitF
+ , MapF
+ , ReduceF
+ , A
+ , K1
+ , K2
+ , V1
+ , V2
+ , V3
+ , V4 
  , Priority(..)
 )
 where
@@ -38,46 +48,54 @@ import           System.Log.Logger
 import           System.Environment
 import           System.Exit
 import Data.Time.Clock.POSIX
+import Holumbus.MapReduce.Examples.MandelbrotSet.ImageTypes hiding (Image)
 
-splitConfiguration
-  :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
-  => SplitConfiguration a k1 v1
-splitConfiguration
-  = SplitConfiguration
-      hashedPartition
-      defaultInputReader
-      defaultOutputWriter
+-- the x,y coordinates
+type XCoord = Int
+type YCoord = Int
 
-mapConfiguration
-  :: (Hash k2, NFData v1, NFData k1, NFData v2, NFData k2, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
-  => MapFunction a k1 v1 k2 v2
-  -> MapConfiguration a k1 v1 k2 v2
-mapConfiguration fct
-  = MapConfiguration
-      fct
-      hashedPartition
-      defaultInputReader
-      defaultOutputWriter
+-- the block id 
+type BlockID   = Int
+
+-- a row of the image
+type Line a = (YCoord, [a])
+
+-- the image itself
+type Image  a = [Line a]
+ 
+-- the options, which are Width, Height, Z-factor, Repetitions
+type Options = (Int, Int, Double, Int)
+
+-- the actual image send over to the splitters and workers
+type BlockImage a = (BlockID, Image a)
+--type SplitImage = (SplitID, Image Lightness)
+--type MapImage = (MapID, Image XCoord)
+ 
+type A  = Options
+type K1 = BlockID
+type K2 = BlockID
+type V1 = Image XCoord
+type V2 = Image Lightness
+type V3 = V2
+type V4 = (Image Lightness)
+
+type SplitF  = SplitFunction A K1 V1
+type MapF    = MapFunction A K1 V1 K2 V2
+type ReduceF = ReduceFunction A K2 V3 V4
 
 
-reduceConfiguration
-  :: (Hash k2, NFData v2, NFData k2, NFData v3, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
-  => ReduceFunction a k2 v2 v3
-  -> ReduceConfiguration a k2 v2 v3
-reduceConfiguration fct
-  = ReduceConfiguration
-      defaultMerge
-      fct
-      hashedPartition
-      defaultInputReader
-      defaultOutputWriter
+mapConfiguration :: MapF -> MapConfiguration A K1 V1 K2 V2
+mapConfiguration fct = MapConfiguration fct hashedPartition defaultInputReader defaultOutputWriter
 
+
+reduceConfiguration :: ReduceF -> ReduceConfiguration A K2 V3 V4
+reduceConfiguration fct = ReduceConfiguration defaultMerge fct hashedPartition defaultInputReader defaultOutputWriter
 
 {-
 actionConfig
 -}
-actionConfig :: (Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
-actionConfig m r = (defaultActionConfiguration "ID") {
+actionConfig :: MapF -> ReduceF -> ActionConfiguration A K1 V1 K2 V2 V3 V4
+actionConfig m r = (defaultActionConfiguration "MANDELBROT_3") {
            ac_Map    = Just . mapConfiguration    $ m
          , ac_Reduce = Nothing -- Just . reduceConfiguration $ r
          , ac_Split  = Nothing -- Just splitConfiguration
@@ -102,14 +120,8 @@ actionConfig m r = (defaultActionConfiguration "ID") {
   -> TaskOutputType  -- ^ type of the result (file of raw)
   -> mr -> IO ([(k2,v4)],[FileId])
 -}
-client :: ( Show k1, Show k2, Show v1, Show v2, Show v3, Show v4
-          , Binary v1, Binary v3, Binary v2, Binary v4
-          , Binary a, Binary k1, Binary k2
-          , NFData k1, NFData k2, NFData v1, NFData v4, NFData v2, NFData v3
-          , Ord k2, Hash k2, Hash k1) =>
-          MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4
-          -> a -> (Int,Int,Int) -> [[(k1,v1)]] -> IO [(k2,v4)]
-client m r a (splitters,mappers,reducers) lss = do
+client :: MapF -> ReduceF -> Options -> (Int,Int) -> [[(K1,V1)]] -> IO [(K2,V4)]
+client m r a (mappers,reducers) lss = do
       -- create port registry
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
@@ -126,7 +138,7 @@ client m r a (splitters,mappers,reducers) lss = do
       -- do the map reduce job
       t1 <- getPOSIXTime
       putStrLn ("Begin MR: " ++ show t1)
-      (_,fids) <- MR.doMapReduce (actionConfig m r) a [] filenames splitters mappers reducers 1 TOTFile mr
+      (_,fids) <- MR.doMapReduce (actionConfig m r) a [] filenames 1 mappers reducers 1 TOTFile mr
       t2 <- getPOSIXTime
       putStrLn ("END MR: " ++ show t2)
       
@@ -140,7 +152,7 @@ client m r a (splitters,mappers,reducers) lss = do
       -- finally, return the result
       return result
       
-merge :: (Show k2, Show v4, Hash k2, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
+merge :: [FS.FileId] -> FS.FileSystem -> IO [(K2,V4)]
 merge fids fs = do
    mayberesult <- mapM ( flip FS.getFileContent fs) fids
    let result = concat . map parseByteStringToList $ catMaybes mayberesult
@@ -193,7 +205,7 @@ params = do
 {-
  The simpleWorker
 -}
-worker :: (Show k1, Show k2, Show v1, Show v2, Hash k2, Hash k1, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
+worker :: MapF  -> ReduceF -> [(String,Priority)] -> IO ()
 worker m r loggers = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -209,7 +221,7 @@ worker m r loggers = do
 {-
  The simpleWorker's init functin
 -}
-initWorker :: (Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Hash k1, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initWorker :: MapF -> ReduceF -> IO (MR.DMapReduce, FS.FileSystem)
 initWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig

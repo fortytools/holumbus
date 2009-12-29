@@ -13,7 +13,7 @@ import Holumbus.MapReduce.Examples.MandelbrotSet.ImageMandel
 
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 -}
-mandelMap :: MapFunction (Int, Int, Double, Int) Int [(Int,[Int])] Int [(Int,[Lightness])]
+mandelMap :: MapF --unction (Int, Int, Double, Int) Int [(Int,[Int])] Int [(Int,[Lightness])]
 mandelMap _env (w,h,zmax,iter) key values = do
 --  let xs' = parMap rnf (\x -> (y,[(gamma 4.0 . x') x])) xs 
   let result = map (\(y,xs) -> (y,map (gamma 4.0 . x'  y) xs)) values
@@ -27,5 +27,5 @@ mandelMap _env (w,h,zmax,iter) key values = do
 
 type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
 -}
-mandelReduce :: ReduceFunction (Int, Int, Double, Int)  Int [(Int,[Lightness])] [(Int,[Lightness])]
-mandelReduce _env _opts _k2 _v2s = undefined
+mandelReduce :: ReduceF --unction (Int, Int, Double, Int)  Int [(Int,[Lightness])] [(Int,[Lightness])]
+mandelReduce = undefined
