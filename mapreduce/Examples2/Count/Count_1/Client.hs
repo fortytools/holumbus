@@ -24,7 +24,8 @@ main = do
   file <- readFile filename
   
   -- split the input file into num of mappers parts
-  let  splitted =  devide splitters (words file)
+  let  wordlist = words file;
+       splitted = devide (length wordlist `div` splitters) wordlist
   
   -- debug
   putStrLn . show . map length $ splitted
