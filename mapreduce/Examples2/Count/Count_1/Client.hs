@@ -13,6 +13,7 @@ import Control.Parallel.Strategies
 
 main :: IO ()
 main = do
+  putTimeStamp "Begin Client"
   -- get command line arguments
   (filename : splitmapreduresult : wordsToCount : []) <- getArgs
   
@@ -22,34 +23,39 @@ main = do
   -- read the input textfile
   file <- readFile filename
   
-  -- give each word a key and split list into number of splitters peaces
-  -- blub2 let  splitted =  partition' (zip [0..] (words file)) [[]| _<- [1..splitters]]
-  -- blub3 let  splitted =  map (:[]) . zip [0..] $  partition' (words file) [[]| _<- [1..splitters]]
-  -- let  splitted =  partition' (zip [0..] $  partition' (words file) [[]| _<- [1..10000]]) ( [[]| _<- [1..splitters]])
-  let  splitted =  map (:[]) (zip [0..] (partition 10000 . words $ file))
+  -- split the input file into num of mappers parts
+  let  splitted =  devide splitters (words file)
   
   -- debug
   putStrLn . show . map length $ splitted
   
   -- do the map reduce processing
+  putTimeStamp "Begin Client MR"
   result <- client countMap countReduce (words wordsToCount) (splitters,mappers,reducers) splitted
-  
+  putTimeStamp "End Client MR"
+    
   -- debug
   putStrLn . show $ result
   
   -- process the result and show it
+  putTimeStamp "Begin sum result"  
   let result' = sum . map snd $ result
   putStrLn ("Occurence of word(s) \""++wordsToCount++"\" is " ++ (show result'))
-  
+  putTimeStamp "End sum result"
+  putTimeStamp "End Client"  
   -- the end 
   return ()
 
-
-partition :: Int -> [a] -> [[a]]
-partition = partition2 []
-
-partition2 :: [[a]] -> Int -> [a] -> [[a]]
-partition2 lss n [] = lss
-partition2 lss n ls = partition2 (left:lss) n right
+{-
+  devide image into coherent blocks
+-}
+devide :: Int -> [String] -> [[(Int,[String])]]
+devide = devide' 0 []
   where
-  (left,right) = splitAt n ls
+  devide' :: Int ->  [[(Int,[String])]] -> Int -> [String] -> [[(Int,[String])]]  
+  devide' key xss n [] = xss
+  devide' key xss n xs = devide' key' xss' n rest
+    where
+    key' = key + 1
+    xss' = ([(key,xs')]:xss)
+    (xs',rest) = splitAt n xs -- ( [(Int,[Int])] , [(Int,[Int])] )
