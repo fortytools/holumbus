@@ -2,6 +2,8 @@ module Holumbus.MapReduce.Examples.Count.DCount
 (
    countMap
  , countReduce
+ , K1
+ , V1
 )
 where
 
@@ -9,14 +11,19 @@ import Holumbus.Distribution.SimpleDMapReduceIO
 import Control.Parallel.Strategies
 import Holumbus.MapReduce.Types
 
-instance Hash Integer where
-  hash n k = mod (fromIntegral k) n
+type Options = [String]
+type K1 = Int
+type V1 = [String]
+type K2 = Int
+type V2 = Int
+type V3 = V4
+type V4 = Int
 
 {-
 
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 -}
-countMap :: MapFunction [String] Int [String] Int Int
+countMap :: MapFunction Options K1 V1 K2 V2
 countMap _env wordsToCount k1 v1 = do
 --  putStrLn $ "map: ("++show k1++" / "++(show . length $ v1)++" )"
 --  let result =  zip (repeat k1) (map counts v1)
@@ -36,5 +43,5 @@ countMap _env wordsToCount k1 v1 = do
 
 type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
 -}
-countReduce :: ReduceFunction [String]  Int Int Int
+countReduce :: ReduceFunction Options K2 V2 V4
 countReduce _env _opts _k2 = return . Just . sum

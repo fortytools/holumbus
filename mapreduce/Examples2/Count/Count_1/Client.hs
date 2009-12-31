@@ -50,10 +50,10 @@ main = do
 {-
   devide image into coherent blocks
 -}
-devide :: Int -> [String] -> [[(Int,[String])]]
+devide :: Int -> V1 -> [[(K1,V1)]]
 devide = devide' 0 []
   where
-  devide' :: Int ->  [[(Int,[String])]] -> Int -> [String] -> [[(Int,[String])]]  
+  devide' :: K1 ->  [[(K1,V1)]] -> Int -> V1 -> [[(K1,V1)]]
   devide' key xss n [] = xss
   devide' key xss n xs = devide' key' xss' n rest
     where

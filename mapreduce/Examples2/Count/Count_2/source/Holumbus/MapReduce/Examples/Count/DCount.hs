@@ -7,9 +7,10 @@ module Holumbus.MapReduce.Examples.Count.DCount
 )
 where
 
-import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
+import Holumbus.Distribution.SimpleDMapReduceIO
 import Control.Parallel.Strategies
 import Holumbus.MapReduce.Types
+import Data.Maybe (mapMaybe)
 
 type Options = [String]
 type K1 = Int
@@ -24,19 +25,13 @@ type V4 = Int
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]
 -}
 countMap :: MapFunction Options K1 V1 K2 V2
-countMap _env wordsToCount k1 v1 = do
---  putStrLn $ "map: ("++show k1++" / "++(show . length $ v1)++" )"
---  let result =  zip (repeat k1) (map counts v1)
---  return $ rnf result `seq` result
---  let c = counts v1
---  return [(c,c)]
-  let cs= map (\x -> let x' = counts x in (k1,x')) v1 in rnf cs `seq` return cs 
---  return [(k1,counts v1)]
+countMap _env wordsToCount k1 v1 = (return . zip (repeat k1) . mapMaybe counts) v1
+--   let cs= map (\x -> let x' = counts x in (k1,x')) v1 in rnf cs `seq` return cs
   where
-  counts :: String -> Int
+  counts :: String -> Maybe Int
   counts word = (b2int . or . map (==word)) wordsToCount
-  b2int True  = 1
-  b2int False = 0
+  b2int True  = Just 1
+  b2int False = Nothing
   
 
 {-
