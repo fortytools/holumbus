@@ -2,8 +2,8 @@ module Main
 ( main )
 where
 
-import Examples2.Re.MRIndexer
-import Examples2.Re.Common
+import Crawl2.Examples2.MRIndexer
+import Crawl2.Examples2.Common
 import Holumbus.Distribution.SimpleDMapReduceIO
 import Holumbus.DCrawler.URIs
 import Holumbus.DCrawler.Robots

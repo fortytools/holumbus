@@ -14,7 +14,7 @@ import System.Environment
 import Holumbus.Crawler.IndexerCore
 import Control.Monad (foldM)
 import Holumbus.Index.Common    hiding ( URI )
-import Examples2.Re.CommonStandalone
+import Crawl2.Examples2.CommonStandalone
 --
 
 main	:: IO ()

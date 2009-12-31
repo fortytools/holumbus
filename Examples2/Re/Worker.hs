@@ -1,7 +1,7 @@
 module Main
 where
 
-import Examples2.Re.MRIndexer
+import Crawl2.Examples2.MRIndexer
 import Holumbus.Distribution.SimpleDMapReduceIO
 
 main :: IO ()

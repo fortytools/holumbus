@@ -59,7 +59,7 @@ import Holumbus.Query.Language.Parser
 import Holumbus.Query.Distribution.Protocol
 import Holumbus.Query.Distribution.Client
 
-import Examples2.Re.Common (PlainText(..))
+import Crawl2.Examples2.Common (PlainText(..))
 
 data Flag = Index String 
           | Documents String 

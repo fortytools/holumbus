@@ -1,0 +1,57 @@
+#!/bin/bash
+
+[ -n "$MR_BIN" ] || { echo "$0 Undefined variable: MR_BIN"; exit 1; }
+[ -n "$START_WORKER_SCRIPT" ] || { echo "$0 Undefined variable: START_WORKER_SCRIPT"; exit 1; }
+[ -n "$CLIENT" ] || { echo "$0 Undefined variable: CLIENT"; exit 1; }
+[ -n "$COPY_WORKER_DATA" ] || { echo "$0 Undefined variable: COPY_WORKER_DATA"; exit 1; }
+[ -n "$1" ] || { echo "$0 Parameter missing: WORKERS"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: SPLITTERS"; exit 1; }
+[ -n "$3" ] || { echo "$0 Parameter missing: MAPPERS"; exit 1; }
+[ -n "$4" ] || { echo "$0 Parameter missing: REDUCERS"; exit 1; }
+[ -n "$5" ] || { echo "$0 Parameter missing: BASE"; exit 1; }
+[ -n "$6" ] || { echo "$0 Parameter missing: FOLLOW"; exit 1; }
+[ -n "$7" ] || { echo "$0 Parameter missing: NOFOLLOW"; exit 1; }
+
+WORKERS="$1"
+SPLITTERS="$2"
+MAPPERS="$3"
+REDUCERS="$4"
+BASE="$5"
+FOLLOW="$6"
+NOFOLLOW="$7"
+
+echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $FIRSTSPLIT / $SPLIT"
+# Start MR sytem and wait a sec
+$MR_BIN start && sleep 1
+
+# Start I workers
+$START_WORKER_SCRIPT start 1 $WORKERS
+
+# Wait for workers to be started
+while [ `cat /tmp/master.state|wc -l` -ne $WORKERS ]; do echo "Waiting for workers to be started" && sleep 1; done
+
+sleep 2
+
+# make a new dir for curretn constelation
+FILENAME_PREFIX="${WORKERS}_${SPLITTERS}_${MAPPERS}_${FIRSTSPLIT}_${SPLIT}"
+mkdir "data_$FILENAME_PREFIX" || { echo "dir exist do not overwrite it: exit"; exit 1; }
+cd "data_$FILENAME_PREFIX"
+
+# run function
+/usr/bin/time -o "time.txt" -v "$CLIENT" "$BASE" "($SPLITTERS,$MAPPERS,$REDUCERS)" "$FOLLOW" "$NOFOLLOW" +RTS -N3 -K4G -s"Memory.txt"
+
+# stop workers
+$START_WORKER_SCRIPT stop 1 $WORKERS
+
+# copy workers memory data to here
+sleep 2
+mkdir workerdata
+cd workerdata
+$COPY_WORKER_DATA 1 $WORKERS
+cd .. 
+
+# leave current dir
+cd ..
+
+# stop mr system and wait a sec
+$MR_BIN stop && sleep 1

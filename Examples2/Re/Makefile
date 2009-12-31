@@ -1,6 +1,6 @@
-HOME		= ../../
+HOME		= ./
 
-SOURCE		= .
+SOURCE		= source 
 OPTIMIZATION=-O2
 GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main -XBangPatterns -XFlexibleContexts -Wall
 GHC		= ghc $(GHC_FLAGS)
@@ -8,7 +8,7 @@ GHC		= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM		= rm $(RM_FLAGS)
 
-PROG		= MRIndexer Client Worker SimpleSearch
+PROG		= Client Worker SimpleSearch
 
 OUTPUT		= output
 

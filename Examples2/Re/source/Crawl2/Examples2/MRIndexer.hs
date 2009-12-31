@@ -1,10 +1,10 @@
-module Examples2.Re.MRIndexer
+module Crawl2.Examples2.MRIndexer
 where
 
 import           Holumbus.Distribution.SimpleDMapReduceIO
 import           Holumbus.DCrawler.Core
 import           Data.Maybe
-import           Examples2.Re.Common
+import           Crawl2.Examples2.Common
 import           Holumbus.DCrawler.IndexerCore
 import           Control.Monad
 import qualified Data.Map as M
