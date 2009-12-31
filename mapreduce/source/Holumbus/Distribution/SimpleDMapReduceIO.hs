@@ -45,7 +45,7 @@ splitConfiguration
   => SplitConfiguration a k1 v1
 splitConfiguration
   = SplitConfiguration
-      hashedPartition
+      defaultSplit
       defaultInputReader
       defaultOutputWriter
 
