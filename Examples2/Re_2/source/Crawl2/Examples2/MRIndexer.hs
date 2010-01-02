@@ -29,7 +29,7 @@ idxMap _ opts key (state, urimap)= do
  type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (Maybe v3)
  
 -}
-idxReduce :: ReduceFunction ([String],[String]) Int ResultState (ResultIndex, ResultState) -- (IndexerState Inverted Documents PlainText, ResultState)
+idxReduce :: ReduceFunction Options K2 V3 V4 -- (IndexerState Inverted Documents PlainText, ResultState)
 idxReduce _ _ _ states = do
   -- merge all states together 
   let state' = mergeStates states

@@ -25,10 +25,8 @@ where
 import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.MapReduce.Types hiding (defaultSplit)
 import           Holumbus.Common.FileHandling
-import           Data.Binary
---import           Holumbus.Common.MRBinary
 import           Data.Maybe
-import           Control.Parallel.Strategies
+import       qualified    Data.Map as M
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import qualified Holumbus.FileSystem.FileSystem                 as FS
 import qualified Holumbus.MapReduce.DaemonInterface             as DI
@@ -39,21 +37,16 @@ import           System.Log.Logger
 import           System.Environment
 import           System.Exit
 import           Data.Time.Clock.POSIX
-import qualified Holumbus.Data.AccuMap as AMap
+import Crawl2.Examples2.Common
 
-splitConfiguration
-  :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
-  => SplitConfiguration a k1 v1
+splitConfiguration :: SplitConfiguration Options K1 V1
 splitConfiguration
   = SplitConfiguration
       defaultSplit
       defaultInputReader
       defaultOutputWriter
 
-mapConfiguration
-  :: (Hash k2, NFData v1, NFData k1, NFData v2, NFData k2, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)
-  => MapFunction a k1 v1 k2 v2
-  -> MapConfiguration a k1 v1 k2 v2
+mapConfiguration :: MapFunction Options K1 V1 K2 V2 -> MapConfiguration Options K1 V1 K2 V2
 mapConfiguration fct
   = MapConfiguration
       fct
@@ -61,10 +54,7 @@ mapConfiguration fct
       defaultInputReader
       defaultOutputWriter
 
-reduceConfiguration
-  :: (Hash k2, NFData v2, NFData k2, NFData v3, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
-  => ReduceFunction a k2 v2 v3
-  -> ReduceConfiguration a k2 v2 v3
+reduceConfiguration :: ReduceFunction Options K2 V3 V4 -> ReduceConfiguration Options K2 V3 V4
 reduceConfiguration fct
   = ReduceConfiguration
       defaultMerge
@@ -73,22 +63,36 @@ reduceConfiguration fct
       defaultInputReader
       defaultOutputWriter
 
-defaultSplit
-  :: (NFData k1, NFData v1) => SplitFunction a k1 v1
-defaultSplit _ _ n ls = do
-  infoM localLogger $ "defaultSplit: " ++ (show . length $ partedList)
-  return partedList
+defaultSplit :: SplitFunction Options K1 V1
+defaultSplit _ _ n l = do
+  let res = f l
+  infoM localLogger $ "defaultSplit: " ++ (show . length) res
+  return res
     where
-    partedList = AMap.toList $ AMap.fromList ps
+    f :: [(K1,V1)] -> [(Int,[(K1,V1)])]
+    f l = concatMap (\(k1,(state, urimap)) ->
+      let urilist = M.toList urimap;
+          partitionedUris = partitionUris urilist;
+          urimapswithstatesnkeys = map (\urilist' -> [(k1,(state, M.fromList urilist'))]) partitionedUris -- [[(k1,v1)]]
+          in zip ns urimapswithstatesnkeys) l
+    partitionUris l = part n (length l) l
     ns = [(x `mod` n) + 1 | x <- [0..]]
-    is = map (\a -> [a]) ls
-    ps = zip ns is
 
-
+part :: Int -> Int -> [a] -> [[a]]
+part parts len images = part' parts (len `div` parts) 1 images
+  where
+  part' :: Int -> Int -> Int -> [a] -> [[a]]
+  part' parts2 size i l
+    | i == parts = [l]
+    | otherwise  = (fst : part' parts2 size i' rst)
+    where
+    (fst,rst) = splitAt size l
+    i' = i + 1
+    
 {-
 actionConfig
 -}
-actionConfig :: (Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
+actionConfig :: MapFunction Options K1 V1 K2 V2 -> ReduceFunction Options K2 V3 V4 -> ActionConfiguration Options K1 V1 K2 V2 V3 V4
 actionConfig m r = (defaultActionConfiguration "ID") {
            ac_Split   = Just splitConfiguration  
          , ac_Map     = Just . mapConfiguration    $ m
@@ -103,24 +107,18 @@ actionConfig m r = (defaultActionConfiguration "ID") {
 {-
  The simple client
  
- doMapReduce :: ActionConfiguration a k1 v1 k2 v2 v3 v4
-  -> a               -- ^ options
-  -> [(k1,v1)]       -- ^ input (Tuples)
+ doMapReduce :: ActionConfiguration Options K1 V1 K2 V2 V3 V4
+  -> Options               -- ^ options
+  -> [(K1,V1)]       -- ^ input (Tuples)
   -> [FileId]        -- ^ input (Files)
   -> Int             -- ^ number of splitters
   -> Int             -- ^ number of mappers
   -> Int             -- ^ number of reducers
   -> Int             -- ^ number of results
   -> TaskOutputType  -- ^ type of the result (file of raw)
-  -> mr -> IO ([(k2,v4)],[FileId])
+  -> mr -> IO ([(K2,V4)],[FileId])
 -}
-client :: ( Show k1, Show k2, Show v1, Show v2, Show v3, Show v4
-          , Binary v1, Binary v3, Binary v2, Binary v4
-          , Binary a, Binary k1, Binary k2
-          , NFData k1, NFData k2, NFData v1, NFData v4, NFData v2, NFData v3
-          , Ord k2, Hash k1, Hash k2) =>
-          MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4
-          -> a -> (Int,Int,Int) -> [[(k1,v1)]] -> IO [(k2,v4)]
+client :: MapFunction Options K1 V1 K2 V2 -> ReduceFunction Options K2 V3 V4 -> Options -> (Int,Int,Int) -> [[(K1,V1)]] -> IO [(K2,V4)]
 client m r a (splitters,mappers,reducers) lss = do
       -- create port registry
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
@@ -150,7 +148,7 @@ client m r a (splitters,mappers,reducers) lss = do
       -- finally, return the result
       return result
       
-merge :: (Show k2, Show v4, Hash k2, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
+merge :: [FS.FileId] -> FS.FileSystem -> IO [(K2,V4)]
 merge fids fs = do
    mayberesult <- mapM ( flip FS.getFileContent fs) fids
    let result = concat . map parseByteStringToList $ catMaybes mayberesult
@@ -203,7 +201,7 @@ params = do
 {-
  The simpleWorker
 -}
-worker :: (Show k1, Show k2, Show v1, Show v2, Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
+worker :: MapFunction Options K1 V1 K2 V2  -> ReduceFunction Options K2 V3 V4 -> [(String,Priority)] -> IO ()
 worker m r loggers = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -219,7 +217,7 @@ worker m r loggers = do
 {-
  The simpleWorker's init functin
 -}
-initWorker :: (Hash k1, Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initWorker :: MapFunction Options K1 V1 K2 V2  -> ReduceFunction Options K2 V3 V4 -> IO (MR.DMapReduce, FS.FileSystem)
 initWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig

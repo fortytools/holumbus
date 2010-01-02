@@ -2,7 +2,7 @@ HOME		= ./
 
 SOURCE		= source 
 OPTIMIZATION=-O2
-GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main -XBangPatterns -XFlexibleContexts -Wall
+GHC_FLAGS	= -threaded $(OPTIMIZATION) -hidir $(OUTPUT) -odir $(OUTPUT) -i$(HOME)$(SOURCE) -main-is main -XBangPatterns -XFlexibleContexts
 GHC		= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf

@@ -32,6 +32,13 @@ import Holumbus.Index.Common hiding (URI) -- (DocId,HolIndex,HolDocuments)
 
 import qualified Data.Map as M
 
+type Options = ([String],[String])
+type K1 = Int
+type V1 = ResultState
+type K2 = Int
+type V2 = ResultState
+type V3 = V2
+type V4 = (ResultIndex, ResultState)
 -- ------------------------------------------------------------------------------------------------------------------------------------
 type Result = (ResultIndex, ResultState)
 type ResultState = (CrawlerState PlainDocs, M.Map URI DocId)
