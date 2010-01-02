@@ -1,0 +1,15 @@
+#!/bin/bash
+
+BASEDIR="/mnt/crawl"
+LOG="$BASEDIR/log"
+RUNTEST="/home/re/crawl2/Examples2/Re/runtest2"
+CONFDIR="/home/re/crawl2/Examples2/Re/" 
+
+for CONF in `ls $CONFDIR/config_*`
+do
+  mkdir test_$CONF
+  cd test_$CONF
+  echo "Running config: $I" >> $LOG
+  $RUNTEST $CONFDIR/$CONF 2>&1 | tee $LOG
+  cd ..
+done
