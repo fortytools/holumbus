@@ -11,6 +11,7 @@ import Holumbus.DCrawler.Core
 import Holumbus.Common.Logging
 import System.Log.Logger
 import System.Environment
+import System.Console.Readline
 
 import Holumbus.Index.Common hiding (URI)
 import Holumbus.Index.Documents (Documents(..))
@@ -38,15 +39,15 @@ set num of documents to sizeof uris
 
 main :: IO ()
 main = do 
-  putTimeStamp ("main begin")
+  putTimeStamp ("Client begin")
   ( baseUri : triplet : f : nf : [] ) <- getArgs
-  initializeLogging [(localLogger, INFO)]
+  initializeLogging [(localLogger, INFO),("measure",ERROR)]
   (index, _state) <- loop 0 (read triplet) 0 (emptyIndex, (firstState baseUri, M.empty)) (maybeStringlist f follow, maybeStringlist nf nofollow)
   writeToBinFile "index.bin" (ixs_index index)
   writeToXmlFile "index.xml" (ixs_index index)
   writeToBinFile "docs.bin"  (ixs_documents index)
   writeToXmlFile "docs.xml"  (ixs_documents index)  
-  putTimeStamp ("main end")
+  putTimeStamp ("Client end")
   
   where
   firstState baseUri = CrawlerState
@@ -60,6 +61,8 @@ main = do
 
 loop :: Int -> (Int,Int,Int) -> DocId -> Result -> ([String],[String]) -> IO Result
 loop count (splitters,mappers,reducers) nextId (index,state) followopts = do
+  --_ <- readline "Press a key"
+  infoM localLogger (show followopts)
   -- do another loop
   if (nullURIs . cs_toBeProcessed . fst) state
     then return (setLastId index (nextId-1),state)
@@ -144,7 +147,7 @@ returnState (state,map') (state',_map) = do
   -- substract already processed uris from to be processed uris
   infoM localLogger "substract already processed uris from to be processed uris"  
   let toBeProcessed''' = diffURIs toBeProcessed'' alreadyProcessed'
-  debugM localLogger ("difference: " ++ show toBeProcessed'')    
+  debugM localLogger ("difference: " ++ show toBeProcessed''')    
   
   -- return the new state
   return (CrawlerState {

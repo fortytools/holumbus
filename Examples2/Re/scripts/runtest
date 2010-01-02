@@ -2,8 +2,8 @@
 
 [ -n "$1" ] || { echo "$0 Parameter missing: TEST_CONFIG"; exit 1; }
 [ -n "$2" ] || { echo "$0 Parameter missing: BASE"; exit 1; }
-[ -n "$3" ] || { echo "$0 Parameter missing: FOLLOW"; exit 1; }
-[ -n "$4" ] || { echo "$0 Parameter missing: NOFOLLOW"; exit 1; }
+#[ -n "$3" ] || { echo "$0 Parameter missing: FOLLOW"; exit 1; }
+#[ -n "$4" ] || { echo "$0 Parameter missing: NOFOLLOW"; exit 1; }
 
 DEBUG=
 

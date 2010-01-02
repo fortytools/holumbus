@@ -76,7 +76,7 @@ crawlerConfig	(follow,nofollow) num = addReadAttributes  defaultOpts				-- at th
   >>> setS theFollowRef ( simpleFollowRef' follow nofollow )
   >>> setS theMaxNoOfDocs num
   >>> setS theSaveIntervall 10                                 -- every 10 documents the state is saved
-  >>> setS theSavePathPrefix "./tmp/re-"                       -- states are saved in subdir "./tmp" in files starting with "re-"
+  >>> setS theSavePathPrefix "/tmp/worker/re-"                       -- states are saved in subdir "./tmp" in files starting with "re-"
   >>> setS theTraceLevel 1                                     -- trace actions with lowest level
   $ defaultHtmlCrawlerConfig accuHeading
   where

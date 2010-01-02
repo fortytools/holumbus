@@ -13,7 +13,7 @@ $MR_BIN start
 for I in `seq $IP1 $IP2`
 do
   echo "Copy registry data to: 172.16.3.$I"
-  $COPY_REGISTRY_COMMAND.$I:/tmp/
+  $COPY_REGISTRY_COMMAND.$I:/tmp/ > /dev/null
 done
 
 $MR_BIN stop
