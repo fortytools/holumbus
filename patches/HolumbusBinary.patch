@@ -1,6 +1,17 @@
---- src/Data/Binary.hs	2010-01-05 16:28:32.000000000 +0100
-+++ src/Data/HBinary.hs	2010-01-05 16:05:04.000000000 +0100
-@@ -582,10 +582,38 @@
+diff -rupN binary/binary.cabal hbinary/binary.cabal
+--- binary/binary.cabal	2010-01-05 16:55:34.000000000 +0100
++++ hbinary/binary.cabal	2010-01-05 16:58:18.000000000 +0100
+@@ -1,5 +1,5 @@
+ name:            binary
+-version:         0.5.0.2
++version:         0.5.0.2.1
+ license:         BSD3
+ license-file:    LICENSE
+ author:          Lennart Kolmodin <kolmodin@dtek.chalmers.se>
+diff -rupN binary/src/Data/Binary.hs hbinary/src/Data/Binary.hs
+--- binary/src/Data/Binary.hs	2010-01-05 16:55:34.000000000 +0100
++++ hbinary/src/Data/Binary.hs	2010-01-05 16:58:24.000000000 +0100
+@@ -582,10 +582,38 @@ instance (Binary a, Binary b, Binary c, 
  ------------------------------------------------------------------------
  -- Container types
  
