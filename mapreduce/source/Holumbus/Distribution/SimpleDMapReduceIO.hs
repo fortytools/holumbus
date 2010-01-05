@@ -235,7 +235,7 @@ first list, list of
 partition' :: [a] -> [[a]] -> [[a]]
 partition'     _        [] = []
 partition'    []       xss = xss
-partition'    us   (xs:[]) = [us]
+partition'    us   (_xs:[]) = [us]
 partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
   where xs' = (u:xs)
 
