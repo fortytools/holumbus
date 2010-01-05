@@ -12,7 +12,7 @@ function doIt() {
 #  sudo cabal clean && \
 #  sudo cabal install --global $PROF
   runhaskell Setup.hs clean && \
-  runhaskell Setup.hs configure $PRO && \
+  runhaskell Setup.hs configure $PROF && \
   runhaskell Setup.hs build  && \
   sudo runhaskell Setup.hs install --global
   cd $BASE
