@@ -23,7 +23,7 @@ diff -rupN binary/src/Data/Binary.hs hbinary/src/Data/Binary.hs
 +instance (Binary a) => Binary [a] where
 +--  put [] = putWord8 0
 +--  put (x:xs) = putWord8 1 >> put x >> put xs
-+  put l  = mapM_ (\x -> putWord8 1 >> put x) l >> putWord8 0
++  put l  = mapM_ (\x -> (putWord8 1 >>) `seq` put x) l >> putWord8 0
 +
 +  get = do
 +    next <- getWord8
