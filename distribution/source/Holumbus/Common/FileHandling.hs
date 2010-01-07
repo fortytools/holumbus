@@ -67,9 +67,6 @@ where
 
 import           Control.Exception
 import           Data.Binary
-import           Data.Binary.Put
-import           Data.Binary.Get
---import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
 import           Data.List
@@ -111,52 +108,21 @@ saveToXmlFile f i
 
 -- | Writes data to a list file.
 writeToListFile :: (Binary a) => FilePath -> [a] -> IO ()
---writeToListFile fp bs = writeToBinFile fp $ B.concat $ map encode bs
---writeToListFile = encodeFile-- writeToBinFile fp $ encodeStream (List bs)
-writeToListFile fp = writeToBinFile fp . listToByteString
-
+writeToListFile = encodeFile
 
 -- | Appends data to a list file.
 appendToListFile :: (Binary a) => FilePath -> [a] -> IO ()
---appendToListFile fp bs = appendToBinFile fp $ B.concat $ map encode bs
--- appendToListFile fp = appendToBinFile fp .encode
 appendToListFile fp = appendToBinFile fp . listToByteString
 
 -- | reads from a list file.
 readFromListFile :: (NFData a, Binary a) => FilePath -> IO [a]
---readFromListFile = decodeFile
-readFromListFile f = do
-     b <- readFromBinFile f 
-     return $ parseByteStringToList b
+readFromListFile = decodeFile
 
 listToByteString :: (Binary a) => [a] -> B.ByteString
-listToByteString = encodeStream
+listToByteString = encode
 
 parseByteStringToList :: (Binary a) => B.ByteString -> [a]
---parseByteStringToList = decode
-parseByteStringToList = decodeStream
-
--- | Decode records in repetition
-decodeStream :: Binary a => B.ByteString -> [a]
-decodeStream = runGet (getStream get)
-
--- | Encode list of records as bytestring
-encodeStream :: Binary a => [a] -> B.ByteString 
-encodeStream = runPut . putStream put
-
--- | Read list of values from bytestring until it ends.
-getStream :: Get a -> Get [a]
-getStream getter = do
-  empty <- isEmpty
-  if empty
-    then return []
-    else do x <- getter
-            xs <- getStream getter
-            x `seq` return (x:xs)
-
--- | Write list of values.
-putStream :: (a -> Put) -> [a] -> Put
-putStream f = mapM_ f
+parseByteStringToList = decode
 
 -- ----------------------------------------------------------------------------     
 -- strict functions, bytestrings only     
