@@ -7,18 +7,12 @@ module Holumbus.MapReduce.Examples.Count.DCount
 )
 where
 
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Control.Parallel.Strategies
 import Holumbus.MapReduce.Types
 import Data.Maybe (mapMaybe)
 
-type Options = [String]
-type K1 = Int
-type V1 = [String]
-type K2 = Int
-type V2 = Int
-type V3 = V4
-type V4 = Int
+countSplit :: SplitFunction A K1 V1
 
 {-
 

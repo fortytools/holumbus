@@ -5,12 +5,12 @@ module Main
 where
 
 
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Count.DCount
 import System.Log
 
 main :: IO ()
-main = worker countMap countReduce [ ("Holumbus.MapReduce.Types", INFO)
+main = worker countSplit countMap countReduce [ ("Holumbus.MapReduce.Types", INFO)
                                     ,("measure.putMessage", ERROR)
                                     ,("measure.getMessage", ERROR)
                                     ,("measure.readStorage", ERROR)]

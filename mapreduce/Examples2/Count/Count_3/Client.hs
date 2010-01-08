@@ -5,7 +5,7 @@ module Main
 where
 
 
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Count.DCount 
 import System.Environment
 import Control.Parallel.Strategies
@@ -29,10 +29,19 @@ main = do
   
   -- debug
   putStrLn . show . map length $ splitted
+
+  -- write the splitted list to disk
+  -- make filesystem
+  fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+  -- create the filenames and store the data to the map reduce filesystem
+  let filenames = map (\i -> "input_data_"++show i) [1..(length splitted)]
+  mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames splitted
+  -- assign a key to each filename for distribution to splitters
+  let filenames' = zip [0..] filenames
   
   -- do the map reduce processing
   putTimeStamp "Begin Client MR"
-  result <- client countMap countReduce (words wordsToCount) (splitters,mappers,reducers) splitted
+  result <- client countSplit countMap countReduce (words wordsToCount) (splitters,mappers,reducers) filenames'
   putTimeStamp "End Client MR"
     
   -- debug
