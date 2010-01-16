@@ -1,6 +1,7 @@
 #!/bin/bash
 
 [ -n "$1" ] || { echo "Parameter missing: TEST_CONFIG"; exit 1; }
+[ -n "$2" ] || { echo "Parameter missing: OPTS"; exit 1; }
 
 # paths
 export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Mandelbrot-set/Mandelbrot-set_3" # absolut path to this directory
@@ -30,7 +31,7 @@ CMD='$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$OPTS"'
 
 TESTS=`cat $1` # read the test's config file
 FILENAME="test.pgm"
-OPTS="(2560,4069,2.0,100)"
+OPTS="$2"
 
 # - ---------------------- -
 # - Start the whole test   -

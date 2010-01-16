@@ -37,7 +37,7 @@ mkdir "data_$FILENAME_PREFIX" || { echo "dir exist do not overwrite it: exit"; e
 cd "data_$FILENAME_PREFIX"
 
 # run function
-/usr/bin/time -o "time.txt" -v "$CLIENT" "$FILENAME" "$OPTS" "($SPLITTERS,$MAPPERS,$REDUCERS)" +RTS -N3 -K4G -s"Memory.txt"
+/usr/bin/time -o "time.txt" -v "$CLIENT" "$FILENAME" "$OPTS" "($MAPPERS,$REDUCERS)" +RTS -N3 -K4G -s"Memory.txt"
 
 # stop workers
 $START_WORKER_SCRIPT stop 1 $WORKERS
