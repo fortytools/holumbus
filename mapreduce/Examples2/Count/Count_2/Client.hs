@@ -5,7 +5,7 @@ module Main
 where
 
 
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Count.DCount 
 import System.Environment
 import Control.Parallel.Strategies

@@ -8,18 +8,15 @@
 [ -n "$2" ] || { echo "Parameter missing: SPLITTERS"; exit 1; }
 [ -n "$3" ] || { echo "Parameter missing: MAPPERS"; exit 1; }
 [ -n "$4" ] || { echo "Parameter missing: REDUCERS"; exit 1; }
-[ -n "$5" ] || { echo "Parameter missing: FILENAME"; exit 1; }
-[ -n "$6" ] || { echo "Parameter missing: WORDS"; exit 1; }
+[ -n "$5" ] || { echo "Parameter missing: FACTOR"; exit 1; }
 
 WORKERS="$1"
 SPLITTERS="$2"
 MAPPERS="$3"
 REDUCERS="$4"
-FILENAME="$5"
-OPTS="$6"
+FACTOR="$5"
 
-
-echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $REDUCERS"
+echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $REDUCERS / $FACTOR"
 # Start MR sytem and wait a sec
 $MR_BIN start && sleep 1
 
@@ -32,12 +29,12 @@ while [ `cat /tmp/master.state|wc -l` -ne $WORKERS ]; do echo "Waiting for worke
 sleep 2
 
 # make a new dir for curretn constelation
-FILENAME_PREFIX="$WORKERS""_""$SPLITTERS""_""$MAPPERS""_""$REDUCERS"
+FILENAME_PREFIX="${WORKERS}_${SPLITTERS}_${MAPPERS}_${REDUCERS}_${FACTOR}"
 mkdir "data_$FILENAME_PREFIX" || { echo "dir exist do not overwrite it: exit"; exit 1; }
 cd "data_$FILENAME_PREFIX"
 
 # run function
-/usr/bin/time -o "time.txt" -v "$CLIENT" "$FILENAME" "$OPTS" "($MAPPERS,$REDUCERS)" +RTS -N3 -K4G -s"Memory.txt"
+/usr/bin/time -o "time.txt" -v "$CLIENT" "$FACTOR"  "($SPLITTERS,$MAPPERS,$REDUCERS)" +RTS -N3 -K4G -s"Memory.txt"
 
 # stop workers
 $START_WORKER_SCRIPT stop 1 $WORKERS

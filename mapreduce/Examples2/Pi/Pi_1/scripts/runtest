@@ -1,10 +1,9 @@
 #!/bin/bash
 
 [ -n "$1" ] || { echo "Parameter missing: TEST_CONFIG"; exit 1; }
-[ -n "$2" ] || { echo "Parameter missing: OPTS"; exit 1; }
 
 # paths
-export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Mandelbrot-set/Mandelbrot-set_3" # absolut path to this directory
+export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Pi/Pi_1" # absolut path to this directory
 
 # scripts adn binaries
 export MR_BIN="sudo /etc/init.d/MR"                                 # start script for MR system
@@ -25,13 +24,13 @@ export WORKER_SH="worker.sh"                     # the workers start skript
 export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this directory
 export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
 export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
+export IP_OFFSET="0"
+
+CMD='$RUNTEST2 $WORKERS $MAPPERS $REDUCERS $SAMPLES'
 
 NUMOFTESTS="5" # how many runs?
-CMD='$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$OPTS"'
 
-TESTS=`cat $1` # read the test's config file
-FILENAME="test.pgm"
-OPTS="$2"
+TESTS=`egrep -v "(^$|^#.*$)" $1` # read the test's config file
 
 # - ---------------------- -
 # - Start the whole test   -
@@ -50,14 +49,13 @@ do
   for TEST in $TESTS
 	do
     WORKERS=`echo $TEST | cut -d: -f1`
-    SPLITTERS=`echo $TEST | cut -d: -f2`
-    MAPPERS=`echo $TEST | cut -d: -f3`
-    REDUCERS=`echo $TEST | cut -d: -f4`
+    MAPPERS=`echo $TEST | cut -d: -f2`
+    REDUCERS=`echo $TEST | cut -d: -f3`
+    SAMPLES=`echo $TEST | cut -d: -f4`
     # copy the registry data
     [ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
-    COPIED=1
+    COPIED="1"    
     # start current test
-    #$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILE" "$WORDS"
     eval $CMD
 	done
   
