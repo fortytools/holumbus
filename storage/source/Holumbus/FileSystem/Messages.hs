@@ -32,6 +32,7 @@ module Holumbus.FileSystem.Messages
 
 -- * request an response handling
 , performPortAction -- reexport from Holumbus.Network.Messages
+, ClientPortMap
 )
 where
 
@@ -46,6 +47,8 @@ import qualified Holumbus.Network.Site as Site
 import qualified Holumbus.FileSystem.Storage as S
 import           Holumbus.Network.Messages
 
+
+type ClientPortMap = [(ClientPort,[S.FileId])]
 
 
 -- ----------------------------------------------------------------------------
@@ -67,7 +70,9 @@ data ControllerRequestMessage
   | CReqGetFileSites               S.FileId
   | CReqGetNearestNodePortWithFile S.FileId Site.SiteId 
   | CReqGetNearestNodePortForFile  S.FileId Integer Site.SiteId
+  | CReqGetNearestNodePortForFiles [(S.FileId,Integer)] Site.SiteId
   | CReqCreate                     S.FileId NodeId
+  | CReqCreateS                    [(S.FileId,NodeId)]
   | CReqAppend                     S.FileId NodeId
   | CReqDelete                     S.FileId NodeId
   | CReqUnknown
@@ -79,7 +84,9 @@ instance Binary ControllerRequestMessage where
   put (CReqGetFileSites f)                  = putWord8 2  >> put f
   put (CReqGetNearestNodePortWithFile f s)  = putWord8 3  >> put f >> put s
   put (CReqGetNearestNodePortForFile f l s) = putWord8 4  >> put f >> put l >> put s
+  put (CReqGetNearestNodePortForFiles l s)  = putWord8 9  >> put s >> put l
   put (CReqCreate f n)                      = putWord8 5  >> put f >> put n
+  put (CReqCreateS l)                       = putWord8 10 >> put l
   put (CReqAppend f n)                      = putWord8 6  >> put f >> put n
   put (CReqDelete f n)                      = putWord8 7  >> put f >> put n
   put (CReqUnknown)                         = putWord8 0
@@ -91,7 +98,9 @@ instance Binary ControllerRequestMessage where
         2  -> get >>= \f -> return (CReqGetFileSites f)
         3  -> get >>= \f -> get >>= \s -> return (CReqGetNearestNodePortWithFile f s)
         4  -> get >>= \f -> get >>= \l -> get >>= \s -> return (CReqGetNearestNodePortForFile  f l s)
+        9  -> get >>= \s -> get >>= \l -> return (CReqGetNearestNodePortForFiles l s)
         5  -> get >>= \f -> get >>= \n -> return (CReqCreate f n)
+        10 -> get >>= \l -> return (CReqCreateS l)
         6  -> get >>= \f -> get >>= \n -> return (CReqAppend f n)
         7  -> get >>= \f -> get >>= \n -> return (CReqDelete f n)
         _  -> return (CReqUnknown)
@@ -104,6 +113,7 @@ data ControllerResponseMessage
   | CRspContains Bool
   | CRspGetNearestNodePortWithFile (Maybe ClientPort)
   | CRspGetNearestNodePortForFile (Maybe ClientPort)
+  | CRspGetNearestNodePortForFiles ClientPortMap
   | CRspError String
   | CRspUnknown
   deriving (Show)
@@ -128,6 +138,7 @@ instance Binary ControllerResponseMessage where
   put (CRspContains b)                    = putWord8 3 >> put b
   put (CRspGetNearestNodePortWithFile p)  = putWord8 4 >> put p
   put (CRspGetNearestNodePortForFile p)   = putWord8 5 >> put p
+  put (CRspGetNearestNodePortForFiles p)  = putWord8 7 >> put p
   put (CRspError e)                       = putWord8 6 >> put e
   put (CRspUnknown)                       = putWord8 0
   get
@@ -139,6 +150,7 @@ instance Binary ControllerResponseMessage where
         3 -> get >>= \b -> return (CRspContains b)
         4 -> get >>= \p -> return (CRspGetNearestNodePortWithFile p)
         5 -> get >>= \p -> return (CRspGetNearestNodePortForFile p)
+        7 -> get >>= \p -> return (CRspGetNearestNodePortForFiles p)
         6 -> get >>= \e -> return (CRspError e)
         _ -> return (CRspUnknown)
 
@@ -152,6 +164,7 @@ instance Binary ControllerResponseMessage where
 -- | Requests datatype, which is send to a filesystem node.
 data NodeRequestMessage 
   = NReqCreate          S.FileId S.FileContent
+  | NReqCreateS         [(S.FileId,S.FileContent)]
   | NReqAppend          S.FileId S.FileContent
   | NReqDelete          S.FileId Bool
   | NReqCopy            S.FileId ClientPort
@@ -165,6 +178,7 @@ data NodeRequestMessage
 
 instance Binary NodeRequestMessage where
   put (NReqCreate i c)       = putWord8 1 >> put i >> put c
+  put (NReqCreateS l)        = putWord8 9 >> put l
   put (NReqAppend i c)       = putWord8 2 >> put i >> put c
   put (NReqDelete i b)       = putWord8 3 >> put i >> put b
   put (NReqCopy i cp)        = putWord8 4 >> put i >> put cp
@@ -185,6 +199,7 @@ instance Binary NodeRequestMessage where
         6 -> get >>= \i -> return (NReqGetFileContent i)
         7 -> get >>= \i -> return (NReqGetFileData i)
         8 -> return (NReqGetFileIds)
+        9 -> get >>= \l -> return (NReqCreateS l)
         _ -> return (NReqUnknown)
 
 

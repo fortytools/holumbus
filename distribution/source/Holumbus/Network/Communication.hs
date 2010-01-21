@@ -810,7 +810,7 @@ instance Debug Client where
 
 -- | Just a wrapper around a port.
 data ClientPort = ClientPort (Port ClientRequestMessage)
-  deriving (Show)
+  deriving (Show,Eq)
 
 instance Binary ClientPort where
   put (ClientPort p) = put p

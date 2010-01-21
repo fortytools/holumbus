@@ -121,7 +121,8 @@ client m r a (splitters,mappers,reducers) lss = do
       fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
       -- create the filenames and store the data to the map reduce filesystem
       let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
-      mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+      FS.createFiles (zipWith (\fn c -> (fn,listToByteString c)) filenames lss) fs
+      -- mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
       
       -- do the map reduce job
       putTimeStamp "SimpleDMR Begin MR"

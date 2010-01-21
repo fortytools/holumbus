@@ -557,9 +557,22 @@ writeConnector
 writeConnector oc ae ls
   = do
     infoM localLogger $ "writeConnector: " ++ (show . length $ ls)
-    os <- mapM (writeOutput (ae_FileSystem ae) tot) ls
+    os <- case tot of
+      TOTRawTuple -> mapM (writeOutput (ae_FileSystem ae) tot) ls
+      _           -> write2
     return $ catMaybes os
     where 
+
+    write2 = do
+      bincontents <- mapM (\(_,c) -> oc c) ls
+      let filelist = zip filenames bincontents;
+          
+      FS.createFiles filelist fs
+      return $ (zipWith (\(i,_) fn -> Just (i,[FileFunctionData fn]) ) ls filenames)
+      where
+      filenames = map (\(i,_) -> "j" ++ show (td_JobId td) ++ "_t" ++ show (td_TaskId td) ++ "_i" ++ show i) ls
+      fs = ae_FileSystem ae
+ 
     td   = ae_TaskData ae
     tot  = td_OutputType $ ae_TaskData ae
     -- writeOutput :: FS.FileSystem -> TaskOutputType -> (Int,[(k2,v2)]) -> IO (Maybe (Int,[FunctionData]))

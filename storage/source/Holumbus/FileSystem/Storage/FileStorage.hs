@@ -29,8 +29,8 @@ module Holumbus.FileSystem.Storage.FileStorage
 where
 
 import           Control.Monad
-import           Control.Exception
-import qualified Data.ByteString.Lazy as B
+--import           Control.Exception
+--import qualified Data.ByteString.Lazy as B
 import           Data.Binary
 --import           Holumbus.Common.MRBinary
 import           Data.Maybe
@@ -106,8 +106,12 @@ newFileStorage path name
 readDirectory :: FileStorage -> IO (FileStorage)
 readDirectory stor
   = do
-    handleAll (\_ -> writeDirectory stor) $
-      bracket
+    handleAll (\_ -> writeDirectory stor) $ do
+      infoM localLogger ("opening filestorage directory: " ++ (fs_DirfilePath stor))
+      file <- decodeFile (fs_DirfilePath stor)
+      file `seq` return (stor {fs_Directory = file})
+
+{-      bracket
         (do
          infoM localLogger ("opening filestorage directory: " ++ (fs_DirfilePath stor))
          openFile (fs_DirfilePath stor) ReadMode
@@ -119,26 +123,39 @@ readDirectory stor
           raw <- B.hGet hdl (read $ head pkg)
           dir <- return (decode raw)
           return (stor {fs_Directory = dir})
-        )
+        )-}
 
 
 -- | Saves the filestorage on disk  
 writeDirectory :: FileStorage -> IO (FileStorage)
 writeDirectory stor
   = do
-    bracket 
+    infoM localLogger ("writing filestorage directory: " ++ (fs_DirfilePath stor))
+    createDirectoryIfMissing True (fs_Path stor)
+    --encodeFile (fs_DirfilePath stor) (fs_Directory stor)
+    return stor
+
+{-    bracket 
       (do
        infoM localLogger ("writing filestorage directory: " ++ (fs_DirfilePath stor))
        createDirectoryIfMissing True (fs_Path stor)
+       debugM localLogger "directory created .. "
        openFile (fs_DirfilePath stor) WriteMode)
       (hClose) 
       (\hdl ->
         do 
+        debugM localLogger "encode store.. "
         enc <- return (encode $ fs_Directory stor)
+
+        debugM localLogger "calc length .. "
         hPutStrLn hdl ((show $ B.length enc) ++ " ")
+
+        debugM localLogger "put store .. "
         B.hPut hdl enc    
+
+        debugM localLogger "return .. "
         return stor
-      )
+      )-}
 
 
 -- | deriving FileStorage from the class Storage
@@ -152,12 +169,15 @@ instance S.Storage FileStorage where
 
   createFile stor fn c 
     = do
+      debugM localLogger "write to bin file .. "
       writeToBinFile path c
       -- case c of
       --  (S.TextFile t) -> writeToTextFile path t
       --  (S.ListFile l) -> writeToListFile path l
       --  (S.BinFile  b) -> writeToBinFile path b
+      debugM localLogger "create file metadata"
       dat <- S.createFileData fn c
+      debugM localLogger "write directory"
       writeDirectory $ stor {fs_Directory = newdir dat} 
       where
         path = (fs_Path stor) ++ fn

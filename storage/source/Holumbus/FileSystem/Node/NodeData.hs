@@ -89,6 +89,10 @@ dispatch nd msg
         do
         createFile i c nd
         return $ Just M.NRspSuccess        
+      (M.NReqCreateS l) ->
+        do
+        createFiles l nd
+        return $ Just M.NRspSuccess
       (M.NReqAppend i c) -> 
         do
         appendFile i c nd
@@ -182,6 +186,27 @@ instance NodeClass Node where
           C.createFile i nid' cp
           return ()
           
+--  createFiles l n = mapM_ (\(fid,c) -> createFile fid c n) l
+  --createFiles :: [(S.FileId,S.FileContent)] -> Node -> IO ()
+  createFiles l n@(Node node)
+    = do
+      client <- withMVar node $ \nd -> return (nd_Client nd)
+      nid <- getClientId client
+      case nid of
+        (Nothing) ->
+          do
+          --TODO better exception-handling
+          errorM localLogger $ "createFiles - no nid"
+          return ()
+        (Just nid') ->
+          do
+          mapM_ (\(i,c) -> changeStorage (\stor -> S.createFile stor i c) n) l
+          server <- getServerPort client
+          let cp = CP.newControllerPortFromServerPort server
+          let fns = map (\(i,_) -> (i,nid')) l
+          C.createFiles fns  cp
+          return ()
+
 
   --appendFile :: S.FileId -> S.FileContent -> Node -> IO ()
   appendFile i c n@(Node node)

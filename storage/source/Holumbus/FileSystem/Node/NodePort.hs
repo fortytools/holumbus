@@ -66,6 +66,14 @@ instance NodeClass NodePort where
             (NRspSuccess) -> return (Just ())
             _ -> return Nothing
 
+  createFiles l (NodePort p)
+    = do
+      sendRequestToClient p time30 (NReqCreateS l) $
+        \rsp ->
+        do
+        case rsp of
+            (NRspSuccess) -> return (Just ())
+            _ -> return Nothing
 
   appendFile i c (NodePort p)
     = do

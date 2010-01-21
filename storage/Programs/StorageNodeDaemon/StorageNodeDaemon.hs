@@ -37,7 +37,7 @@ main
   = handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $ do
     putStrLn ("Starting " ++ version)
     (s_cport:logfile:[]) <- params
-    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)]
+    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR),("Holumbus",ERROR)]
     fs <- initialize
     
     Console.startServerConsole createConsole fs (read s_cport) prompt

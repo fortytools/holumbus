@@ -36,6 +36,8 @@ class NodeClass n where
   closeNode :: n -> IO ()
 
   createFile :: S.FileId -> S.FileContent -> n -> IO ()
+  
+  createFiles :: [(S.FileId,S.FileContent)] -> n -> IO ()
 
   appendFile :: S.FileId -> S.FileContent -> n -> IO ()
 

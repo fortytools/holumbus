@@ -223,7 +223,7 @@ instance (Show a, Binary a) => Binary (Message a) where
 data Port a = Port { p_StreamName :: StreamName      -- ^ the name of the destination stream
 		   , p_SocketId   :: Maybe SocketId
 		   }
-	      deriving (Show)
+	      deriving (Show,Eq)
 
 instance (Show a, Binary a) => Binary (Port a) where
   put (Port sn soid)	= put sn >> put soid

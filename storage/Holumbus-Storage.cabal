@@ -54,3 +54,14 @@ library
                 , Holumbus.FileSystem.Controller.ControllerPort
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification
+
+executable StorageControllerDaemon
+  main-is: StorageControllerDaemon.hs
+  hs-source-dirs: Programs/StorageControllerDaemon source
+  ghc-options: -Wall -threaded -O2
+
+executable StorageNodeDaemon
+  main-is: StorageNodeDaemon.hs
+  hs-source-dirs: Programs/StorageNodeDaemon source
+  ghc-options: -Wall -threaded -O2
+

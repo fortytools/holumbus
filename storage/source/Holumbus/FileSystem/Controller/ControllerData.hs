@@ -49,6 +49,8 @@ import           Holumbus.Network.Site
 import           Holumbus.Network.Communication
 
 
+import Control.Monad (foldM)
+
 localLogger :: String
 localLogger = "Holumbus.FileSystem.Controller"
 
@@ -69,7 +71,6 @@ data ControllerData = ControllerData {
     cd_Server         :: Server
   , cd_FileController :: FileController
   }
-
 
 -- ----------------------------------------------------------------------------
 --
@@ -118,9 +119,17 @@ dispatch c msg
         do
         p <- C.getNearestNodePortForFile f l sid cd
         return $ Just $ M.CRspGetNearestNodePortForFile p
+      (M.CReqGetNearestNodePortForFiles l sid) ->
+        do
+        p <- C.getNearestNodePortForFiles l sid cd
+        return $ Just $ M.CRspGetNearestNodePortForFiles p
       (M.CReqCreate f n) ->
         do
         C.createFile f n cd
+        return $ Just $ M.CRspSuccess
+      (M.CReqCreateS l) ->
+        do
+        C.createFiles l cd
         return $ Just $ M.CRspSuccess
       (M.CReqAppend f n) -> 
         do
@@ -229,7 +238,12 @@ deleteFilesFromController nid cm
 
 
 addFileToController :: S.FileId -> M.NodeId -> FileControllerData -> FileControllerData
-addFileToController fid nid cm = addFilesToController [fid] nid cm
+--addFileToController fid nid cm = addFilesToController [fid] nid cm
+addFileToController fid nid cm = cm { cm_FileToNodeMap = fnm' }
+  where
+    fnm = cm_FileToNodeMap cm
+    fnm' = Map.insert fid nid' fnm 
+    nid' = Set.singleton nid
 
 
 deleteFileFromController :: S.FileId -> FileControllerData -> FileControllerData
@@ -322,6 +336,29 @@ lookupNearestPortForFile f size sid s cm
 -}  return mbnp
     
 
+lookupNearestPortForFiles :: [(S.FileId,Integer)] -> SiteId -> Server -> FileControllerData -> IO M.ClientPortMap
+lookupNearestPortForFiles l sid s cm = foldM f [] l
+  where
+
+  f :: M.ClientPortMap -> (S.FileId,Integer) -> IO M.ClientPortMap
+  f theMap (fid,len) = do
+    infoM localLogger $  "Getting nearest ports for: " ++ fid
+    mp <- lookupNearestPortForFile fid len sid s cm
+    debugM localLogger $  "Nearest ports: " ++ show mp
+    case mp of
+      (Just port) -> return (ins port fid theMap)
+      Nothing -> return theMap
+
+  ins :: ClientPort -> S.FileId -> M.ClientPortMap -> M.ClientPortMap
+  ins port fid []            = [(port,[fid])]
+  ins port fid ((p,fids):[]) = if (p==port)
+                                 then [(p,(fid:fids))]
+                                 else [(port,[fid])]
+  ins port fid ((p,fids):ps) = if (p==port)
+                                 then ((p,fid:fids):ps) 
+                                 else (p,fids):(ins port fid ps)
+  --   
+
 getOtherFilePorts :: S.FileId -> IdType -> Server -> FileControllerData -> IO [ClientInfo]
 getOtherFilePorts f nid s cm
   = do
@@ -385,7 +422,10 @@ instance C.ControllerClass ControllerData where
     = withMVar (cd_FileController cd) $
         \fc -> lookupNearestPortForFile f c sid (cd_Server cd) fc
 
-
+  -- getNearestNodePortForFiles :: [(S.FileId,Integer)] -> SiteId -> c -> IO (ClientPortMap)
+  getNearestNodePortForFiles l sid cd
+    = withMVar (cd_FileController cd) $
+        \fc -> lookupNearestPortForFiles l sid (cd_Server cd) fc
 -- ----------------------------------------------------------------------------
 -- used by the nodes
 -- ----------------------------------------------------------------------------
@@ -412,6 +452,33 @@ instance C.ControllerClass ControllerData where
               (Nothing) -> return ()                  
             return (fc', ())
           (Nothing) -> return (fc,())
+
+--createFiles :: [(S.FileId,M.NodeId)] -> ControllerData -> IO ControllerData
+  createFiles l cd
+    = modifyMVar (cd_FileController cd) $
+        \fc ->
+        do
+        fc'' <- foldM f fc l
+        return  (fc'',())
+        where
+        f :: FileControllerData -> (S.FileId,M.NodeId) -> IO FileControllerData
+        f filecontroller (fid,nid) = do
+          mbCi <- getClientInfo nid (cd_Server cd)
+          case mbCi of
+            (Just _) ->
+              do
+              let fc' = addFileToController fid nid filecontroller
+            -- copy file to one other node
+--            mpCp <- lookupPortWithoutFile f (cd_Server cd) fc
+--            case mpCp of
+--              (Just _) ->
+--                do
+--                return ()
+                -- let np = NP.newNodePort cp
+                -- N.copyFile f (ci_Port ci) np
+--              (Nothing) -> return ()
+              return fc'
+            (Nothing) -> return filecontroller
 
 
 --appendFile :: S.FileId -> M.NodeId -> ControllerData -> IO ControllerData

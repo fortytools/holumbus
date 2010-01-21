@@ -50,6 +50,7 @@ module Holumbus.FileSystem.FileSystem
 , containsFile
 
 , createFile
+, createFiles
 , appendFile
 , deleteFile
 
@@ -65,8 +66,10 @@ import           Prelude hiding (appendFile)
 import           Control.Concurrent
 import           Control.Monad
 
-import qualified Data.Set as Set
 
+import qualified Data.List as L
+import qualified Data.Set as Set
+import qualified Data.Map as Map
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
@@ -285,6 +288,22 @@ getNearestNodePortForFile f l (FileSystem fs)
       \(FileSystemData sid c _) -> 
       (liftM createNodePort) $ C.getNearestNodePortForFile f l sid c
 
+-- | gets the nearest NodePort on which we can create our files. Iterate through the list and give back a result, where each nodeport is assosiated with the list of files it can handle. If we have an empty Storage system, one pair is returned. If there are existing files in the list, the files are stored on the node, they exists on.
+getNearestNodePortForFiles :: [(S.FileId,Integer)] -> FileSystem -> IO [(NP.NodePort,[S.FileId])]
+getNearestNodePortForFiles l (FileSystem fs)
+  = withMVar fs $
+      \(FileSystemData sid c _) -> do
+      infoM localLogger $ "Searching for nearest ports"
+      ports <- C.getNearestNodePortForFiles l sid c
+      let result = cnpl ports
+      debugM localLogger $ "Found ports" ++ show ports
+      return result
+        where
+        cnpl [] = []
+        cnpl ((p,fids):ps) = case createNodePort (Just p) of
+                        (Just p') -> ( (p',fids) : (cnpl ps) )
+                        Nothing -> cnpl ps
+
 
 -- | Checks if a file is in the filesystem
 containsFile :: S.FileId -> FileSystem -> IO Bool
@@ -308,6 +327,24 @@ createFile f c fs
         N.createFile f c np'
         return ()
 
+-- | Creates a list of files in the filesystem.
+createFiles :: [(S.FileId,S.FileContent)] -> FileSystem -> IO ()
+createFiles l fs = do
+  infoM localLogger $ "creating files: " ++ show l
+  nps <- getNearestNodePortForFiles (map (\(fid,c) -> (fid,S.getContentLength c)) l) fs
+  debugM localLogger $ "Nodes to files map:" ++ show nps
+  mapM_ (\(node,fids) -> N.createFiles (filesToStore fids) node) nps
+    where
+    asMap :: Map.Map S.FileId S.FileContent
+    asMap = Map.fromList l
+
+    filesToStore :: [S.FileId] -> [(S.FileId,S.FileContent)]
+    filesToStore = L.foldl' addFile [] 
+
+    addFile :: [(S.FileId,S.FileContent)] -> S.FileId -> [(S.FileId,S.FileContent)]
+    addFile l' fid = case Map.lookup fid asMap of
+                      Nothing -> l'
+                      (Just c) -> ((fid,c):l')
 
 -- | Appends a file in the fileSystem.
 appendFile :: S.FileId -> S.FileContent -> FileSystem -> IO ()

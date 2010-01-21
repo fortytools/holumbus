@@ -41,7 +41,7 @@ main
   = handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $ do
     putStrLn ("Starting " ++ version)
     (s_cport:logfile:[]) <- params
-    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)]
+    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR),("Holumbus",ERROR)]
     fs <- initialize
     
     Console.startServerConsole createConsole fs (read s_cport) prompt
@@ -61,6 +61,7 @@ createConsole =
   Console.addConsoleCommand "for"       getNearestNodePortForFile       "gets the nearest node-port for a (new) file (DEBUG)" $  
   Console.addConsoleCommand "contains"  containsFile    "is file in filesystem or not" $
   Console.addConsoleCommand "create"    createFile      "adds a file" $
+  Console.addConsoleCommand "createS"   createFiles     "adds a list of files [(Filename,FileContent)]" $
   Console.addConsoleCommand "append"    append          "appends to a file" $
   Console.addConsoleCommand "delete"    deleteFile      "deletes a file" $
   Console.addConsoleCommand "content"   getFileContent  "gets the content of a file" $
@@ -75,6 +76,11 @@ getFileNameAndContent :: [String] -> (S.FileId, S.FileContent)
 getFileNameAndContent []   = error "no filename given"
 getFileNameAndContent (x:xs) = (x, encode $ intercalate " " xs)
 -- getFileNameAndContent (x:xs) = (x, S.TextFile $ intercalate " " xs)
+
+getFileNamesAndContent :: [String] -> [(S.FileId, S.FileContent)]
+getFileNamesAndContent [] = []
+getFileNamesAndContent (_:[]) = error "no content given"
+getFileNamesAndContent (fid:c:xs) = ((fid, encode c):getFileNamesAndContent xs)
 
 
 getFileNameAndContentSize :: [String] -> (S.FileId, Integer)
@@ -141,6 +147,14 @@ createFile fs opts
       FS.createFile n c fs 
       return ""
 
+createFiles :: FS.FileSystem -> [String] -> IO String
+createFiles fs opts
+  = do
+    handleAll (\e -> return $ show e) $
+      do
+      let l = getFileNamesAndContent opts
+      FS.createFiles l fs
+      return ""
 
 append :: FS.FileSystem -> [String] -> IO String
 append fs opts
