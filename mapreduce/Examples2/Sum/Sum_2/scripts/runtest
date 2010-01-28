@@ -54,10 +54,11 @@ do
     REDUCERS=`echo $TEST | cut -d: -f4`
     FACTOR=`echo $TEST | cut -d: -f5`
     # copy the registry data
-    [ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
+    #[ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
     COPIED="1"    
     # start current test
     eval $CMD
+    read
 	done
   
   # change to root dir

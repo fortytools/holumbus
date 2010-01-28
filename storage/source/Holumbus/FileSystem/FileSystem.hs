@@ -55,6 +55,7 @@ module Holumbus.FileSystem.FileSystem
 , deleteFile
 
 , getFileContent
+, getMultiFileContent
 , getFileData
 , isFileLocal
 
@@ -88,6 +89,7 @@ import qualified Holumbus.FileSystem.Storage.FileStorage       as FST
 import           Holumbus.Network.Site
 import           Holumbus.Network.Communication
 
+import Holumbus.FileSystem.Messages (ClientPortMap)
 
 localLogger :: String
 localLogger = "Holumbus.FileSystem.FileSystem"
@@ -279,13 +281,25 @@ getNearestNodePortWithFile f (FileSystem fs)
       \(FileSystemData sid c _) -> 
       (liftM createNodePort) $ C.getNearestNodePortWithFile f sid c
     
+-- | gets the nearest NodePorts with list of fileId
+getNearestNodePortWithFiles :: [S.FileId] -> FileSystem -> IO [(NP.NodePort,[S.FileId])]
+getNearestNodePortWithFiles l (FileSystem fs)
+  = withMVar fs $
+      \(FileSystemData sid c _) -> do
+        infoM localLogger $ "Searching for nearest ports with files"
+        ports <- C.getNearestNodePortWithFiles l sid c
+        infoM localLogger $ ">>>>>>>>>>>>>>> " ++ show ports
+        let result = createPortList ports
+        debugM localLogger $ "Found ports" ++ show ports
+        return result
+
 
 -- | gets the nearest NodePort on which we can create our fileId. we need the
 --   content-size to get a node with enough space.
 getNearestNodePortForFile :: S.FileId -> Integer -> FileSystem -> IO (Maybe NP.NodePort)
 getNearestNodePortForFile f l (FileSystem fs)
   = withMVar fs $
-      \(FileSystemData sid c _) -> 
+      \(FileSystemData sid c _) ->
       (liftM createNodePort) $ C.getNearestNodePortForFile f l sid c
 
 -- | gets the nearest NodePort on which we can create our files. Iterate through the list and give back a result, where each nodeport is assosiated with the list of files it can handle. If we have an empty Storage system, one pair is returned. If there are existing files in the list, the files are stored on the node, they exists on.
@@ -295,14 +309,15 @@ getNearestNodePortForFiles l (FileSystem fs)
       \(FileSystemData sid c _) -> do
       infoM localLogger $ "Searching for nearest ports"
       ports <- C.getNearestNodePortForFiles l sid c
-      let result = cnpl ports
+      let result = createPortList ports
       debugM localLogger $ "Found ports" ++ show ports
       return result
-        where
-        cnpl [] = []
-        cnpl ((p,fids):ps) = case createNodePort (Just p) of
-                        (Just p') -> ( (p',fids) : (cnpl ps) )
-                        Nothing -> cnpl ps
+
+createPortList :: ClientPortMap -> [(NP.NodePort,[S.FileId])]
+createPortList [] = []
+createPortList ((p,fids):ps) = case createNodePort (Just p) of
+                        (Just p') -> ( (p',fids) : (createPortList ps) )
+                        Nothing -> createPortList ps
 
 
 -- | Checks if a file is in the filesystem
@@ -330,7 +345,7 @@ createFile f c fs
 -- | Creates a list of files in the filesystem.
 createFiles :: [(S.FileId,S.FileContent)] -> FileSystem -> IO ()
 createFiles l fs = do
-  infoM localLogger $ "creating files: " ++ show l
+  infoM localLogger $ "creating files: " ++ (show . map fst $ l)
   nps <- getNearestNodePortForFiles (map (\(fid,c) -> (fid,S.getContentLength c)) l) fs
   debugM localLogger $ "Nodes to files map:" ++ show nps
   mapM_ (\(node,fids) -> N.createFiles (filesToStore fids) node) nps
@@ -388,6 +403,18 @@ getFileContent f fs
         do
         N.getFileContent f np' 
 
+-- | Gets the file content from the nearest site whitch holds the file
+getMultiFileContent :: [S.FileId] -> FileSystem -> IO [(S.FileId,S.FileContent)]
+getMultiFileContent l fs
+  = do
+    infoM localLogger $ "getting files: " ++ (show l)
+    portmap <- getNearestNodePortWithFiles l fs
+    infoM localLogger $ "ports with files: " ++ show portmap
+    res <- mapM f portmap
+    return . concat $ res
+    where
+    f :: (NP.NodePort,[S.FileId]) -> IO [(S.FileId,S.FileContent)]
+    f (np,files) = N.getMultiFileContent files np
 
 -- | Gets the file data from the nearest site whitch holds the file
 getFileData :: S.FileId -> FileSystem -> IO (Maybe S.FileData)

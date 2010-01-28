@@ -1,0 +1,21 @@
+#!/bin/bash
+
+[ -n "$MR_BIN" ] || { echo "Undefined variable: MR_BIN"; exit 1; }
+[ -n "$COPY_REGISTRY_COMMAND" ] || { echo "Undefined variable: COPY_REGISTRY_COMMAND"; exit 1; }
+[ -n "$IP_OFFSET" ] || { echo "Undefined variable: IP_OFFSET"; exit 1; }
+[ -n "$1" ] || { echo "Parameter missing: IP1"; exit 1; }
+[ -n "$2" ] || { echo "Parameter missing: IP2"; exit 1; }
+
+IP1="$1"
+IP2="$2"
+
+$MR_BIN start
+
+for I in `seq $IP1 $IP2`
+do
+  IP=`expr $I + $IP_OFFSET`
+  echo "Copy registry data to: 172.16.3.$IP"
+  $COPY_REGISTRY_COMMAND.$IP:/tmp/
+done
+
+$MR_BIN stop

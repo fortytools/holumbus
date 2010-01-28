@@ -46,6 +46,8 @@ class ControllerClass c where
   
   getNearestNodePortWithFile :: S.FileId -> SiteId -> c -> IO (Maybe ClientPort)
   
+  getNearestNodePortWithFiles :: [S.FileId] -> SiteId -> c -> IO ClientPortMap
+  
   getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe ClientPort)
   
   getNearestNodePortForFiles :: [(S.FileId,Integer)] -> SiteId -> c -> IO ClientPortMap

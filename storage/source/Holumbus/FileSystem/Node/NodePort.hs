@@ -68,7 +68,7 @@ instance NodeClass NodePort where
 
   createFiles l (NodePort p)
     = do
-      sendRequestToClient p time30 (NReqCreateS l) $
+      sendRequestToClient p time60 (NReqCreateS l) $
         \rsp ->
         do
         case rsp of
@@ -122,6 +122,15 @@ instance NodeClass NodePort where
         do
         case rsp of
           (NRspGetFileContent c) -> return (Just c)
+          _ -> return Nothing
+
+  getMultiFileContent l (NodePort p) 
+      = do
+      sendRequestToClient p time30 (NReqGetMultiFileContent l) $
+        \rsp ->
+        do
+        case rsp of
+          (NRspGetMultiFileContent lc) -> return (Just lc)
           _ -> return Nothing
 
     

@@ -70,8 +70,8 @@ newNode :: StreamName -> Maybe SocketId -> FS.FileStorage -> IO Node
 newNode sn soid stor
   = do
     -- initialise the client
-    node <- newEmptyMVar
-    client <- newClient sn soid (dispatch (Node node))
+    nodedata <- newEmptyMVar
+    client <- newClient sn soid (dispatch (Node nodedata))
     -- open storage
     stor' <- S.openStorage stor             
     putMVar node (NodeData client stor')
@@ -113,6 +113,13 @@ dispatch nd msg
         do
         c <- getFileContent i nd
         return $ Just $ M.NRspGetFileContent c
+      (M.NReqGetMultiFileContent l) ->
+        do
+--        mvar <- newEmptyMVar
+--        _ <- forkIO $ multiThread l nd mvar
+--        lc <- takeMVar mvar
+        lc <- getMultiFileContent l nd
+        return $ Just $ M.NRspGetMultiFileContent lc
       (M.NReqGetFileData i) ->
         do
         d <- getFileData i nd
@@ -149,6 +156,14 @@ logStorage :: Node -> IO ()
 logStorage (Node node) = withMVar node $ \nd ->  logStorage2 (nd_Client nd) 
   where
   logStorage2 (Client client) = withMVar client $ \cd -> debugM "measure.readStorage" ((show . cd_SiteId) cd)
+
+
+
+multiThread :: [S.FileId] -> Node -> MVar [(S.FileId,S.FileContent)] -> IO ()
+multiThread l nd mvar = do
+  l <- getMultiFileContent l nd
+  putMVar mvar l
+  return ()
   
 -- ----------------------------------------------------------------------------
 -- Typeclass instanciation (NodeClass)
@@ -280,7 +295,22 @@ instance NodeClass Node where
       debugM localLogger $ "getFileContent: " ++ show c
       logStorage n 
       return c
-    
+
+  --getMultiFileContent :: [S.FileId] -> Node -> IO [(S.FileId,S.FileContent)]
+  getMultiFileContent l n
+    = do
+      result <- foldM f [] l
+      debugM localLogger $ "getFileContents: " ++ show result
+      logStorage n
+      return result
+      where
+      f :: [(S.FileId,S.FileContent)] -> S.FileId -> IO [(S.FileId,S.FileContent)]
+      f res filename = do
+        maybecontent <- readStorage (\stor -> S.getFileContent stor filename) n
+        case maybecontent of
+          (Just c) -> return ((filename,c):res)
+          Nothing   -> return res
+
 
   --getFileData :: S.FileId -> Node -> IO (Maybe S.FileData)
   getFileData i nd

@@ -93,6 +93,14 @@ instance ControllerClass ControllerPort where
           (CRspGetNearestNodePortWithFile po) -> return (Just po)
           _ -> return Nothing
 
+  getNearestNodePortWithFiles l sid (ControllerPort p)
+    = do
+      sendRequestToServer p time30 (CReqGetNearestNodePortWithFiles l sid) $
+        \rsp ->
+        do
+        case rsp of
+          (CRspGetNearestNodePortWithFiles portmap) -> return (Just portmap)
+          _ -> return Nothing
   
   getNearestNodePortForFile f l sid (ControllerPort p)
     = do

@@ -66,15 +66,16 @@ type NodeId = Int
 
 -- | Requests datatype, which is send to a filesystem Controller.
 data ControllerRequestMessage
-  = CReqContains                   S.FileId
-  | CReqGetFileSites               S.FileId
-  | CReqGetNearestNodePortWithFile S.FileId Site.SiteId 
-  | CReqGetNearestNodePortForFile  S.FileId Integer Site.SiteId
-  | CReqGetNearestNodePortForFiles [(S.FileId,Integer)] Site.SiteId
-  | CReqCreate                     S.FileId NodeId
-  | CReqCreateS                    [(S.FileId,NodeId)]
-  | CReqAppend                     S.FileId NodeId
-  | CReqDelete                     S.FileId NodeId
+  = CReqContains                    S.FileId
+  | CReqGetFileSites                S.FileId
+  | CReqGetNearestNodePortWithFile  S.FileId Site.SiteId 
+  | CReqGetNearestNodePortWithFiles [S.FileId] Site.SiteId 
+  | CReqGetNearestNodePortForFile   S.FileId Integer Site.SiteId
+  | CReqGetNearestNodePortForFiles  [(S.FileId,Integer)] Site.SiteId
+  | CReqCreate                      S.FileId NodeId
+  | CReqCreateS                     [(S.FileId,NodeId)]
+  | CReqAppend                      S.FileId NodeId
+  | CReqDelete                      S.FileId NodeId
   | CReqUnknown
   deriving (Show)
 
@@ -83,6 +84,7 @@ instance Binary ControllerRequestMessage where
   put (CReqContains f)                      = putWord8 1  >> put f
   put (CReqGetFileSites f)                  = putWord8 2  >> put f
   put (CReqGetNearestNodePortWithFile f s)  = putWord8 3  >> put f >> put s
+  put (CReqGetNearestNodePortWithFiles l s) = putWord8 11 >> put s >> put l
   put (CReqGetNearestNodePortForFile f l s) = putWord8 4  >> put f >> put l >> put s
   put (CReqGetNearestNodePortForFiles l s)  = putWord8 9  >> put s >> put l
   put (CReqCreate f n)                      = putWord8 5  >> put f >> put n
@@ -97,6 +99,7 @@ instance Binary ControllerRequestMessage where
         1  -> get >>= \f -> return (CReqContains f)
         2  -> get >>= \f -> return (CReqGetFileSites f)
         3  -> get >>= \f -> get >>= \s -> return (CReqGetNearestNodePortWithFile f s)
+        11 -> get >>= \s -> get >>= \l -> return (CReqGetNearestNodePortWithFiles l s)
         4  -> get >>= \f -> get >>= \l -> get >>= \s -> return (CReqGetNearestNodePortForFile  f l s)
         9  -> get >>= \s -> get >>= \l -> return (CReqGetNearestNodePortForFiles l s)
         5  -> get >>= \f -> get >>= \n -> return (CReqCreate f n)
@@ -112,6 +115,7 @@ data ControllerResponseMessage
   | CRspGetFileSites (Set Site.SiteId)
   | CRspContains Bool
   | CRspGetNearestNodePortWithFile (Maybe ClientPort)
+  | CRspGetNearestNodePortWithFiles ClientPortMap
   | CRspGetNearestNodePortForFile (Maybe ClientPort)
   | CRspGetNearestNodePortForFiles ClientPortMap
   | CRspError String
@@ -137,6 +141,7 @@ instance Binary ControllerResponseMessage where
   put (CRspGetFileSites s)                = putWord8 2 >> put s 
   put (CRspContains b)                    = putWord8 3 >> put b
   put (CRspGetNearestNodePortWithFile p)  = putWord8 4 >> put p
+  put (CRspGetNearestNodePortWithFiles p) = putWord8 8 >> put p
   put (CRspGetNearestNodePortForFile p)   = putWord8 5 >> put p
   put (CRspGetNearestNodePortForFiles p)  = putWord8 7 >> put p
   put (CRspError e)                       = putWord8 6 >> put e
@@ -149,6 +154,7 @@ instance Binary ControllerResponseMessage where
         2 -> get >>= \s -> return (CRspGetFileSites s) 
         3 -> get >>= \b -> return (CRspContains b)
         4 -> get >>= \p -> return (CRspGetNearestNodePortWithFile p)
+        8 -> get >>= \p -> return (CRspGetNearestNodePortWithFiles p)
         5 -> get >>= \p -> return (CRspGetNearestNodePortForFile p)
         7 -> get >>= \p -> return (CRspGetNearestNodePortForFiles p)
         6 -> get >>= \e -> return (CRspError e)
@@ -170,6 +176,7 @@ data NodeRequestMessage
   | NReqCopy            S.FileId ClientPort
   | NReqContains        S.FileId
   | NReqGetFileContent  S.FileId
+  | NReqGetMultiFileContent  [S.FileId]
   | NReqGetFileData     S.FileId
   | NReqGetFileIds      
   | NReqUnknown         
@@ -177,30 +184,32 @@ data NodeRequestMessage
 
 
 instance Binary NodeRequestMessage where
-  put (NReqCreate i c)       = putWord8 1 >> put i >> put c
-  put (NReqCreateS l)        = putWord8 9 >> put l
-  put (NReqAppend i c)       = putWord8 2 >> put i >> put c
-  put (NReqDelete i b)       = putWord8 3 >> put i >> put b
-  put (NReqCopy i cp)        = putWord8 4 >> put i >> put cp
-  put (NReqContains i)       = putWord8 5 >> put i
-  put (NReqGetFileContent i) = putWord8 6 >> put i
-  put (NReqGetFileData i)    = putWord8 7 >> put i
+  put (NReqCreate i c)       = putWord8 1  >> put i >> put c
+  put (NReqCreateS l)        = putWord8 9  >> put l
+  put (NReqAppend i c)       = putWord8 2  >> put i >> put c
+  put (NReqDelete i b)       = putWord8 3  >> put i >> put b
+  put (NReqCopy i cp)        = putWord8 4  >> put i >> put cp
+  put (NReqContains i)       = putWord8 5  >> put i
+  put (NReqGetFileContent i) = putWord8 6  >> put i
+  put (NReqGetMultiFileContent l) = putWord8 10 >> put l
+  put (NReqGetFileData i)    = putWord8 7  >> put i
   put (NReqGetFileIds)       = putWord8 8
   put (NReqUnknown)          = putWord8 0
   get
     = do
       t <- getWord8
       case t of
-        1 -> get >>= \i -> get >>= \c -> return (NReqCreate i c) 
-        2 -> get >>= \i -> get >>= \c -> return (NReqAppend i c) 
-        3 -> get >>= \i -> get >>= \b -> return (NReqDelete i b)
-        4 -> get >>= \i -> get >>= \cp -> return (NReqCopy i cp)
-        5 -> get >>= \i -> return (NReqContains i)
-        6 -> get >>= \i -> return (NReqGetFileContent i)
-        7 -> get >>= \i -> return (NReqGetFileData i)
-        8 -> return (NReqGetFileIds)
-        9 -> get >>= \l -> return (NReqCreateS l)
-        _ -> return (NReqUnknown)
+        1  -> get >>= \i -> get >>= \c -> return (NReqCreate i c) 
+        2  -> get >>= \i -> get >>= \c -> return (NReqAppend i c) 
+        3  -> get >>= \i -> get >>= \b -> return (NReqDelete i b)
+        4  -> get >>= \i -> get >>= \cp -> return (NReqCopy i cp)
+        5  -> get >>= \i -> return (NReqContains i)
+        6  -> get >>= \i -> return (NReqGetFileContent i)
+        10 -> get >>= \l -> return (NReqGetMultiFileContent l)
+        7  -> get >>= \i -> return (NReqGetFileData i)
+        8  -> return (NReqGetFileIds)
+        9  -> get >>= \l -> return (NReqCreateS l)
+        _  -> return (NReqUnknown)
 
 
 -- | Response datatype from a filesystem node.
@@ -208,6 +217,7 @@ data NodeResponseMessage
   = NRspSuccess
   | NRspContains Bool
   | NRspGetFileContent (Maybe S.FileContent)
+  | NRspGetMultiFileContent [(S.FileId,S.FileContent)]
   | NRspGetFileData (Maybe S.FileData)
   | NRspGetFileIds [S.FileId]
   | NRspError String
@@ -229,13 +239,14 @@ instance RspMsg NodeResponseMessage where
 
         
 instance Binary NodeResponseMessage where
-  put (NRspSuccess)          = putWord8 1
-  put (NRspContains b)       = putWord8 2 >> put b
-  put (NRspGetFileContent c) = putWord8 3 >> put c
-  put (NRspGetFileData d)    = putWord8 4 >> put d
-  put (NRspGetFileIds ls)    = putWord8 5 >> put ls
-  put (NRspError e)          = putWord8 6 >> put e
-  put (NRspUnknown)          = putWord8 0
+  put (NRspSuccess)                = putWord8 1
+  put (NRspContains b)             = putWord8 2 >> put b
+  put (NRspGetFileContent c)       = putWord8 3 >> put c
+  put (NRspGetMultiFileContent lc) = putWord8 7 >> put lc
+  put (NRspGetFileData d)          = putWord8 4 >> put d
+  put (NRspGetFileIds ls)          = putWord8 5 >> put ls
+  put (NRspError e)                = putWord8 6 >> put e
+  put (NRspUnknown)                = putWord8 0
   get
     = do
       t <- getWord8
@@ -243,6 +254,7 @@ instance Binary NodeResponseMessage where
         1 -> return (NRspSuccess)
         2 -> get >>= \b  -> return (NRspContains b)
         3 -> get >>= \c  -> return (NRspGetFileContent c)
+        7 -> get >>= \lc -> return (NRspGetMultiFileContent lc)
         4 -> get >>= \d  -> return (NRspGetFileData d)
         5 -> get >>= \ls -> return (NRspGetFileIds ls)
         6 -> get >>= \e  -> return (NRspError e)

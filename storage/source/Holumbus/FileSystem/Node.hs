@@ -48,6 +48,8 @@ class NodeClass n where
   containsFile :: S.FileId -> n -> IO Bool
 
   getFileContent :: S.FileId -> n -> IO (Maybe S.FileContent)
+  
+  getMultiFileContent :: [S.FileId] -> n -> IO [(S.FileId,S.FileContent)]
 
   getFileData :: S.FileId -> n -> IO (Maybe S.FileData)
 

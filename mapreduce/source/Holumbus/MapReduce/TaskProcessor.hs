@@ -483,6 +483,7 @@ runTask td tp
         ) $ 
         do yield
            td' <- performTask td tp
+           infoM taskLogger "report task completed"
            reportCompletedTask td' tp
 
 -- not used, because we are doi    
@@ -539,7 +540,9 @@ performTask td tp
           (Nothing) -> throw (UnkownTaskException $ td_Action td)
         
         let env = mkActionEnvironment td fs
+        infoM taskLogger "starting action"
         bout <- action env opt parts bin
         let td' = td { td_Output = bout }
+        infoM taskLogger "finished action"
         --debugM taskLogger $ "output td: " ++ show td'
         return td'

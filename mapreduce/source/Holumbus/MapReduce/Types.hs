@@ -519,12 +519,39 @@ readConnector
   -> IO [(k1,v1)]
 readConnector ic ae ls
   = do
-    os <- mapM (readInput (ae_FileSystem ae)) ls
-    return . concat . catMaybes $ os
+    let (tuples,filenames) = splitList ls
+
+    mayBeTupleContent <- mapM readInput tuples
+    fileContent <- read2 filenames
+    
+    return . concat $ (catMaybes mayBeTupleContent) ++ fileContent
     where    
+
+    -- split list into tuople data and filenames
+    splitList :: [FunctionData] -> ([B.ByteString],[FS.FileId])
+    splitList [] = ([],[])
+    splitList ((TupleFunctionData t):xs) = ((t:ts),fs)
+      where
+      (ts,fs) = splitList xs
+    splitList ((FileFunctionData f):xs)  = (ts,f:fs)
+      where
+      (ts,fs) = splitList xs
+    
+ 
+    -- read all files at once
+    --read2 :: [FS.FileId] -> IO [[(k1,v1)]]
+    read2 files = do
+      contents <- FS.getMultiFileContent files fs
+      encodedcontents <- mapM (ic . snd) contents
+      return encodedcontents
+
+      where
+        fs = ae_FileSystem ae
+
+
     -- readInput :: FS.FileSystem -> FunctionData -> IO (Maybe [(k1,v1)])
-    readInput _  (TupleFunctionData t) = return $ Just $ [decode t] 
-    readInput fs (FileFunctionData f)
+    readInput t = return $ Just $ [decode t] 
+{-    readInput fs (FileFunctionData f)
       = do        
         debugM localLogger $ "loadInputList: getting content for: " ++ f
         mbc <- FS.getFileContent f fs
@@ -534,7 +561,9 @@ readConnector ic ae ls
             return Nothing
           else do
             d <- ic $ fromJust mbc
-            return $ Just d
+            return $ Just d 
+-}
+
 --
 --myMapM :: (a -> IO b) -> [a] -> IO [b]
 --myMapM f [] = return []

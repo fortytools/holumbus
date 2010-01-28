@@ -50,6 +50,8 @@ import           Holumbus.Network.Communication
 
 
 import Control.Monad (foldM)
+import System.Random
+
 
 localLogger :: String
 localLogger = "Holumbus.FileSystem.Controller"
@@ -115,6 +117,10 @@ dispatch c msg
         do
         p <- C.getNearestNodePortWithFile f sid cd
         return $ Just $ M.CRspGetNearestNodePortWithFile p
+      (M.CReqGetNearestNodePortWithFiles l sid) ->
+        do
+        portmap <- C.getNearestNodePortWithFiles l sid cd
+        return $ Just $ M.CRspGetNearestNodePortWithFiles portmap
       (M.CReqGetNearestNodePortForFile f l sid) ->
         do
         p <- C.getNearestNodePortForFile f l sid cd
@@ -252,7 +258,7 @@ deleteFileFromController fid cm
   where 
     fnm = cm_FileToNodeMap cm 
     fnm' = Map.delete fid fnm
-    
+
 
 -- | gets the List of all sites the file is located on...
 getFileClientInfoList :: S.FileId -> Server -> FileControllerData -> IO [ClientInfo]
@@ -263,18 +269,76 @@ getFileClientInfoList f s cm
     mbDats <- mapM (\i -> getClientInfo i s) is
     return $ catMaybes mbDats  
 
-
+shuffle :: [a] -> IO [a]
+shuffle l = shuffle' l []
+  where
+    shuffle' [] acc = return acc
+    shuffle' l acc = do
+      k <- randomRIO (0, length l - 1)
+      let (lead, x:xs) = splitAt k l
+      shuffle' (lead ++ xs) (x:acc)
 
 lookupNearestPortWithFile :: S.FileId -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortWithFile f sid s cm
   = do
     dats <- getFileClientInfoList f s cm
-    let sids  = map (\ci -> ci_Site ci) dats
-        mbns  = nearestId sid sids
+    let sids'  = map (\ci -> ci_Site ci) dats
+    sids <- shuffle sids'
+    let mbns  = nearestId sid sids
         mbdat = maybe Nothing (\ns -> List.find (\ci -> (ci_Site ci) == ns) dats) mbns
         mbnp  = maybe Nothing (\ci -> Just $ ci_Port ci) mbdat 
     return mbnp
 
+-- | gets the List of all sites the files are located on...
+trude :: SiteId -> [S.FileId] -> Server -> FileControllerData -> IO (Maybe SiteId)
+trude currentSite files s cm
+  = do
+    let file2node       = cm_FileToNodeMap cm;
+        nodeIdsWithFiles = concatMap (\file -> Set.toList $ maybe Set.empty id (Map.lookup file file2node)) files
+    sitesIdsWithFiles <- foldM f ([],[],[]) nodeIdsWithFiles
+    nearestId' sitesIdsWithFiles
+    where
+
+    nearestId' :: ([SiteId],[SiteId],[SiteId]) -> IO (Maybe SiteId)
+    nearestId' ([],  [],  [])  = return Nothing                      -- no site id found
+    nearestId' ([],  [],  xs)  = do 
+      xs' <- shuffle xs
+      return . Just . head $ xs' -- only others ids, shuffle and return the first
+    nearestId' ([],  x:_, _)   = return $ Just x                     -- return the hosts stie
+    nearestId' (x:_, _,   _)   = return $ Just x                     -- return the procs site
+
+    f :: ([SiteId],[SiteId],[SiteId]) -> M.NodeId -> IO ([SiteId],[SiteId],[SiteId])
+    f (procs,hosts,others) i = do
+      cli <- getClientInfo i s
+      case cli of
+        Nothing -> return (procs,hosts,others)
+        (Just clientInfo) -> insert (procs,hosts,others) (ci_Site clientInfo)
+    
+    insert :: ([SiteId],[SiteId],[SiteId]) -> SiteId -> IO ([SiteId],[SiteId],[SiteId])
+    insert (procs,hosts,others) thisSite = if isSameProcess thisSite currentSite
+                       then return (thisSite:procs,hosts,others)
+                       else if isSameHost thisSite currentSite
+                              then return (procs,thisSite:hosts,others)
+                              else return (procs,hosts,thisSite:others)
+
+lookupNearestPortWithFiles :: [S.FileId] -> SiteId -> Server -> FileControllerData -> IO M.ClientPortMap
+lookupNearestPortWithFiles l sid s cm = do
+  infoM localLogger $  "Getting nearest ports with: " ++ show l
+  res <- foldM f [] l
+  infoM localLogger $  "Clientportmap is: " ++ show res
+  return res
+  where
+
+  f :: M.ClientPortMap -> S.FileId -> IO M.ClientPortMap
+  f theMap fid = do
+
+    infoM localLogger $  "Getting nearest ports with: " ++ fid
+    maybeport <- lookupNearestPortWithFile fid sid s cm
+
+    debugM localLogger $  "Nearest ports: " ++ show maybeport
+    case maybeport of
+      (Just port) -> return (ins port fid theMap)
+      Nothing -> return theMap
 
 lookupNearestPortWithFileAndSpace :: S.FileId -> Integer -> SiteId -> Server -> FileControllerData -> IO (Maybe ClientPort)
 lookupNearestPortWithFileAndSpace f _size sid s cm
@@ -293,8 +357,9 @@ lookupNearestPortWithSpace :: Integer -> SiteId -> Server -> FileControllerData 
 lookupNearestPortWithSpace _size sid s _cm
   = do
     dats <- getAllClientInfos s 
-    let sids  = map (\ci -> ci_Site ci) dats
-        mbns  = nearestId sid sids
+    let sids'  = map (\ci -> ci_Site ci) dats
+    sids <- shuffle sids'
+    let mbns  = nearestId sid sids
         mbdat = maybe Nothing (\ns -> List.find (\ci -> (ci_Site ci) == ns) dats) mbns
         mbnp  = maybe Nothing (\ci -> Just $ ci_Port ci) mbdat 
     return mbnp
@@ -324,9 +389,9 @@ lookupNearestPortForFile :: S.FileId -> Integer -> SiteId -> Server -> FileContr
 lookupNearestPortForFile f size sid s cm
   -- if file exists, get nearest node, else the closest with space
   = do
-    nodeWithFile    <- lookupNearestPortWithFileAndSpace f size sid s cm
-    nodeWithoutFile <- lookupNearestPortWithSpace size sid s cm 
-    let mbnp = maybe nodeWithoutFile (\np -> Just np) nodeWithFile
+--    nodeWithFile    <- lookupNearestPortWithFileAndSpace f size sid s cm
+    nodeWithoutFile <- lookupNearestPortWithSpace size sid s cm   
+    let mbnp = maybe Nothing (\np -> Just np) nodeWithoutFile
 {-  debugM localLogger $ "lookupNearestPortForFile: file:            " ++ show f    
     debugM localLogger $ "lookupNearestPortForFile: size:            " ++ show size
     debugM localLogger $ "lookupNearestPortForFile: site:            " ++ show sid    
@@ -336,8 +401,25 @@ lookupNearestPortForFile f size sid s cm
 -}  return mbnp
     
 
+{-  = do
+    dats <- getAllClientInfos s :: [ClientInfo]
+    let sids'  = map (\ci -> ci_Site ci) dats
+    sids <- shuffle sids'
+    let mbns  = nearestId sid sids
+        mbdat = maybe Nothing (\ns -> List.find (\ci -> (ci_Site ci) == ns) dats) mbns
+        mbnp  = maybe Nothing (\ci -> Just $ ci_Port ci) mbdat
+    return mbnp-}
+
 lookupNearestPortForFiles :: [(S.FileId,Integer)] -> SiteId -> Server -> FileControllerData -> IO M.ClientPortMap
-lookupNearestPortForFiles l sid s cm = foldM f [] l
+lookupNearestPortForFiles l sid s cm = do
+  nearestPortWithSpace <- lookupNearestPortWithSpace 0 sid s cm
+  case nearestPortWithSpace of
+    Nothing -> return []
+    (Just p) -> return [(p,map fst l)]
+--  infoM localLogger $  "Getting nearest ports for: " ++ show l  
+--  res <- foldM f [] l
+--  infoM localLogger $  "Clientportmap is: " ++ show res
+--  return res
   where
 
   f :: M.ClientPortMap -> (S.FileId,Integer) -> IO M.ClientPortMap
@@ -345,18 +427,19 @@ lookupNearestPortForFiles l sid s cm = foldM f [] l
     infoM localLogger $  "Getting nearest ports for: " ++ fid
     mp <- lookupNearestPortForFile fid len sid s cm
     debugM localLogger $  "Nearest ports: " ++ show mp
-    case mp of
+    cpm <- case mp of
       (Just port) -> return (ins port fid theMap)
       Nothing -> return theMap
+    return cpm
 
-  ins :: ClientPort -> S.FileId -> M.ClientPortMap -> M.ClientPortMap
-  ins port fid []            = [(port,[fid])]
-  ins port fid ((p,fids):[]) = if (p==port)
-                                 then [(p,(fid:fids))]
-                                 else [(port,[fid])]
-  ins port fid ((p,fids):ps) = if (p==port)
-                                 then ((p,fid:fids):ps) 
-                                 else (p,fids):(ins port fid ps)
+ins  :: ClientPort -> S.FileId -> M.ClientPortMap -> M.ClientPortMap
+ins port fid []            = [(port,[fid])]
+ins port fid ((p,fids):[]) = if (p==port)
+                               then [(p,(fid:fids))]
+                               else [(port,[fid]),(p,fids)]
+ins port fid ((p,fids):ps) = if (p==port)
+                               then ((p,fid:fids):ps) 
+                               else (p,fids):(ins port fid ps)
   --   
 
 getOtherFilePorts :: S.FileId -> IdType -> Server -> FileControllerData -> IO [ClientInfo]
@@ -416,7 +499,11 @@ instance C.ControllerClass ControllerData where
     = withMVar (cd_FileController cd) $
         \fc -> lookupNearestPortWithFile f sid (cd_Server cd) fc 
 
- 
+  -- getNearestNodePortWithFiles :: [S.FileId] -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
+  getNearestNodePortWithFiles l sid cd
+    = withMVar (cd_FileController cd) $
+        \fc -> lookupNearestPortWithFiles l sid (cd_Server cd) fc 
+
   -- getNearestNodePortForFile :: S.FileId -> Integer -> SiteId -> c -> IO (Maybe M.NodeRequestPort)
   getNearestNodePortForFile f c sid cd
     = withMVar (cd_FileController cd) $

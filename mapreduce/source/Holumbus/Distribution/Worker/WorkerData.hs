@@ -90,11 +90,15 @@ dispatch w msg
     case msg of
       (M.WReqStartTask td) ->
         do
+        infoM localLogger "recieved start task"
         startTask td wd
+        infoM localLogger "task started"
         return $ Just $ M.WRspSuccess
       (M.WReqStopTask tid) ->
         do
+        infoM localLogger "stop task"
         stopTask tid wd
+        infoM localLogger "task stopped"
         return $ Just $ M.WRspSuccess
       (M.WReqStopAllTasks) ->
         do

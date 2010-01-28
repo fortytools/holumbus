@@ -63,6 +63,7 @@ library
                 , Holumbus-Distribution >= 0.0.1
                 , Holumbus-Storage >= 0.0.1
                 , extensible-exceptions
+                , readline
 
   hs-source-dirs: 
                   source
@@ -84,6 +85,7 @@ library
                 , Holumbus.MapReduce.Types
                 , Holumbus.MapReduce.UserInterface
                 , Holumbus.MapReduce.DaemonInterface
+                , Holumbus.MapReduce.DaemonInterfaceWithFS
   ghc-options: -Wall -threaded
   extensions: Arrows DeriveDataTypeable ExistentialQuantification
 

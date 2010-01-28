@@ -58,7 +58,7 @@ main :: IO ()
 main
   = handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $ do
     (s_regport:s_cport:logfile:[]) <- params
-    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO)]
+    initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)]
     let sn      = "portregistry"
     let regport = Just . fromInteger . read $ s_regport
     let cport   =                      read $ s_cport

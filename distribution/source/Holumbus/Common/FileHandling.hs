@@ -141,12 +141,12 @@ appendToBinFile = B.appendFile
 
 -- | Reads the data from a binary file as a bytestring.
 readFromBinFile :: FilePath -> IO B.ByteString
-readFromBinFile f  
-   = bracket (openBinaryFile f ReadMode) hClose $ 
+readFromBinFile = B.readFile
+{-   = bracket (openBinaryFile f ReadMode) hClose $ 
        \h -> do
        s <- hFileSize h
        c <- B.hGetNonBlocking h (fromInteger s)
-       return $! c    
+       return $! c    -}
 
 
 -- ----------------------------------------------------------------------------     

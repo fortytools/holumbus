@@ -35,6 +35,7 @@ module Holumbus.Network.Communication
 
 -- time constants
 , time30           -- (reexport)
+, time60           -- (reexport)
 , timeIndefinitely -- (reexport)
 
 , IdType
@@ -671,7 +672,7 @@ data Client = Client (MVar ClientData)
 newClient
   :: (Binary a, Binary b)
   => StreamName -> Maybe SocketId
-  -> (a -> IO (Maybe b))  -- ^ the individual request dispatcher for the client
+  -> (a -> IO (Maybe b))  -- ^ the individual request dispatcher for the client -- (ReqM -> IO (RespM)
   -> IO Client
 newClient sn soid action
   = do  
@@ -811,6 +812,21 @@ instance Debug Client where
 -- | Just a wrapper around a port.
 data ClientPort = ClientPort (Port ClientRequestMessage)
   deriving (Show,Eq)
+
+instance Ord ClientPort where  --p_StreamName
+  compare (ClientPort p1) (ClientPort p2) = compare (p_StreamName p1) (p_StreamName p2)
+  (<) (ClientPort p1) (ClientPort p2)     = (<)     (p_StreamName p1) (p_StreamName p2)
+  (>) (ClientPort p1) (ClientPort p2)     = (>)     (p_StreamName p1) (p_StreamName p2)
+  (>=) (ClientPort p1) (ClientPort p2)    = (>=)    (p_StreamName p1) (p_StreamName p2)
+  (<=)  (ClientPort p1) (ClientPort p2)   = (<=)    (p_StreamName p1) (p_StreamName p2)
+  max c1@(ClientPort p1) c2@(ClientPort p2) = if (max s1 s2) == s1 then c1 else c2
+    where
+    s1 = p_StreamName p1
+    s2 = p_StreamName p2
+  min c1@(ClientPort p1) c2@(ClientPort p2) = if (min s1 s2) == s1 then c1 else c2
+    where
+    s1 = p_StreamName p1
+    s2 = p_StreamName p2
 
 instance Binary ClientPort where
   put (ClientPort p) = put p

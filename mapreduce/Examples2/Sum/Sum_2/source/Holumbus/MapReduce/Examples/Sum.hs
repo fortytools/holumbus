@@ -1,7 +1,7 @@
 module Holumbus.MapReduce.Examples.Sum 
 where
 
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Holumbus.MapReduce.Examples.SimpleDMapReduceIO 
 import Holumbus.MapReduce.Types
 import GHC.Int
 

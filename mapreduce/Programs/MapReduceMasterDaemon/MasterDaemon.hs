@@ -22,7 +22,7 @@ import           Holumbus.Network.PortRegistry.PortRegistryPort
 import qualified Holumbus.FileSystem.FileSystem                 as FS
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import           Holumbus.Distribution.Master.MasterState
-import qualified Holumbus.MapReduce.DaemonInterface             as UI
+import qualified Holumbus.MapReduce.DaemonInterfaceWithFS       as UI
 import           System.Environment
 import           System.Log.Logger
 import           System.Exit
@@ -58,12 +58,12 @@ main
     handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
       do      
       (s_cport:logfile:statefile:[]) <- params
-      initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO)]
+      initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("Holumbus",INFO),("measure",ERROR),("Holumbus.MapReduce.JobController.cycle",ERROR)]
       addResource statefile
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"      
       setPortRegistry p
       (mr,fs) <- initializeData
-      UI.runDaemon mr version (read s_cport) prompt 
+      UI.runDaemon (mr,fs) version (read s_cport) prompt 
       deinitializeData (mr,fs)
 
 

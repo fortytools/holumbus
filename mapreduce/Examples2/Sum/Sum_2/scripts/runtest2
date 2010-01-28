@@ -18,10 +18,19 @@ FACTOR="$5"
 
 echo "Doing run: $WORKERS / $SPLITTERS / $MAPPERS / $REDUCERS / $FACTOR"
 # Start MR sytem and wait a sec
-$MR_BIN start && sleep 1
+#$MR_BIN start && sleep 1
 
 # Start I workers
 $START_WORKER_SCRIPT start 1 $WORKERS
+
+# Start local storage node
+#CURRENT=`pwd`
+#rm -r /tmp/node
+#mkdir -p /tmp/node
+#cd /tmp/node
+#StorageNodeDaemon 11000 log.file &
+#cd $CURRENT
+
 
 # Wait for workers to be started
 while [ `cat /tmp/master.state|wc -l` -ne $WORKERS ]; do echo "Waiting for workers to be started" && sleep 1; done
@@ -49,5 +58,8 @@ cd ..
 # leave current dir
 cd ..
 
+#killall StorageNodeDaemon
+#killall StorageNodeDaemon
+
 # stop mr system and wait a sec
-$MR_BIN stop && sleep 1
+#$MR_BIN stop && sleep 1
