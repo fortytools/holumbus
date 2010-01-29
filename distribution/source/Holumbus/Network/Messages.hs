@@ -234,6 +234,7 @@ requestDispatcher reqS dispatcher
         -- yield
       else do
         -- do the dispatching in a new process...
+        infoM localLogger $ "forking dispatch with response port: "  ++ (show responsePort)
         _ <- forkIO $ dispatcher dat $ (fromJust responsePort)
         return ()
 

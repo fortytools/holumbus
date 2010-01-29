@@ -250,6 +250,7 @@ instance S.Storage FileStorage where
                  return $ S.BinFile b
             -}
             debugM localLogger $ "getFileContent: content: " ++ show c
+            infoM localLogger $ "getFileContent: finished "
             return (Just c)
         else do return Nothing
       where
