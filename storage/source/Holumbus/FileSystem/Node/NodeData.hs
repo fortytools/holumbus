@@ -74,8 +74,8 @@ newNode sn soid stor
     client <- newClient sn soid (dispatch (Node nodedata))
     -- open storage
     stor' <- S.openStorage stor             
-    putMVar node (NodeData client stor')
-    return (Node node)
+    putMVar nodedata (NodeData client stor')
+    return (Node nodedata)
 
 
 dispatch 
