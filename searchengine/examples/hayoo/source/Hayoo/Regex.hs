@@ -4,11 +4,12 @@
 
 module Hayoo.Regex where
 
-import           Data.Char
-import           Data.List
+-- import           Data.Char
+-- import           Data.List
 
 import           Text.XML.HXT.Arrow     
 import           Text.XML.HXT.Arrow.XmlRegex
+import           Text.XML.HXT.XPath
 
 processDocumentRootElement  :: (LA XmlTree XmlTree -> LA XmlTree XmlTree) -> LA XmlTree XmlTree -> LA XmlTree XmlTree
 processDocumentRootElement theGrouper interestingChildren

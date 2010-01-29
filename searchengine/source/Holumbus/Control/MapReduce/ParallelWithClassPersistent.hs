@@ -23,7 +23,7 @@ module Holumbus.Control.MapReduce.ParallelWithClassPersistent
 where
 
 import           Data.List (sort)
-import           Data.Map (Map,empty) -- ,mapWithKey,filterWithKey)
+import           Data.Map (Map) -- ,empty) -- ,mapWithKey,filterWithKey)
 import qualified Data.Map    as M
 import           Data.Maybe (isJust, fromJust)
 import           Data.Binary
@@ -81,7 +81,7 @@ parallelMap conn maxWorkers mapTimeout mapFunction inputData
            chan    <- newChan      -- open communication channel and call recursive helper function
            logChan <- newChan
            forkIO (showLogs logChan)
-           parallelMap' logChan chan conn 0 maxWorkers mapTimeout mapFunction 1 inputData M.empty
+            >> parallelMap' logChan chan conn 0 maxWorkers mapTimeout mapFunction 1 inputData M.empty
       else return M.empty
 
 -- | Recursive helper function for the parallel mAP phase
@@ -185,7 +185,7 @@ reducePerKeyParallel conn maxWorkers initialMR m =
 --  putStrLn ("workercount: " ++ show workers)
   resChan     <- newChan
   logChan  <- newChan
-  forkIO (showLogs logChan)
+  _ <- forkIO (showLogs logChan)
   connMVar <- newMVar conn
 --  mapM (runReduceTask logChan connMVar chan initialMR) (zip [1..] input)
   spawnThreads logChan connMVar resChan (zip [1..] input)     -- spawn worker threads

@@ -27,7 +27,7 @@ import Data.Maybe
 
 import Control.Parallel.Strategies
 
-import qualified Data.List as L
+-- import qualified Data.List as L
 
 import Holumbus.Index.Inverted.Memory
 import Holumbus.Index.Common

@@ -9,7 +9,8 @@ RM				= rm $(RM_FLAGS)
 SOURCE		= source
 OUTPUT		= output
 
-PROGS		= Indexer Hebalizer IndexerExperimental WorkerMain ClientMain
+# PROGS		= Indexer Hebalizer IndexerExperimental WorkerMain ClientMain
+PROGS		= Indexer IndexerExperimental WorkerMain ClientMain
 
 all		: $(PROGS) janus
 

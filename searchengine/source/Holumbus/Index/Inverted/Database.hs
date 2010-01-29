@@ -35,7 +35,7 @@ import           Control.Monad
 import           Data.Binary            hiding (Word)
 import qualified Data.ByteString        as B 
 import qualified Data.ByteString.Lazy   as BL -- hiding (head, map, foldl)
-import           Data.List 
+-- import           Data.List 
 import           Data.Map               (Map)
 import qualified Data.Map               as M
 import           Data.Maybe
@@ -115,8 +115,8 @@ insertOccurrencesM'     :: Context -> String -> Occurrences -> InvertedM -> IO I
 insertOccurrencesM' c w o i 
     =   let part = M.findWithDefault SM.empty c (indexParts i) in 
         if (not $ SM.member w part)
-          then do
-               storeOccM i (nextId i) o
+          then storeOccM i (nextId i) o
+               >>
                return i { indexParts = M.insertWith (SM.union) c (SM.singleton w (nextId i) ) (indexParts i)
                         , nextId = (nextId i) + 1 
                         }
@@ -124,7 +124,7 @@ insertOccurrencesM' c w o i
                di  <- SM.lookup w part
                occ <- retrieveOcc i di
                storeOccM i di (mergeOccurrences o occ)
-               return i
+                >> return i
 
 toListM'                :: InvertedM -> IO [(Context, Word, Occurrences)]
 toListM' i              = foldM convertPart [] (M.toList $ indexParts i) 

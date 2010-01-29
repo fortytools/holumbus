@@ -32,12 +32,12 @@ import Text.Printf
 
 import Control.Parallel.Strategies
 
-import Char
+-- import Char
 import Data.Maybe
 import Data.Function
 import Data.Binary               ()	-- nothing used
 import Text.XML.HXT.Arrow.Pickle ()	-- nothing used
-import Control.Monad
+-- import Control.Monad
 
 import qualified Data.List as L
 import qualified Data.Map as M

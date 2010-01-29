@@ -112,17 +112,13 @@ import Prelude hiding (succ, lookup, map, null)
 
 import Data.Maybe
 import Data.Binary
-import Data.Word
 
-import Control.Monad
-
-import Data.Foldable (Foldable)
-import qualified Data.Foldable as F
+import qualified Data.Foldable
 
 import qualified Data.List as L
 import qualified Data.Map as M
 
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 -- | A map from arbitrary byte keys to values a.
 data Trie a = End !Key a ![Trie a]
@@ -149,7 +145,7 @@ instance Functor Trie where
   fmap = map
 
 -- Simple instance of Data.Foldable
-instance Foldable Trie where
+instance Data.Foldable.Foldable Trie where
   foldr = fold
 
 -- Stolen from Data.IntMap

@@ -37,7 +37,7 @@ where
 import           Control.Parallel.Strategies
 
 import           Data.Binary
-import           Data.Maybe
+-- import           Data.Maybe
 import           Data.Map (Map)
 import qualified Data.Map as M
 import           Data.IntMap (IntMap)

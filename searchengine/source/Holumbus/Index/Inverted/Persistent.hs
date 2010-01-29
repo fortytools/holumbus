@@ -32,7 +32,7 @@ where
 
 import System.IO.Unsafe
 import Control.Exception()
-import Control.Monad
+-- import Control.Monad
 
 import Control.Parallel.Strategies
 

@@ -68,8 +68,8 @@ import           Holumbus.Utility
 
 import           Text.Regex
 
-import           Text.XML.HXT.Arrow             hiding  ( getXPathTrees )
-import           Text.XML.HXT.Arrow.XPathSimple         ( getXPathTrees )
+import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.XPath
 
 {-
 import qualified Debug.Trace as D

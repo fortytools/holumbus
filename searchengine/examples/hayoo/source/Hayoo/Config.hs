@@ -23,16 +23,16 @@ import           Hayoo.Common
 
 import           Data.Char
 import           Data.List
-import           Data.Maybe
+-- import           Data.Maybe
 
 import           Holumbus.Build.Config
-import           Holumbus.Build.Index
+-- import           Holumbus.Build.Index
 
 import           Holumbus.Index.Common
 import           Holumbus.Utility
 
-import           Text.XML.HXT.Arrow     
-
+import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.XPath
 
 -- | config for hackage
 ic_Hayoo :: IndexerConfig

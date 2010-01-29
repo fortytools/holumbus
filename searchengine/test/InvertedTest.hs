@@ -28,7 +28,7 @@ module InvertedTest (allTests, allProperties) where
 import Control.Monad
 
 import Data.Char
-import Data.List
+-- import Data.List
 
 import qualified Data.Map as M
 import qualified Data.IntSet as IS

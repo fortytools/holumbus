@@ -29,7 +29,7 @@ import           Data.Maybe (isJust, fromJust)
 import           Data.Binary
 
 import           Control.Concurrent
-import           Control.Monad
+-- import           Control.Monad
 
 import           Holumbus.Utility
 
@@ -94,13 +94,12 @@ parallelMap' chan activeWorkers maxWorkers mapFunction inputData result
 
 runMapTask :: Chan [(k2, v2)] -> (k1 ->  v1  -> IO [(k2, v2)]) -> (k1, v1) -> IO ()
 runMapTask chan mapFunction (k1, v1)
-  = do 
-    forkIO ( do
+  = forkIO ( do
              res <- catch (mapFunction k1 v1) (\_ -> return $ [])
              writeChan chan res
              return ()
            )
-    return ()
+    >> return ()
 
 -- ----------------------------------------------------------------------------
     

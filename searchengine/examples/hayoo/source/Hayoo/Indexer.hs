@@ -38,7 +38,7 @@ import           Hayoo.Common
 import           Hayoo.Config
 import           Hayoo.Split
 
-import           Control.Monad hiding (join, when)
+-- import           Control.Monad hiding (join, when)
 import qualified Control.Monad as CM (when)
 
 import           Data.List

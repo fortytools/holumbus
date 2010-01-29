@@ -28,10 +28,10 @@ import           Data.Char
 import           Data.Digest.Pure.MD5
 import qualified Data.IntMap            as IM
 import qualified Data.List              as L
-import           Data.Maybe
+-- import           Data.Maybe
 
 import           Holumbus.Index.Common
-import qualified Holumbus.Index.Documents as DOC
+-- import qualified Holumbus.Index.Documents as DOC
 
 import           Numeric
 
