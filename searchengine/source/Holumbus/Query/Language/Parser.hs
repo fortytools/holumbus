@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC  -fno-warn-unused-do-bind #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |
@@ -28,7 +30,7 @@ where
 
 import Holumbus.Query.Language.Grammar
 import Text.ParserCombinators.Parsec
-import Data.Either
+-- import Data.Either
 
 -- | Parse a query using the default syntax provided by the Holumbus framework.
 parseQuery :: String -> Either String Query

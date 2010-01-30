@@ -62,7 +62,7 @@ main = do
 
        startup (head idx) (head doc)
        
-       readline ("Press Enter to continue ")
+       _ <- readline ("Press Enter to continue ")
        
        return ()
 

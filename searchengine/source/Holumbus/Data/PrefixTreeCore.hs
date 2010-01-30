@@ -44,18 +44,16 @@ where
 import           Prelude 	hiding ( succ, lookup, map, mapM, null )
 
 import           Control.Arrow
-import           Control.Monad
-import           Control.Parallel.Strategies
+-- import           Control.Monad
+import           Control.DeepSeq
 
-
-import           Data.Foldable 		( Foldable )
-import qualified Data.Foldable 	as F
+import qualified Data.Foldable
 
 import           Data.Binary
 import qualified Data.List 	as L
 import qualified Data.Map 	as M
 import           Data.Maybe
-import           Data.Word
+-- import           Data.Word
 
 data PrefixTree v	= Empty
                         | Val	 { value' :: ! v
@@ -574,6 +572,7 @@ map'' f k			= mapn . norm
     mapn Empty			= empty
     mapn (Val v t)		= val (f (k []) v) (map'' f k t)
     mapn (Branch c s n)		= branch c (map'' f ((c :) . k) s) (map'' f k n)
+    mapn _			= normError "map''"
 
 -- ----------------------------------------
 
@@ -599,6 +598,7 @@ mapM'' f k			= mapn . norm
 				  s' <- mapM'' f ((c :) . k) s
 				  n' <- mapM'' f          k  n
 				  return $ branch c s' n'
+    mapn _			= normError "mapM''"
 
 -- ----------------------------------------
 --
@@ -767,7 +767,7 @@ keys	   			= foldWithKey (\ k _v r -> k : r) []
 instance Functor PrefixTree where
   fmap = map
 
-instance Foldable PrefixTree where
+instance Data.Foldable.Foldable PrefixTree where
   foldr = fold
 
 {- for debugging not yet enabled

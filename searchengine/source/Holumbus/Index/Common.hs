@@ -413,7 +413,7 @@ loadFromXmlFile f = do
 writeToXmlFile :: XmlPickler a => FilePath -> a -> IO ()
 writeToXmlFile f i = do
                      runX (constA i >>> xpickleDocument xpickle options f)
-                     return ()
+                      >> return ()
                      where
                      options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]     
 

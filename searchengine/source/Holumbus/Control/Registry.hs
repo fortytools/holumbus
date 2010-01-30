@@ -57,8 +57,9 @@ startWorker w ws d =
   worker <- newEmptyMVar                     -- Create a MVar to represent this worker.
   workers <- takeMVar ws                     -- Get the list of all workers.
   putMVar ws (worker:workers)                -- Add this worker to the list.
-  forkIO ((w d) `finally` putMVar worker ()) -- Start the worker and make sure to signal success on termination.
-  return ws
+  (forkIO ((w d)
+	   `finally` putMVar worker ()))     -- Start the worker and make sure to signal success on termination.
+   >> return ws
 
 -- | Wait for the workers registered with the registry to finish.
 waitForWorkers :: Registry -> IO ()

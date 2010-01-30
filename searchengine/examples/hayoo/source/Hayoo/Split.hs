@@ -8,12 +8,12 @@ import           Hayoo.Common
 import           Hayoo.Config
 import           Hayoo.Regex
 
-import           Control.Monad hiding (join, when)
+-- import           Control.Monad hiding (join, when)
 
 -- import           Data.Binary
 import           Data.ByteString.Char8 (pack)
 import           Data.ByteString.UTF8 (ByteString)
-import           Data.Char
+-- import           Data.Char
 import           Data.List
 import           Data.Maybe
 
@@ -27,7 +27,8 @@ import           Holumbus.Utility
 
 import           Network.URI(unEscapeString)
 
-import           Text.XML.HXT.Arrow     
+import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.XPath     
 
 
 -- | Function to split a document into virtual documents where virtual document contains the

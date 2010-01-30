@@ -29,7 +29,7 @@ module Holumbus.Index.SmallDocuments
 )
 where
 
-import Data.Maybe
+-- import Data.Maybe
 
 import Control.Monad
 

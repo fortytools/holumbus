@@ -43,7 +43,7 @@ import System.Posix
 import Network
 
 import Data.Binary
-import Data.Int
+-- import Data.Int
 
 import Codec.Compression.BZip
 
@@ -122,7 +122,7 @@ sendRequest :: (a -> Handle -> IO ()) -> (Server, a) -> IO ()
 sendRequest f (s, d) = 
   withSocketsDo $ do 
     installHandler sigPIPE Ignore Nothing
-    bracket (connectTo (getHost s) (getPort s)) (hClose) (send)
+     >> bracket (connectTo (getHost s) (getPort s)) (hClose) (send)
     where
     send hdl = hSetBuffering hdl NoBuffering >> f d hdl
 

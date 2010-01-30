@@ -1,5 +1,5 @@
 name:          Holumbus-Searchengine
-version:       0.0.8
+version:       0.0.9
 license:       OtherLicense
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
@@ -72,20 +72,23 @@ library
                , haskell98      >= 1.0 && < 2
                , containers     >= 0.1 && < 1
                , directory      >= 1.0 && < 2
-               , old-time       >= 1.0 && < 2
-               , parallel       >= 1.0 && < 2
+               , parallel       >= 1.0 && < 3
+               , deepseq        >= 1.1 && < 2
                , parsec         >= 2.1 && < 4
                , network        >= 2.1 && < 3
                , bytestring     >= 0.9 && < 1
                , unix           >= 2.3 && < 3
                , utf8-string    >= 0.3 && < 1
-               , hxt            >= 8.3 && < 9
+               , hxt            >= 8.5 && < 9
+               , hxt-xpath      >= 8.5 && < 9
                , binary         >= 0.4 && < 1
                , bzlib          >= 0.4 && < 1
                , regex-compat   >= 0.71 && < 1
                , HDBC           >= 1.1 && < 3
                , HDBC-sqlite3   >= 1.1 && < 3
                , pureMD5        >= 0.2 && < 2
+               , old-time       >= 1   && < 2
+               , QuickCheck     >= 1.2 && < 2
 
   exposed-modules:
     Holumbus.Utility,

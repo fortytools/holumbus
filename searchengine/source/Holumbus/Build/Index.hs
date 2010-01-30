@@ -34,14 +34,14 @@ module Holumbus.Build.Index
 
 where
 
-import           Data.List
+-- import           Data.List
 import qualified Data.Map    as M
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 import           Data.Maybe
 
 -- import           Control.Exception
-import           Control.Monad
+-- import           Control.Monad
 
 import           Holumbus.Build.Config
 import           Holumbus.Control.MapReduce.MapReducible
@@ -51,7 +51,7 @@ import           Holumbus.Utility
 
 import           System.Time
 
-import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
+import           Text.XML.HXT.Arrow
 
 -- -----------------------------------------------------------------------------
 

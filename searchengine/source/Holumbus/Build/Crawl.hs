@@ -42,7 +42,7 @@ import           Control.Parallel.Strategies    ()
 
 import           Data.Binary
 import           Data.ByteString.Lazy.Char8     (pack)
-import           Data.Char
+-- import           Data.Char
 import           Data.Digest.Pure.MD5
 import qualified Data.IntMap            as IM   ()
 import           Data.List
@@ -61,8 +61,8 @@ import           System.CPUTime
 import           System.Directory
 import           System.Time
 
-import           Text.XML.HXT.Arrow     hiding  (getXPathTrees)
-import           Text.XML.HXT.Arrow.XPathSimple
+import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.XPath
 
 -- ------------------------------------------------------------
 

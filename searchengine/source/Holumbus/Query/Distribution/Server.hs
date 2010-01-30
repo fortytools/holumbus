@@ -49,7 +49,7 @@ import Data.Int
 import Codec.Compression.BZip
 
 import qualified Data.ByteString.Lazy as B
-import qualified Data.List as L
+-- import qualified Data.List as L
 
 import Holumbus.Index.Common
 import Holumbus.Query.Distribution.Protocol
@@ -101,7 +101,7 @@ listenForRequests :: HolIndex i => i -> PortNumber -> Hook -> IO ()
 listenForRequests i p h =
   withSocketsDo $ do
   -- Don't let the server be terminated by sockets closed unexpectedly by the client.
-  installHandler sigPIPE Ignore Nothing
+  _ <- installHandler sigPIPE Ignore Nothing
   idx <- newMVar i
   socket <- listenOn (PortNumber p)
   waitForRequests idx socket h
@@ -110,7 +110,7 @@ waitForRequests :: HolIndex i => MVar i -> Socket -> Hook -> IO ()
 waitForRequests idx socket h = 
   do
   client <- accept socket
-  forkIO $ processRequest idx client h  -- Spawn new thread to answer the current request.
+  _ <- forkIO $ processRequest idx client h  -- Spawn new thread to answer the current request.
   waitForRequests idx socket h          -- Wait for more requests.
 
 processRequest :: HolIndex i => MVar i -> (Handle, HostName, PortNumber) -> Hook -> IO ()
@@ -214,7 +214,7 @@ processReplace i hdl hdr =
   -- Read and decode the update.
   upd <- liftM (decode . decompress) $ B.hGet hdl len
   -- Replace current index.
-  swapMVar i upd
+  _ <- swapMVar i upd
   -- Acknowledge the merge to the client.
   hPutStrLn hdl successCode
   -- Indicate success

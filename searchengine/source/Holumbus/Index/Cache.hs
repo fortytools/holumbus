@@ -32,7 +32,7 @@ import Control.Monad
 
 import Prelude hiding (lookup)
 
-import System.IO
+-- import System.IO
 
 import Database.HDBC
 import Database.HDBC.Sqlite3
@@ -51,9 +51,8 @@ instance HolCache Cache where
 
   putDocText (Cache conn) c d t = handleSql (\_ -> return ()) insert
     where
-    insert = do
-             quickQuery conn insertQuery [toSql d, toSql c, toSql t]
-             commit conn
+    insert = quickQuery conn insertQuery [toSql d, toSql c, toSql t]
+             >> commit conn
              
   mergeCaches (Cache conn1) (Cache conn2) 
     = do
@@ -62,10 +61,9 @@ instance HolCache Cache where
       return (Cache cnew)
         where 
           insertOne :: Connection -> [SqlValue] -> IO Connection
-          insertOne c sqlvs = do
-                                  quickQuery c insertQuery sqlvs
-                                  commit c
-                                  return c
+          insertOne c sqlvs = quickQuery c insertQuery sqlvs
+                              >> commit c
+                              >> return c
            
      
 

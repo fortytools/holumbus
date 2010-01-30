@@ -34,7 +34,7 @@ module Holumbus.Query.Processor
   )
 where
 
-import Data.Maybe
+-- import Data.Maybe
 import Data.Binary (Binary (..))
 import Data.Function
 
@@ -54,7 +54,7 @@ import Holumbus.Query.Fuzzy (FuzzyScore, FuzzyConfig)
 import qualified Holumbus.Query.Fuzzy as F
 
 import Holumbus.Query.Result (Result)
-import qualified Holumbus.Query.Result as R
+-- import qualified Holumbus.Query.Result as R
 
 import Holumbus.Query.Intermediate (Intermediate)
 import qualified Holumbus.Query.Intermediate as I
@@ -104,7 +104,7 @@ initStateM cfg i t = IDX.contextsM i >>= \cs -> return $ ProcessState cfg cs i t
 
 -- | Try to evaluate the query for all contexts in parallel.
 forAllContexts :: (Context -> Intermediate) -> [Context] -> Intermediate
-forAllContexts f cs = L.foldl' I.union I.emptyIntermediate $ parMap rnf f cs
+forAllContexts f cs = L.foldl' I.union I.emptyIntermediate $ parMap rdeepseq f cs
 
 -- | Monadic version of 'forAllContexts'.
 forAllContextsM :: Monad m => (Context -> m Intermediate) -> [Context] -> m Intermediate
