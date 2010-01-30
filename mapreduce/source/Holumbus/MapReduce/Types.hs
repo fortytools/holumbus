@@ -976,7 +976,7 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
     inputList <- readConnector reader env ls
     debugM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
         
-    infoM localLogger ("doing map: " ++ (show . length $ unputList))
+    infoM localLogger ("doing map: " ++ (show . length $ inputList))
     mappedList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
     let tupleList = concat mappedList
  
