@@ -972,21 +972,23 @@ performMapAction optDec fct part reader writer env opts n (i,ls)
     infoM localLogger "performMapAction"
     putTimeStamp "Begin performMapAction"
     
-    infoM localLogger "reading inputList"
+    infoM localLogger $ "reading inputList: " ++ show (i,ls)
     inputList <- readConnector reader env ls
     debugM localLogger $ ">>>>>>>>>>>>>>>>>>  input is: " ++ show inputList ++ "\n\n"
         
-    infoM localLogger "doing map"
+    infoM localLogger ("doing map: " ++ (show . length $ unputList))
     mappedList <- mapM (\(k1, v1) -> fct env a k1 v1) inputList
     let tupleList = concat mappedList
-
+ 
+    infoM localLogger $ "map result: " ++ (show . length $ tupleList)    
     debugM localLogger $ ">>>>>>>>>>>>>>>>>>  mapped list is: " ++ show tupleList ++ "\n\n"
 
     infoM localLogger "doing partition"
     partedList <- case n of
       (Just n') -> part env a n' tupleList
       (Nothing) -> return [(i,tupleList)]
-    
+
+    infoM localLogger $ "map parted result: " ++ (show . length $ partedList)    
     debugM localLogger $ ">>>>>>>>>>>>>>>>>>  partitioned list is: " ++ show partedList ++ "\n\n"
     
     infoM localLogger "writing outputlist: begin"
