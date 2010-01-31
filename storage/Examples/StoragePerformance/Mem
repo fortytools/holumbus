@@ -1,0 +1,43 @@
+./NetFile_1 +RTS -sMem 
+   3,215,021,628 bytes allocated in the heap
+   1,388,905,636 bytes copied during GC
+     303,448,416 bytes maximum residency (10 sample(s))
+      14,756,304 bytes maximum slop
+             788 MB total memory in use (6 MB lost due to fragmentation)
+
+  Generation 0:  5950 collections,     0 parallel,  1.74s,  1.83s elapsed
+  Generation 1:    10 collections,     0 parallel,  1.93s,  2.52s elapsed
+
+  Task  0 (worker) :  MUT time:   0.00s  (  0.00s elapsed)
+                      GC  time:   0.00s  (  0.00s elapsed)
+
+  Task  1 (worker) :  MUT time:   0.00s  (  2.82s elapsed)
+                      GC  time:   0.00s  (  0.00s elapsed)
+
+  Task  2 (worker) :  MUT time:   0.00s  (  2.82s elapsed)
+                      GC  time:   0.00s  (  0.00s elapsed)
+
+  Task  3 (worker) :  MUT time:   2.59s  (  2.82s elapsed)
+                      GC  time:   3.67s  (  4.35s elapsed)
+
+  INIT  time    0.00s  (  0.00s elapsed)
+  MUT   time    1.92s  (  2.82s elapsed)
+  GC    time    3.67s  (  4.35s elapsed)
+  EXIT  time    0.00s  (  0.00s elapsed)
+  Total time    5.59s  (  7.17s elapsed)
+
+  %GC time      65.6%  (60.7% elapsed)
+
+  Alloc rate    1,674,391,886 bytes per MUT second
+
+  Productivity  34.4% of total user, 26.8% of total elapsed
+
+recordMutableGen_sync: 0
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_todo: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_todo: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_todo: 0
+gen[1].steps[0].sync_large_objects: 0
