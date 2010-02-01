@@ -20,27 +20,23 @@ TESTS     = BinaryTest CrunchTest DocumentsTest FuzzyTest InvertedTest \
 
 PROG	= AllTests
 
-all 	: build test
-
-build 	:
-	[ -d $(OUTPUT) ] || mkdir $(OUTPUT)
-	$(GHC) -odir $(OUTPUT) -hidir $(OUTPUT) --make -o $(PROG) $(PROG).hs
+all 	: cabal
 
 test 	:
-	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
-	@echo "Running Holumbus tests..."
-	./$(PROG) +RTS -K20M -RTS -u -q
+	$(MAKE) test1 test2
 
-PROG2	= SpaceTest
+cabal	:
+	cabal configure && cabal build
 
-space	: bibel.txt $(PROG2)
+test1	:
+	@echo "Running Holumbus function tests..."
+	./dist/build/AllTests/AllTests  +RTS -K20M -RTS -u -q
 
-$(PROG2): $(PROG2).hs
-	$(GHC) -odir $(OUTPUT) -hidir $(OUTPUT) --make -o $(PROG2) $(PROG2).hs
-
-spacetest	: space
+test2	: space
 	@echo "Running Holumbus space tests..."
-	./$(PROG2)
+	./dist/build/SpaceTest/SpaceTest
+
+space	: bibel.txt
 
 bibel.txt	:
 	wget -O bibel.zip http://www.kahal.de/bibel_elb_bibel.zip
@@ -50,16 +46,13 @@ bibel.txt	:
 
 hpc :
 	[ -d $(OUTPUT)_hpc ] || mkdir $(OUTPUT)_hpc
-	$(GHC) -odir $(OUTPUT)_hpc -hidir $(OUTPUT)_hpc -fhpc --make -o $(PROG)_hpc $(PROG).hs
+	$(GHC) -odir $(OUTPUT)_hpc -package QuickCheck-1.2.0.0 -hidir $(OUTPUT)_hpc -fhpc --make -o $(PROG)_hpc $(PROG).hs
 	[ -d $(TESTDATA) ] || mkdir $(TESTDATA)
 	@echo "Gathering coverage..."
-	./$(PROG)_hpc -u -q
+	./$(PROG)_hpc  +RTS -K20M -RTS -u -q
 	[ -d $(COVERAGE) ] || mkdir $(COVERAGE)
 	@echo "Generating markup..."
 	@hpc markup --destdir=$(COVERAGE) $(TESTS:%=--exclude=%) --exclude=Main --exclude=SampleData $(PROG)_hpc
-
-wc :
-	@wc -l `find . -wholename './_darcs/*' -prune -o -name "*.hs" -print`
 
 clean :
 	$(RM) $(PROG) $(PROG)_hpc *.hi *.o *.tix .hpc $(OUTPUT) $(OUTPUT)_hpc $(TESTDATA) $(COVERAGE) bibel.txt

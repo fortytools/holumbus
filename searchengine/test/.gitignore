@@ -2,3 +2,10 @@ AllTests
 data
 output
 SpaceTest
+bibel.txt
+.hpc/
+AllTests_hpc
+AllTests_hpc.tix
+coverage/
+output_hpc/
+bibel.txt

@@ -14,6 +14,7 @@ description:   The Holumbus-Searchengine library provides a document indexer
                as well as a sophisticated query interface for these indexes.
 cabal-version: >=1.6
 build-type:    Simple
+-- tested-with:   ghc-6.12.1
 
 extra-source-files:
     README
@@ -51,6 +52,9 @@ extra-source-files:
     examples/cgicomplete/source/Client.hs
     examples/cgicomplete/source/Server.hs
     examples/cgicomplete/Makefile
+    test/Holumbus-Tests.cabal
+    test/Makefile
+    test/data/pickle.xml
     test/AllTests.hs
     test/BinaryTest.hs
     test/CrunchTest.hs
@@ -58,7 +62,6 @@ extra-source-files:
     test/DocumentsTest.hs
     test/FuzzyTest.hs
     test/InvertedTest.hs
-    test/Makefile
     test/ParserTest.hs
     test/PickleTest.hs
     test/PrefixTreeTest2.hs
@@ -88,7 +91,6 @@ library
                , HDBC-sqlite3   >= 1.1 && < 3
                , pureMD5        >= 0.2 && < 2
                , old-time       >= 1   && < 2
-               , QuickCheck     >= 1.2 && < 2
 
   exposed-modules:
     Holumbus.Utility,

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |
@@ -63,7 +65,7 @@ module Holumbus.Data.PrefixTree
     )
 where
 
-import Prelude 	hiding ( succ, lookup, map, mapM, null )
+import Prelude hiding ( succ, lookup, map, mapM, null )
 
 import Holumbus.Data.PrefixTreeCore
 import Holumbus.Data.PrefixTreeFuzzySearch
