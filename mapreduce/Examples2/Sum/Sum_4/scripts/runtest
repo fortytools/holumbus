@@ -1,16 +1,9 @@
 #!/bin/bash
 
-[ -n "$1" ] || { echo "$0 Parameter missing: TEST_CONFIG"; exit 1; }
-[ -n "$2" ] || { echo "$0 Parameter missing: FILE"; exit 1; }
-[ -n "$3" ] || { echo "$0 Parameter missing: W"; exit 1; }
-[ -n "$4" ] || { echo "$0 Parameter missing: H"; exit 1; }
-[ -n "$5" ] || { echo "$0 Parameter missing: Z"; exit 1; }
-[ -n "$6" ] || { echo "$0 Parameter missing: IT"; exit 1; }
-
-DEBUG=
+[ -n "$1" ] || { echo "Parameter missing: TEST_CONFIG"; exit 1; }
 
 # paths
-export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Mandelbrot-set/Mandelbrot-set_5/" # absolut path to this directory
+export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Sum/Sum_4/" # absolut path to this directory
 
 # scripts adn binaries
 export MR_BIN="sudo /etc/init.d/MR"                                 # start script for MR system
@@ -31,21 +24,13 @@ export WORKER_SH="worker.sh"                     # the workers start skript
 export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this directory
 export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
 export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
+export IP_OFFSET="0"
+
+CMD='$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS $FACTOR'
 
 NUMOFTESTS="1" # how many runs?
 
-TESTS=`egrep -v "(^$|^#)" $1` # read the test's config file
-FILE="$2"      # output file, the image
-W="$3"     # width
-H="$4"     # height
-Z="$5"     # z-factor
-IT="$6"     # iterations
-
-[ -n "$DEBUG" ] && echo "File  : \"$FILE\""
-[ -n "$DEBUG" ] && echo "Width : \"$W\""
-[ -n "$DEBUG" ] && echo "Height: \"$H\""
-[ -n "$DEBUG" ] && echo "Z-Fact: \"$Z\""
-[ -n "$DEBUG" ] && echo "Iterat: \"$IT\""
+TESTS=`egrep -v "(^$|^#.*$)" $1` # read the test's config file
 
 # - ---------------------- -
 # - Start the whole test   -
@@ -66,13 +51,13 @@ do
     WORKERS=`echo $TEST | cut -d: -f1`
     SPLITTERS=`echo $TEST | cut -d: -f2`
     MAPPERS=`echo $TEST | cut -d: -f3`
-    FIRSTSPLIT=`echo $TEST | cut -d: -f4`
-    SPLIT=`echo $TEST | cut -d: -f5`
+    REDUCERS=`echo $TEST | cut -d: -f4`
+    FACTOR=`echo $TEST | cut -d: -f5`
     # copy the registry data
-    $COPY_REGISTRY 1 $WORKERS
-     
+    #[ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
+    COPIED="1"    
     # start current test
-    $DEBUG $RUNTEST2 "$WORKERS" "$SPLITTERS" "$MAPPERS" "$FILE" "$FIRSTSPLIT" "$SPLIT" "$W" "$H" "$Z" "$IT"
+    eval $CMD
 	done
   
   # change to root dir

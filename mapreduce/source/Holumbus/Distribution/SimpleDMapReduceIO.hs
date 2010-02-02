@@ -117,7 +117,7 @@ client m r a (splitters,mappers,reducers) lss = do
       setPortRegistry p      
       
       -- make filesystem
-      fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+      fs <- FS.mkFileSystemClient FS.defaultFSClientConfig
       siteid <- FS.getMySiteId fs
       putStrLn $ "My FS Siteid is: " ++ show siteid
       

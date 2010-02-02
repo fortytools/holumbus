@@ -58,7 +58,7 @@ main
     handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
       do      
       (s_cport:logfile:statefile:[]) <- params
-      initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("Holumbus",INFO),("measure",ERROR),("Holumbus.MapReduce.JobController.cycle",ERROR)]
+      initializeFileLogging logfile [(localLogger, INFO),("Holumbus.Network.DoWithServer",INFO),("Holumbus",ERROR),("measure",ERROR),("Holumbus.MapReduce.JobController.cycle",ERROR)]
       addResource statefile
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"      
       setPortRegistry p

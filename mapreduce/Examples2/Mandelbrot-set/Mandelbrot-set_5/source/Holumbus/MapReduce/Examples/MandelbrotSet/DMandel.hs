@@ -50,7 +50,7 @@ splitF _env (split,_,_,_,_) _n l = do
 
 splitF' :: Int -> (K1,V1) -> IO [(Int, [(K1,V1)])]
 splitF' split (blockid,image) = do
-  debugM localLogger $ "length:  " ++ show len
+  infoM localLogger $ "length:  " ++ show len
   debugM localLogger $ "split: " ++ show split
   debugM localLogger $ "list':  " ++ show l'  
   return l'
@@ -95,10 +95,14 @@ type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, 
 -}
 mapF :: MapF -- unction Options BlockID (SplitImage XCoord) BlockID (BlockID, BlockID, Image Lightness)
 mapF env (_, w,h,zmax,iter) key image  = do
-  debugM localLogger $ "Map Key:" ++ show key
-  debugM localLogger $ "Map Key:" ++ show image
+  infoM localLogger $ "Map Key:" ++ show key
+  debugM localLogger $ "Map image:" ++ show image
   return [(key, image')]
     where
+    --key' = case (td_PartValue . ae_TaskData $ env) of
+    --  (Just n') -> mod key n'
+    --  Nothing   -> key 
+
     image' :: Image Lightness
     image' = map (\(y,xs) -> (y,map (gamma 4.0 . x' y) xs)) image
   
@@ -114,7 +118,7 @@ type ReduceFunction a k2 v2 v3 = ActionEnvironment -> a -> k2 -> [v2] -> IO (May
 -}
 reduceF :: ReduceF --unction Options BlockID (BlockID, Image Lightness) (Image Lightness)
 reduceF _env _opts key images = do
-  debugM localLogger $ "Reduce Key:" ++ show key
+  infoM localLogger $ "Reduce Key:" ++ (show key) ++ " : Length: " ++ (show . length $ images)
   debugM localLogger $ "sorted:" ++ show sorted
   debugM localLogger $ "concated:" ++ show concated  
   debugM localLogger $ "images:" ++ show images

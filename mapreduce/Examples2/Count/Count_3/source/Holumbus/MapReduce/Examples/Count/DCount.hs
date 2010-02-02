@@ -12,8 +12,6 @@ import Control.Parallel.Strategies
 import Holumbus.MapReduce.Types
 import Data.Maybe (mapMaybe)
 
-countSplit :: SplitFunction A K1 V1
-
 {-
 
 type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, v2)]

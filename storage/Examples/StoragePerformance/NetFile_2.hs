@@ -23,35 +23,36 @@ main = do
   fs <- mkFileSystemClient defaultFSClientConfig
   
   -- fully evaluate the binList
-  B.writeFile "/dev/null" binList
+  mapM_ (B.writeFile "/dev/null") binLists
 
   -- get time
   t <- getPOSIXTime
   t `seq` putStrLn . show $ t
 
   -- copy to fs
-  createFile "File" binList fs
+  let filenames = map (\i -> "File_" ++ show i) [1..100];
+      files     = zip filenames binLists
+  createFiles files fs
 
   -- get time 2
   t' <- getPOSIXTime
   t' `seq` putStrLn . show $ t'
 
   let duration = t' - t;
-      bytes = fromIntegral $ B.length binList;
+      bytes = fromIntegral . B.length . encode $ files;
       kbytes = bytes / 1024;
       mbytes = kbytes / 1024;
       bytesPerSecond  = bytes / duration
-      kbytesPerSecond = kbytes / duration
       mbytesPerSecond = mbytes / duration
 
   putStrLn $ "Duration    : " ++ show duration
   putStrLn $ "Bytes copied: " ++ show bytes
+  putStrLn $ "MBytes copied: " ++ show mbytes
   putStrLn $ "Bytes / s   : " ++ show bytesPerSecond
-  putStrLn $ "KBytes / s  : " ++ show kbytesPerSecond
   putStrLn $ "MBytes / s  : " ++ show mbytesPerSecond
 
-binList ::B.ByteString
-binList = encode list
+binLists ::[B.ByteString]
+binLists = map encode list
 
 list :: [[Int64]]
-list = [[1..10^6] | _<-[1..10]]
+list = [[1..10^6] | _<-[1..100]]

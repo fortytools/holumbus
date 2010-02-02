@@ -689,7 +689,7 @@ newClient sn soid action
     -- first, we start the server, because we can't handle requests without it
     startRequestDispatcher stid st (dispatchClientRequest client action)
     -- then we try to register a the server
-    setThreadDelay 5000000 ptid
+    setThreadDelay 2000000 ptid
     setThreadAction (checkServer sp sid po client) ptid
     setThreadErrorHandler (handleCheckServerError client) ptid
     startThread ptid

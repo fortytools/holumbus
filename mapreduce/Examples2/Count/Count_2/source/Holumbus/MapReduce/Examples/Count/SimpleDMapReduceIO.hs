@@ -26,6 +26,7 @@ import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.MapReduce.Types
 import           Holumbus.Common.FileHandling
 import           Data.Binary
+import qualified Data.ByteString.Lazy as B
 --import           Holumbus.Common.MRBinary
 import           Data.Maybe
 import           Control.Parallel.Strategies
@@ -45,7 +46,7 @@ splitConfiguration
   => SplitConfiguration a k1 v1
 splitConfiguration
   = SplitConfiguration
-      hashedPartition
+      defaultSplit
       defaultInputReader
       defaultOutputWriter
 
@@ -78,7 +79,7 @@ actionConfig
 -}
 actionConfig :: (Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
 actionConfig m r = (defaultActionConfiguration "ID") {
-           ac_Split   = Just splitConfiguration  
+           ac_Split   = Nothing -- :Just splitConfiguration  
          , ac_Map     = Just . mapConfiguration    $ m
          , ac_Reduce  = Just . reduceConfiguration $ r
          }
@@ -118,10 +119,12 @@ client m r a (splitters,mappers,reducers) lss = do
       mr <- initializeData
       
       -- make filesystem
-      fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+      fs <- FS.mkFileSystemClient FS.defaultFSClientConfig
       -- create the filenames and store the data to the map reduce filesystem
-      let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
-      mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+      --let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
+      --mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+      let (files,filenames) = prepareFiles lss 0
+      FS.createFiles files fs
       
       -- do the map reduce job
       putTimeStamp "SimpleDMR Begin MR"
@@ -137,6 +140,16 @@ client m r a (splitters,mappers,reducers) lss = do
       
       -- finally, return the result
       return result
+
+
+
+prepareFiles :: Binary a => [[a]] -> Int -> ([(String,B.ByteString)],[String])
+prepareFiles []     _ = ([],[])
+prepareFiles (x:xs) i = ((fn,bin):files,fn:filenames)
+  where
+  fn = ("Initial_input_"++show i)
+  bin = listToByteString x
+  (files,filenames) = prepareFiles xs (i+1)
       
 merge :: (Show k2, Show v4, Hash k2, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
 merge fids fs = do

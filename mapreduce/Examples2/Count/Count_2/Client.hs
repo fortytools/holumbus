@@ -15,7 +15,7 @@ main :: IO ()
 main = do
   putTimeStamp "Begin Client"
   -- get command line arguments
-  (filename : splitmapreduresult : wordsToCount : []) <- getArgs
+  (filename : splitmapreduresult : term : []) <- getArgs
   
   -- convert number of mappers, reducers...
   let (splitters,mappers,reducers) = read splitmapreduresult
@@ -32,7 +32,7 @@ main = do
   
   -- do the map reduce processing
   putTimeStamp "Begin Client MR"
-  result <- client countMap countReduce (words wordsToCount) (splitters,mappers,reducers) splitted
+  result <- client countMap countReduce term (splitters,mappers,reducers) splitted
   putTimeStamp "End Client MR"
     
   -- debug
@@ -41,7 +41,7 @@ main = do
   -- process the result and show it
   putTimeStamp "Begin sum result"  
   let result' = sum . map snd $ result
-  putStrLn ("Occurence of word(s) \""++wordsToCount++"\" is " ++ (show result'))
+  putStrLn ("Occurence of word \""++term++"\" is " ++ (show result'))
   putTimeStamp "End sum result"
   putTimeStamp "End Client"  
   -- the end 

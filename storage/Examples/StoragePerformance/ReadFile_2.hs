@@ -24,14 +24,14 @@ main = do
   t `seq` putStrLn . show $ t
 
   -- copy to fs
-  binList <- getFileContent "File" fs
+  binList <- getMultiFileContent ( map (\i -> "File_" ++show i) [1..100] ) fs
 
   -- get time 2
   t' <- getPOSIXTime
   t' `seq` putStrLn . show $ t'
 
   let duration = t' - t;
-      bytes = fromIntegral . B.length . fromMaybe B.empty $ binList;
+      bytes = fromIntegral . B.length .  encode $ binList;
       kbytes = bytes / 1024;
       mbytes = kbytes / 1024;
       bytesPerSecond  = bytes / duration
