@@ -5,7 +5,7 @@ module Holumbus.MapReduce.Examples.MandelbrotSet.DMandel
 )
 where
 
-import Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO
+import Holumbus.Distribution.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageTypes
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageMandel
 import Control.Parallel.Strategies
@@ -16,12 +16,15 @@ type MapFunction a k1 v1 k2 v2 = ActionEnvironment -> a -> k1 -> v1 -> IO [(k2, 
 -}
 mandelMap :: MapFunction (Int, Int, Double, Int) Int [Int] Int [Lightness]
 mandelMap _env (w,h,zmax,iter) y xs = do
-  let xs' = parMap rnf (\x -> (y,[(gamma 4.0 . x') x])) xs 
+  let xs' = parMap rnf (\x -> (y',[(gamma 4.0 . x') x])) xs 
   return xs'
   where
     x' x = imageMandel (Geo w h) zmax iter x y -- calc the value
     gamma g x = x ** (1/g)
-  
+
+    y' = case (td_PartValue . ae_TaskData $ env) of
+      (Just n') -> mod key n'
+      Nothing   -> key
 
 {-
 
