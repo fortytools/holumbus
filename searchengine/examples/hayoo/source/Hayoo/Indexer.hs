@@ -23,9 +23,6 @@
     - <http://hackage.haskell.org/>
     - <http://www.haskell.org/gtk2hs/docs/current/>
   
-  TODO: 
-  - Include class, data, ... descriptions.
-
 -}
 
 -- ----------------------------------------------------------------------------
@@ -98,6 +95,7 @@ main
 
     
       -- we don't want to shipwreck because of missing dirs
+    createDirectoryIfMissing True  (dir ++ "/indexes/")
     createDirectoryIfMissing True  ((fromJust (ic_tempPath idxConfig)) ++ "split/")
     createDirectoryIfMissing True  (fromJust (ic_tempPath idxConfig))
     createDirectoryIfMissing False indexPath
