@@ -16,7 +16,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Hayoo.JSON (renderJson) where
+module Hayoo.JSON (renderJson, renderEmptyJson) where
 
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
@@ -29,31 +29,49 @@ import Holumbus.Query.Result
 
 import Hayoo.Common
 
-renderJson :: HolCache c => StatusResult -> c -> String
-renderJson (msg, res, mods, pkgs) c = encode $ jo
-  [ ("message", js msg)
-  , ("hits", showJSON $ sizeDocHits res)
-  , ("completions", showJSON $ sizeWordHits res)
-  , ("functions" , buildDocHits c $ docHits res)
-  , ("words" , buildWordHits $ wordHits res)
-  , ("modules", buildTopList mods)
-  , ("packages", buildTopList pkgs)
+renderEmptyJson :: String
+renderEmptyJson = encodeStrict $ jo 
+  [ ("message", js "Please provide a query.")
+  , ("hits", showJSON (0 :: Int))
+  , ("functions", JSArray []) 
+  , ("completions", JSArray []) 
+  , ("modules", JSArray []) 
+  , ("packages", JSArray []) 
   ]
 
-buildDocHits :: HolCache c => c -> DocHits FunctionInfo -> JSValue
-buildDocHits _ dh = JSArray $ map buildDoc (IM.toList dh)
+renderJson :: HolCache c => StatusResult -> c -> String
+renderJson (msg, res, mods, pkgs) c = encodeStrict value
+  where
+  value = jo
+    [ ("message", js msg)
+    , ("hits", showJSON $ sizeDocHits res)
+    , ("functions" , buildDocHits c $ docHits res)
+    , ("completions" , buildWordHits $ wordHits res)
+    , ("modules", buildTopList mods)
+    , ("packages", buildTopList pkgs)
+    ]
 
-buildDoc :: (Int, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
-buildDoc (_, (DocInfo (Document t u (Just (FunctionInfo m s p _))) _, _)) = jo
-  [ ("name", js $ t)
-  , ("uri", js $ u)
+buildDocHits :: HolCache c => c -> DocHits FunctionInfo -> JSValue
+buildDocHits c dh = JSArray $ map (buildDoc c) (IM.toList dh)
+
+buildDoc :: HolCache c => c -> (Int, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
+buildDoc _ (_, (DocInfo (Document t u (Just (FunctionInfo m s p _))) _, _)) = jo
+  [ ("name", js t)
+  , ("uri", js u)
   , ("module", js $ B.toString $ m)
   , ("signature", js $ B.toString $ s)
   , ("package", js $ B.toString $ p)
   ]
+buildDoc _ _ = error "Expected custom function info"
 
 buildWordHits :: WordHits -> JSValue
-buildWordHits wh = JSArray $ map (js . fst) (M.toList wh)
+buildWordHits wh = JSArray $ map buildWord (M.toList wh)
+
+buildWord :: (Word, (WordInfo, WordContextHits)) -> JSValue
+buildWord (w, (WordInfo _ s, _)) = jo
+  [ ("word", js w)
+  , ("count", showJSON s)
+  ]
 
 buildTopList :: [(String, Int)] -> JSValue
 buildTopList = showJSON . map buildTopElem
@@ -65,3 +83,4 @@ js = JSString . toJSString
 
 jo :: [(String, JSValue)] -> JSValue
 jo = JSObject . toJSObject
+

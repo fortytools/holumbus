@@ -68,7 +68,7 @@
       <loadshader reference="ttyVersion" object="ttyVersionShader" module="Network.Server.Janus.Shader.ConsoleShader"/>
 
       <!-- Hayoo! special, was disabled during testing due to lack of missing index -->
-      <loadshader reference="hayoo" object="hayooShader" module="Hayoo.Search"/>
+      <loadshader reference="hayoo" object="hayooShader" module="Hayoo.Shader"/>
       <!-- -->
 
       <shader type="init_mime" typefile="./conf/mime.types"/>

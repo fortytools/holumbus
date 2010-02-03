@@ -1,14 +1,14 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Hayoo.Search
-  Copyright  : Copyright (C) 2008 Timo B. Huebel
+  Module     : Hayoo.Shader
+  Copyright  : Copyright (C) 2008, 2009, 2010 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.3
+  Version    : 0.6
 
   The search web-service for the Hayoo Haskell API search engine.
  
@@ -18,7 +18,7 @@
 
 {-# LANGUAGE Arrows #-}
 
-module Hayoo.Search where
+module Hayoo.Shader where
 
 import Data.Function
 import Data.Maybe
@@ -175,26 +175,23 @@ hayooService midct = proc inTxn -> do
   -- Put all information relevant for rendering into a container
   state    <- arr $ (\(c, t) -> (request, start, static, c, t))                         -<< (cache idct, template idct)
   -- If the query is empty, just render an empty page
-  response <- ifP (\(r, _) -> L.null r) renderEmpty (renderResult state json)           -<< (request, idct)
+  response <- ifP (\(r, _) -> L.null r) (renderEmpty json) (renderResult state json)    -<< (request, idct)
   -- Put the response value into the transaction.
   setVal _transaction_http_response_body response >>> setVal _transaction_http_response_mime (mimeType json) -<< inTxn
     where
     mimeType j = if j then "application/json" else "text/html"
     -- Just render an empty page
-    renderEmpty =
-      arr (\(_, c) -> template c) >>> writeDocumentToString [(a_output_encoding, utf8), (a_indent,v_1), (a_output_html, v_1)]
+    renderEmpty j = if j then writeJson else writeHtml
+      where
+      writeJson = arr (\_ -> renderEmptyJson)
+      writeHtml = arr (\(_, c) -> template c) >>> writeDocumentToString htmlOptions
     -- Parse the query and generate a result or an error depending on the parse result.
     renderResult (r, s, i, c, t) j =
       arrParseQuery >>> (genError ||| genResult) >>> if j then writeJson c else writeHtml (PickleState r s i c t)
       where
       writeJson ca = arr $ (\sr -> renderJson sr ca)
       writeHtml ps = pickleStatusResult ps >>> applyTemplate ps >>>
-        (writeDocumentToString
-          [ (a_no_xml_pi, if psStatic ps then v_0 else v_1)
-          , (a_output_encoding, utf8)
-          , (a_indent,v_1)
-          , (a_output_html, v_1)
-          ])
+        (writeDocumentToString $ (a_no_xml_pi, if psStatic ps then v_0 else v_1):htmlOptions)
     -- Apply the template if necessary
     applyTemplate ps =
       if psStatic ps then
@@ -208,6 +205,10 @@ hayooService midct = proc inTxn -> do
     -- Read or use default value
     readDef d = arr $ fromMaybe d . readM
     isJson = arr $ (\f -> (extension f) == "json")
+    -- Default HTML render options
+    htmlOptions = [(a_output_encoding, utf8), (a_indent,v_1), (a_output_html, v_1)]
+
+
 
 extension :: String -> String
 extension fn = go (reverse fn) ""
