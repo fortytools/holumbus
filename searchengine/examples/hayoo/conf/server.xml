@@ -116,8 +116,7 @@
         <like>
           <value><shader type="taExpr" path="/transaction/http/request/@uri_path"/></value>
 
-          <!-- Hayoo! special, was disabled during testing due to lack of missing index -->
-      	  <case match="^/hayoo.html$" >
+      	  <case match="(^/hayoo.html$)|(^/hayoo.json$)" >
       	    <shader type="hayoo">
       	    	<config index="indexes/hayoo-index.bin"
                         documents="indexes/hayoo-docs.bin"
@@ -125,18 +124,17 @@
                         template="wwwpages/hayoo.html"/>
       	    </shader>
       	  </case>
-          <!-- -->
 
           <default>
             <shader id="file_shader" type="file_shader">
               <config base_url="/" maps_to="./wwwpages"/>
             </shader>
+            <shader id="mime_shader" type="mime_shader">
+              <config default="text/plain"><types xml="text/xml"/></config>
+            </shader>
           </default>
         </like>
 
-        <shader id="mime_shader" type="mime_shader">
-          <config default="text/plain"><types xml="text/xml"/></config>
-        </shader>
         <shader id="http_status_shader" accepts="[Processing, Failure]" type="http_status_shader"/>
         <shader id="html_status_shader" type="html_status_shader"><config page_404="./errorpages/404.html"/></shader>
         <shader id="response_shader" type="response_shader"/>
