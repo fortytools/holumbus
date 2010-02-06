@@ -144,7 +144,7 @@ actionConfig :: SplitF -> MapF -> ReduceF -> ActionConfiguration A K1 V1 K2 V2 V
 actionConfig s m r = (defaultActionConfiguration "ID") {
            ac_Map    = Just . mapConfiguration    $ m
          , ac_Reduce = Just . reduceConfiguration $ r
-         , ac_Split  = Nothing -- Just . splitConfiguration  $ s
+         , ac_Split  = Just . splitConfiguration  $ s
          }
 
 {- ---------------------------------------------------------------------------------------------------------

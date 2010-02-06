@@ -3,6 +3,7 @@ Mandelbrot set calulation with coherent CUT strategy.
 The image ist cut into coherent pieces making the final sorting more efficent.
 
 firstsplit = splits the client create
+splits     = splits the splitters create
 
-over splits = firstsplit, there is no split phase
+over splits = splits * firstsplit
 
