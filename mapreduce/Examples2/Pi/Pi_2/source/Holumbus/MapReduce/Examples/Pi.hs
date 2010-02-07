@@ -4,6 +4,7 @@ module Holumbus.MapReduce.Examples.Pi (
 ) where
 
 import Holumbus.MapReduce.Examples.SimpleDMapReduceIO
+import Holumbus.MapReduce.Types
 import System.Random.Mersenne
 import Data.Maybe
 import Control.Parallel.Strategies
@@ -33,13 +34,17 @@ calcSample' (x,y) _ = if (x*x+y*y) <= 1
   The mapping function
 -}
 piMap :: MapFunction Options K1 V1 K2 V2
-piMap _env _opts key num_of_samples = do
+piMap env _opts key num_of_samples = do
   -- create random generator
   mtg <- newMTGen Nothing
   rands <- randoms mtg
   let samples = mapP rands calcSample' [() | _ <- [1..num_of_samples]]
 
-  return [(key, catMaybes samples)]
+  return [(key', catMaybes samples)]
+  where
+  key' = case (td_PartValue . ae_TaskData $ env) of
+    (Just n') -> mod key n'
+    Nothing   -> key
 
 {-
  The reduce function

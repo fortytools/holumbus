@@ -13,6 +13,7 @@ do
   mkdir "worker_$IP"
   cd "worker_$IP"
   $SCP_WORKER_DATA.$IP:$WORKER_DIR/* . > /dev/null
+  removeStorageAndWorker .
   cd ..
 done
 
