@@ -36,6 +36,7 @@ import           Holumbus.Network.PortRegistry.PortRegistryPort
 import           Holumbus.MapReduce.Types
 import           Holumbus.Common.FileHandling
 import           Data.Binary
+import qualified Data.ByteString.Lazy as B
 --import           Holumbus.Common.MRBinary
 import           Data.Maybe
 import           Control.Parallel.Strategies
@@ -131,10 +132,14 @@ client m r a (mappers,reducers) lss = do
       mr <- initializeData
       
       -- make filesystem
-      fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+      fs <- FS.mkFileSystemClient FS.defaultFSClientConfig
       -- create the filenames and store the data to the map reduce filesystem
-      let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
-      mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+--      let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
+--      mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+
+      let (files,filenames) = prepareFiles lss 0
+      FS.createFiles files fs
+
       
       -- do the map reduce job
       t1 <- getPOSIXTime
@@ -152,6 +157,14 @@ client m r a (mappers,reducers) lss = do
       
       -- finally, return the result
       return result
+
+prepareFiles :: Binary a => [[a]] -> Int -> ([(String,B.ByteString)],[String])
+prepareFiles []     _ = ([],[])
+prepareFiles (x:xs) i = ((fn,bin):files,fn:filenames)
+  where
+  fn = ("Initial_input_"++show i)
+  bin = listToByteString x
+  (files,filenames) = prepareFiles xs (i+1)
       
 merge :: [FS.FileId] -> FS.FileSystem -> IO [(K2,V4)]
 merge fids fs = do

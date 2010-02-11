@@ -28,7 +28,7 @@ export IP_OFFSET="0"
 
 CMD='$RUNTEST2 $WORKERS $MAPPERS $REDUCERS $SAMPLES'
 
-NUMOFTESTS="1" # how many runs?
+NUMOFTESTS="5" # how many runs?
 
 TESTS=`egrep -v "(^$|^#.*$)" $1` # read the test's config file
 

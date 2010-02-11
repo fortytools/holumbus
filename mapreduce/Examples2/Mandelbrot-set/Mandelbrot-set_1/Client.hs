@@ -5,7 +5,7 @@ module Main
 where
 
 -- the mr facade
-import Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO
+import Holumbus.Distribution.SimpleDMapReduceIO
 
 -- mandel libs
 import Holumbus.MapReduce.Examples.MandelbrotSet.DMandel

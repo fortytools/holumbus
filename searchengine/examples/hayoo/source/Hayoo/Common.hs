@@ -37,7 +37,7 @@ import Text.XML.HXT.Arrow
 import Holumbus.Utility
 import Holumbus.Query.Result
 
--- Status information of query processing.
+-- Status information of query processing (status message, result, top modules, top packages).
 type StatusResult = (String, Result FunctionInfo, [(String, Int)], [(String, Int)])
 
 -- | Additional information about a function.

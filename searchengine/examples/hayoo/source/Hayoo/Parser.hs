@@ -22,7 +22,6 @@ import Hayoo.Common
 
 import Holumbus.Query.Language.Grammar
 import Text.ParserCombinators.Parsec
-import Data.Either
 
 -- | Parse a query using the special Hayoo! syntax.
 parseQuery :: String -> Either String Query
@@ -64,7 +63,7 @@ contextQuery = try contextQuery' <|> parQuery
   where
   contextQuery' = do c <- contexts
                      spaces
-                     char ':'
+                     _ <- char ':'
                      spaces
                      t <- parQuery
                      return (Specifier c t)
@@ -73,11 +72,11 @@ contextQuery = try contextQuery' <|> parQuery
 parQuery :: Parser Query
 parQuery = parQuery' <|> phraseQuery <|> wordQuery
   where
-  parQuery' = do char '('
+  parQuery' = do _ <- char '('
                  spaces
                  q <- andQuery
                  spaces
-                 char ')'
+                 _ <- char ')'
                  return q
 
 -- | Parse a phrase query.
@@ -101,7 +100,7 @@ sigQuery = do
 contains :: String -> Parser String
 contains s = do
              pr <- many1 (noneOf s)
-             string s
+             _ <- string s
              po <- many1 anyChar
              return (pr ++ s ++ po)
 
@@ -110,7 +109,7 @@ andOp :: Parser ()
 andOp = (try andOp') <|> spaces1
   where
   andOp' = do spaces
-              string "AND" 
+              _ <- string "AND" 
               spaces1
               return ()
 
@@ -119,7 +118,7 @@ orOp :: Parser ()
 orOp = try orOp'
   where
   orOp' = do spaces
-             string "OR"
+             _ <- string "OR"
              spaces1
              return ()
 
@@ -128,7 +127,7 @@ notOp :: Parser ()
 notOp = try notOp'
   where
   notOp' = do spaces
-              string "NOT" 
+              _ <- string "NOT" 
               spaces1
               return ()
 
@@ -138,9 +137,9 @@ word = many1 wordChar
 
 -- | Parse a phrase.
 phrase :: Parser String
-phrase = do char '"'
+phrase = do _ <- char '"'
             p <- many1 phraseChar
-            char '"'
+            _ <- char '"'
             return p
 
 -- | Parse a character of a word.

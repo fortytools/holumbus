@@ -32,7 +32,7 @@ export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this dire
 export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
 export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
 
-NUMOFTESTS="5" # how many runs?
+NUMOFTESTS="3" # how many runs?
 
 TESTS=`egrep -v "(^$|^#)" $1` # read the test's config file
 FILE="$2"      # output file, the image

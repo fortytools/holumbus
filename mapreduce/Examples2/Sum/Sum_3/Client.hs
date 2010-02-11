@@ -13,8 +13,8 @@ import Holumbus.Common.FileHandling
 import GHC.Int
 import Holumbus.Common.Logging
 
-m c = 10^c
-n c = 10^(7-c) - 1 
+m c = 10^c          -- length of each list
+n c = 10^(8-c) - 1  -- num of lists
 
 main :: IO ()
 main = do

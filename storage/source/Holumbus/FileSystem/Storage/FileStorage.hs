@@ -132,7 +132,7 @@ writeDirectory stor
   = do
     infoM localLogger ("writing filestorage directory: " ++ (fs_DirfilePath stor))
     createDirectoryIfMissing True (fs_Path stor)
-    --encodeFile (fs_DirfilePath stor) (fs_Directory stor)
+    encodeFile (fs_DirfilePath stor) (fs_Directory stor)
     return stor
 
 {-    bracket 
