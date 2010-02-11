@@ -56,7 +56,7 @@ import           Data.Maybe
 -- import           Data.Word
 
 data PrefixTree v	= Empty
-                        | Val	 { value' :: ! v
+                        | Val	 { value' ::   v
                                  , tree   :: ! (PrefixTree v)
                                  }
                         | Branch { sym    :: ! Sym
@@ -68,7 +68,7 @@ data PrefixTree v	= Empty
                         -- will be normalized during access into
                         -- the three constructors Empty, Val and Branch
 
-                        | Leaf   { value' :: ! v		-- a value at a leaf of the tree
+                        | Leaf   { value' ::   v		-- a value at a leaf of the tree
                                  }
                         | Last   { sym    :: ! Sym		-- the last entry in a branch list
                                  , child  :: ! (PrefixTree v)	-- or no branch but a single child
@@ -81,18 +81,18 @@ data PrefixTree v	= Empty
                                  , next   :: ! (PrefixTree v)
                                  } 
                         | LsSeL  { syms   :: ! Key		-- a sequence of single childs
-                                 , value' :: ! v		-- with a leaf 
+                                 , value' ::   v		-- with a leaf 
                                  } 
                         | BrSeL  { syms   :: ! Key		-- a sequence of single childs
-                                 , value' :: ! v 		-- with a leaf in a branch node
+                                 , value' ::   v 		-- with a leaf in a branch node
                                  , next   :: ! (PrefixTree v)
                                  } 
                         | BrVal  { sym    :: ! Sym		-- a branch with a single char
-                                 , value' :: ! v		-- and a value
+                                 , value' ::   v		-- and a value
                                  , next   :: ! (PrefixTree v)
                                  }
                         | LsVal  { sym    :: ! Sym		-- a last node with a single char
-                                 , value' :: ! v		-- and a value
+                                 , value' ::   v		-- and a value
                                  }
                           deriving (Show, Eq, Ord)
 
