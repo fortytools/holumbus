@@ -71,7 +71,7 @@ Janus.hs	: $(CONF)
 
 # 2. step: generate the executable janus from the main prog
 janus		: Janus.hs $(SERVLETS)
-		$(GHC) -threaded -o $@ --make -i./source Janus.hs
+		$(GHC) -threaded -o $@ --make -i./source -package hslogger -package json Janus.hs
 
 cleanjanus	:
 		rm -f Janus.hs Janus.o Janus.hi $(SERVLETS:.hs=.o) $(SERVLETS:.hs=.hi)

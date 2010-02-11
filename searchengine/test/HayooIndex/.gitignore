@@ -1,0 +1,9 @@
+hayoo-count-occurrences
+HayooIndexTest
+hayoo-lookup-words
+hayoo-memory-to-prefixtree
+hayoo-persistent-to-memory
+indexes.old/
+*.hi
+*.o
+indexes/

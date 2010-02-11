@@ -77,12 +77,13 @@ instance HolIndexM IO Persistent where
   lookupCaseM i c q     = mapM (rawHelperM (occurrences i)) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i))
   lookupNoCaseM i c q   = mapM (rawHelperM (occurrences i)) $ SM.lookupNoCase q $ getPart c i
 
+  toListM               = return . toList
+
   insertOccurrencesM    = insertOccurrencesM'
                                                     
   mergeIndexesM _ _             = error "Holumbus.Index.Inverted.OneFile: mergeIndexesM not supported"
   deleteOccurrencesM _ _ _ _    = error "Holumbus.Index.Inverted.OneFile: deleteOccurrencesM not supported"
   updateDocIdsM _ _             = error "Holumbus.Index.Inverted.OneFile: updateDocIdsM not supported"
-  toListM _                     = error "Holumbus.Index.Inverted.OneFile: toListM not supported"
 
 -- Required to avoid overlapping instances
 insertOccurrencesM' :: (Monad m) => Context -> Word -> Occurrences -> Persistent -> m Persistent
@@ -108,6 +109,10 @@ instance HolIndex Persistent where
   lookupCase i c q          = map (rawHelper (occurrences i)) $ zip (repeat q) (maybeToList (SM.lookup q $ getPart c i)) 
   lookupNoCase i c q        = map (rawHelper (occurrences i)) $ SM.lookupNoCase q $ getPart c i 
 
+  toList i                  = [ (c,w,o) | c     <- M.keys . indexParts $ i
+                                        , (w,o) <- allWords i c
+                              ]
+  
   mergeIndexes _ _          = error "Holumbus.Index.Inverted.OneFile: mergeIndexes not supported" 
   substractIndexes          = error "Holumbus.Index.Inverted.OneFile: substractIndexes not supported" 
 
@@ -120,8 +125,6 @@ instance HolIndex Persistent where
 
   updateDocIds _ _          = error "Holumbus.Index.Inverted.OneFile: updateDocIds not supported" 
 
-  toList _                  = error "Holumbus.Index.Inverted.OneFile: toList not supported" 
-  
 instance XmlPickler Persistent where
   xpickle               =  xpZero               -- DUMMY
 
