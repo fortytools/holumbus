@@ -1,0 +1,44 @@
+Name:           Holumbus-Tests
+Version:        0.1
+Cabal-Version:  >= 1.2
+License:        BSD3
+Author:         Uwe Schmidt
+Synopsis:       A simple test program for the Holumbus search engine
+Build-Type:     Simple
+
+Executable AllTests
+  main-is:        AllTests.hs
+  other-modules:  BinaryTest
+                , CrunchTest
+                , DiffListTest
+                , DocumentsTest
+                , FuzzyTest
+                , InvertedTest
+                , ParserTest
+                , PickleTest
+                , PrefixTreeTest2
+                , PrefixTreeTest
+                , SampleData
+                , StrMapTest
+  hs-source-dirs: .
+  ghc-options:    -Wall -threaded
+  build-depends:  base                  >= 4.2   && < 5
+                , haskell98             >= 1.0   && < 2
+                , binary                >= 0.4   && < 1
+                , containers            >= 0.1   && < 1
+                , directory             >= 1.0   && < 2
+                , hxt                   >= 8.5   && < 9
+                , HUnit                 >= 1.2   && < 2
+                , QuickCheck            >= 1.2   && < 2
+                , Holumbus-Searchengine >= 0.0.9 && < 0.1
+
+Executable SpaceTest
+  main-is:        SpaceTest.hs
+  hs-source-dirs: .
+  ghc-options:    -Wall -threaded
+  build-depends:  base                  >= 4.2   && < 5
+                , haskell98             >= 1.0   && < 2
+                , binary                >= 0.4   && < 1
+                , containers            >= 0.1   && < 1
+                , directory             >= 1.0   && < 2
+                , Holumbus-Searchengine >= 0.0.9 && < 0.1

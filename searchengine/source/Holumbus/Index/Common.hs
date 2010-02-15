@@ -45,7 +45,11 @@ module Holumbus.Index.Common
 
   -- * Occurrences
   , emptyOccurrences
+  , nullOccurrences
   , sizeOccurrences
+  , insertOccurrence
+  , deleteOccurrence
+  , updateOccurrences
   , mergeOccurrences
   , substractOccurrences
 
@@ -196,7 +200,7 @@ class (Binary i) => HolIndex i where
   -- implementations
   toList   :: i -> [(Context, Word, Occurrences)]
   
-  -- Create an Index froma a list. Can be used vor easy conversion between different index  
+  -- Create an Index from a list. Can be used vor easy conversion between different index  
   -- implementations. Needs an empty index as first argument
   fromList :: i -> [(Context, Word, Occurrences)] -> i
   fromList e = foldl (\i (c,w,o) -> insertOccurrences c w o i) e
@@ -363,25 +367,42 @@ mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocIds replaceIds i2))
   idTable = IM.fromList ud
   replaceIds _ _ d = fromMaybe d (IM.lookup d idTable)
 
+-- ------------------------------------------------------------
+
 -- | Create an empty set of positions.
-emptyOccurrences :: Occurrences
-emptyOccurrences = IM.empty
+emptyOccurrences 	:: Occurrences
+emptyOccurrences 	= IM.empty
+
+-- | Test on empty set of positions.
+nullOccurrences 	:: Occurrences -> Bool
+nullOccurrences 	= IM.null
 
 -- | Determine the number of positions in a set of occurrences.
-sizeOccurrences :: Occurrences -> Int
-sizeOccurrences = IM.fold ((+) . IS.size) 0
+sizeOccurrences 	:: Occurrences -> Int
+sizeOccurrences 	= IM.fold ((+) . IS.size) 0
+
+insertOccurrence 	:: DocId -> Position -> Occurrences -> Occurrences
+insertOccurrence d p	= IM.insertWith IS.union d (IS.singleton p)
+
+deleteOccurrence 	:: DocId -> Position -> Occurrences -> Occurrences
+deleteOccurrence d p	= substractOccurrences (IM.singleton d (IS.singleton p))
+
+updateOccurrences	:: (DocId -> DocId) -> Occurrences -> Occurrences
+updateOccurrences f	= IM.foldWithKey (\ d ps res -> IM.insertWith IS.union (f d) ps res) emptyOccurrences
 
 -- | Merge two occurrences.
-mergeOccurrences :: Occurrences -> Occurrences -> Occurrences
-mergeOccurrences = IM.unionWith IS.union
+mergeOccurrences 	:: Occurrences -> Occurrences -> Occurrences
+mergeOccurrences 	= IM.unionWith IS.union
 
 -- | Substract occurrences from some other occurrences.
-substractOccurrences :: Occurrences -> Occurrences -> Occurrences
-substractOccurrences = IM.differenceWith substractPositions
+substractOccurrences 	:: Occurrences -> Occurrences -> Occurrences
+substractOccurrences 	= IM.differenceWith substractPositions
   where
-  substractPositions p1 p2 = if IS.null diffPos then Nothing else Just diffPos
-    where
-    diffPos = IS.difference p1 p2
+  substractPositions p1 p2 	= if IS.null diffPos
+                                  then Nothing
+                                  else Just diffPos
+      where
+      diffPos 			= IS.difference p1 p2
 
 -- ------------------------------------------------------------
 

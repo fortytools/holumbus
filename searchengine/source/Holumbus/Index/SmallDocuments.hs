@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns, FlexibleInstances, MultiParamTypeClasses #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |

@@ -66,7 +66,7 @@ function processQuery (start) {
   if (query.length > 0) {
     $("throbber").show();
     refreshRequired = true;
-    new Ajax.Request("hayoo?query=" + encodeURIComponent(query) + "&start=" + start + "&static=False",
+    new Ajax.Request("hayoo.html?query=" + encodeURIComponent(query) + "&start=" + start + "&static=False",
       {
         method:'get',
         onSuccess: function(transport) {
@@ -76,7 +76,7 @@ function processQuery (start) {
           window.location.hash = start + ":" + encodeURIComponent(query);
           lastLocation = window.location.hash;
           displayResult(transport.responseText, query);
-          pageTracker._trackPageview("hayoo?query=" +  encodeURIComponent(query));
+          pageTracker._trackPageview("hayoo/hayoo.html?query=" + encodeURIComponent(query));
           checkForQuery();
         },
         onFailure: function() {
