@@ -193,6 +193,8 @@ class Storage s where
   -- | Create a new file in the storage.
   --   Overwrite the file if it already exists.
   createFile :: s -> FileId -> FileContent -> IO (s)
+  
+  createFiles :: s ->[(FileId, FileContent)] -> IO (s)
 
   -- | Delete a file in the storage.
   --   Nothing happens if the file doesn't exist

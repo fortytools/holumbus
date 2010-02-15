@@ -11,6 +11,7 @@ do
   mkdir "worker_$I"
   cd "worker_$I"
   $SCP_WORKER_DATA.$I:$WORKER_DIR/* . > /dev/null
+  removeStorageAndWorker .
   cd ..
 done
 

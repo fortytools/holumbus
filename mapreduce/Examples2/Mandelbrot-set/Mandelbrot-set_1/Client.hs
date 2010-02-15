@@ -5,7 +5,7 @@ module Main
 where
 
 -- the mr facade
-import Holumbus.Distribution.SimpleDMapReduceIO
+import Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO 
 
 -- mandel libs
 import Holumbus.MapReduce.Examples.MandelbrotSet.DMandel
@@ -25,9 +25,7 @@ main = do
   t <- getPOSIXTime
   let (w,h,zmax,iterations) = read quartet
       ; (splitters,mappers,reducers) = read triplet
---      ; list = let p=partition' (pixels w h) [[]|_<-[1..splitters]] in rnf p `seq` p
       ; list = partition' (pixels w h) [[]|_<-[1..splitters]]
---  writeToListFile "/tmp/blub.bin" list
     
   -- call map reduce
   putTimeStamp "Begin Client MR"

@@ -157,6 +157,17 @@ writeDirectory stor
         return stor
       )-}
 
+writeSingleFile :: FileStorage -> S.FileId -> S.FileContent -> IO FileStorage
+writeSingleFile stor fn c = do
+  debugM localLogger "write to bin file .. "
+  writeToBinFile path c
+  debugM localLogger "create file metadata"
+  dat <- S.createFileData fn c
+  return $ stor {fs_Directory = newdir dat}  
+  where
+    path = (fs_Path stor) ++ fn
+    newdir d = addFileData (fs_Directory stor) d
+
 
 -- | deriving FileStorage from the class Storage
 instance S.Storage FileStorage where
@@ -169,20 +180,23 @@ instance S.Storage FileStorage where
 
   createFile stor fn c 
     = do
-      debugM localLogger "write to bin file .. "
-      writeToBinFile path c
-      -- case c of
-      --  (S.TextFile t) -> writeToTextFile path t
-      --  (S.ListFile l) -> writeToListFile path l
-      --  (S.BinFile  b) -> writeToBinFile path b
-      debugM localLogger "create file metadata"
-      dat <- S.createFileData fn c
+      stor' <- writeSingleFile stor fn c
       debugM localLogger "write directory"
-      writeDirectory $ stor {fs_Directory = newdir dat} 
-      where
-        path = (fs_Path stor) ++ fn
-        newdir d = addFileData (fs_Directory stor) d 
+      writeDirectory stor'
 
+  createFiles stor l
+    = do
+      debugM localLogger "write to bin file .. "
+      stor' <- writeFiles stor l
+      debugM localLogger "write directory"
+      writeDirectory stor'
+      where
+        writeFiles :: FileStorage -> [(S.FileId,S.FileContent)] -> IO FileStorage
+        writeFiles stor [] = return stor
+        writeFiles stor ((fn,c):xs) = do
+          stor' <- writeSingleFile stor fn c
+          writeFiles stor' xs
+ 
 
   deleteFile stor i
     = do

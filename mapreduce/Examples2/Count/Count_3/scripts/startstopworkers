@@ -6,6 +6,8 @@
 [ -n "$WORKER_BIN" ] || { echo "Undefined variable: WORKER_BIN"; exit 1; }
 [ -n "$WORKER_SH" ] || { echo "Undefined variable: WORKER_SH"; exit 1; }
 [ -n "$WORKER_PID" ] || { echo "Undefined variable: WORKER_PID"; exit 1; }
+[ -n "$WORKER_START_PORT" ] || { echo "Undefined variable: WORKER_START_PORT"; exit 1; }
+[ -n "$WORKER_PER_NODE" ] || { echo "Undefined variable: WORKER_PER_NODE"; exit 1; }
 [ -n "$1" ] || { echo "Parameter missing: OPT"; exit 1; }
 [ -n "$2" ] || { echo "Parameter missing: IP1"; exit 1; }
 [ -n "$3" ] || { echo "Parameter missing: IP2"; exit 1; }
@@ -13,11 +15,18 @@
 OPT="$1"
 shift
 
-case $OPT in
-  start)
-  $DOSSH $1 $2 "rm $WORKER_DIR -rf && mkdir -p $WORKER_DIR && cd $WORKER_DIR && scp $WORKER_SSH_LOCATION/$WORKER_BIN .  &&  scp $WORKER_SSH_LOCATION/scripts/$WORKER_SH . && start-stop-daemon --start -p $WORKER_DIR/$WORKER_PID --background --startas $WORKER_DIR/$WORKER_SH $WORKER_DIR 10000 $WORKER_PID"
-  ;;
-  stop)
-  $DOSSH $1 $2 "start-stop-daemon --stop --signal 2 -p $WORKER_DIR/$WORKER_PID"
-  ;; 
-esac
+for I in $WORKER_PER_NODE
+do
+
+  WD="$WORKER_DIR_$I"
+  PORT=`expr $WORKER_START_PORT + $I`
+
+  case $OPT in
+    start)
+    $DOSSH $1 $2 "rm $WD -rf && mkdir -p $WD && cd $WD && scp $WORKER_SSH_LOCATION/$WORKER_BIN .  &&  scp $WORKER_SSH_LOCATION/scripts/$WORKER_SH . && start-stop-daemon --start -p $WD/$WORKER_PID --background --startas $WD/$WORKER_SH $WD $PORT $WORKER_PID"
+    ;;
+    stop)
+    $DOSSH $1 $2 "start-stop-daemon --stop --signal 2 -p $WD/$WORKER_PID"
+    ;; 
+  esac
+done

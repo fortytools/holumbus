@@ -27,7 +27,7 @@ main = do
   t `seq` putStrLn . show $ t
 
   -- copy to fs
-  let filenames = map (\i -> "File_" ++ show i) [1..10^7];
+  let filenames = map (\i -> "File_" ++ show i) [1..1000];
       files     = zip filenames binLists
   createFiles files fs
 
@@ -42,4 +42,4 @@ binLists ::[B.ByteString]
 binLists = map encode list
 
 list :: [[Int32]]
-list = [[] | _<-[1..10^7]]
+list = [[] | _<-[1..1000]]

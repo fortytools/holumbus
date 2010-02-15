@@ -40,4 +40,4 @@ binLists ::[B.ByteString]
 binLists = map encode list
 
 list :: [[Int32]]
-list = [[] | _<-[1..10^7]]
+list = [[] | _<-[1..1000]]

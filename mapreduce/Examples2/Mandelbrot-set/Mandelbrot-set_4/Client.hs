@@ -26,10 +26,10 @@ main = do
   initializeFileLogging "/dev/stdout" ([(localLogger, ERROR),("Holumbus.Network.DoWithServer",INFO),("measure",ERROR)])
   putTimeStamp "Begin Client"
   -- read command line arguments
-  (filename : firstsplit : quintet : duo : [] ) <- getArgs
+  (filename : quintet : duo : [] ) <- getArgs
   let (split,w,h,zmax,iterations) = read quintet
       ; (splitters, mappers) = read duo
-      ; list = map (:[]) $ part (read firstsplit) h $ pixels w h
+      ; list = map (:[]) $ part splitters h $ pixels w h
     
   -- call map reduce
   putTimeStamp "Begin Client MR"

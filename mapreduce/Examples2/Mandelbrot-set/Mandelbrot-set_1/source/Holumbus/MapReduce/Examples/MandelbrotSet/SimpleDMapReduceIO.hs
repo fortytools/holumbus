@@ -38,14 +38,16 @@ import           Holumbus.Common.Utils ( handleAll )
 import           System.Log.Logger
 import           System.Environment
 import           System.Exit
-import Data.Time.Clock.POSIX
+import           Data.Time.Clock.POSIX
+import           System.Console.Readline
+import qualified Data.ByteString.Lazy as B
 
 splitConfiguration
   :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
   => SplitConfiguration a k1 v1
 splitConfiguration
   = SplitConfiguration
-      hashedPartition
+      defaultSplit
       defaultInputReader
       defaultOutputWriter
 
@@ -59,7 +61,6 @@ mapConfiguration fct
       hashedPartition
       defaultInputReader
       defaultOutputWriter
-
 
 reduceConfiguration
   :: (Hash k2, NFData v2, NFData k2, NFData v3, Ord k2, Binary a, Binary k2, Binary v2, Binary v3)
@@ -77,11 +78,11 @@ reduceConfiguration fct
 {-
 actionConfig
 -}
-actionConfig :: (Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
-actionConfig m _r = (defaultActionConfiguration "ID") {
-           ac_Map    = Just . mapConfiguration    $ m
-         , ac_Reduce = Nothing -- Just . reduceConfiguration $ r
-         , ac_Split  = Nothing -- Just SplitConfiguration
+actionConfig :: (Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4 -> ActionConfiguration a k1 v1 k2 v2 v3 v4
+actionConfig m r = (defaultActionConfiguration "ID") {
+           ac_Split   = Just splitConfiguration  
+         , ac_Map     = Just . mapConfiguration    $ m
+         , ac_Reduce  = Nothing -- Just . reduceConfiguration $ r
          }
 
 {- ---------------------------------------------------------------------------------------------------------
@@ -107,7 +108,7 @@ client :: ( Show k1, Show k2, Show v1, Show v2, Show v3, Show v4
           , Binary v1, Binary v3, Binary v2, Binary v4
           , Binary a, Binary k1, Binary k2
           , NFData k1, NFData k2, NFData v1, NFData v4, NFData v2, NFData v3
-          , Ord k2, Hash k2) =>
+          , Ord k2, Hash k1, Hash k2) =>
           MapFunction a k1 v1 k2 v2 -> ReduceFunction a k2 v3 v4
           -> a -> (Int,Int,Int) -> [[(k1,v1)]] -> IO [(k2,v4)]
 client m r a (splitters,mappers,reducers) lss = do
@@ -115,21 +116,26 @@ client m r a (splitters,mappers,reducers) lss = do
       p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
       setPortRegistry p      
       
+      -- make filesystem
+      fs <- FS.mkFileSystemClient FS.defaultFSClientConfig
+      siteid <- FS.getMySiteId fs
+      putStrLn $ "My FS Siteid is: " ++ show siteid
+      
       -- create mapreduce data
       mr <- initializeData
       
-      -- make filesystem
-      fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
+      --_ <- readline "Press enter to continue .."
       -- create the filenames and store the data to the map reduce filesystem
-      let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
-      mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
+--      let filenames = map (\i -> "initial_input_"++show i) [1..(length lss)]
+--      FS.createFiles (zipWith (\fn c -> (fn,listToByteString c)) filenames lss) fs
+      let (files,filenames) = prepareFiles lss 0
+      FS.createFiles files fs
+      -- mapM_ (\(filename,ls) -> FS.createFile filename (listToByteString ls) fs) $ zip filenames lss
       
       -- do the map reduce job
-      t1 <- getPOSIXTime
-      putStrLn ("Begin MR: " ++ show t1)
+      putTimeStamp "SimpleDMR Begin MR"
       (_,fids) <- MR.doMapReduce (actionConfig m r) a [] filenames splitters mappers reducers 1 TOTFile mr
-      t2 <- getPOSIXTime
-      putStrLn ("END MR: " ++ show t2)
+      putTimeStamp "SimpleDMR End MR"
       
       -- get the results from filesystem
       result <- merge fids fs
@@ -140,6 +146,14 @@ client m r a (splitters,mappers,reducers) lss = do
       
       -- finally, return the result
       return result
+
+prepareFiles :: Binary a => [[a]] -> Int -> ([(String,B.ByteString)],[String])
+prepareFiles []     _ = ([],[])
+prepareFiles (x:xs) i = ((fn,bin):files,fn:filenames)
+  where
+  fn = ("Initial_input_"++show i)
+  bin = listToByteString x
+  (files,filenames) = prepareFiles xs (i+1)
       
 merge :: (Show k2, Show v4, Hash k2, Binary k2, Binary v4, NFData k2, NFData v4) => [FS.FileId] -> FS.FileSystem -> IO [(k2,v4)]
 merge fids fs = do
@@ -194,7 +208,7 @@ params = do
 {-
  The simpleWorker
 -}
-worker :: (Show k1, Show k2, Show v1, Show v2, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
+worker :: (Show k1, Show k2, Show v1, Show v2, Hash k1, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1,NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4, Show v4, Show v3) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> [(String,Priority)] -> IO ()
 worker m r loggers = do
   handleAll (\e -> errorM localLogger $ "EXCEPTION: " ++ show e) $
     do 
@@ -210,7 +224,7 @@ worker m r loggers = do
 {-
  The simpleWorker's init functin
 -}
-initWorker :: (Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
+initWorker :: (Hash k1, Show k1, Show k2, Show v1, Show v2, Show v3, Show v4, Hash k2, Binary a, NFData k1, NFData k2, Ord k2, Binary k1, Binary k2, NFData v1, NFData v4, NFData v2, NFData v3, Binary v1, Binary v3, Binary v2, Binary v4) => MapFunction a k1 v1 k2 v2  -> ReduceFunction a k2 v3 v4 -> IO (MR.DMapReduce, FS.FileSystem)
 initWorker m r
   = do
     fs <- FS.mkFileSystemNode FS.defaultFSNodeConfig
@@ -238,7 +252,7 @@ first list, list of
 partition' :: [a] -> [[a]] -> [[a]]
 partition'     _        [] = []
 partition'    []       xss = xss
-partition'    us   (xs:[]) = [us]
+partition'    us   (_xs:[]) = [us]
 partition' (u:us) (xs:xss) = partition' us (xss ++ [xs'])
   where xs' = (u:xs)
 
@@ -246,4 +260,3 @@ putTimeStamp :: String -> IO ()
 putTimeStamp s = do
   t1 <- getPOSIXTime
   putStrLn (s++" : "++ show t1)
-

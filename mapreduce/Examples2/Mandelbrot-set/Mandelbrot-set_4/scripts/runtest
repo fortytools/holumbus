@@ -66,13 +66,12 @@ do
     WORKERS=`echo $TEST | cut -d: -f1`
     SPLITTERS=`echo $TEST | cut -d: -f2`
     MAPPERS=`echo $TEST | cut -d: -f3`
-    FIRSTSPLIT=`echo $TEST | cut -d: -f4`
-    SPLIT=`echo $TEST | cut -d: -f5`
+    SPLIT=`echo $TEST | cut -d: -f4`
     # copy the registry data
     $COPY_REGISTRY 1 $WORKERS
      
     # start current test
-    $DEBUG $RUNTEST2 "$WORKERS" "$SPLITTERS" "$MAPPERS" "$FILE" "$FIRSTSPLIT" "$SPLIT" "$W" "$H" "$Z" "$IT"
+    $DEBUG $RUNTEST2 "$WORKERS" "$SPLITTERS" "$MAPPERS" "$FILE" "$SPLIT" "$W" "$H" "$Z" "$IT"
 	done
   
   # change to root dir
