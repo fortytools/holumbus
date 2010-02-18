@@ -19,7 +19,7 @@ import Holumbus.DCrawler.Constants
 import Text.XML.HXT.Arrow
 
 --
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import Data.Binary      ( Binary )
 import qualified Data.Binary      as B      -- else naming conflict with put and get from Monad.State
 

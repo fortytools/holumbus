@@ -18,7 +18,7 @@ import		 System.FilePath
 import		 Text.XML.HXT.Arrow		hiding ( when
 						       , getState
 						       )
-import qualified Text.XML.HXT.Arrow		as X
+-- import qualified Text.XML.HXT.Arrow		as X
 
 -- import qualified Debug.Trace			as D
 

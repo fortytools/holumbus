@@ -5,7 +5,7 @@
 module Main
 where
 
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 import           Data.Function.Selector
 

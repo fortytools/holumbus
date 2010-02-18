@@ -5,6 +5,7 @@
 module Holumbus.DCrawler.Core
 where
 
+import           Control.DeepSeq
 import 		 Control.Monad.Reader
 import		 Control.Monad.State
 import 		 Control.Monad.ReaderStateIO
@@ -30,7 +31,6 @@ import		 Text.XML.HXT.Arrow		hiding
 						)
 
 -- import qualified Debug.Trace			as D
-import Control.Parallel.Strategies
 
 -- ------------------------------------------------------------
 

@@ -20,14 +20,14 @@ where
 
 -- ------------------------------------------------------------
 
+import           Control.DeepSeq
 import           Control.Monad                  ( foldM )
 import           Control.Monad.Trans            ( MonadIO )
-import           Control.Parallel.Strategies	( NFData, rnf, using )
 
 import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B                            -- else naming conflict with put and get from Monad.State
 import           Data.Function.Selector
-import           Data.List
+-- import           Data.List
 import           Data.Maybe
 
 import           Holumbus.Crawler.Constants
@@ -196,24 +196,27 @@ insertRawDocM                   :: (MonadIO m, HolIndexM m i, HolDocuments d c, 
 insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
                                 = do
                                   newIx <- foldM (insertRawContextM did) (ixs_index ixs) $
-                                           (rawContexts `using` rnf)
+                                           (rnf rawContexts `seq` rawContexts)
                                   return $ IndexerState
                                              { ixs_index        = newIx
                                              , ixs_documents    = newDocs
                                              }
     where
-    (did, newDocs)              = insertDoc (ixs_documents ixs) doc
+    (did, newDocs)              = insertDoc (ixs_documents ixs) (rnf doc `seq` doc)
     doc                         = Document                                      -- Document is reduced to normal form
-                                  { title       = rawTitle  `using` rnf
-                                  , uri         = rawUri    `using` rnf
-                                  , custom      = rawCustom `using` rnf
+                                  { title       = rawTitle
+                                  , uri         = rawUri
+                                  , custom      = rawCustom
                                   }
 
-insertRawContextM                       :: (Monad m, HolIndexM m i) => DocId -> i -> (Context, [(Word, Position)]) -> m i
-insertRawContextM did ix (cx, ws)       = foldM (insWordM cx did) ix ws
+insertRawContextM             	:: (Monad m, HolIndexM m i) =>
+                                   DocId -> i -> (Context, [(Word, Position)]) -> m i
+insertRawContextM did ix (cx, ws)
+				= foldM (insWordM cx did) ix ws
 
-insWordM :: (Monad m, HolIndexM m i) => Context -> DocId -> i -> (Word, Int) -> m i
-insWordM cx' did' ix' (w', p')          = insertPositionM cx' w' did' p' ix'
+insWordM 			:: (Monad m, HolIndexM m i) =>
+                                   Context -> DocId -> i -> (Word, Int) -> m i
+insWordM cx' did' ix' (w', p')  = insertPositionM cx' w' did' p' ix'
 
 
 

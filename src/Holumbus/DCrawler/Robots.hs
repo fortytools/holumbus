@@ -3,7 +3,7 @@
 module Holumbus.DCrawler.Robots
 where
 
-import		 Control.Parallel.Strategies
+import		 Control.DeepSeq
 
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B
@@ -44,7 +44,7 @@ instance Binary RobotAction where
 			  return (toEnum b)
 
 instance NFData RobotAction where
-    rnf			= rwhnf
+    rnf	a		= a `seq` ()
 
 -- ------------------------------------------------------------
 

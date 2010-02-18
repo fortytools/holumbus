@@ -5,11 +5,11 @@
 -- module SimpleIndexer
 module Main
 where
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B                    -- else naming conflict with put and get from Monad.State
-import           Data.Char
+-- import           Data.Char
 
 import		 Holumbus.Crawler.Constants	( )
 import		 Holumbus.Crawler.Core
@@ -27,6 +27,7 @@ import		 Holumbus.Index.Inverted.PrefixMem
 import           System.Environment
 
 import		 Text.XML.HXT.Arrow		hiding ( readDocument )
+import           Text.XML.HXT.XPath
 import           Text.XML.HXT.Arrow.XmlCache
 import		 Text.XML.HXT.DOM.Unicode
 
@@ -59,7 +60,7 @@ simpleIndexerConfig followRef ixc
 				  [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 				  , (a_compress, v_1		)			-- cache files will be compressed
 				  , (a_document_age,
-					 show $ (60 * 60 * 24 * 1::Integer))		-- cache remains valid 1 days
+					 show $ (60 * 60 * 24 * 30::Integer))		-- cache remains valid 1 month
 				  , (a_trace,	v_1		)
                                   , (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
 				  , (a_parse_html,              v_0)
@@ -80,11 +81,27 @@ simpleIndexer refs ixc startUris
                                 = stdIndexer
                                   Nothing
                                   startUris
-                                  (setCrawlerTraceLevel indexerTraceLevel $ simpleIndexerConfig refs ixc )
+                                  ( setCrawlerTraceLevel indexerTraceLevel $
+                                    setCrawlerSaveConf indexerSaveIntervall indexerSavePath $
+                                    setCrawlerMaxDocs indexerMaxDocs indexerMaxParDocs $
+                                    simpleIndexerConfig refs ixc
+                                  )
                                   ( emptyIndexerState emptyInverted emptyDocuments )
+
+indexerSaveIntervall		:: Int
+indexerSaveIntervall		= 10
+
+indexerSavePath			:: String
+indexerSavePath			= "./tmp/ix-"
 
 indexerTraceLevel		:: Int
 indexerTraceLevel		= 2
+
+indexerMaxDocs			:: Int
+indexerMaxDocs			= 1000
+
+indexerMaxParDocs		:: Int
+indexerMaxParDocs		= 4
 
 -- ------------------------------------------------------------
 
@@ -107,7 +124,7 @@ siIndexer                       = simpleIndexer refs ixc startUris
 				  ]
 -}
     startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
-				  , "tmp.pdf"
+				  -- , "tmp.pdf"
 				  ]
     refs                        = simpleFollowRef'
                                   [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.](html|pdf)"
@@ -229,10 +246,10 @@ getOptions []                   = (Nothing, "", "")
 main                            :: IO ()
 main                            = do
                                   (_resume, _sid, out) <- getArgs >>= return . getOptions
-                                  runX $ ( arrIO0 siIndexer
-                                           >>>
-                                           xpickleDocument xpickle [(a_indent, v_1)] out
-                                         )
-                                  return ()
+                                  runX ( arrIO0 siIndexer
+                                         >>>
+                                         xpickleDocument xpickle [(a_indent, v_1)] out
+                                       )
+                                    >> return ()
 
 -- ------------------------------------------------------------

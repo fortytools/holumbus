@@ -11,8 +11,8 @@ where
 
 import           Data.Function.Selector
 
-import           Data.List
-import		 Data.Maybe			( )
+-- import           Data.List
+-- import		 Data.Maybe			( )
 
 import qualified Data.Map       		as M
 
@@ -23,7 +23,7 @@ import           Holumbus.DCrawler.Html
 import		 Text.XML.HXT.Arrow		hiding ( when
 						       , getState
 						       )
-import qualified Text.XML.HXT.Arrow		as X
+-- import qualified Text.XML.HXT.Arrow		as X
 
 -- import qualified Debug.Trace			as D
 

@@ -5,6 +5,8 @@
 module Holumbus.Crawler.Core
 where
 
+import           Control.DeepSeq
+-- import qualified Control.Monad			as M
 import 		 Control.Monad.Reader
 import		 Control.Monad.State
 import 		 Control.Monad.ReaderStateIO
@@ -29,10 +31,9 @@ import		 Text.XML.HXT.Arrow		hiding
 						, getState
 						, readDocument
 						)
-import           Text.XML.HXT.Arrow.XmlCache
+import           Text.XML.HXT.Arrow.XmlCache	( readDocument )
 
 -- import qualified Debug.Trace			as D
-import Control.Parallel.Strategies
 
 -- ------------------------------------------------------------
 
@@ -55,6 +56,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_followRef	:: URI -> Bool
 				  , cc_addRobotsTxt	:: AddRobotsAction
 				  , cc_maxNoOfDocs	:: ! Int
+                                  , cc_maxParDocs       :: ! Int
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
 				  , cc_traceLevel	:: ! Int
@@ -67,13 +69,19 @@ data CrawlerState r		= CrawlerState
 				  , cs_alreadyProcessed :: ! URIs
 				  , cs_robots		:: ! Robots				-- is part of the state, it will grow during crawling
 				  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
+                                  , cs_noOfDocsSaved    :: ! Int
 				  , cs_resultAccu       :: ! r					-- evaluate accumulated result, else memory leaks show up
 				  }
 				  deriving (Show)
 
 instance (NFData r) => NFData (CrawlerState r) where
-  rnf CrawlerState {cs_toBeProcessed = a, cs_alreadyProcessed = b, cs_robots  = c, cs_noOfDocs  = d, cs_resultAccu = e}
-    = rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e
+  rnf CrawlerState { cs_toBeProcessed    = a
+                   , cs_alreadyProcessed = b
+                   , cs_robots           = c
+                   , cs_noOfDocs         = d
+                   , cs_noOfDocsSaved    = e
+                   , cs_resultAccu       = f
+                   }		= rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f
 
 type CrawlerAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
@@ -88,10 +96,13 @@ theAlreadyProcessed	:: Selector (CrawlerState r) URIs
 theAlreadyProcessed	= S cs_alreadyProcessed	(\ x s -> s {cs_alreadyProcessed = x})
 
 theRobots		:: Selector (CrawlerState r) Robots
-theRobots		= S cs_robots	(\ x s -> s {cs_robots = x})
+theRobots		= S cs_robots		(\ x s -> s {cs_robots = x})
 
 theNoOfDocs		:: Selector (CrawlerState r) Int
-theNoOfDocs		= S cs_noOfDocs	(\ x s -> s {cs_noOfDocs = x})
+theNoOfDocs		= S cs_noOfDocs		(\ x s -> s {cs_noOfDocs = x})
+
+theNoOfDocsSaved	:: Selector (CrawlerState r) Int
+theNoOfDocsSaved	= S cs_noOfDocsSaved	(\ x s -> s {cs_noOfDocsSaved = x})
 
 theResultAccu		:: Selector (CrawlerState r) r
 theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
@@ -106,6 +117,9 @@ theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
 
 theMaxNoOfDocs		:: Selector (CrawlerConfig a r) Int
 theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
+
+theMaxParDocs		:: Selector (CrawlerConfig a r) Int
+theMaxParDocs		= S cc_maxParDocs	(\ x s -> s {cc_maxParDocs = x})
 
 theSaveIntervall	:: Selector (CrawlerConfig a r) Int
 theSaveIntervall	= S cc_saveIntervall	(\ x s -> s {cc_saveIntervall = x})
@@ -155,6 +169,7 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
 			  , cc_maxNoOfDocs	= (-1)						-- maximum number of docs to be crawled, -1 means unlimited
+                          , cc_maxParDocs	= 1						-- maximum number of doc crawled in parallel
 			  }
 
 theCrawlerName		:: Selector (CrawlerConfig a r) String
@@ -214,6 +229,22 @@ disableRobotsTxt	= setS theAddRobotsAction (const return)
 setCrawlerTraceLevel	:: Int -> CrawlerConfig a r -> CrawlerConfig a r
 setCrawlerTraceLevel	= setS theTraceLevel
 
+-- | Set save intervall in config
+
+setCrawlerSaveConf	:: Int -> String -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerSaveConf i f	= setS theSaveIntervall i
+                          >>>
+                          setS theSavePathPrefix f
+
+-- | Set max # of documents to be crawled
+-- and max # of documents crawled in parallel
+
+setCrawlerMaxDocs	:: Int -> Int -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerMaxDocs mxd mxp
+			= setS theMaxNoOfDocs mxd
+                          >>>
+                          setS theMaxParDocs mxp
+
 -- ------------------------------------------------------------
 
 instance (Binary r) => Binary (CrawlerState r) where
@@ -222,18 +253,21 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  B.put (getS theAlreadyProcessed s)
 			  B.put (getS theRobots s)
 			  B.put (getS theNoOfDocs s)
+			  B.put (getS theNoOfDocsSaved s)
 			  B.put (getS theResultAccu s)
     get			= do
 			  tbp <- B.get
 			  alp <- B.get
 			  rbt <- B.get
 			  mxd <- B.get
+                          mxs <- B.get
 			  acc <- B.get
 			  return $ CrawlerState
 				   { cs_toBeProcessed    = tbp
 				   , cs_alreadyProcessed = alp
 				   , cs_robots           = rbt
 				   , cs_noOfDocs         = mxd
+                                   , cs_noOfDocsSaved    = mxs
 				   , cs_resultAccu       = acc
 				   }
 
@@ -249,6 +283,7 @@ initCrawlerState r	= CrawlerState
 			  , cs_alreadyProcessed = emptyURIs
 			  , cs_robots		= emptyRobots
 			  , cs_noOfDocs		= 0
+                          , cs_noOfDocsSaved    = 0
 			  , cs_resultAccu	= r
 			  }
 
@@ -328,12 +363,11 @@ crawlerLoop		= do
 			  when (n /= m)
 			       ( do
 				 traceCrawl 1 ["crawlerLoop: iteration", show $ n+1]
-				 modifyState theNoOfDocs (+1)
 				 tbp <- getState theToBeProcessed
 			         traceCrawl 1 ["crawlerLoop:", show $ cardURIs tbp, "uri(s) to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
-					crawlDoc $ nextURI tbp
+					crawlNextDoc tbp
 					crawlerSaveState
 					crawlerLoop
 				      )
@@ -348,39 +382,53 @@ crawlerResume fn	= do
 
 crawlerSaveState	:: Binary r => CrawlerAction c r ()
 crawlerSaveState	= do
-			  n <- getState   theNoOfDocs
-			  m <- getConf theSaveIntervall
-			  when ( m > 0 && n `mod` m == 0)
+			  n1 <- getState theNoOfDocs
+                          n0 <- getState theNoOfDocsSaved
+			  m  <- getConf  theSaveIntervall
+			  when ( m > 0 && n1 - n0 >= m)
 			       ( do
 				 fn <- getConf theSavePathPrefix
-				 let fn' = mkTmpFile 2 fn (n `div` m)			-- 2 digits: last 100 files are saved, 1 digit: last 10 file
+				 let fn' = mkTmpFile 10 fn n1
 				 traceCrawl 1 [ "crawlerSaveState: saving state for"
-					      , show n, "documents into", show fn'
+					      , show n1, "documents into", show fn'
 					      ]
+                                 putState theNoOfDocsSaved n1
 				 saveCrawlerState fn'
 				 traceCrawl 1 ["crawlerSaveState: saving state finished"]
 			       )
 
--- | crawl a single doc, mark doc as proessed, collect new hrefs and combine doc result with accumulator in state
+crawlNextDoc		:: URIs -> CrawlerAction c r ()
+crawlNextDoc uris	= do
+			  modifyState theNoOfDocs (+1)
+                          crawlDoc $ nextURI uris
+
+-- | crawl a single doc, mark doc as processed, collect new hrefs and combine doc result with accumulator in state
 
 crawlDoc		:: URI -> CrawlerAction c r ()
 crawlDoc uri		= do
 			  traceCrawl 1 ["crawlDoc:", show uri]
 			  uriProcessed      uri						-- uri is put into processed URIs
-			  uriAddToRobotsTxt uri						-- for the uri host, a robots.txt is loaded, if neccessary
-			  rdm <- getState theRobots					-- check, whether uri is disaalowed by host/robots.txt
-			  if (robotsDisallow rdm uri)
-			     then do
-				  traceCrawl 1 ["crawlDoc: uri rejected by robots.txt", show uri]
-				  return ()
-			     else do
-				  (uri', uris, resList) <- processDoc uri		-- get document and extract new refs and result
-				  when (not . null $ uri') $
-				       uriProcessed uri'				-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
+                          isGood <- isAllowedByRobots uri
+                          when isGood $
+			    do
+		            (uri', uris, resList) <- processDoc uri		-- get document and extract new refs and result
+			    when (not . null $ uri') $
+			      uriProcessed uri'					-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
+			    traceCrawl 1 ["crawlDoc:", show . length . nub . sort $ uris, "new uris found"]
+			    mapM_ uriToBeProcessed uris				-- insert new uris into toBeProcessed set
+			    mapM_ accumulateRes resList				-- combine results with state accu
 
-				  traceCrawl 1 ["crawlDoc:", show . length . nub . sort $ uris, "new uris found"]
-				  mapM_ uriToBeProcessed uris				-- insert new uris into toBeProcessed set
-				  mapM_ accumulateRes resList				-- combine results with state accu
+-- | filter uris rejected by robots.txt
+
+isAllowedByRobots	:: URI -> CrawlerAction c r Bool
+isAllowedByRobots uri	= do
+                          uriAddToRobotsTxt uri						-- for the uri host, a robots.txt is loaded, if neccessary
+                          rdm <- getState theRobots
+                          if (robotsDisallow rdm uri)					-- check, whether uri is disallowed by host/robots.txt
+			     then do
+				  traceCrawl 1 ["filterRobotsDisallow: uri rejected by robots.txt", show uri]
+				  return False
+                             else return True
 
 -- | Run the process document arrow and prepare results
 

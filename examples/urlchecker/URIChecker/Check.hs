@@ -12,7 +12,7 @@ where
 import           Holumbus.Crawler.URIChecker
 import           Holumbus.Crawler.Core		()
 
-import		 Data.Maybe
+-- import		 Data.Maybe
 
 import           System.IO
 import		 System.Environment
@@ -49,7 +49,7 @@ main1 sessList		= do
 			    Just uris -> do
 					 dm    <- simpleURIChecker resume sid uris
 					 -- dm <- stdURIChecker 8096 64 "/tmp/hc-check-" 1 [(curl_max_filesize, "1000000")] resume sid uris
-					 runX   $ genResultPage out sid uris dm
-					 return ()
+					 runX (genResultPage out sid uris dm)
+					   >> return ()
 
 -- ------------------------------------------------------------

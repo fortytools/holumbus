@@ -8,7 +8,7 @@ where
 -- ------------------------------------------------------------
 
 import		 Control.Monad.Trans		( ) -- MonadIO )
-import		 Control.Parallel.Strategies
+import		 Control.DeepSeq
 
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
@@ -25,7 +25,7 @@ import		 Holumbus.DCrawler.Html
 import		 Holumbus.DCrawler.URIs
 
 import		 Holumbus.Index.Common		hiding ( URI )
-import     Holumbus.Index.Documents
+import           Holumbus.Index.Documents
 
 import		 Text.XML.HXT.Arrow
 
@@ -171,7 +171,7 @@ insertRawDoc (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
 				  }
     where
     newIx			= foldl' insertRawContext (ixs_index ixs)	-- insert all raw contexts
-				  $ (rawContexts `using` rnf)			-- raw context is reduced to normal form
+				  $ (rnf rawContexts `seq` rawContexts)			-- raw context is reduced to normal form
 
     insertRawContext ix (cx,ws)	= M.foldWithKey insWs ix wpm
 	where
@@ -179,46 +179,48 @@ insertRawDoc (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
 	wpm			= foldl' (flip ins) M.empty $ ws
 	ins (w, p)		= M.insertWith IS.union w (IS.singleton p)
 
-    (did, newDocs)		= insertDoc (ixs_documents ixs) doc		-- create new doc id and insert doc into documents table
-
-    doc				= Document					-- Document is reduced to normal form
-				  { title	= rawTitle  `using` rnf
-				  , uri		= rawUri    `using` rnf
-				  , custom	= rawCustom `using` rnf
+    (did, newDocs)		= insertDoc (ixs_documents ixs) (rnf doc `seq` doc)	-- create new doc id and insert doc into documents table
+											-- Document is reduced to normal form
+    doc				= Document
+				  { title	= rawTitle
+				  , uri		= rawUri
+				  , custom	= rawCustom
 				  }
 
-insertRawDocWithId :: (HolIndex i, HolDocuments Documents c, NFData c) =>
-     (URI, RawDoc c)        -- ^ extracted URI and doc info
-  -> DocId
-  -> IndexerState i Documents c       -- ^ old indexer state
-  -> IO (IndexerState i Documents c)      -- ^ new indexer state
+insertRawDocWithId 		:: (HolIndex i, HolDocuments Documents c, NFData c) =>
+                                   (URI, RawDoc c)                              -- ^ extracted URI and doc info
+                                -> DocId
+                                -> IndexerState i Documents c                   -- ^ old indexer state
+                                -> IO (IndexerState i Documents c)              -- ^ new indexer state
 insertRawDocWithId (rawUri, (rawContexts, rawTitle, rawCustom)) newId ixs
-  = return IndexerState {
-      ixs_index   = newIx
-    , ixs_documents = newDocs }
-  where
-  newIx = foldl' insertRawContext (ixs_index ixs) -- insert all raw contexts
-    $ (rawContexts `using` rnf)     -- raw context is reduced to normal form
+    = return IndexerState { ixs_index   	= newIx
+                          , ixs_documents 	= newDocs
+                          }
+    where
+    newIx 			= foldl' insertRawContext (ixs_index ixs) -- insert all raw contexts
+                                  $ (rnf rawContexts `seq` rawContexts)         -- raw context is reduced to normal form
 
-  insertRawContext ix (cx,ws) = M.foldWithKey insWs ix wpm
-    where
-    insWs w ps     = insertOccurrences cx w (IM.singleton did ps)
-    wpm            = foldl' (flip ins) M.empty $ ws
-    ins (w, p)     = M.insertWith IS.union w (IS.singleton p)
-  (did, newDocs) = insertDocWithId (ixs_documents ixs) newId doc   -- create new doc id and insert doc into documents table
-  doc           = Document          -- Document is reduced to normal form
-    { title = rawTitle  `using` rnf
-    , uri   = rawUri    `using` rnf
-    , custom  = rawCustom `using` rnf
-    }
+    insertRawContext ix (cx,ws) = M.foldWithKey insWs ix wpm
+        where
+        insWs w ps     		= insertOccurrences cx w (IM.singleton did ps)
+        wpm            		= foldl' (flip ins) M.empty $ ws
+        ins (w, p)     		= M.insertWith IS.union w (IS.singleton p)
+
+    (did, newDocs) 		= insertDocWithId (ixs_documents ixs) newId (rnf doc `seq` doc)   -- create new doc id and insert doc into documents table
+    doc           		= Document
+                                  { title   = rawTitle
+                                  , uri     = rawUri
+                                  , custom  = rawCustom
+                                  }
           
-insertDocWithId :: HolDocuments Documents a => Documents a -> DocId -> (Document a) -> (DocId, Documents a)
-insertDocWithId ds newId b = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri b))
-  where
-  reallyInsert = (newId, Documents newIdToDoc newDocToId newId)
+insertDocWithId 		:: HolDocuments Documents a => Documents a -> DocId -> (Document a) -> (DocId, Documents a)
+insertDocWithId ds newId b 	= maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri b))
     where
-    newIdToDoc = IM.insert newId b (idToDoc ds)
-    newDocToId = M.insert (uri b) newId (docToId ds)
+    reallyInsert 		= (newId, Documents newIdToDoc newDocToId newId)
+        where
+        newIdToDoc 		= IM.insert newId b (idToDoc ds)
+        newDocToId 		= M.insert (uri b) newId (docToId ds)
+
 --    newId = (lastDocId ds) + 1          
 -- ------------------------------------------------------------
 

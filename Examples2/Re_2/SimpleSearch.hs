@@ -30,7 +30,7 @@ import System.CPUTime
 
 import Text.Printf
 
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 import Char
 import Data.Maybe

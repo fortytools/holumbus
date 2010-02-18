@@ -9,15 +9,15 @@
 module Holumbus.Crawler.URIChecker
 where
 
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State
 
 import           Data.Function.Selector
 
-import           Data.List
-import		 Data.Maybe			( )
+-- import           Data.List
+-- import		 Data.Maybe			( )
 
 import qualified Data.Map       		as M
 
@@ -61,7 +61,7 @@ type URICrawlerAction x = CrawlerAction DocDescr DocMap x
 -- ------------------------------------------------------------
 
 instance NFData URIClass where
-    rnf			= rwhnf
+    rnf	x		= x `seq` ()
 
 instance Binary URIClass where
     put s		= B.put (fromEnum s)
@@ -219,12 +219,17 @@ stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri u
 			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
 simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
-simpleURIChecker	= stdURIChecker 8096 64 "/tmp/hc-check-" 1 [ (curl_max_filesize, "1000000")	-- limit document size to 1 Mbyte
-								   , (a_ignore_encoding_errors, v_1)    -- encoding errors and parser warnings are boring
-								   , (a_issue_warnings, v_0)
-								   , (curl_location, v_1)		-- automatically follow redirects
-								   , (curl_max_redirects, "3")		-- but limit # of redirects to 3
-								   , (a_accept_mimetypes, "text/html")
-								   ]
+simpleURIChecker	= stdURIChecker
+                          8096							-- limit total number of documents to 8096
+                          64							-- save intermediate state every 64 documents
+                          "/tmp/hc-check-"					-- path prefix for saving intermediate states
+                          1							-- set trace level to 1
+                          [ (curl_max_filesize, 	"1000000"	)	-- limit document size to 1 Mbyte
+			  , (a_ignore_encoding_errors, 	v_1		)    	-- encoding errors and parser warnings are boring
+			  , (a_issue_warnings, 		v_0		)
+			  , (curl_location, 		v_1		)	-- automatically follow redirects
+			  , (curl_max_redirects, 	"3"		)	-- but limit # of redirects to 3
+			  , (a_accept_mimetypes, 	"text/html"	)
+			  ]
 								      
 -- ------------------------------------------------------------
