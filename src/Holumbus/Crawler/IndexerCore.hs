@@ -184,7 +184,7 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   , (a_ignore_encoding_errors,  v_1)            -- encoding errors and parser warnings are boring
                                   , (a_validate,                v_0)
                                   , (a_parse_html,              v_1)
-                                  , (a_issue_warnings,  v_0)
+                                  , (a_issue_warnings,  	v_0)
                                   ]
 
 

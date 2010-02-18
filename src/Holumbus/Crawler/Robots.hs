@@ -114,7 +114,7 @@ robotsGetSpec attrs uri
 -- ------------------------------------------------------------
 
 -- | Try to get the robots.txt file for a given host.
--- If it's not there or any errors occuduring acces, the empty string is returned
+-- If it's not there or any errors occur during access, the empty string is returned
 
 getRobotsTxt		:: Attributes -> URI -> IO String
 getRobotsTxt attrs uri	= do

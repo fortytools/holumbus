@@ -11,23 +11,24 @@ import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B                    -- else naming conflict with put and get from Monad.State
 import           Data.Char
 
-import           Holumbus.Crawler.Constants     ( )
+import		 Holumbus.Crawler.Constants	( )
 import		 Holumbus.Crawler.Core
-import           Holumbus.Crawler.IndexerCore
-import           Holumbus.Crawler.Html
-import           Holumbus.Crawler.URIs
-import           Holumbus.Crawler.Util
+import		 Holumbus.Crawler.IndexerCore
+import		 Holumbus.Crawler.Html
+import		 Holumbus.Crawler.URIs
+import		 Holumbus.Crawler.Util
 import		 Holumbus.Crawler.PdfToText
 
-import           Holumbus.Index.Documents       ( Documents
+import           Holumbus.Index.Documents       ( Documents(..)
                                                 , emptyDocuments
                                                 )
-import           Holumbus.Index.Inverted.Memory
+import		 Holumbus.Index.Inverted.PrefixMem
 
 import           System.Environment
 
-import           Text.XML.HXT.Arrow
-import           Text.XML.HXT.DOM.Unicode
+import		 Text.XML.HXT.Arrow		hiding ( readDocument )
+import           Text.XML.HXT.Arrow.XmlCache
+import		 Text.XML.HXT.DOM.Unicode
 
 -- ------------------------------------------------------------
 
@@ -54,17 +55,22 @@ simpleIndexerConfig             :: (URI -> Bool)
                                 -> [IndexContextConfig]
                                 -> SimpleIndexerConfig
 simpleIndexerConfig followRef ixc
-                                = indexCrawlerConfig
-                                  [ (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
+				= indexCrawlerConfig
+				  [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
+				  , (a_compress, v_1		)			-- cache files will be compressed
+				  , (a_document_age,
+					 show $ (60 * 60 * 24 * 1::Integer))		-- cache remains valid 1 days
+				  , (a_trace,	v_1		)
+                                  , (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
 				  , (a_parse_html,              v_0)
 				  , (a_parse_by_mimetype,	v_1)
 				  ]                                                     -- use default read options, but accept pdfs too
-                                  followRef                                             -- the set of URIs to be followed and processed 
-                                  Nothing                                               -- use default collection filter
+				  followRef						-- the set of URIs to be followed and processed 
+				  Nothing						-- use default collection filter
                                   (Just $ checkDocumentStatus >>> preDocumentFilter)    -- filter for pdf extraction
                                   (Just getTitleOrDocName)                              -- the document title
-                                  (Just $ getPlainText128)                              -- the customized doc info: the first 128 chars of the the plain text
-                                  ixc                                                   -- the context configs
+				  (Just $ getPlainText128)				-- the customized doc info: the first 128 chars of the the plain text
+				  ixc							-- the context configs
 
 simpleIndexer                   :: (URI -> Bool)                                        -- uris to be processed
                                 -> [IndexContextConfig]
@@ -104,8 +110,7 @@ siIndexer                       = simpleIndexer refs ixc startUris
 				  , "tmp.pdf"
 				  ]
     refs                        = simpleFollowRef'
-                                  [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.]html"
-				  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.]pdf"
+                                  [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.](html|pdf)"
                                   ]
                                   [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/welcome[.]html"
                                   , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/handouts/.*.html"

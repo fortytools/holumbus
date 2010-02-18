@@ -27,7 +27,9 @@ import           System.IO
 import		 Text.XML.HXT.Arrow		hiding
                                                 ( when
 						, getState
+						, readDocument
 						)
+import           Text.XML.HXT.Arrow.XmlCache
 
 -- import qualified Debug.Trace			as D
 import Control.Parallel.Strategies
@@ -139,7 +141,7 @@ theProcessDoc		= S cc_processDoc	(\ x s -> s {cc_processDoc = x})
 defaultCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
 defaultCrawlerConfig op	= CrawlerConfig
 			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
-						  , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 mili seconds, 
+						  , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 milli seconds, 
 						  , (curl_connect_timeout,	show $ (10::Int))	 	-- connection must be established within 10 seconds
 						  ]
 			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
