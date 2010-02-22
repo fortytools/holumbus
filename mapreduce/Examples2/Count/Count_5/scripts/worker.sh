@@ -10,5 +10,5 @@ echo Hallo >> error.log
 DIR=$1
 PIDFILE=$3
 cd $DIR 
-./Worker $2 logfile.txt +RTS -K4G -N3 -sMemory.txt -RTS &
+./Worker $2 logfile.txt +RTS -K4G -sMemory.txt -RTS &
 echo $! > $DIR/$PIDFILE
