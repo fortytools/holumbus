@@ -76,7 +76,6 @@ function processQuery (start) {
           window.location.hash = start + ":" + encodeURIComponent(query);
           lastLocation = window.location.hash;
           displayResult(transport.responseText, query);
-          pageTracker._trackPageview("hayoo/hayoo.html?query=" + encodeURIComponent(query));
           checkForQuery();
         },
         onFailure: function() {
