@@ -2,38 +2,36 @@ module Main where
 
 import System.Environment
 import System.Random.Mersenne
-import Data.Maybe
+import qualified Data.List as L
+import Control.Parallel
 import Control.Parallel.Strategies
+import GHC.Int
 
 main :: IO ()
 main = do
   -- read number of samples
-  ( s' : [] ) <- getArgs
-  let s = read s'
-  
-  --
-  mtg <- newMTGen Nothing
-  
-  -- calculate the sample values
-  samples <- sequence ( (parMap r0) (calcSample mtg)  [() | _ <- [1..s]])
-  let samples' = catMaybes samples
-  --putStrLn . show $ samples
-  --putStrLn . show $ samples'
+  ( s : rnd : _ ) <- getArgs
 
-  -- reduce to inside values
-  let inside = sum samples'
-  putStrLn . show $ inside
-  
+  --
+  --let seed = Just (read rnd)
+  mtg <- newMTGen Nothing
+  rands <- randoms mtg
+
+  -- map/calculate the sample values
+  let samples = mapP (read s) calcSample rands
+      -- reduce to inside values
+      inside = fromIntegral . foldl (\n b -> if b then (n+1) else n) 0 $ samples
+
   -- aproximate pi
-  let pi = 4*inside/s
-  putStrLn ("Pi is: " ++ show pi)
+  let pi = 4*inside/(read s)
+  putStrLn ("Pi is ~" ++ show pi)
   
-  
-calcSample :: MTGen -> () -> IO (Maybe Double)
-calcSample mtg _ = do
-  -- make random values
-  (x:y:_)::[Double] <- randoms mtg
-  
-  if (x*x+y*y) <= 1
-    then return (Just 1)
-    else return Nothing
+
+calcSample :: Double -> Double -> Bool
+calcSample x y = (x*x+y*y) <= 1
+
+mapP :: Int64 -> (Double -> Double -> Bool) -> [Double] -> [Bool] 
+mapP 0 _ _ =  []
+mapP n f (x1:y1:xs) = (f1: (mapP (n-1) f xs) )
+  where
+  f1 = f x1 y1

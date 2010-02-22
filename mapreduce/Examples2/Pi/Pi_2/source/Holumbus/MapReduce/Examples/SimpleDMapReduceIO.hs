@@ -57,7 +57,7 @@ type A  = Options
 type K1 = Int
 type K2 = Int
 type V1 = Int
-type V2 = [Int]
+type V2 = [Bool]
 type V3 = V2
 type V4 = Int
 

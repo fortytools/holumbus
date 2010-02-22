@@ -10,25 +10,14 @@ import Data.Maybe
 import Control.Parallel.Strategies
 import Control.Parallel
 
-mapP :: [Double] -> ((Double,Double) -> () -> Maybe Int) -> [()] -> [Maybe Int]
-mapP _ _ []           = []
-mapP (x:y:_) f (w:[])       = [f (x,y) w]
-mapP (x:y:x':y':_) f (u:v:[])     = fv `par` [f (x,y) u,fv]
-    where fv = f (x',y') v
-    
-mapP (x:y:x':y':x'':y'':_) f (u:v:w:[])   = fv `par` fw `par` [f (x,y) u,fv,fw]
-    where fv = f (x',y') v
-          fw = f (x'',y'') w
-                                         
-mapP (x:y:x':y':x'':y'':x''':y''':rest) f (m:n:o:p:ps) = fn `par` fo `par` fp `par` (f (x,y) m:fn:fo:fp : (mapP rest f ps))
-    where fn = f (x',y') n
-          fo = f (x'',y'') o
-          fp = f (x''',y''') p
+calcSample :: Double -> Double -> Bool
+calcSample x y = (x*x+y*y) <= 1
 
-calcSample' :: (Double,Double) -> () -> Maybe Int
-calcSample' (x,y) _ = if (x*x+y*y) <= 1
-  then (Just 1)
-  else Nothing
+mapP :: Int -> (Double -> Double -> Bool) -> [Double] -> [Bool]
+mapP 0 _ _ =  []
+mapP n f (x1:y1:xs) = (f1: (mapP (n-1) f xs) )
+  where
+  f1 = f x1 y1
 
 {-
   The mapping function
@@ -38,9 +27,9 @@ piMap env _opts key num_of_samples = do
   -- create random generator
   mtg <- newMTGen Nothing
   rands <- randoms mtg
-  let samples = mapP rands calcSample' [() | _ <- [1..num_of_samples]]
+  let samples = mapP num_of_samples calcSample rands
 
-  return [(key', catMaybes samples)]
+  return [(key', filter (==True) samples)]
   where
   key' = case (td_PartValue . ae_TaskData $ env) of
     (Just n') -> mod key n'
@@ -50,4 +39,4 @@ piMap env _opts key num_of_samples = do
  The reduce function
 -}
 piReduce :: ReduceFunction Options K2 V3 V4
-piReduce _env _opts _ = return . Just . sum . concat
+piReduce _env _opts _ = return . Just . sum . map length
