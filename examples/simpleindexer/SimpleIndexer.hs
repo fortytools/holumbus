@@ -61,7 +61,7 @@ simpleIndexerConfig followRef ixc
 				  , (a_compress, v_1		)			-- cache files will be compressed
 				  , (a_document_age,
 					 show $ (60 * 60 * 24 * 30::Integer))		-- cache remains valid 1 month
-				  , (a_trace,	v_1		)
+				  -- , (a_trace,	v_1		)
                                   , (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
 				  , (a_parse_html,              v_0)
 				  , (a_parse_by_mimetype,	v_1)
@@ -95,13 +95,13 @@ indexerSavePath			:: String
 indexerSavePath			= "./tmp/ix-"
 
 indexerTraceLevel		:: Int
-indexerTraceLevel		= 2
+indexerTraceLevel		= 1
 
 indexerMaxDocs			:: Int
 indexerMaxDocs			= 1000
 
 indexerMaxParDocs		:: Int
-indexerMaxParDocs		= 4
+indexerMaxParDocs		= 10
 
 -- ------------------------------------------------------------
 
@@ -177,8 +177,10 @@ preDocumentFilter	= choiceA
 			  >>>
 			  traceDoc "extractPdfText: result"
 
-getDivCol2, getLecture, getBody, getHeadlines
-                        :: ArrowXml a => a XmlTree XmlTree
+getDivCol2
+  , getLecture
+  , getBody
+  , getHeadlines        :: ArrowXml a => a XmlTree XmlTree
 
 getBody                 = this
                           />  hasName "html"

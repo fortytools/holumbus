@@ -36,11 +36,17 @@ cardURIs		= S.size
 nextURI			:: URIs -> URI
 nextURI			= S.findMin
 
+nextURIs		:: Int -> URIs -> [URI]
+nextURIs n		= take n . S.toList
+
 insertURI		:: URI -> URIs	-> URIs
 insertURI		= S.insert
 
 deleteURI		:: URI -> URIs	-> URIs
 deleteURI		= S.delete
+
+deleteURIs		:: URIs -> URIs	-> URIs
+deleteURIs		= flip S.difference
 
 unionURIs		:: URIs -> URIs	-> URIs
 unionURIs		= S.union
