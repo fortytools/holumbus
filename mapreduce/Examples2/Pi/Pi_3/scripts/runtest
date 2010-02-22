@@ -1,0 +1,65 @@
+#!/bin/bash
+
+[ -n "$1" ] || { echo "Parameter missing: TEST_CONFIG"; exit 1; }
+
+# paths
+export INSTALL_PATH="/home/administrator/Repositories.git/holumbus/mapreduce/Examples2/Pi/Pi_2" # absolut path to this directory
+
+# scripts adn binaries
+export MR_BIN="sudo /etc/init.d/MR"                                 # start script for MR system
+export CLIENT="$INSTALL_PATH/Client"                                # the client binary
+export START_WORKER_SCRIPT="$INSTALL_PATH/scripts/startstopworkers" # start script for all workers
+export DOSSH="$INSTALL_PATH/scripts/dossh"                          # the ssh command for the dossh script
+export COPY_WORKER_DATA="$INSTALL_PATH/scripts/copyworkerdata"      # the ssh command for the dossh script
+export COPY_REGISTRY="$INSTALL_PATH/scripts/copyregistry"           # the ssh command for the dossh script
+RUNTEST2="$INSTALL_PATH/scripts/runtest2"                           # the actual runtest skript
+
+# config
+SUBNET="172.16.3"                                        # the workers net adress prefix
+export DOSSH_CMD="ssh root@$SUBNET"                      # the ssh command for the dossh script
+export WORKER_DIR="/tmp/worker"                          # path where to store the workers data
+export WORKER_PID="Worker.pid"                           # the workers process store
+export WORKER_BIN="Worker"                               # Worker binary
+export WORKER_SH="worker.sh"                     # the workers start skript
+export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this directory
+export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
+export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
+export IP_OFFSET="0"
+
+CMD='$RUNTEST2 $WORKERS $MAPPERS $REDUCERS $SAMPLES'
+
+NUMOFTESTS="5" # how many runs?
+
+TESTS=`egrep -v "(^$|^#.*$)" $1` # read the test's config file
+
+# - ---------------------- -
+# - Start the whole test   -
+# - ---------------------  -
+
+
+for Y in `seq 1 $NUMOFTESTS`
+do
+
+  # make a dir for current run
+  mkdir "run_$Y" || exit 1
+
+  # change into testdir
+  cd "run_$Y"
+
+  for TEST in $TESTS
+	do
+    WORKERS=`echo $TEST | cut -d: -f1`
+    MAPPERS=`echo $TEST | cut -d: -f2`
+    REDUCERS=`echo $TEST | cut -d: -f3`
+    SAMPLES=`echo $TEST | cut -d: -f4`
+    # copy the registry data
+    [ -z "$COPIED" ] && $COPY_REGISTRY 1 $WORKERS
+    COPIED="1"    
+    # start current test
+    eval $CMD
+	done
+  
+  # change to root dir
+  cd ..
+
+done
