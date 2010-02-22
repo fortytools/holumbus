@@ -24,7 +24,7 @@ main = do
   
   -- get time
   t <- getPOSIXTime
-  t `seq` putStrLn . show $ t
+  putStrLn . show $ t
 
   -- copy to fs
   let filenames = map (\i -> "File_" ++ show i) [1..1000];
@@ -33,13 +33,13 @@ main = do
 
   -- get time 2
   t' <- getPOSIXTime
-  t' `seq` putStrLn . show $ t'
+  putStrLn . show $ t'
 
   let duration = t' - t
   putStrLn $ "Duration    : " ++ show duration
 
 binLists ::[B.ByteString]
-binLists = map encode list
+binLists = map encode empty
 
-list :: [[Int32]]
-list = [[] | _<-[1..1000]]
+empty :: [[Int32]]
+empty = replicate 1000 []

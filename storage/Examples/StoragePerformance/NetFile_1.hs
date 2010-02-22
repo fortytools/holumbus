@@ -27,7 +27,7 @@ main = do
   t `seq` putStrLn . show $ t
 
   -- copy to fs
-  mapM_ (\(i,bin) -> createFile ("File"++show i) bin fs) $ zip [0..] binLists
+  mapM_ (\(i,bin) -> createFile ("File"++show i) bin fs) $ zip [1..1000] binLists
 
   -- get time 2
   t' <- getPOSIXTime
@@ -37,7 +37,7 @@ main = do
   putStrLn $ "Duration    : " ++ show duration
 
 binLists ::[B.ByteString]
-binLists = map encode list
+binLists = (map encode . repeat) empty
 
-list :: [[Int32]]
-list = [[] | _<-[1..1000]]
+empty :: [Int32]
+empty = []
