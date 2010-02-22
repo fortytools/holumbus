@@ -1,11 +1,11 @@
 #!/bin/bash
 
 [ -n "$1" ] || { echo "$0 Parameter missing: TEST_CONFIG"; exit 1; }
-[ -n "$2" ] || { echo "$0 Parameter missing: FILE"; exit 1; }
-[ -n "$3" ] || { echo "$0 Parameter missing: W"; exit 1; }
-[ -n "$4" ] || { echo "$0 Parameter missing: H"; exit 1; }
-[ -n "$5" ] || { echo "$0 Parameter missing: Z"; exit 1; }
-[ -n "$6" ] || { echo "$0 Parameter missing: IT"; exit 1; }
+#[ -n "$i2" ] || { echo "$0 Parameter missing: FILE"; exit 1; }
+#[ -n "$3" ] || { echo "$0 Parameter missing: W"; exit 1; }
+#[ -n "$4" ] || { echo "$0 Parameter missing: H"; exit 1; }
+#[ -n "$5" ] || { echo "$0 Parameter missing: Z"; exit 1; }
+#[ -n "$6" ] || { echo "$0 Parameter missing: IT"; exit 1; }
 
 DEBUG=
 
@@ -32,14 +32,14 @@ export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this dire
 export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
 export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
 
-NUMOFTESTS="1" # how many runs?
+NUMOFTESTS="5" # how many runs?
 
 TESTS=`egrep -v "(^$|^#)" $1` # read the test's config file
-FILE="$2"      # output file, the image
-W="$3"     # width
-H="$4"     # height
-Z="$5"     # z-factor
-IT="$6"     # iterations
+FILE="test.pgm"      # output file, the image
+W="2560"     # width
+H="2048"     # height
+Z="2.0"     # z-factor
+IT="100"     # iterations
 
 [ -n "$DEBUG" ] && echo "File  : \"$FILE\""
 [ -n "$DEBUG" ] && echo "Width : \"$W\""

@@ -25,7 +25,7 @@ export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this dire
 export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
 export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
 
-NUMOFTESTS="1" # how many runs?
+NUMOFTESTS="10" # how many runs?
 CMD='$RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS "$FILENAME" "$OPTS"'
 
 TESTS=`cat $1` # read the test's config file
