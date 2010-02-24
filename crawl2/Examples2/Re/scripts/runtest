@@ -1,0 +1,70 @@
+#!/bin/bash
+
+[ -n "$1" ] || { echo "$0 Parameter missing: TEST_CONFIG"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: BASE"; exit 1; }
+#[ -n "$3" ] || { echo "$0 Parameter missing: FOLLOW"; exit 1; }
+#[ -n "$4" ] || { echo "$0 Parameter missing: NOFOLLOW"; exit 1; }
+
+DEBUG=
+
+# paths
+export INSTALL_PATH="/home/administrator/Repositories.darcs/crawl2/Examples2/Re" # absolut path to this directory
+
+# scripts adn binaries
+export MR_BIN="sudo /etc/init.d/MR"                                 # start script for MR system
+export CLIENT="$INSTALL_PATH/Client"                                # the client binary
+export START_WORKER_SCRIPT="$INSTALL_PATH/scripts/startstopworkers" # start script for all workers
+export DOSSH="$INSTALL_PATH/scripts/dossh"                          # the ssh command for the dossh script
+export COPY_WORKER_DATA="$INSTALL_PATH/scripts/copyworkerdata"      # the ssh command for the dossh script
+export COPY_REGISTRY="$INSTALL_PATH/scripts/copyregistry"           # the ssh command for the dossh script
+RUNTEST2="$INSTALL_PATH/scripts/runtest2"                           # the actual runtest skript
+
+# config
+SUBNET="172.16.3"                                        # the workers net adress prefix
+export DOSSH_CMD="ssh root@$SUBNET"                      # the ssh command for the dossh script
+export WORKER_DIR="/tmp/worker"                          # path where to store the workers data
+export WORKER_PID="Worker.pid"                           # the workers process store
+export WORKER_BIN="Worker"                               # Worker binary
+export WORKER_SH="worker.sh"                     # the workers start skript
+export WORKER_SSH_LOCATION="root@rz3-pc26:$INSTALL_PATH" # scp path to this directory
+export SCP_WORKER_DATA="scp -r root@$SUBNET"             # the workerdata copy command
+export COPY_REGISTRY_COMMAND="scp /tmp/registry* root@$SUBNET" # 
+
+NUMOFTESTS="5" # how many runs?
+
+TESTS=`egrep -v "(^$|^#)" $1` # read the test's config file
+BASE="$2"      # output file, the image
+FOLLOW="$3"     # width
+NOFOLLOW="$4"     # height
+
+# - ---------------------- -
+# - Start the whole test   -
+# - ---------------------  -
+
+
+for Y in `seq 1 $NUMOFTESTS`
+do
+
+  # make a dir for current run
+  mkdir "run_$Y" || exit 1
+
+  # change into testdir
+  cd "run_$Y"
+
+  for TEST in $TESTS
+	do
+    WORKERS=`echo $TEST | cut -d: -f1`
+    SPLITTERS=`echo $TEST | cut -d: -f2`
+    MAPPERS=`echo $TEST | cut -d: -f3`
+    REDUCERS=`echo $TEST | cut -d: -f4`
+    # copy the registry data
+    $COPY_REGISTRY 1 $WORKERS
+     
+    # start current test
+    $DEBUG $RUNTEST2 "$WORKERS" "$SPLITTERS" "$MAPPERS" "$REDUCERS" "$BASE" "$FOLLOW" "$NOFOLLOW"
+	done
+  
+  # change to root dir
+  cd ..
+
+done

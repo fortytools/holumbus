@@ -1,0 +1,29 @@
+#!/bin/bash
+
+NUMOFTESTS="8"
+RUNTEST2="/home/re/crawl2/Examples2/Re/runtest2"
+
+TESTS=`cat $1`
+
+for Y in `seq 1 $NUMOFTESTS`
+do
+
+  # make a dir for current run
+  mkdir "run_$Y"
+
+  # change into testdir
+  cd "run_$Y"
+
+  for TEST in $TESTS
+	do
+    WORKERS=`echo $TEST | cut -d: -f1`
+    SPLITTERS=`echo $TEST | cut -d: -f2`
+    MAPPERS=`echo $TEST | cut -d: -f3`
+    REDUCERS=`echo $TEST | cut -d: -f4`
+    $RUNTEST2 $WORKERS $SPLITTERS $MAPPERS $REDUCERS
+	done
+  
+  # change to root dir
+  cd ..
+
+done

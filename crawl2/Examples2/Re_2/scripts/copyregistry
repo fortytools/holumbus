@@ -1,0 +1,19 @@
+#!/bin/bash
+
+[ -n "$MR_BIN" ] || { echo "$0 Undefined variable: MR_BIN"; exit 1; }
+[ -n "$COPY_REGISTRY_COMMAND" ] || { echo "$0 Undefined variable: COPY_REGISTRY_COMMAND"; exit 1; }
+[ -n "$1" ] || { echo "$0 Parameter missing: IP1"; exit 1; }
+[ -n "$2" ] || { echo "$0 Parameter missing: IP2"; exit 1; }
+
+IP1="$1"
+IP2="$2"
+
+$MR_BIN start
+
+for I in `seq $IP1 $IP2`
+do
+  echo "Copy registry data to: 172.16.3.$I"
+  $COPY_REGISTRY_COMMAND.$I:/tmp/ > /dev/null
+done
+
+$MR_BIN stop

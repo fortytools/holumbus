@@ -1,0 +1,4 @@
+:set -ignore-package crawl2
+:set -i../../src
+:set -Wall
+:load SimpleIndexer
