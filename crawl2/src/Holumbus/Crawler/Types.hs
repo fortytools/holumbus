@@ -20,6 +20,7 @@ import           Holumbus.Crawler.Robots
 import           Holumbus.Crawler.XmlArrows	( checkDocumentStatus )
 
 import		 Text.XML.HXT.Arrow
+import           System.Log.Logger		( Priority(..) )
 
 -- ------------------------------------------------------------
 
@@ -45,7 +46,7 @@ data CrawlerConfig a r		= CrawlerConfig
                                   , cc_maxParDocs       :: ! Int
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
-				  , cc_traceLevel	:: ! Int
+				  , cc_traceLevel	:: ! Priority
 				  }
 
 -- | The crawler state record
@@ -96,7 +97,7 @@ theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
 theReadAttributes	:: Selector (CrawlerConfig a r) Attributes
 theReadAttributes	= S cc_readAttributes	(\ x s -> s {cc_readAttributes = x})
 
-theTraceLevel		:: Selector (CrawlerConfig a r) Int
+theTraceLevel		:: Selector (CrawlerConfig a r) Priority
 theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
 
 theMaxNoOfDocs		:: Selector (CrawlerConfig a r) Int
@@ -149,7 +150,7 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  , cc_accumulate	= op						-- combining function for result accumulating
 			  , cc_followRef	= const False					-- do not follow any refs
 			  , cc_addRobotsTxt	= const $ return				-- do not add robots.txt evaluation
-			  , cc_traceLevel	= 1						-- traceLevel
+			  , cc_traceLevel	= NOTICE					-- traceLevel
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
 			  , cc_maxNoOfDocs	= (-1)						-- maximum number of docs to be crawled, -1 means unlimited
@@ -208,9 +209,9 @@ enableRobotsTxt c	= setS theAddRobotsAction (robotsAddHost attrs) c
 disableRobotsTxt	:: CrawlerConfig a r -> CrawlerConfig a r
 disableRobotsTxt	= setS theAddRobotsAction (const return)
 
--- | Set trace level in config
+-- | Set the log level
 
-setCrawlerTraceLevel	:: Int -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerTraceLevel	:: Priority -> CrawlerConfig a r -> CrawlerConfig a r
 setCrawlerTraceLevel	= setS theTraceLevel
 
 -- | Set save intervall in config

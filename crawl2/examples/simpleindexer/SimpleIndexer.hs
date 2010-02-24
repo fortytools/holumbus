@@ -94,8 +94,8 @@ indexerSaveIntervall		= 10
 indexerSavePath			:: String
 indexerSavePath			= "./tmp/ix-"
 
-indexerTraceLevel		:: Int
-indexerTraceLevel		= 1
+indexerTraceLevel		:: Priority
+indexerTraceLevel		= NOTICE
 
 indexerMaxDocs			:: Int
 indexerMaxDocs			= 1000

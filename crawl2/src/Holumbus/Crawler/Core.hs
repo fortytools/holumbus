@@ -6,6 +6,7 @@ module Holumbus.Crawler.Core
     ( module Holumbus.Crawler.Core
     , module Holumbus.Crawler.CrawlerAction
     , module Holumbus.Crawler.Types
+    , module Holumbus.Crawler.Logger
     , module Holumbus.Crawler.XmlArrows
 
     )
@@ -26,9 +27,9 @@ import           Data.List
 
 import           Holumbus.Crawler.CrawlerAction
 import           Holumbus.Crawler.Constants
+import		 Holumbus.Crawler.Logger
 import           Holumbus.Crawler.URIs
 import           Holumbus.Crawler.Robots
-import           Holumbus.Crawler.Trace
 import           Holumbus.Crawler.Types
 import           Holumbus.Crawler.Util		( mkTmpFile )
 import           Holumbus.Crawler.XmlArrows
@@ -93,7 +94,7 @@ accumulateRes res		= do
 
 crawlDocs		:: Binary r => [URI] -> CrawlerAction c r ()
 crawlDocs uris		= do
-			  traceCrawl 1 ["crawlDocs: init crawler state and start crawler loop"]
+			  noticeC "crawlDocs" ["crawlDocs: init crawler state and start crawler loop"]
 			  putState theToBeProcessed (fromListURIs uris)
 			  crawlerLoop
 
@@ -103,9 +104,9 @@ crawlerLoop		= do
 			  m <- getConf theMaxNoOfDocs
 			  when (n /= m)
 			       ( do
-				 traceCrawl 1 ["crawlerLoop: iteration", show $ n+1]
+				 noticeC "crawlerLoop" ["iteration", show $ n+1]
 				 tbp <- getState theToBeProcessed
-			         traceCrawl 1 ["crawlerLoop:", show $ cardURIs tbp, "uri(s) to be processed"]
+			         noticeC "crawlerLoop" [show $ cardURIs tbp, "uri(s) to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
 					crawlNextDocs
@@ -116,9 +117,9 @@ crawlerLoop		= do
 
 crawlerResume		:: Binary r => String -> CrawlerAction c r ()
 crawlerResume fn	= do
-			  traceCrawl 1 ["crawlerResume: read crawler state from", fn]
+			  noticeC "crawlerResume" ["read crawler state from", fn]
 			  loadCrawlerState fn
-			  traceCrawl 1 ["crawlerResume: resume crawler"]
+			  noticeC "crawlerResume" ["resume crawler"]
 			  crawlerLoop
 
 crawlerSaveState	:: Binary r => CrawlerAction c r ()
@@ -130,12 +131,10 @@ crawlerSaveState	= do
 			       ( do
 				 fn <- getConf theSavePathPrefix
 				 let fn' = mkTmpFile 10 fn n1
-				 traceCrawl 1 [ "crawlerSaveState: saving state for"
-					      , show n1, "documents into", show fn'
-					      ]
+				 noticeC "crawlerSaveState" [show n1, "documents into", show fn']
                                  putState theNoOfDocsSaved n1
 				 saveCrawlerState fn'
-				 traceCrawl 1 ["crawlerSaveState: saving state finished"]
+				 noticeC "crawlerSaveState" ["saving state finished"]
 			       )
 
 -- ------------------------------------------------------------
@@ -145,7 +144,7 @@ crawlNextDocs		= do
 		          uris <- getState theToBeProcessed
                           n <- getConf theMaxParDocs
                           let urisTBP = nextURIs n uris
-                          traceCrawl 1 ["crawlNextDocs: next " ++ show (length urisTBP) ++ " URIs to be processed"]
+                          noticeC "crawlNextDocs" [show (length urisTBP), "uri(s) to be processed"]
                           urisProcessed $ fromListURIs urisTBP
                           urisAllowed <- filterM isAllowedByRobots urisTBP
                           when (not . null $ urisAllowed) $
@@ -155,7 +154,7 @@ crawlNextDocs		= do
                                (urisMoved, urisNew, results) <- liftIO $
                                                                 mapFold n (processCmd conf state) combineDocResults $
                                                                 urisAllowed
-                               traceCrawl 1 ["crawlNextDocs:", show . cardURIs $ urisNew, "hrefs found"]
+                               noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found"]
                                urisProcessed     urisMoved
                                urisToBeProcessed urisNew
                                mapM_ accumulateRes results	-- this is not yet the best solution
@@ -163,7 +162,7 @@ crawlNextDocs		= do
     where
     processCmd c s u	= runCrawler (processDoc' u) c s >>= return . fst
     processDoc' u	= do
-                          traceCrawl 1 ["processDoc': URI to be processed: ", show u]
+                          noticeC "processDoc" ["URI to be processed: ", show u]
                           conf <- ask
 			  [(u', (uris', docRes))] <- liftIO $ runX (processDocArrow conf u)
                           let toBeFollowed = getS theFollowRef conf
@@ -173,7 +172,7 @@ crawlNextDocs		= do
                           let !newUris      = fromListURIs .
                                               filter toBeFollowed $ uris'
                           let !docRes'      = docRes
-                          traceCrawl 1 ["processDoc': processed: ", show u] 
+                          noticeC "processDoc" ["processed: ", show u] 
                           return $! (movedUris, newUris, docRes')
 
     combineDocResults (m1, n1, r1) (m2, n2, r2)
@@ -192,7 +191,7 @@ crawlNextDoc		= do
 		          uris <- getState theToBeProcessed
 			  modifyState theNoOfDocs (+1)
                           let uri = nextURI uris
-			  traceCrawl 1 ["crawlNextDoc:", show uri]
+			  noticeC "crawlNextDoc" [show uri]
 			  uriProcessed      uri					-- uri is put into processed URIs
                           isGood <- isAllowedByRobots uri
                           when isGood $
@@ -200,7 +199,7 @@ crawlNextDoc		= do
 		            (uri', uris', resList') <- processDoc uri		-- get document and extract new refs and result
 			    when (not . null $ uri') $
 			      uriProcessed uri'					-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
-			    traceCrawl 1 ["crawlNextDoc:", show . length . nub . sort $ uris', "new uris found"]
+			    noticeC "crawlNextDoc" [show . length . nub . sort $ uris', "new uris found"]
 			    mapM_ uriToBeProcessed uris'			-- insert new uris into toBeProcessed set
 			    mapM_ accumulateRes resList'			-- combine results with state accu
 
@@ -227,7 +226,7 @@ isAllowedByRobots uri	= do
                           rdm <- getState theRobots
                           if (robotsDisallow rdm uri)					-- check, whether uri is disallowed by host/robots.txt
 			     then do
-				  traceCrawl 1 ["filterRobotsDisallow: uri rejected by robots.txt", show uri]
+				  noticeC "isAllowedByRobots" ["uri rejected by robots.txt", show uri]
 				  return False
                              else return True
 
@@ -241,7 +240,7 @@ isAllowedByRobots uri	= do
 -- The two listA arrows make the whole arrow deterministic, so it never fails
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a (URI, ([URI], [(URI, c)]))
-processDocArrow c uri	= ( setTraceLevel ( (getS theTraceLevel c) - 1)
+processDocArrow c uri	= ( hxtSetTraceAndErrorLogger WARNING
 			    >>>
 			    readDocument (getS theReadAttributes c) uri
 			    >>>
@@ -301,8 +300,14 @@ getRealDocURI			= fromLA $
 
 -- ------------------------------------------------------------
 
+initCrawler			:: CrawlerAction c r ()
+initCrawler			= do
+				  conf <- ask
+				  setLogLevel "" (getS theTraceLevel conf)
+				  
+
 runCrawler			:: CrawlerAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO (x, CrawlerState r)
-runCrawler			= runReaderStateIO
+runCrawler a			= runReaderStateIO (initCrawler >> a)
 
 -- run a crawler and deliver just the accumulated result value
 
