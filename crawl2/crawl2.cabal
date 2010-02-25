@@ -38,7 +38,7 @@ library
                 , mtl        >= 1.1 && < 2
                 , hxt        >= 8.5 && < 9
                 , hxt-cache  >= 0.0 && < 1
-                , Holumbus-Searchengine >= 0.0.9
+                , Holumbus-Searchengine >= 0.0.9 && < 1
 
   ghc-options: -Wall -threaded
   hs-source-dirs:
