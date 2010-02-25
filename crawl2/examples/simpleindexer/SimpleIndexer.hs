@@ -61,7 +61,6 @@ simpleIndexerConfig followRef ixc
 				  , (a_compress, v_1		)			-- cache files will be compressed
 				  , (a_document_age,
 					 show $ (60 * 60 * 24 * 30::Integer))		-- cache remains valid 1 month
-				  -- , (a_trace,	v_1		)
                                   , (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
 				  , (a_parse_html,              v_0)
 				  , (a_parse_by_mimetype,	v_1)
@@ -89,7 +88,7 @@ simpleIndexer refs ixc startUris
                                   ( emptyIndexerState emptyInverted emptyDocuments )
 
 indexerSaveIntervall		:: Int
-indexerSaveIntervall		= 10
+indexerSaveIntervall		= 50
 
 indexerSavePath			:: String
 indexerSavePath			= "./tmp/ix-"
@@ -124,17 +123,21 @@ siIndexer                       = simpleIndexer refs ixc startUris
 				  ]
 -}
     startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
-				  -- , "tmp.pdf"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/java/java.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/cb/cb.html"
 				  ]
     refs                        = simpleFollowRef'
-                                  [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[.](html|pdf)"
+                                  [ vl ++ ".*[.](html|pdf)"
                                   ]
-                                  [ "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/welcome[.]html"
-                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/handouts/.*.html"
-                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*[?]VAR=0"
-                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*/exec[.]html[?].*"
-                                  , "http://www[.]fh-wedel[.]de/~si/vorlesungen/fp/.*/download[a-zA-Z0-9]*[.]html[?].*SRC=.*"
-                                  ]
+                                  ( map (vl ++) ["welcome[.]html"
+						, "handouts/.*.html"
+						, ".*[?]VAR=0"
+						, ".*/exec[.]html[?].*"
+						, ".*/download[a-zA-Z0-9]*[.]html[?].*SRC=.*"
+						]
+				  )
+                                  where
+				  vl = "http://www[.]fh-wedel[.]de/~si/vorlesungen/(cb|java|fp)/"
 
     ixDefault                   =  IndexContextConfig
                                    { ixc_name           = "default"
