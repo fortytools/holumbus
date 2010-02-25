@@ -144,6 +144,7 @@ crawlNextDocs		= do
 		          uris <- getState theToBeProcessed
                           n <- getConf theMaxParDocs
                           let urisTBP = nextURIs n uris
+			  modifyState theNoOfDocs (+ (length urisTBP))
                           noticeC "crawlNextDocs" [show (length urisTBP), "uri(s) to be processed"]
                           urisProcessed $ fromListURIs urisTBP
                           urisAllowed <- filterM isAllowedByRobots urisTBP
