@@ -1,4 +1,4 @@
-{-# OPTIONS #-}
+{-# OPTIONS -XBangPatterns #-}
 
 -- ------------------------------------------------------------
 
@@ -100,16 +100,19 @@ crawlDocs uris		= do
 
 crawlerLoop		:: Binary r => CrawlerAction c r ()
 crawlerLoop		= do
+			  p <- getConf theMaxParDocs
 			  n <- getState   theNoOfDocs
 			  m <- getConf theMaxNoOfDocs
 			  when (n /= m)
 			       ( do
 				 noticeC "crawlerLoop" ["iteration", show $ n+1]
 				 tbp <- getState theToBeProcessed
-			         noticeC "crawlerLoop" [show $ cardURIs tbp, "uri(s) to be processed"]
+			         noticeC "crawlerLoop" [show $ cardURIs tbp, "uri(s) remain to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
-					crawlNextDocs
+					if p <= 0		-- no parallel crawling
+					  then crawlNextDoc
+				          else crawlNextDocs
 					crawlerSaveState
 					crawlerLoop
 				      )
@@ -145,7 +148,7 @@ crawlNextDocs		= do
                           n <- getConf theMaxParDocs
                           let urisTBP = nextURIs n uris
 			  modifyState theNoOfDocs (+ (length urisTBP))
-                          noticeC "crawlNextDocs" [show (length urisTBP), "uri(s) to be processed"]
+                          noticeC "crawlNextDocs" ["next", show (length urisTBP), "uri(s) will be processed"]
                           urisProcessed $ fromListURIs urisTBP
                           urisAllowed <- filterM isAllowedByRobots urisTBP
                           when (not . null $ urisAllowed) $
@@ -155,17 +158,21 @@ crawlNextDocs		= do
                                (urisMoved, urisNew, results) <- liftIO $
                                                                 mapFold n (processCmd conf state) combineDocResults $
                                                                 urisAllowed
-                               noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found"]
+                               noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found, accumulating results"]
                                urisProcessed     urisMoved
                                urisToBeProcessed urisNew
                                mapM_ accumulateRes results	-- this is not yet the best solution
                                					-- combining the results could be done in mapFold
+                               noticeC "crawlNextDocs" ["document results accumulated"]
+
     where
-    processCmd c s u	= runCrawler (processDoc' u) c s >>= return . fst
+    processCmd c s u	= do
+			  (res, _) <- runCrawler (processDoc' u) c s
+			  res `seq` return res
     processDoc' u	= do
                           noticeC "processDoc" ["URI to be processed: ", show u]
                           conf <- ask
-			  [(u', (uris', docRes))] <- liftIO $ runX (processDocArrow conf u)
+			  [(!u', (!uris', !docRes))] <- liftIO $ runX (processDocArrow conf u)
                           let toBeFollowed = getS theFollowRef conf
                           let !movedUris    = if null u'
                                               then emptyURIs

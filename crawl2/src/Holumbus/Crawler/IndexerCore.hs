@@ -1,4 +1,4 @@
-{-# OPTIONS -XFlexibleContexts #-}
+{-# OPTIONS -XFlexibleContexts -XBangPatterns #-}
 
 -- ------------------------------------------------------------
 
@@ -115,7 +115,7 @@ stdIndexer resumeLoc startUris config eis
 
 -- general HolIndexM IO i version, for old specialized version see code at end of this file
 
-indexCrawlerConfig              :: (HolIndexM IO i, HolDocuments d c, NFData c) =>
+indexCrawlerConfig              :: (HolIndexM IO i, HolDocuments d c, NFData i, NFData c) =>
                                    Attributes                                   -- ^ document read options
                                 -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
                                 -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
@@ -188,22 +188,22 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   ]
 
 
-insertRawDocM                   :: (MonadIO m, HolIndexM m i, HolDocuments d c, NFData c) =>
+insertRawDocM                   :: (MonadIO m, HolIndexM m i, HolDocuments d c, NFData i, NFData c) =>
                                    (URI, RawDoc c)                              -- ^ extracted URI and doc info
                                 -> IndexerState i d c                           -- ^ old indexer state
                                 -> m (IndexerState i d c)                       -- ^ new indexer state
 
-insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
+insertRawDocM (!rawUri, (!rawContexts, !rawTitle, !rawCustom)) ixs
                                 = do
                                   newIx <- foldM (insertRawContextM did) (ixs_index ixs) $
                                            (rnf rawContexts `seq` rawContexts)
-                                  return $ IndexerState
-                                             { ixs_index        = newIx
-                                             , ixs_documents    = newDocs
-                                             }
+				  rnf newIx `seq` rnf doc `seq`
+                                    return $! IndexerState { ixs_index        = newIx
+							   , ixs_documents    = newDocs
+							   }
     where
-    (did, newDocs)              = insertDoc (ixs_documents ixs) (rnf doc `seq` doc)
-    doc                         = Document                                      -- Document is reduced to normal form
+    (!did, !newDocs)            = insertDoc (ixs_documents ixs) doc
+    !doc                        = Document
                                   { title       = rawTitle
                                   , uri         = rawUri
                                   , custom      = rawCustom

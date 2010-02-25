@@ -88,7 +88,7 @@ simpleIndexer refs ixc startUris
                                   ( emptyIndexerState emptyInverted emptyDocuments )
 
 indexerSaveIntervall		:: Int
-indexerSaveIntervall		= 50
+indexerSaveIntervall		= 1000
 
 indexerSavePath			:: String
 indexerSavePath			= "./tmp/ix-"
@@ -97,7 +97,7 @@ indexerTraceLevel		:: Priority
 indexerTraceLevel		= NOTICE
 
 indexerMaxDocs			:: Int
-indexerMaxDocs			= 1000
+indexerMaxDocs			= 5000
 
 indexerMaxParDocs		:: Int
 indexerMaxParDocs		= 10
@@ -122,9 +122,13 @@ siIndexer                       = simpleIndexer refs ixc startUris
 				  -- , "http://www.fh-wedel.de/~si/vorlesungen/fp/handouts/vortraege/ws2004/AbstrakteDatentypen.pdf"
 				  ]
 -}
-    startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/java/java.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/cb/cb.html"
+{- vorlesungen
+    startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/index.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/java/index.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/cb/index.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/c/index.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/internet/index.html"
+				  , "http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/index.html"
 				  ]
     refs                        = simpleFollowRef'
                                   [ vl ++ ".*[.](html|pdf)"
@@ -132,12 +136,26 @@ siIndexer                       = simpleIndexer refs ixc startUris
                                   ( map (vl ++) ["welcome[.]html"
 						, "handouts/.*.html"
 						, ".*[?]VAR=0"
-						, ".*/exec[.]html[?].*"
+						, "(.*/)?exec[.]html[?].*"
 						, ".*/download[a-zA-Z0-9]*[.]html[?].*SRC=.*"
 						]
 				  )
                                   where
-				  vl = "http://www[.]fh-wedel[.]de/~si/vorlesungen/(cb|java|fp)/"
+				  vl = "http://www[.]fh-wedel[.]de/~si/vorlesungen/(c|cb|fp|internet|java|softwaredesign)/"
+-}
+    startUris                   = [ "http://www.fh-wedel.de/~si/index.html"
+				  ]
+    refs                        = simpleFollowRef'
+                                  [ v1 ++ ".*[.](html|pdf)" ]
+                                  ( map (v1 ++) ["welcome[.]html"
+						, "handouts/.*.html"
+						, ".*[?]VAR=0"
+						, "(.*/)?exec[.]html[?].*"
+						, ".*/download[a-zA-Z0-9]*[.]html[?].*SRC=.*"
+						]
+				  )
+                                  where
+				  v1 = "http://www[.]fh-wedel[.]de/~si/(seminare|klausuren|praktika|projekte|termine|zettelkasten|vorlesungen/(c|cb|fp|internet|java|softwaredesign))/"
 
     ixDefault                   =  IndexContextConfig
                                    { ixc_name           = "default"
@@ -251,10 +269,12 @@ getOptions []                   = (Nothing, "", "")
 main                            :: IO ()
 main                            = do
                                   (_resume, _sid, out) <- getArgs >>= return . getOptions
+				  logC' "" NOTICE ["writing index into XML file", out]
                                   runX ( arrIO0 siIndexer
                                          >>>
                                          xpickleDocument xpickle [(a_indent, v_1)] out
                                        )
                                     >> return ()
+				  logC' "" NOTICE ["writing index finished"]
 
 -- ------------------------------------------------------------

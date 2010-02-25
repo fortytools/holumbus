@@ -10,6 +10,7 @@ module Holumbus.Crawler.Logger
 
     , module System.Log.Logger
 
+    , logC'
     , logC
     , noticeC
     , infoC
