@@ -156,6 +156,7 @@ siIndexer                       = simpleIndexer refs ixc startUris
 				  )
                                   where
 				  v1 = "http://www[.]fh-wedel[.]de/~si/(seminare|klausuren|praktika|projekte|termine|zettelkasten|vorlesungen/(c|cb|fp|internet|java|softwaredesign))/"
+				  -- v1 = "http://www[.]fh-wedel[.]de/~si/(-seminare|klausuren|-praktika|-projekte|termine|zettelkasten|-vorlesungen/(c|cb|fp|internet|java|softwaredesign))/"
 
     ixDefault                   =  IndexContextConfig
                                    { ixc_name           = "default"
@@ -269,12 +270,17 @@ getOptions []                   = (Nothing, "", "")
 main                            :: IO ()
 main                            = do
                                   (_resume, _sid, out) <- getArgs >>= return . getOptions
-				  logC' "" NOTICE ["writing index into XML file", out]
-                                  runX ( arrIO0 siIndexer
+                                  runX ( hxtSetTraceAndErrorLogger NOTICE
+                                         >>>
+                                         arrIO0 siIndexer
+                                         >>>
+                                         traceMsg 0 (unwords ["writing index into XML file", out])
                                          >>>
                                          xpickleDocument xpickle [(a_indent, v_1)] out
+                                         >>>
+                                         traceMsg 0 "writing index finished"
+
                                        )
                                     >> return ()
-				  logC' "" NOTICE ["writing index finished"]
 
 -- ------------------------------------------------------------

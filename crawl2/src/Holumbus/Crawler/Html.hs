@@ -24,8 +24,8 @@ import		 Text.XML.HXT.Arrow		hiding ( when
 
 -- ------------------------------------------------------------
 
-defaultHtmlCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
-defaultHtmlCrawlerConfig op	= ( addReadAttributes [ (a_validate,   		 v_0)
+defaultHtmlCrawlerConfig	:: AccumulateDocResult a r -> MergeDocResults r -> CrawlerConfig a r
+defaultHtmlCrawlerConfig op op2	= ( addReadAttributes [ (a_validate,   		 v_0)
 						      , (a_parse_html,		 v_1)
 						      , (a_encoding,		 isoLatin1)
 						      , (a_issue_warnings, 	 v_0)
@@ -36,7 +36,7 @@ defaultHtmlCrawlerConfig op	= ( addReadAttributes [ (a_validate,   		 v_0)
 				    >>>
 				    setS theProcessRefs getHtmlReferences
 				    $ 
-				    defaultCrawlerConfig op
+				    defaultCrawlerConfig op op2
 				  )
 
 -- ------------------------------------------------------------

@@ -60,3 +60,5 @@ inflatePos = DL.toIntSet
 -- | Save some memory on the positions by just saving their differences and compressing these.
 deflatePos :: Positions -> CompressedPositions
 deflatePos = DL.fromIntSet
+
+-- ----------------------------------------------------------------------------

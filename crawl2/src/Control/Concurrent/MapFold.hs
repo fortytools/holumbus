@@ -1,4 +1,4 @@
-{-# OPTIONS -XBangPatterns #-}
+{-# OPTIONS #-}
 
 -- ------------------------------------------------------------
 
@@ -22,17 +22,18 @@ module Control.Concurrent.MapFold
 where
 
 import Control.Concurrent
+import Control.DeepSeq
 
 -- ------------------------------------------------------------
 
-mapFold			:: Int -> (a -> IO b) -> (b -> b -> IO b) -> [a] -> IO b
+mapFold			:: (NFData b) => Int -> (a -> IO b) -> (b -> b -> IO b) -> [a] -> IO b
 mapFold n m f xs@(_:_)	= do
 			  c <- newChan
 			  p <- newQSem n
 			  mapFold' p c m f xs
 mapFold _ _ _ []	= error "mapFold: empty list of arguments"
 
-mapFold'		:: QSem -> Chan b -> (a -> IO b) -> (b -> b -> IO b) -> [a] -> IO b
+mapFold'		:: (NFData b) => QSem -> Chan b -> (a -> IO b) -> (b -> b -> IO b) -> [a] -> IO b
 mapFold' p c m f xs	= do
 			  mapM_ (forkWorker m) xs
 			  foldResults (length xs)
@@ -41,31 +42,22 @@ mapFold' p c m f xs	= do
 			  >> return ()
 	where
 	process		= do
-			  -- logg   "started, wait for processor"
-			  waitQSem p
-			  -- logg $ "processing: " ++ show x
-			  !res <- m' x
+			  waitQSem p		-- request processor
+			  res <- m' x		-- work
+			  rnf res `seq`		-- force complete elvaluation
+                              writeChan c res	-- deliver result
+			  signalQSem p		-- release processor
 
-			  -- logg $ "done, result: " ++ show res
-
-			  writeChan c res
-			  signalQSem p
-			  -- logg   "finished, processor released"
 
     foldResults n
-	| n == 1	= do
-			  -- logg $ "foldResults: collecting final result"
-			  res <- readChan c
-			  -- logg $ "foldResults: final result: " ++ show res
-			  return res
+	| n == 1	= readChan c		-- get final result
+
 	| otherwise	= do
-			  -- logg $ "foldResults: " ++ show n ++ " remaining folds"
-			  r1 <- readChan c
-			  -- logg $ "foldResults: 1. arg: " ++ show r1
-			  r2 <- readChan c
-			  -- logg $ "foldResults: 2. arg: " ++ show r2
+			  r1 <- readChan c	-- get 1. arg
+			  r2 <- readChan c	-- get 2. arg
 			  forkWorker (uncurry f) (r1, r2)
-			  foldResults (n - 1)
+						-- combine args and put result back into chanel
+			  foldResults (n - 1)	-- continue
 
 -- ------------------------------------------------------------
 

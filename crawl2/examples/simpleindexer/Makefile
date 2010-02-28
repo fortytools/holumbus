@@ -1,6 +1,6 @@
 prog	= ./indexer
 
-GHCOPTS	= -O2 -threaded -i../../src -ignore-package crawl2
+GHCOPTS	= -Wall -O2 -threaded -i../../src:../../../searchengine/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
 
 all	: $(prog)
 
@@ -14,7 +14,7 @@ force	:
 run	: $(prog)
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	$(prog) +RTS -N1 -s -K100M -RTS "" tmp/ix
+	$(prog) +RTS -N1 -s -K100M -RTS "" tmp/ix.xml
 
 clean	:
 	rm -f *.o *.hi $(prog)

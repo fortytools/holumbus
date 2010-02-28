@@ -29,6 +29,14 @@ import           System.Log.Logger		( Priority(..) )
 
 type AccumulateDocResult a r	= (URI, a) -> r -> IO r
 
+-- | The folding operator for merging partial results when working with mapFold and parallel crawling
+
+type MergeDocResults       r    =        r -> r -> IO r
+
+-- | The extractor function for a single document
+
+type ProcessDocument	 a	= IOSArrow XmlTree a
+
 type AddRobotsAction            = URI -> Robots -> IO Robots
 
 -- | The crawler configuration record
@@ -38,8 +46,9 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_preRefsFilter	:: IOSArrow XmlTree XmlTree
 				  , cc_processRefs	:: IOSArrow XmlTree URI
 				  , cc_preDocFilter     :: IOSArrow XmlTree XmlTree
-				  , cc_processDoc	:: IOSArrow XmlTree a
+				  , cc_processDoc	:: ProcessDocument a
 				  , cc_accumulate	:: AccumulateDocResult a r		-- result accumulation runs in the IO monad to allow storing parts externally
+                                  , cc_fold		:: MergeDocResults r
 				  , cc_followRef	:: URI -> Bool
 				  , cc_addRobotsTxt	:: AddRobotsAction
 				  , cc_maxNoOfDocs	:: ! Int
@@ -58,6 +67,7 @@ data CrawlerState r		= CrawlerState
 				  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
                                   , cs_noOfDocsSaved    :: ! Int
 				  , cs_resultAccu       :: ! r					-- evaluate accumulated result, else memory leaks show up
+                                  , cs_resultInit	:: ! r					-- the initial value for folding results
 				  }
 				  deriving (Show)
 
@@ -68,7 +78,8 @@ instance (NFData r) => NFData (CrawlerState r) where
                    , cs_noOfDocs         = d
                    , cs_noOfDocsSaved    = e
                    , cs_resultAccu       = f
-                   }		= rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f
+                   , cs_resultInit	 = g
+                   }		= rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f `seq` rnf g
 
 -- ------------------------------------------------------------
 
@@ -91,6 +102,9 @@ theNoOfDocsSaved	= S cs_noOfDocsSaved	(\ x s -> s {cs_noOfDocsSaved = x})
 
 theResultAccu		:: Selector (CrawlerState r) r
 theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
+
+theResultInit		:: Selector (CrawlerState r) r
+theResultInit		= S cs_resultInit	(\ x s -> s {cs_resultInit = x})
 
 -- | selector functions for CrawlerConfig
 
@@ -121,6 +135,9 @@ theAddRobotsAction	= S cc_addRobotsTxt	(\ x s -> s {cc_addRobotsTxt = x})
 theAccumulateOp		:: Selector (CrawlerConfig a r) (AccumulateDocResult a r)
 theAccumulateOp		= S cc_accumulate	(\ x s -> s {cc_accumulate = x})
 
+theFoldOp		:: Selector (CrawlerConfig a r) (MergeDocResults r)
+theFoldOp		= S cc_fold		(\ x s -> s {cc_fold = x})
+
 thePreRefsFilter	:: Selector (CrawlerConfig a r) (IOSArrow XmlTree XmlTree)
 thePreRefsFilter	= S cc_preRefsFilter	(\ x s -> s {cc_preRefsFilter = x})
 
@@ -137,8 +154,9 @@ theProcessDoc		= S cc_processDoc	(\ x s -> s {cc_processDoc = x})
 
 -- a rather boring default crawler configuration
 
-defaultCrawlerConfig	:: AccumulateDocResult a r -> CrawlerConfig a r
-defaultCrawlerConfig op	= CrawlerConfig
+defaultCrawlerConfig	:: AccumulateDocResult a r -> MergeDocResults r -> CrawlerConfig a r
+defaultCrawlerConfig op	op2
+			= CrawlerConfig
 			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
 						  , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 milli seconds, 
 						  , (curl_connect_timeout,	show $ (10::Int))	 	-- connection must be established within 10 seconds
@@ -148,6 +166,7 @@ defaultCrawlerConfig op	= CrawlerConfig
 			  , cc_preDocFilter     = checkDocumentStatus				-- default: in case of errors throw away any contents
 			  , cc_processDoc	= none						-- no document processing at all
 			  , cc_accumulate	= op						-- combining function for result accumulating
+                          , cc_fold             = op2
 			  , cc_followRef	= const False					-- do not follow any refs
 			  , cc_addRobotsTxt	= const $ return				-- do not add robots.txt evaluation
 			  , cc_traceLevel	= NOTICE					-- traceLevel
@@ -240,6 +259,7 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  B.put (getS theNoOfDocs s)
 			  B.put (getS theNoOfDocsSaved s)
 			  B.put (getS theResultAccu s)
+			  B.put (getS theResultInit s)
     get			= do
 			  tbp <- B.get
 			  alp <- B.get
@@ -247,6 +267,7 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  mxd <- B.get
                           mxs <- B.get
 			  acc <- B.get
+                          ini <- B.get
 			  return $ CrawlerState
 				   { cs_toBeProcessed    = tbp
 				   , cs_alreadyProcessed = alp
@@ -254,6 +275,7 @@ instance (Binary r) => Binary (CrawlerState r) where
 				   , cs_noOfDocs         = mxd
                                    , cs_noOfDocsSaved    = mxs
 				   , cs_resultAccu       = acc
+				   , cs_resultInit       = ini
 				   }
 
 putCrawlerState		:: (Binary r) => CrawlerState	r -> B.Put
@@ -270,6 +292,7 @@ initCrawlerState r	= CrawlerState
 			  , cs_noOfDocs		= 0
                           , cs_noOfDocsSaved    = 0
 			  , cs_resultAccu	= r
+			  , cs_resultInit	= r
 			  }
 
 -- ------------------------------------------------------------

@@ -13,6 +13,7 @@ module Holumbus.Crawler.Core
 where
 
 import           Control.Concurrent.MapFold
+import           Control.DeepSeq
 
 import 		 Control.Monad.Reader
 import		 Control.Monad.State
@@ -45,45 +46,45 @@ import           Text.XML.HXT.Arrow.XmlCache	( readDocument )
 
 -- ------------------------------------------------------------
 
-saveCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
+saveCrawlerState		:: (Binary r) => FilePath -> CrawlerAction a r ()
 saveCrawlerState fn		= do
 				  s <- get
 				  liftIO $ B.encodeFile fn s
 
-loadCrawlerState		:: (Binary r) => FilePath -> CrawlerAction c r ()
+loadCrawlerState		:: (Binary r) => FilePath -> CrawlerAction a r ()
 loadCrawlerState fn		= do
 				  s <- liftIO $ B.decodeFile fn
 				  put s
 
 
-uriProcessed			:: URI -> CrawlerAction c r ()
+uriProcessed			:: URI -> CrawlerAction a r ()
 uriProcessed uri		= do
 				  modifyState theToBeProcessed    $ deleteURI uri
 				  modifyState theAlreadyProcessed $ insertURI uri
 
-urisProcessed			:: URIs -> CrawlerAction c r ()
+urisProcessed			:: URIs -> CrawlerAction a r ()
 urisProcessed uris		= do
 				  modifyState theToBeProcessed    $ deleteURIs uris
 				  modifyState theAlreadyProcessed $ flip unionURIs  uris
 
-uriToBeProcessed		:: URI -> CrawlerAction c r ()
+uriToBeProcessed		:: URI -> CrawlerAction a r ()
 uriToBeProcessed uri		= do
 				  aps <- getState theAlreadyProcessed
 				  when ( not $ uri `memberURIs` aps )
 				       ( modifyState theToBeProcessed $ insertURI uri )
 
-urisToBeProcessed		:: URIs -> CrawlerAction c r ()
+urisToBeProcessed		:: URIs -> CrawlerAction a r ()
 urisToBeProcessed uris		= do
 				  aps <- getState theAlreadyProcessed
                                   let newUris = deleteURIs aps uris
 				  modifyState theToBeProcessed $ flip unionURIs newUris
 
-uriAddToRobotsTxt		:: URI -> CrawlerAction c r ()
+uriAddToRobotsTxt		:: URI -> CrawlerAction a r ()
 uriAddToRobotsTxt uri		= do
 				  raa <- getConf theAddRobotsAction
 				  modifyStateIO theRobots (raa uri)
 
-accumulateRes			:: (URI, c) -> CrawlerAction c r ()
+accumulateRes			:: (URI, a) -> CrawlerAction a r ()
 accumulateRes res		= do
 				  combine <- getConf  theAccumulateOp
 				  acc0    <- getState theResultAccu
@@ -92,15 +93,17 @@ accumulateRes res		= do
 
 -- ------------------------------------------------------------
 
-crawlDocs		:: Binary r => [URI] -> CrawlerAction c r ()
+crawlDocs		:: (NFData a, NFData r, Binary r) => [URI] -> CrawlerAction a r ()
 crawlDocs uris		= do
-			  noticeC "crawlDocs" ["crawlDocs: init crawler state and start crawler loop"]
+			  noticeC "crawlDocs" ["init crawler state and start crawler loop"]
 			  putState theToBeProcessed (fromListURIs uris)
 			  crawlerLoop
+			  noticeC "crawlDocs" ["crawler loop finished"]
+                          crawlerSaveState
 
-crawlerLoop		:: Binary r => CrawlerAction c r ()
+crawlerLoop		:: (NFData a, NFData r, Binary r) => CrawlerAction a r ()
 crawlerLoop		= do
-			  p <- getConf theMaxParDocs
+			  p <- getConf  theMaxParDocs
 			  n <- getState   theNoOfDocs
 			  m <- getConf theMaxNoOfDocs
 			  when (n /= m)
@@ -110,39 +113,41 @@ crawlerLoop		= do
 			         noticeC "crawlerLoop" [show $ cardURIs tbp, "uri(s) remain to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
-					if p <= 0		-- no parallel crawling
-					  then crawlNextDoc
-				          else crawlNextDocs
-					crawlerSaveState
+					if p <= 0
+					  then crawlNextDoc	-- sequential crawling
+				          else crawlNextDocs    -- parallel mapFold crawling
+					crawlerCheckSaveState
 					crawlerLoop
 				      )
 			       )
 
-crawlerResume		:: Binary r => String -> CrawlerAction c r ()
+crawlerResume		:: (NFData a, NFData r, Binary r) => String -> CrawlerAction a r ()
 crawlerResume fn	= do
 			  noticeC "crawlerResume" ["read crawler state from", fn]
 			  loadCrawlerState fn
 			  noticeC "crawlerResume" ["resume crawler"]
 			  crawlerLoop
 
-crawlerSaveState	:: Binary r => CrawlerAction c r ()
-crawlerSaveState	= do
+crawlerCheckSaveState	:: Binary r => CrawlerAction a r ()
+crawlerCheckSaveState	= do
 			  n1 <- getState theNoOfDocs
                           n0 <- getState theNoOfDocsSaved
 			  m  <- getConf  theSaveIntervall
 			  when ( m > 0 && n1 - n0 >= m)
-			       ( do
-				 fn <- getConf theSavePathPrefix
-				 let fn' = mkTmpFile 10 fn n1
-				 noticeC "crawlerSaveState" [show n1, "documents into", show fn']
-                                 putState theNoOfDocsSaved n1
-				 saveCrawlerState fn'
-				 noticeC "crawlerSaveState" ["saving state finished"]
-			       )
+                               crawlerSaveState
+crawlerSaveState	:: Binary r => CrawlerAction a r ()
+crawlerSaveState	= do
+			  n1 <- getState theNoOfDocs
+			  fn <- getConf theSavePathPrefix
+			  let fn' = mkTmpFile 10 fn n1
+			  noticeC "crawlerSaveState" [show n1, "documents into", show fn']
+                          putState theNoOfDocsSaved n1
+			  saveCrawlerState fn'
+			  noticeC "crawlerSaveState" ["saving state finished"]
 
 -- ------------------------------------------------------------
 
-crawlNextDocs		:: CrawlerAction c r ()
+crawlNextDocs		:: (NFData r) => CrawlerAction a r ()
 crawlNextDocs		= do
 		          uris <- getState theToBeProcessed
                           n <- getConf theMaxParDocs
@@ -151,50 +156,60 @@ crawlNextDocs		= do
                           noticeC "crawlNextDocs" ["next", show (length urisTBP), "uri(s) will be processed"]
                           urisProcessed $ fromListURIs urisTBP
                           urisAllowed <- filterM isAllowedByRobots urisTBP
+
                           when (not . null $ urisAllowed) $
                                do
                                conf  <- ask
                                state <- get
                                (urisMoved, urisNew, results) <- liftIO $
-                                                                mapFold n (processCmd conf state) combineDocResults $
+                                                                mapFold n (processCmd conf state) (combineDocResults conf) $
                                                                 urisAllowed
                                noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found, accumulating results"]
                                urisProcessed     urisMoved
                                urisToBeProcessed urisNew
-                               mapM_ accumulateRes results	-- this is not yet the best solution
-                               					-- combining the results could be done in mapFold
+                               acc0 <- getState theResultAccu
+                               acc1 <- liftIO $ (getS theFoldOp conf) results acc0
+                               putState theResultAccu acc1
                                noticeC "crawlNextDocs" ["document results accumulated"]
 
     where
     processCmd c s u	= do
-			  (res, _) <- runCrawler (processDoc' u) c s
-			  res `seq` return res
-    processDoc' u	= do
-                          noticeC "processDoc" ["URI to be processed: ", show u]
-                          conf <- ask
-			  [(!u', (!uris', !docRes))] <- liftIO $ runX (processDocArrow conf u)
-                          let toBeFollowed = getS theFollowRef conf
-                          let !movedUris    = if null u'
-                                              then emptyURIs
-                                              else singletonURIs u'
-                          let !newUris      = fromListURIs .
-                                              filter toBeFollowed $ uris'
-                          let !docRes'      = docRes
-                          noticeC "processDoc" ["processed: ", show u] 
-                          return $! (movedUris, newUris, docRes')
+			  ((m1, n1, rawRes), _) <- runCrawler (processDoc' u) c s
+                          r1 <- foldM (flip accOp) res0 rawRes
+                          return (m1, n1, r1)
+        where
+        res0		= getS theResultInit   s
+        accOp		= getS theAccumulateOp c
 
-    combineDocResults (m1, n1, r1) (m2, n2, r2)
-			= return (m, n, r)
+    processDoc' u	= do
+                          noticeC "processDoc" ["processing:", show u]
+
+                          conf <- ask
+			  [(u', (uris', docRes))] <- liftIO $ runX (processDocArrow conf u)
+                          let toBeFollowed = getS theFollowRef conf
+                          let movedUris    = if null u'
+                                             then emptyURIs
+                                             else singletonURIs u'
+                          let newUris      = fromListURIs .
+                                             filter toBeFollowed $ uris'
+
+                          noticeC "processDoc" ["processed :", show u] 
+                          return (movedUris, newUris, docRes)
+
+    combineDocResults c (m1, n1, r1) (m2, n2, r2)
+			= do
+                          r <- mergeOp r1 r2
+			  return (m, n, r)
 	where
-        !m 		= unionURIs m1 m2
-        !n 		= unionURIs n1 n2
-        !r 		= r1 ++ r2
+        m 		= unionURIs m1 m2
+        n 		= unionURIs n1 n2
+        mergeOp		= getS theFoldOp c
 
 -- ------------------------------------------------------------
 
 -- | crawl a single doc, mark doc as processed, collect new hrefs and combine doc result with accumulator in state
 
-crawlNextDoc		:: CrawlerAction c r ()
+crawlNextDoc		:: (NFData a) => CrawlerAction a r ()
 crawlNextDoc		= do
 		          uris <- getState theToBeProcessed
 			  modifyState theNoOfDocs (+1)
@@ -204,7 +219,9 @@ crawlNextDoc		= do
                           isGood <- isAllowedByRobots uri
                           when isGood $
 			    do
-		            (uri', uris', resList') <- processDoc uri		-- get document and extract new refs and result
+		            res <- processDoc uri				-- get document and extract new refs and result
+		            (uri', uris', resList') <- rnf res `seq`		-- force evaluation
+                                                       return res
 			    when (not . null $ uri') $
 			      uriProcessed uri'					-- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
 			    noticeC "crawlNextDoc" [show . length . nub . sort $ uris', "new uris found"]
@@ -213,7 +230,7 @@ crawlNextDoc		= do
 
 -- | Run the process document arrow and prepare results
 
-processDoc		:: URI -> CrawlerAction c r (URI, [URI], [(URI, c)])
+processDoc		:: URI -> CrawlerAction a r (URI, [URI], [(URI, a)])
 processDoc uri		= do
 			  conf <- ask
 			  [(uri', (uris, res))] <- liftIO $ runX (processDocArrow conf uri)
@@ -228,7 +245,7 @@ processDoc uri		= do
 
 -- | filter uris rejected by robots.txt
 
-isAllowedByRobots	:: URI -> CrawlerAction c r Bool
+isAllowedByRobots	:: URI -> CrawlerAction a r Bool
 isAllowedByRobots uri	= do
                           uriAddToRobotsTxt uri						-- for the uri host, a robots.txt is loaded, if neccessary
                           rdm <- getState theRobots
@@ -308,18 +325,18 @@ getRealDocURI			= fromLA $
 
 -- ------------------------------------------------------------
 
-initCrawler			:: CrawlerAction c r ()
+initCrawler			:: CrawlerAction a r ()
 initCrawler			= do
 				  conf <- ask
 				  setLogLevel "" (getS theTraceLevel conf)
 				  
 
-runCrawler			:: CrawlerAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO (x, CrawlerState r)
+runCrawler			:: CrawlerAction a r x -> CrawlerConfig a r -> CrawlerState r -> IO (x, CrawlerState r)
 runCrawler a			= runReaderStateIO (initCrawler >> a)
 
 -- run a crawler and deliver just the accumulated result value
 
-execCrawler			:: CrawlerAction c r x -> CrawlerConfig c r -> CrawlerState r -> IO r
+execCrawler			:: CrawlerAction a r x -> CrawlerConfig a r -> CrawlerState r -> IO r
 execCrawler cmd config initState
 				= do
 				  (_, finalState) <- runCrawler cmd config initState

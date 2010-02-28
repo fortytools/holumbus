@@ -97,7 +97,7 @@ emptyIndexerState eix edm       = IndexerState
 
 -- ------------------------------------------------------------
 
-stdIndexer                      :: (Binary i, HolIndexM IO i, HolDocuments d c, Binary c) =>
+stdIndexer                      :: (Binary i, HolIndexM IO i, HolDocuments d c, NFData i, NFData (d c), NFData c, Binary c) =>
                                    Maybe String                                 -- ^ resume from interrupted index run with state stored in file
                                 -> [URI]                                        -- ^ start indexing with this set of uris
                                 -> IndexCrawlerConfig i d c                     -- ^ adapt configuration to special needs, use id if default is ok
@@ -109,7 +109,11 @@ stdIndexer resumeLoc startUris config eis
                                   (_, ixState) <- runCrawler action config (initCrawlerState eis)
                                   return (getS theResultAccu ixState)
     where
-    action                      = maybe (crawlDocs startUris) crawlerResume $ resumeLoc
+    action                      = do
+                                  noticeC "indexerCore" ["indexer started"]
+                                  res <- maybe (crawlDocs startUris) crawlerResume $ resumeLoc
+                                  noticeC "indexerCore" ["indexer finished"]
+                                  return res
 
 -- ------------------------------------------------------------
 
@@ -144,8 +148,9 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   >>>
                                   addRobotsNoIndex
                                   $
-                                  defaultCrawlerConfig insertRawDocM            -- take the default crawler config
-                                                                                -- and set the result combining function
+                                  defaultCrawlerConfig insertRawDocM unionIndexerStatesM
+									        -- take the default crawler config
+                                                                                -- and set the result combining functions
     where
     rawDocF                     = ( listA contextFs
                                     &&&
@@ -187,6 +192,32 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   , (a_issue_warnings,  	v_0)
                                   ]
 
+-- ------------------------------------------------------------
+
+unionIndexerStatesM		:: (MonadIO m, HolIndexM m i, HolDocuments d c) =>
+                                   IndexerState i d c
+                                -> IndexerState i d c
+                                -> m (IndexerState i d c)
+unionIndexerStatesM ixs1 ixs2
+    | s1 < s2			= unionIndexerStatesM ixs2 ixs1
+    | otherwise			= do
+                                  ix2s <- updateDocIdsM' (+ m1) ix2
+                                  ix   <- mergeIndexesM ix1 ix2s
+                                  return $!
+                                         IndexerState { ixs_index        = ix -- mergeIndexes ix1 ix2s
+					              , ixs_documents    = unionDocs    dt1 dt2s
+					              }
+    where
+    ix1				= ixs_index     ixs1
+    ix2				= ixs_index     ixs2
+    dt1				= ixs_documents ixs1
+    dt2				= ixs_documents ixs2
+    dt2s			= editDocIds    (+ m1) dt2
+    s1				= sizeDocs dt1
+    s2				= sizeDocs dt2
+    m1				= maxDocId dt1
+
+-- ------------------------------------------------------------
 
 insertRawDocM                   :: (MonadIO m, HolIndexM m i, HolDocuments d c, NFData i, NFData c) =>
                                    (URI, RawDoc c)                              -- ^ extracted URI and doc info
