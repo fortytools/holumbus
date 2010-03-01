@@ -1,15 +1,8 @@
-{-# OPTIONS -XBangPatterns #-}
+{-# OPTIONS #-}
 
 -- ------------------------------------------------------------
 
 module Holumbus.Crawler.Core
-    ( module Holumbus.Crawler.Core
-    , module Holumbus.Crawler.CrawlerAction
-    , module Holumbus.Crawler.Types
-    , module Holumbus.Crawler.Logger
-    , module Holumbus.Crawler.XmlArrows
-
-    )
 where
 
 import           Control.Concurrent.MapFold
@@ -41,8 +34,6 @@ import		 Text.XML.HXT.Arrow		hiding
 						, readDocument
 						)
 import           Text.XML.HXT.Arrow.XmlCache	( readDocument )
-
--- import qualified Debug.Trace			as D
 
 -- ------------------------------------------------------------
 

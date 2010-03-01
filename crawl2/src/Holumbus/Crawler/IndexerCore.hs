@@ -27,13 +27,9 @@ import           Control.Monad.Trans            ( MonadIO )
 import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B                            -- else naming conflict with put and get from Monad.State
 import           Data.Function.Selector
--- import           Data.List
 import           Data.Maybe
 
-import           Holumbus.Crawler.Constants
-import           Holumbus.Crawler.Core
-import           Holumbus.Crawler.Html
-import           Holumbus.Crawler.URIs
+import           Holumbus.Crawler
 
 import           Holumbus.Index.Common          hiding ( URI )
 

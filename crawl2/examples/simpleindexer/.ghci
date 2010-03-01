@@ -1,4 +1,4 @@
-:set -ignore-package crawl2
-:set -i../../src
+:set -ignore-package crawl2 -ignore-package Holumbus-Searchengine
+:set -i../../src:../../../searchengine/source
 :set -Wall
 :load SimpleIndexer

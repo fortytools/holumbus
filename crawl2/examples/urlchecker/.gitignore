@@ -1,1 +1,4 @@
 check-uris
+cache/
+check.*.html
+tmp/

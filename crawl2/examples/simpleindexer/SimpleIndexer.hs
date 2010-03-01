@@ -9,14 +9,9 @@ import           Control.DeepSeq
 
 import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B                    -- else naming conflict with put and get from Monad.State
--- import           Data.Char
 
-import		 Holumbus.Crawler.Constants	( )
-import		 Holumbus.Crawler.Core
+import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
-import		 Holumbus.Crawler.Html
-import		 Holumbus.Crawler.URIs
-import		 Holumbus.Crawler.Util
 import		 Holumbus.Crawler.PdfToText
 
 import           Holumbus.Index.Documents       ( Documents(..)
@@ -60,7 +55,7 @@ simpleIndexerConfig followRef ixc
 				  [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 				  , (a_compress, v_1		)			-- cache files will be compressed
 				  , (a_document_age,
-					 show $ (60 * 60 * 24 * 30::Integer))		-- cache remains valid 1 month
+					 show $ (60 * 60 * 24 * 30::Integer))		-- cache remains valid 30 months
                                   , (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
 				  , (a_parse_html,              v_0)
 				  , (a_parse_by_mimetype,	v_1)

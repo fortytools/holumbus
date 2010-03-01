@@ -16,23 +16,15 @@ import qualified Data.Binary			as B			-- else naming conflict with put and get f
 
 import           Data.Function.Selector
 
--- import           Data.List
--- import		 Data.Maybe			( )
-
 import qualified Data.Map       		as M
 
-import           Holumbus.Crawler.Constants
-import		 Holumbus.Crawler.Core
-import           Holumbus.Crawler.Html
-import		 Holumbus.Crawler.URIs
+import           Holumbus.Crawler
 
 import		 Text.XML.HXT.Arrow		hiding 		( when
 								, getState
 								)
 import qualified Text.XML.HXT.Arrow		as X
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match )
-
--- import qualified Debug.Trace			as D
 
 -- ------------------------------------------------------------
 
@@ -126,8 +118,14 @@ uriCrawlerConfig opts ucf		= addReadAttributes opts
 					  $
 					  baseConfig
     where
-    baseConfig 				= defaultHtmlCrawlerConfig insertDocDescr		-- take the default HTML crawler config
-												-- and set the accumulator op
+    baseConfig 				= defaultHtmlCrawlerConfig insertDocDescr mergeDescr	-- take the default HTML crawler config
+												-- and set the accumulator ops
+
+    mergeDescr				:: MergeDocResults DocMap
+    mergeDescr dm1 dm2
+	| M.size dm1 < M.size dm2	= mergeDescr dm2 dm1
+	| otherwise			= return $ M.union dm1 dm2
+
     insertDocDescr			:: AccumulateDocResult DocDescr DocMap
     insertDocDescr x			= return . insertDoc x					-- TODO: urls not to be checked must be added into document map
 
@@ -199,37 +197,21 @@ uriCrawlerInitState	= initCrawlerState emptyDocMap
 
 -- ------------------------------------------------------------
 
-stdURIChecker	:: Int -> Int -> String -> Int -> Attributes -> Maybe String -> URI -> URIClassList -> IO DocMap
-stdURIChecker maxDocs saveIntervall savePath trc inpOptions resumeLoc startUri uriClasses
+stdURIChecker	:: Int -> Int -> Int -> String -> Priority -> Attributes -> Maybe String -> URI -> URIClassList -> IO DocMap
+stdURIChecker maxDocs maxParDocs saveIntervall savePath trc inpOptions resumeLoc startUri uriClasses
                         = do
 			  (_, dm) <- runCrawler action config uriCrawlerInitState
 			  return (getS theResultAccu dm)
     where
     action		= maybe (crawlDocs [startUri]) crawlerResume $ resumeLoc
-    config		= setS theMaxNoOfDocs maxDocs
+    config		= setCrawlerMaxDocs maxDocs maxParDocs
 			  >>>
-			  setS theSaveIntervall saveIntervall
+			  setCrawlerSaveConf saveIntervall savePath
 			  >>>
-			  setS theSavePathPrefix savePath
+			  setCrawlerTraceLevel trc
 			  >>>
-			  setS theTraceLevel trc
-			  >>>
-			  disableRobotsTxt			-- change to enableRobotsTxt, when robots.txt becomes important
+			  disableRobotsTxt			-- change to disableRobotsTxt, when robots.txt becomes boring
 			  $
 			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
-simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
-simpleURIChecker	= stdURIChecker
-                          8096							-- limit total number of documents to 8096
-                          64							-- save intermediate state every 64 documents
-                          "/tmp/hc-check-"					-- path prefix for saving intermediate states
-                          1							-- set trace level to 1
-                          [ (curl_max_filesize, 	"1000000"	)	-- limit document size to 1 Mbyte
-			  , (a_ignore_encoding_errors, 	v_1		)    	-- encoding errors and parser warnings are boring
-			  , (a_issue_warnings, 		v_0		)
-			  , (curl_location, 		v_1		)	-- automatically follow redirects
-			  , (curl_max_redirects, 	"3"		)	-- but limit # of redirects to 3
-			  , (a_accept_mimetypes, 	"text/html"	)
-			  ]
-								      
 -- ------------------------------------------------------------

@@ -10,8 +10,8 @@ import           Data.Function.Selector
 import           Data.List
 import		 Data.Maybe
 
+import		 Holumbus.Crawler.Types
 import		 Holumbus.Crawler.URIs
-import		 Holumbus.Crawler.Core
 
 import		 System.FilePath
 

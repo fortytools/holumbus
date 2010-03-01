@@ -26,12 +26,16 @@ revRefs			= M.foldWithKey insRefs M.empty
 	where
 	insRef uri' rm' = M.insertWith unionURIs uri' (singletonURIs uri) rm'
 
-genResultPage		:: String -> URI -> URIClassList -> DocMap -> IOSArrow a XmlTree
-genResultPage out uri _ucs dm
+genResultPage		:: String -> URI -> URIClassList -> IOSArrow DocMap XmlTree
+genResultPage out uri ucs
+			= genResultPage' out uri ucs $< this
+
+genResultPage'		:: String -> URI -> URIClassList -> DocMap -> IOSArrow a XmlTree
+genResultPage' out uri _ucs dm
 			=  readDocument [ (a_parse_xml, v_1)
-				       , (a_validate, v_0)
-				       , (a_remove_whitespace, v_1)
-				       ] "resultTemplate.html"			-- read the template
+					, (a_validate, v_0)
+					, (a_remove_whitespace, v_1)
+					] "resultTemplate.html"			-- read the template
 			  >>>
 			  fromLA (genPage handlers1)				-- traverse the template and fill in the holes by the handlers1 list
 			  >>>

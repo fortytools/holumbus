@@ -1,9 +1,15 @@
-HC	= ghc -i../../src -Wall -O2
+GHCOPTS	= -Wall -O2 -threaded -i../../src:../../../searchengine/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
+
+HC	= ghc $(GHCOPTS)
 
 PROG	= check-uris
 SRC	= URIChecker.hs URIChecker/Check.hs URIChecker/Template.hs
 
 all	: $(PROG) tmp
+
+force	:
+	rm -f $(PROG)
+	$(MAKE) GHCOPTS="$(GHCOPTS) -fforce-recomp"
 
 run	: si java
 
