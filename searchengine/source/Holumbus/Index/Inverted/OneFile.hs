@@ -84,6 +84,7 @@ instance HolIndexM IO Persistent where
   mergeIndexesM _ _             = error "Holumbus.Index.Inverted.OneFile: mergeIndexesM not supported"
   deleteOccurrencesM _ _ _ _    = error "Holumbus.Index.Inverted.OneFile: deleteOccurrencesM not supported"
   updateDocIdsM _ _             = error "Holumbus.Index.Inverted.OneFile: updateDocIdsM not supported"
+  updateDocIdsM' _ _            = error "Holumbus.Index.Inverted.OneFile: updateDocIdsM' not supported"
 
 -- Required to avoid overlapping instances
 insertOccurrencesM' :: (Monad m) => Context -> Word -> Occurrences -> Persistent -> m Persistent

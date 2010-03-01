@@ -104,10 +104,10 @@ instance HolIndex Inverted where
 
   splitByDocuments i 		= splitInternal ( map convert $
 						  IM.toList $
-						  IM.unionsWith unionDocs docResults
+						  IM.unionsWith unionDocs' docResults
 						)
     where
-    unionDocs 			= M.unionWith (M.unionWith IS.union)
+    unionDocs' 			= M.unionWith (M.unionWith IS.union)
     docResults 			= map (\c -> resultByDocument c (allWords i c)) (contexts i)
     convert (d, cs) 		= foldl' makeIndex (0, emptyInverted) (M.toList cs)
       where

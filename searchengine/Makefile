@@ -6,19 +6,19 @@
 TEST_BASE	= test
 EXAMPLES_BASE	= examples
 
-all : configure build doc
+all 	: configure build doc
 
 configure :
-	@runhaskell Setup.hs configure
+	cabal configure
 
 doc	: configure
 	@runhaskell Setup.hs haddock --hyperlink-source --hscolour-css=hscolour.css
 
 build	: configure
-	@runhaskell Setup.hs build
+	cabal build
 
 install :
-	@sudo runhaskell Setup.hs install --global
+	sudo cabal install --global
 
 prof	:
 	@runhaskell Setup.hs configure -p
@@ -36,10 +36,10 @@ wc	:
 	$(MAKE) -C $(EXAMPLES_BASE) wc
 
 package dist	: configure
-	@runhaskell Setup.hs sdist
+	cabal sdist
 
 clean :
-	@runhaskell Setup.hs clean
+	cabal clean
 	$(MAKE) -C $(TEST_BASE) clean
 	$(MAKE) -C $(EXAMPLES_BASE) clean
 
