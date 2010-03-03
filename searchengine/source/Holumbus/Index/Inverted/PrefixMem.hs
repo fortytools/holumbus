@@ -106,10 +106,10 @@ instance HolIndex Inverted where
 
   splitByDocuments i 		= splitInternal ( map convert $
 						  IM.toList $
-						  IM.unionsWith unionDocs docResults
+						  IM.unionsWith unionDocs' docResults
 						)
     where
-    unionDocs 			= M.unionWith (M.unionWith IS.union)
+    unionDocs' 			= M.unionWith (M.unionWith IS.union)
     docResults 			= map (\c -> resultByDocument c (allWords i c)) (contexts i)
     convert (d, cs) 		= foldl' makeIndex (0, emptyInverted) (M.toList cs)
       where
@@ -128,12 +128,20 @@ instance HolIndex Inverted where
         where
         makeIndex (rs, ri) (c, o) = (rs + sizeOccurrences o, insertOccurrences c w o ri)
 
-  updateDocIds f (Inverted parts) = Inverted (M.mapWithKey updatePart parts)
+  updateDocIds f (Inverted parts)
+				= Inverted (M.mapWithKey updatePart parts)
     where
     updatePart c p 		= PT.mapWithKey (\w o -> IM.foldWithKey (updateDocument c w) IM.empty o) p
     updateDocument c w d p r 	= IM.insertWith mergePositions (f c w d) p r
       where
       mergePositions p1 p2 	= deflatePos $ IS.union (inflatePos p1) (inflatePos p2)
+
+  updateDocIds' f
+				= Inverted . M.map updatePart . indexParts
+    where
+    updatePart	 		= PT.map updateOcc
+    updateOcc			= IM.foldWithKey updateId IM.empty
+    updateId			= IM.insert . f
 
   toList i 			= concat $ map convertPart $ M.toList (indexParts i) 
     where convertPart (c,p) = map (\(w, o) -> (c, w, inflateOcc o)) $ PT.toList $ p

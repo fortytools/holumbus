@@ -106,6 +106,7 @@ instance HolIndexM IO InvertedM where
 
   deleteOccurrencesM _ _ _ _ 	= error "Holumbus.Index.Inverted.Database: deleteOccurences not YET supported"
   updateDocIdsM _ _     	= error "Holumbus.Index.Inverted.Database: updateDocIds not YET supported"
+  updateDocIdsM' _ _     	= error "Holumbus.Index.Inverted.Database: updateDocIds' not YET supported"
   
   toListM               = toListM'
 
