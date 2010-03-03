@@ -94,9 +94,9 @@ crawlDocs uris		= do
 
 crawlerLoop		:: (NFData a, NFData r, Binary r) => CrawlerAction a r ()
 crawlerLoop		= do
-			  p <- getConf  theMaxParDocs
 			  n <- getState   theNoOfDocs
 			  m <- getConf theMaxNoOfDocs
+                          t <- getConf theMaxParThreads
 			  when (n /= m)
 			       ( do
 				 noticeC "crawlerLoop" ["iteration", show $ n+1]
@@ -104,7 +104,7 @@ crawlerLoop		= do
 			         noticeC "crawlerLoop" [show $ cardURIs tbp, "uri(s) remain to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
-					if p <= 0
+					if t <= 0
 					  then crawlNextDoc	-- sequential crawling
 				          else crawlNextDocs    -- parallel mapFold crawling
 					crawlerCheckSaveState
@@ -257,7 +257,7 @@ isAllowedByRobots uri	= do
 -- The two listA arrows make the whole arrow deterministic, so it never fails
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a (URI, ([URI], [(URI, c)]))
-processDocArrow c uri	= ( hxtSetTraceAndErrorLogger WARNING
+processDocArrow c uri	= ( hxtSetTraceAndErrorLogger NOTICE
 			    >>>
 			    readDocument (getS theReadAttributes c) uri
 			    >>>
