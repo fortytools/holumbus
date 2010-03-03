@@ -1,0 +1,17 @@
+#!/bin/bash
+
+[ -n "$SCP_WORKER_DATA" ] || { echo "Undefined variable: SCP_WORKER_DATA"; exit 1; }
+[ -n "$WORKER_DIR" ] || { echo "Undefined variable: WORKER_DIR"; exit 1; }
+[ -n "$1" ] || { echo "Parameter missing: IP1"; exit 1; }
+[ -n "$2" ] || { echo "Undefined variable: IP2"; exit 1; }
+
+# copy workers memory data to here
+for I in `seq $1 $2`
+do
+  mkdir "worker_$I"
+  cd "worker_$I"
+  $SCP_WORKER_DATA.$I:$WORKER_DIR/* . > /dev/null
+  #removeStorageAndWorker .
+  cd ..
+done
+
