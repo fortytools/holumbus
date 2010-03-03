@@ -77,7 +77,7 @@ simpleIndexer refs ixc startUris
                                   startUris
                                   ( setCrawlerTraceLevel indexerTraceLevel $
                                     setCrawlerSaveConf indexerSaveIntervall indexerSavePath $
-                                    setCrawlerMaxDocs indexerMaxDocs indexerMaxParDocs $
+                                    setCrawlerMaxDocs indexerMaxDocs indexerMaxParDocs indexerMaxParThreads $
                                     simpleIndexerConfig refs ixc
                                   )
                                   ( emptyIndexerState emptyInverted emptyDocuments )
@@ -95,49 +95,16 @@ indexerMaxDocs			:: Int
 indexerMaxDocs			= 5000
 
 indexerMaxParDocs		:: Int
-indexerMaxParDocs		= 10
+indexerMaxParDocs		= 100
+
+indexerMaxParThreads		:: Int
+indexerMaxParThreads		= 10
 
 -- ------------------------------------------------------------
 
 siIndexer                       :: IO SimpleIndexerState
 siIndexer                       = simpleIndexer refs ixc startUris
     where
-{-
-    startUris                   = [ "http://localhost/~si/" ]
-    refs                        = simpleFollowRef'
-                                  [ "http://localhost/~si/termine/.*"                   -- just 2 subdirs
-                                  , "http://localhost/~si/Klausuren/.*"
-                                  , "http://localhost/~si/termine/.*"
-                                  ]
-                                  [ ".*[?].*"                                           -- no query string
-                                  , "http://localhost/~si/vorlesungen/.*"               -- no lecture pages, currently redundant
-                                  ]
-    startUris                   = [ "tmp.pdf"
-				  -- , "http://www.fh-wedel.de/~si/vorlesungen/fp/fp.html"
-				  -- , "http://www.fh-wedel.de/~si/vorlesungen/fp/handouts/vortraege/ws2004/AbstrakteDatentypen.pdf"
-				  ]
--}
-{- vorlesungen
-    startUris                   = [ "http://www.fh-wedel.de/~si/vorlesungen/fp/index.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/java/index.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/cb/index.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/c/index.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/internet/index.html"
-				  , "http://www.fh-wedel.de/~si/vorlesungen/softwaredesign/index.html"
-				  ]
-    refs                        = simpleFollowRef'
-                                  [ vl ++ ".*[.](html|pdf)"
-                                  ]
-                                  ( map (vl ++) ["welcome[.]html"
-						, "handouts/.*.html"
-						, ".*[?]VAR=0"
-						, "(.*/)?exec[.]html[?].*"
-						, ".*/download[a-zA-Z0-9]*[.]html[?].*SRC=.*"
-						]
-				  )
-                                  where
-				  vl = "http://www[.]fh-wedel[.]de/~si/vorlesungen/(c|cb|fp|internet|java|softwaredesign)/"
--}
     startUris                   = [ "http://www.fh-wedel.de/~si/index.html"
 				  ]
     refs                        = simpleFollowRef'

@@ -59,6 +59,7 @@ simpleURIChecker	:: Maybe String -> URI -> URIClassList -> IO DocMap
 simpleURIChecker	= stdURIChecker
                           10000							-- limit total number of documents
 			  100							-- # of documents analysed in parallel
+			  10							-- # of thread running in parallel
                           500							-- save intermediate state every 250 documents
                           "./tmp/uri-check-"					-- path prefix for saving intermediate states
                           NOTICE						-- set trace level to 1

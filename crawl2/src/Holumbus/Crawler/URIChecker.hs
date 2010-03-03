@@ -197,14 +197,14 @@ uriCrawlerInitState	= initCrawlerState emptyDocMap
 
 -- ------------------------------------------------------------
 
-stdURIChecker	:: Int -> Int -> Int -> String -> Priority -> Attributes -> Maybe String -> URI -> URIClassList -> IO DocMap
-stdURIChecker maxDocs maxParDocs saveIntervall savePath trc inpOptions resumeLoc startUri uriClasses
+stdURIChecker	:: Int -> Int -> Int -> Int -> String -> Priority -> Attributes -> Maybe String -> URI -> URIClassList -> IO DocMap
+stdURIChecker maxDocs maxParDocs maxParThreads saveIntervall savePath trc inpOptions resumeLoc startUri uriClasses
                         = do
 			  (_, dm) <- runCrawler action config uriCrawlerInitState
 			  return (getS theResultAccu dm)
     where
     action		= maybe (crawlDocs [startUri]) crawlerResume $ resumeLoc
-    config		= setCrawlerMaxDocs maxDocs maxParDocs
+    config		= setCrawlerMaxDocs maxDocs maxParDocs maxParThreads
 			  >>>
 			  setCrawlerSaveConf saveIntervall savePath
 			  >>>

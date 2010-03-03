@@ -53,6 +53,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_addRobotsTxt	:: AddRobotsAction
 				  , cc_maxNoOfDocs	:: ! Int
                                   , cc_maxParDocs       :: ! Int
+				  , cc_maxParThreads	:: ! Int
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
 				  , cc_traceLevel	:: ! Priority
@@ -120,6 +121,9 @@ theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
 theMaxParDocs		:: Selector (CrawlerConfig a r) Int
 theMaxParDocs		= S cc_maxParDocs	(\ x s -> s {cc_maxParDocs = x})
 
+theMaxParThreads	:: Selector (CrawlerConfig a r) Int
+theMaxParThreads	= S cc_maxParThreads	(\ x s -> s {cc_maxParThreads = x})
+
 theSaveIntervall	:: Selector (CrawlerConfig a r) Int
 theSaveIntervall	= S cc_saveIntervall	(\ x s -> s {cc_saveIntervall = x})
 
@@ -172,8 +176,9 @@ defaultCrawlerConfig op	op2
 			  , cc_traceLevel	= NOTICE					-- traceLevel
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
-			  , cc_maxNoOfDocs	= (-1)						-- maximum number of docs to be crawled, -1 means unlimited
-                          , cc_maxParDocs	= 5						-- maximum number of doc crawled in parallel
+			  , cc_maxNoOfDocs	= (-1)						-- maximum # of docs to be crawled, -1 means unlimited
+                          , cc_maxParDocs	= 20						-- maximum # of doc crawled in parallel
+			  , cc_maxParThreads    = 5						-- maximum # of threads running in parallel
 			  }
 
 theCrawlerName		:: Selector (CrawlerConfig a r) String
@@ -243,11 +248,13 @@ setCrawlerSaveConf i f	= setS theSaveIntervall i
 -- | Set max # of documents to be crawled
 -- and max # of documents crawled in parallel
 
-setCrawlerMaxDocs	:: Int -> Int -> CrawlerConfig a r -> CrawlerConfig a r
-setCrawlerMaxDocs mxd mxp
+setCrawlerMaxDocs	:: Int -> Int -> Int -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerMaxDocs mxd mxp mxt
 			= setS theMaxNoOfDocs mxd
                           >>>
                           setS theMaxParDocs mxp
+			  >>>
+			  setS theMaxParThreads mxt
 
 -- ------------------------------------------------------------
 

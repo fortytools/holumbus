@@ -142,6 +142,7 @@ crawlNextDocs		:: (NFData r) => CrawlerAction a r ()
 crawlNextDocs		= do
 		          uris <- getState theToBeProcessed
                           n <- getConf theMaxParDocs
+                          t <- getConf theMaxParThreads
                           let urisTBP = nextURIs n uris
 			  modifyState theNoOfDocs (+ (length urisTBP))
                           noticeC "crawlNextDocs" ["next", show (length urisTBP), "uri(s) will be processed"]
@@ -153,7 +154,7 @@ crawlNextDocs		= do
                                conf  <- ask
                                state <- get
                                (urisMoved, urisNew, results) <- liftIO $
-                                                                mapFold n (processCmd conf state) (combineDocResults conf) $
+                                                                mapFold t (processCmd conf state) (combineDocResults conf) $
                                                                 urisAllowed
                                noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found, accumulating results"]
                                urisProcessed     urisMoved
