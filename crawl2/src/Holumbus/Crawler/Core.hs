@@ -97,7 +97,7 @@ crawlerLoop		= do
 			  n <- getState   theNoOfDocs
 			  m <- getConf theMaxNoOfDocs
                           t <- getConf theMaxParThreads
-			  when (n /= m)
+			  when (n < m)
 			       ( do
 				 noticeC "crawlerLoop" ["iteration", show $ n+1]
 				 tbp <- getState theToBeProcessed
@@ -257,7 +257,7 @@ isAllowedByRobots uri	= do
 -- The two listA arrows make the whole arrow deterministic, so it never fails
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a (URI, ([URI], [(URI, c)]))
-processDocArrow c uri	= ( hxtSetTraceAndErrorLogger NOTICE
+processDocArrow c uri	= ( hxtSetTraceAndErrorLogger WARNING -- NOTICE
 			    >>>
 			    readDocument (getS theReadAttributes c) uri
 			    >>>

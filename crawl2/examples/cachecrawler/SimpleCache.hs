@@ -50,17 +50,16 @@ stdCacher resumeLoc startUris config eis
 
 cacheCrawlerConfig              :: Attributes                                   -- ^ document read options
                                 -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
-                                -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
                                 -> CacheCrawlerConfig                           -- ^ result is a crawler config
 
-cacheCrawlerConfig opts followRef getHrefF
+cacheCrawlerConfig opts followRef
                                 = addReadAttributes defaultOpts                 -- install the default read options
                                   >>>
                                   addReadAttributes opts                        -- overwrite and add specific read options
                                   >>>
                                   ( setS theFollowRef followRef )
                                   >>>
-                                  ( setS theProcessRefs $ fromMaybe getHtmlReferences getHrefF )
+                                  ( setS theProcessRefs getHtmlReferences )
                                   >>>
                                   ( setS thePreDocFilter checkDocumentStatus )  -- in case of errors throw away any contents
                                   >>>
@@ -109,7 +108,6 @@ simpleCacheConfig followRef
 				  , (a_parse_by_mimetype,	v_1)
 				  ]                                                     -- use default read options, but accept pdfs too
 				  followRef						-- the set of URIs to be followed and processed 
-				  Nothing						-- use default collection filter
 
 simpleCacher                   	:: Maybe String						-- resume interupted crawl run
 				-> (URI -> Bool)                                        -- uris to be processed
@@ -136,13 +134,13 @@ cacherTraceLevel		:: Priority
 cacherTraceLevel		= NOTICE
 
 cacherMaxDocs			:: Int
-cacherMaxDocs			= 5000
+cacherMaxDocs			= 5
 
 cacherMaxParDocs		:: Int
 cacherMaxParDocs		= 100
 
 cacherMaxParThreads		:: Int
-cacherMaxParThreads		= 0
+cacherMaxParThreads		= 1
 
 -- ------------------------------------------------------------
 
@@ -151,8 +149,9 @@ siCacher resume                = simpleCacher resume refs startUris
     where
     startUris                   = [ "http://www.fh-wedel.de/~si/index.html"
 				  ]
-    refs                        = simpleFollowRef'
-                                  [ v1 ++ ".*[.](html|pdf)" ]
+    refs                        = simpleFollowRef' [".*"] []
+                                  -- [ v1 ++ ".*[.](html|pdf)" ]
+{-
                                   ( map (v1 ++) ["welcome[.]html"
 						, "handouts/.*.html"
 						, ".*[?]VAR=0"
@@ -162,6 +161,7 @@ siCacher resume                = simpleCacher resume refs startUris
 				  )
                                   where
 				  v1 = "http://www[.]fh-wedel[.]de/~si/(seminare|klausuren|praktika|projekte|termine|zettelkasten|vorlesungen/(c|cb|fp|internet|java|softwaredesign))/"
+-}
 
 -- ------------------------------------------------------------
 
