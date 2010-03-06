@@ -197,8 +197,21 @@ uriCrawlerInitState	= initCrawlerState emptyDocMap
 
 -- ------------------------------------------------------------
 
-stdURIChecker	:: Int -> Int -> Int -> Int -> String -> Priority -> Attributes -> Maybe String -> URI -> URIClassList -> IO DocMap
-stdURIChecker maxDocs maxParDocs maxParThreads saveIntervall savePath trc inpOptions resumeLoc startUri uriClasses
+stdURIChecker		:: (Int, Int, Int)
+                        -> (Int, String)
+                        -> (Priority, Priority)
+                        -> Attributes
+                        -> Maybe String
+                        -> URI
+                        -> URIClassList -> IO DocMap
+
+stdURIChecker (maxDocs, maxParDocs, maxParThreads)
+              (saveIntervall, savePath)
+              (trc, trcx)
+              inpOptions
+              resumeLoc
+              startUri
+              uriClasses
                         = do
 			  (_, dm) <- runCrawler action config uriCrawlerInitState
 			  return (getS theResultAccu dm)
@@ -208,7 +221,7 @@ stdURIChecker maxDocs maxParDocs maxParThreads saveIntervall savePath trc inpOpt
 			  >>>
 			  setCrawlerSaveConf saveIntervall savePath
 			  >>>
-			  setCrawlerTraceLevel trc
+			  setCrawlerTraceLevel trc trcx
 			  >>>
 			  disableRobotsTxt			-- change to disableRobotsTxt, when robots.txt becomes boring
 			  $

@@ -117,7 +117,7 @@ simpleCacher resume refs startUris
                                 = stdCacher
                                   resume
                                   startUris
-                                  ( setCrawlerTraceLevel cacherTraceLevel $
+                                  ( setCrawlerTraceLevel cacherTraceLevel cacherTraceLevelHxt $
                                     setCrawlerSaveConf cacherSaveIntervall cacherSavePath $
                                     setCrawlerMaxDocs cacherMaxDocs cacherMaxParDocs cacherMaxParThreads $
 				    simpleCacheConfig refs
@@ -130,8 +130,10 @@ cacherSaveIntervall		= 200
 cacherSavePath			:: String
 cacherSavePath			= "./tmp/ix-"
 
-cacherTraceLevel		:: Priority
+cacherTraceLevel
+  , cacherTraceLevelHxt		:: Priority
 cacherTraceLevel		= NOTICE
+cacherTraceLevelHxt		= NOTICE
 
 cacherMaxDocs			:: Int
 cacherMaxDocs			= 5

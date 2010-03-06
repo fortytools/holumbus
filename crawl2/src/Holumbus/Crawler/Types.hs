@@ -57,6 +57,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
 				  , cc_traceLevel	:: ! Priority
+                                  , cc_traceLevelHxt	:: ! Priority
 				  }
 
 -- | The crawler state record
@@ -114,6 +115,9 @@ theReadAttributes	= S cc_readAttributes	(\ x s -> s {cc_readAttributes = x})
 
 theTraceLevel		:: Selector (CrawlerConfig a r) Priority
 theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
+
+theTraceLevelHxt	:: Selector (CrawlerConfig a r) Priority
+theTraceLevelHxt	= S cc_traceLevelHxt	(\ x s -> s {cc_traceLevelHxt = x})
 
 theMaxNoOfDocs		:: Selector (CrawlerConfig a r) Int
 theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
@@ -173,12 +177,13 @@ defaultCrawlerConfig op	op2
                           , cc_fold             = op2
 			  , cc_followRef	= const False					-- do not follow any refs
 			  , cc_addRobotsTxt	= const $ return				-- do not add robots.txt evaluation
-			  , cc_traceLevel	= NOTICE					-- traceLevel
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
 			  , cc_maxNoOfDocs	= (-1)						-- maximum # of docs to be crawled, -1 means unlimited
                           , cc_maxParDocs	= 20						-- maximum # of doc crawled in parallel
 			  , cc_maxParThreads    = 5						-- maximum # of threads running in parallel
+			  , cc_traceLevel	= NOTICE					-- traceLevel
+			  , cc_traceLevelHxt	= WARNING					-- traceLevel for hxt
 			  }
 
 theCrawlerName		:: Selector (CrawlerConfig a r) String
@@ -235,8 +240,11 @@ disableRobotsTxt	= setS theAddRobotsAction (const return)
 
 -- | Set the log level
 
-setCrawlerTraceLevel	:: Priority -> CrawlerConfig a r -> CrawlerConfig a r
-setCrawlerTraceLevel	= setS theTraceLevel
+setCrawlerTraceLevel	:: Priority -> Priority -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerTraceLevel l lx
+			= setS theTraceLevel l
+                          >>>
+                          setS theTraceLevelHxt lx
 
 -- | Set save intervall in config
 

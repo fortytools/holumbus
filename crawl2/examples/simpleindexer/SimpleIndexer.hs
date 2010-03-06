@@ -75,12 +75,14 @@ simpleIndexer refs ixc startUris
                                 = stdIndexer
                                   Nothing
                                   startUris
-                                  ( setCrawlerTraceLevel indexerTraceLevel $
+                                  ( setCrawlerTraceLevel indexerTraceLevel indexerTraceLevelHxt $
                                     setCrawlerSaveConf indexerSaveIntervall indexerSavePath $
                                     setCrawlerMaxDocs indexerMaxDocs indexerMaxParDocs indexerMaxParThreads $
                                     simpleIndexerConfig refs ixc
                                   )
                                   ( emptyIndexerState emptyInverted emptyDocuments )
+
+-- ------------------------------------------------------------
 
 indexerSaveIntervall		:: Int
 indexerSaveIntervall		= 1000
@@ -90,6 +92,9 @@ indexerSavePath			= "./tmp/ix-"
 
 indexerTraceLevel		:: Priority
 indexerTraceLevel		= NOTICE
+
+indexerTraceLevelHxt		:: Priority
+indexerTraceLevelHxt		= NOTICE
 
 indexerMaxDocs			:: Int
 indexerMaxDocs			= 5000

@@ -257,7 +257,8 @@ isAllowedByRobots uri	= do
 -- The two listA arrows make the whole arrow deterministic, so it never fails
 
 processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a (URI, ([URI], [(URI, c)]))
-processDocArrow c uri	= ( hxtSetTraceAndErrorLogger WARNING -- NOTICE
+
+processDocArrow c uri	= ( hxtSetTraceAndErrorLogger (getS theTraceLevelHxt c)
 			    >>>
 			    readDocument (getS theReadAttributes c) uri
 			    >>>
