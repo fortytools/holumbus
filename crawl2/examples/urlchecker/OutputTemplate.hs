@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module URIChecker.Template
+module OutputTemplate
 where
 
 import           Holumbus.Crawler.URIChecker

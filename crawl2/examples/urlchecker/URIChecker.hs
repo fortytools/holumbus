@@ -5,7 +5,7 @@
 module Main
 where
 
-import           URIChecker.Check
+import           SimpleURIChecker
 import		 Control.Arrow
 
 -- ------------------------------------------------------------

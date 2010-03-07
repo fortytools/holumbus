@@ -3,7 +3,7 @@ GHCOPTS	= -Wall -O2 -threaded -i../../src:../../../searchengine/source -ignore-p
 HC	= ghc $(GHCOPTS)
 
 PROG	= check-uris
-SRC	= URIChecker.hs URIChecker/Check.hs URIChecker/Template.hs
+SRC	= URIChecker.hs SimpleURIChecker.hs OutputTemplate.hs
 
 all	: $(PROG) tmp
 

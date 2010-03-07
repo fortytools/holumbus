@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module URIChecker.Check
+module SimpleURIChecker
     ( main1
     , URIClass(..)
     , URIClassList
@@ -18,7 +18,7 @@ import		 System.Environment
 import		 Text.XML.HXT.Arrow
 import           Text.XML.HXT.Arrow.XmlCache
 
-import		 URIChecker.Template
+import		 OutputTemplate
 
 -- ------------------------------------------------------------
 
