@@ -36,8 +36,8 @@ library
                 , time       >= 1.1 && < 2
                 , unix       >= 2.3 && < 3
                 , mtl        >= 1.1 && < 2
-                , hxt        >= 8.5 && < 9
-                , hxt-cache  >= 0.0 && < 1
+                , hxt        >= 8.5.1 && < 9
+                , hxt-cache  >= 0.0.3 && < 1
                 , Holumbus-Searchengine >= 0.0.9 && < 1
 
   ghc-options: -Wall -threaded

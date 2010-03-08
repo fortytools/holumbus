@@ -223,7 +223,7 @@ stdURIChecker (maxDocs, maxParDocs, maxParThreads)
 			  >>>
 			  setCrawlerTraceLevel trc trcx
 			  >>>
-			  disableRobotsTxt			-- change to disableRobotsTxt, when robots.txt becomes boring
+			  enableRobotsTxt			-- change to disableRobotsTxt, when robots.txt becomes boring
 			  $
 			  uriCrawlerConfig inpOptions (simpleURIClassifier ((startUri, Contents) : uriClasses))
 
