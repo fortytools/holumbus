@@ -6,7 +6,7 @@ module Main
 where
 
 import           Data.Function.Selector
-import           Data.Maybe
+-- import           Data.Maybe
 
 import		 Holumbus.Crawler
 
@@ -102,7 +102,7 @@ simpleCacheConfig followRef
 				  [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 				  , (a_compress, v_1		)			-- cache files will be compressed
 				  , (a_document_age,
-					 show $ (60 * 1 * 1 * 1::Integer))		-- cache remains valid 1 hour months
+					 show $ (60 * 60 * 1 * 1::Integer))		-- cache remains valid 1 hour
                                   , (a_accept_mimetypes, 	unwords [text_html, application_xhtml, application_pdf])
 				  , (a_parse_html,              v_0)
 				  , (a_parse_by_mimetype,	v_1)
@@ -132,14 +132,14 @@ cacherSavePath			= "./tmp/ix-"
 
 cacherTraceLevel
   , cacherTraceLevelHxt		:: Priority
-cacherTraceLevel		= NOTICE
+cacherTraceLevel		= DEBUG -- NOTICE
 cacherTraceLevelHxt		= NOTICE
 
 cacherMaxDocs			:: Int
 cacherMaxDocs			= 5
 
 cacherMaxParDocs		:: Int
-cacherMaxParDocs		= 100
+cacherMaxParDocs		= 1
 
 cacherMaxParThreads		:: Int
 cacherMaxParThreads		= 1

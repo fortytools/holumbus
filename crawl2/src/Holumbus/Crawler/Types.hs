@@ -16,7 +16,7 @@ import           Data.Function.Selector
 
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.URIs
-import           Holumbus.Crawler.Robots
+import           Holumbus.Crawler.RobotTypes
 import           Holumbus.Crawler.XmlArrows	( checkDocumentStatus )
 
 import		 Text.XML.HXT.Arrow
@@ -37,8 +37,6 @@ type MergeDocResults       r    =        r -> r -> IO r
 
 type ProcessDocument	 a	= IOSArrow XmlTree a
 
-type AddRobotsAction            = URI -> Robots -> IO Robots
-
 -- | The crawler configuration record
 
 data CrawlerConfig a r		= CrawlerConfig
@@ -50,7 +48,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_accumulate	:: AccumulateDocResult a r		-- result accumulation runs in the IO monad to allow storing parts externally
                                   , cc_fold		:: MergeDocResults r
 				  , cc_followRef	:: URI -> Bool
-				  , cc_addRobotsTxt	:: AddRobotsAction
+				  , cc_addRobotsTxt	:: CrawlerConfig a r -> AddRobotsAction
 				  , cc_maxNoOfDocs	:: ! Int
                                   , cc_maxParDocs       :: ! Int
 				  , cc_maxParThreads	:: ! Int
@@ -137,7 +135,7 @@ theSavePathPrefix	= S cc_savePathPrefix	(\ x s -> s {cc_savePathPrefix = x})
 theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
 theFollowRef		= S cc_followRef	(\ x s -> s {cc_followRef = x})
 
-theAddRobotsAction	:: Selector (CrawlerConfig a r) AddRobotsAction
+theAddRobotsAction	:: Selector (CrawlerConfig a r) (CrawlerConfig a r -> AddRobotsAction)
 theAddRobotsAction	= S cc_addRobotsTxt	(\ x s -> s {cc_addRobotsTxt = x})
 
 theAccumulateOp		:: Selector (CrawlerConfig a r) (AccumulateDocResult a r)
@@ -176,7 +174,7 @@ defaultCrawlerConfig op	op2
 			  , cc_accumulate	= op						-- combining function for result accumulating
                           , cc_fold             = op2
 			  , cc_followRef	= const False					-- do not follow any refs
-			  , cc_addRobotsTxt	= const $ return				-- do not add robots.txt evaluation
+			  , cc_addRobotsTxt	= const $ const return				-- do not add robots.txt evaluation
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
 			  , cc_maxNoOfDocs	= (-1)						-- maximum # of docs to be crawled, -1 means unlimited
@@ -225,18 +223,6 @@ addRobotsNoFollow	= update thePreRefsFilter ( robotsNoFollow >>> )
 addRobotsNoIndex	:: CrawlerConfig a r -> CrawlerConfig a r
 addRobotsNoIndex	= update thePreDocFilter ( robotsNoIndex >>> )
 
-
--- | Enable the evaluation of robots.txt
-
-enableRobotsTxt		:: CrawlerConfig a r -> CrawlerConfig a r
-enableRobotsTxt c	= setS theAddRobotsAction (robotsAddHost attrs) c
-			  where
-			  attrs = getS theReadAttributes c
-
--- | Disable the evaluation of robots.txt
-
-disableRobotsTxt	:: CrawlerConfig a r -> CrawlerConfig a r
-disableRobotsTxt	= setS theAddRobotsAction (const return)
 
 -- | Set the log level
 

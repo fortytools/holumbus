@@ -5,17 +5,18 @@ where
 
 import		 Control.DeepSeq
 
-import           Data.Binary			( Binary )
-import qualified Data.Binary			as B
-import           Data.Char
+import           Data.Function.Selector
+
 import           Data.List
 import qualified Data.Map       		as M
 import		 Data.Maybe
 
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.URIs
+import		 Holumbus.Crawler.RobotTypes
+import		 Holumbus.Crawler.Types
+import           Holumbus.Crawler.Logger
 
-import 		 Network.URI 			hiding	( URI )
 import qualified Network.URI			as N
 
 import           Text.XML.HXT.Arrow
@@ -28,38 +29,25 @@ import qualified Debug.Trace as D
 
 -- ------------------------------------------------------------
 
-type Robots		= M.Map URI RobotRestriction
-type RobotRestriction	= [RobotSpec]
-type RobotSpec		= (URI, RobotAction)
-
-data RobotAction	= Disallow | Allow
-			  deriving (Eq, Show, Enum)
-
--- ------------------------------------------------------------
-
-instance Binary RobotAction where
-    put			= B.put . fromEnum
-    get			= do
-			  b <- B.get
-			  return (toEnum b)
-
-instance NFData RobotAction where
-    rnf	x		= x `seq` ()
-
--- ------------------------------------------------------------
-
 -- | Add a robots.txt description for a given URI, if it's not already there.
 -- The 1. main function of this module
 
-robotsAddHost		:: Attributes -> URI -> Robots -> IO Robots
-robotsAddHost attrs uri rdm
+robotsAddHost		:: CrawlerConfig a r -> AddRobotsAction
+robotsAddHost conf uri rdm
+    | not (isRobotsScheme uri)
+			= return rdm
     | isJust spec	= return rdm
     | otherwise		= do
-			  (h, r) <- robotsGetSpec attrs host
+			  (h, r) <- robotsGetSpec conf host
 			  return $! M.insert h r rdm
     where
     host		= getHost uri
     spec		= M.lookup host rdm
+
+-- ------------------------------------------------------------
+
+robotsDontAddHost	:: CrawlerConfig a r -> AddRobotsAction
+robotsDontAddHost	= const $ const return
 
 -- ------------------------------------------------------------
 
@@ -68,11 +56,13 @@ robotsAddHost attrs uri rdm
 
 robotsDisallow		:: Robots -> URI -> Bool
 robotsDisallow rdm uri
+    | not (isRobotsScheme uri)
+			= False
     | isNothing restr	= False
     | otherwise		= evalRestr $ fromJust restr
     where
     host 		= getHost uri
-    path'		= getURIPart uriPath uri
+    path'		= getURIPart N.uriPath uri
     restr		= M.lookup host rdm
     evalRestr		= foldr isDis False
 			  where
@@ -92,48 +82,57 @@ getURIPart f		= maybe "" f
 getHost			:: URI -> URI
 getHost			= getURIPart h
 			  where
-			  h u = show $ u { uriPath = ""
-					 , uriQuery = ""
-					 , uriFragment = ""
+			  h u = show $ u { N.uriPath = ""
+					 , N.uriQuery = ""
+					 , N.uriFragment = ""
 					 }
+
+isRobotsScheme		:: URI -> Bool
+isRobotsScheme		= (`elem` ["http:", "https:"]) . getURIPart N.uriScheme
+
 -- ------------------------------------------------------------
 
 -- | Access, parse and evaluate a robots.txt file for a given URI
 
-robotsGetSpec		:: Attributes -> URI -> IO (URI, RobotRestriction)
-robotsGetSpec attrs uri
+robotsGetSpec		:: CrawlerConfig a r -> URI -> IO (URI, RobotRestriction)
+robotsGetSpec conf uri
+    | not (isRobotsScheme uri)
+			= return ("", [])
     | null host		= return ("", [])
     | otherwise		= do
-			  r <- getRobotsTxt attrs host
+			  r <- getRobotsTxt conf host
 			  s <- return $ evalRobotsTxt agent r
 			  rnf s `seq` return (host, s)
     where
     host 		= getHost uri
-    agent		= fromMaybe defaultCrawlerName . lookup curl_user_agent $ attrs
+    agent		= fromMaybe defaultCrawlerName .
+                          lookup curl_user_agent .
+                          getS theReadAttributes $ conf
 
 -- ------------------------------------------------------------
 
 -- | Try to get the robots.txt file for a given host.
 -- If it's not there or any errors occur during access, the empty string is returned
 
-getRobotsTxt		:: Attributes -> URI -> IO String
-getRobotsTxt attrs uri	= do
-			  res <- runX ( readDocument ( addEntries [ (a_parse_by_mimetype,        v_1)	-- these 3 options are important for reading none XML/HTML documents
-								  , (a_parse_html,               v_0)
-								  , (a_ignore_none_xml_contents, v_0)
-								  , (a_accept_mimetypes, "text/plain")	-- robots.txt is plain text
-								  , (curl_location,              v_1)	-- follow redirects for robots.txt
-								  ]
-						                  attrs
-						     ) (getHost uri ++ "/robots.txt")
-					>>>
-					documentStatusOk
-					>>>
-					getChildren
-					>>>
-				        getText
-				      )
-			  return $ concat res
+getRobotsTxt		:: CrawlerConfig c r -> URI -> IO String
+getRobotsTxt c uri	= runX processRobotsTxt >>= (return . concat)
+    where
+    processRobotsTxt	=  hxtSetTraceAndErrorLogger (getS theTraceLevelHxt c)
+			   >>>
+			   readDocument ( addEntries [ (a_parse_by_mimetype,        v_1)	-- these 3 options are important for reading none XML/HTML documents
+						     , (a_parse_html,               v_0)
+						     , (a_ignore_none_xml_contents, v_0)
+						     , (a_accept_mimetypes, "text/plain")	-- robots.txt is plain text
+						     , (curl_location,              v_1)	-- follow redirects for robots.txt
+						     ]
+						     (getS theReadAttributes c)
+					) (getHost uri ++ "/robots.txt")
+			   >>>
+			   documentStatusOk
+			   >>>
+			   getChildren
+			   >>>
+			   getText
 
 -- ------------------------------------------------------------
 
@@ -178,54 +177,14 @@ evalRobotsTxt agent t	= lines
 
 -- ------------------------------------------------------------
 
-emptyRobots		:: Robots
-emptyRobots		= M.singleton "" []
+-- | Enable the evaluation of robots.txt
 
-robotsExtend		:: String -> URI -> Robots -> IO Robots
-robotsExtend _robotName _uri robots
-			= return robots			-- TODO
+enableRobotsTxt		:: CrawlerConfig a r -> CrawlerConfig a r
+enableRobotsTxt		= setS theAddRobotsAction robotsAddHost
 
-robotsIndex		:: URI -> Robots -> Bool
-robotsIndex _uri _robots
-			= True				-- TODO
+-- | Disable the evaluation of robots.txt
 
-robotsFollow		:: URI -> Robots -> Bool
-robotsFollow _uri _robots
-			= True				-- TODO
+disableRobotsTxt	:: CrawlerConfig a r -> CrawlerConfig a r
+disableRobotsTxt	= setS theAddRobotsAction robotsDontAddHost
 
 -- ------------------------------------------------------------
-
-robotsNo	:: String -> LA XmlTree XmlTree
-robotsNo what	= none
-		  `when`
-		  ( this /> hasName "html" /> hasName "head" /> hasName "meta" -- getByPath ["html", "head", "meta"]
-		    >>>
-		    hasAttrValue "name" ( map toUpper
-					  >>>
-					  (== "ROBOTS")
-					)
-		    >>>
-		    getAttrValue0 "content"
-		    >>>
-		    isA ( map (toUpper >>> (\ x -> if isLetter x then x else ' '))
-			  >>>
-			  words
-			  >>>
-			  (what `elem`)
-			)
-		  )	  
-
--- | robots no index filter. This filter checks HTML documents
--- for a \<meta name=\"robots\" content=\"noindex\"\> in the head of the document
-
-robotsNoIndex	:: ArrowXml a => a XmlTree XmlTree
-robotsNoIndex	= fromLA $ robotsNo "NOINDEX"
-
--- | robots no follow filter. This filter checks HTML documents
--- for a \<meta name=\"robots\" content=\"nofollow\"\> in the head of the document
-
-robotsNoFollow	:: ArrowXml a => a XmlTree XmlTree
-robotsNoFollow	= fromLA $ robotsNo "NOFOLLOW"
-
--- ------------------------------------------------------------
-

@@ -72,8 +72,9 @@ urisToBeProcessed uris		= do
 
 uriAddToRobotsTxt		:: URI -> CrawlerAction a r ()
 uriAddToRobotsTxt uri		= do
-				  raa <- getConf theAddRobotsAction
-				  modifyStateIO theRobots (raa uri)
+                                  conf <- ask
+				  let raa = getS theAddRobotsAction conf
+				  modifyStateIO theRobots (raa conf uri)
 
 accumulateRes			:: (URI, a) -> CrawlerAction a r ()
 accumulateRes res		= do
@@ -157,6 +158,7 @@ crawlNextDocs		= do
                                                                 mapFold t (processCmd conf state) (combineDocResults conf) $
                                                                 urisAllowed
                                noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found, accumulating results"]
+                               mapM_ (debugC "crawlNextDocs") $ map (("href" :) . (:[])) $ toListURIs urisNew
                                urisProcessed     urisMoved
                                urisToBeProcessed urisNew
                                acc0 <- getState theResultAccu
