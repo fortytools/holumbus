@@ -38,10 +38,15 @@ simpleFollowRef isAllowed isDenied
 
 simpleFollowRef'		:: [String] -> [String] -> (String -> Bool)
 simpleFollowRef' allowed denied
-				= simpleFollowRef (match $ mkAlt allowed) (match $ mkAlt denied)
+				= simpleFollowRef allowed' denied'
     where
     mkAlt			:: [String] -> String
     mkAlt rs			= "(" ++ intercalate "|" rs ++ ")"
-
+    allowed'
+        | null allowed		= const True
+        | otherwise		= match $ mkAlt allowed
+    denied'
+        | null denied		= const False
+        | otherwise		= match $ mkAlt denied
 
 -- ------------------------------------------------------------
