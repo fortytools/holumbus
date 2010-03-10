@@ -1,5 +1,7 @@
 N       = 1
 
+pkg	= hxt,hxt-filter,hxt-binary,hxt-cache
+
 src	= HayooCache.hs HayooConfig.hs
 
 prog	= ./updateCache
@@ -21,6 +23,10 @@ run	: $(prog)
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
 	$(prog) +RTS -N$(N) -s -K100M -RTS "" tmp/ix.xml
+
+update	: $(prog)
+	$(prog) +RTS -N$(N) -s -K100M -RTS -u "$(pkg)" "" tmp/ix.xml
+
 
 clean	:
 	rm -f *.o *.hi $(prog)

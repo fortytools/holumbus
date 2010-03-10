@@ -22,8 +22,21 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( sed )
 hayooStart			:: [URI]
 hayooStart			= hackageStart ++ gtk2hsStart
 
-hayooRefs			:: URI -> Bool
-hayooRefs			= liftA2 (||) hackageRefs gtk2hsRefs
+hayooRefs			:: [String] -> URI -> Bool
+hayooRefs pkgs 			= liftA2 (||) hackageRefs' gtk2hsRefs'
+    where
+    hackageRefs'
+	| null pkgs		= hackageRefs pkgs
+	| null hackagePkgs	= const False
+	| otherwise		= hackageRefs hackagePkgs
+	where
+	hackagePkgs		= filter (`notElem` ["gtk2hs"]) $ pkgs
+    gtk2hsRefs'
+	| null pkgs		= gtk2hsRefs
+	| null gtk2hsPkgs	= const False
+	| otherwise		= gtk2hsRefs
+	where
+	gtk2hsPkgs		= filter (`elem` ["gtk2hs"]) $ pkgs
 
 hackageHome			:: String
 hackageHome			= "http://hackage.haskell.org/packages/"
@@ -34,8 +47,8 @@ hackagePackages			= "http://hackage.haskell.org/package/"		-- no "s" at the end 
 hackageStart			:: [URI]
 hackageStart			=  [ hackageHome ++ "archive/pkg-list.html" ]
 
-hackageRefs			:: URI -> Bool
-hackageRefs			= simpleFollowRef'
+hackageRefs			:: [String] -> URI -> Bool
+hackageRefs pkgs		= simpleFollowRef'
 				  [ hackagePackages ++ packageName
                                   , packageDocPath ++ modulePath ++ ext "html"
                                   ]
@@ -45,10 +58,13 @@ hackageRefs			= simpleFollowRef'
                                   , rottenDocumentation
                                   ]
     where
-    packageName			= fileName
-    packageDocPath		= hackageHome ++ "archive/" ++ path ++ "/doc/html/"
+    packageName
+	| null pkgs		= fileName
+	| otherwise		= alternatives pkgs
 
-    rottenDocumentation		= packageDocPath ++ "(" ++ intercalate "|" ds ++ ")" ++ ext "html"
+    packageDocPath		= hackageHome ++ "archive/" ++ packageName ++ "/" ++ path ++ "/doc/html/"
+
+    rottenDocumentation		= packageDocPath ++ alternatives ds ++ ext "html"
         where
         ds			= [ "Database-HaskellDB-BoundedList"
                                   , "Data-TypeLevel-Num-Aliases"
@@ -77,6 +93,9 @@ gtk2hsHome			= "http://www.haskell.org/gtk2hs/docs/current/"
 -- ------------------------------------------------------------
 
 -- common R.E.s
+
+alternatives			:: [String] -> String
+alternatives			= ("(" ++) . (++ ")") . intercalate "|"
 
 moduleName			:: String
 moduleName			= "[A-Z][A-Za-z0-9_]*"

@@ -26,7 +26,7 @@ simpleCacher			= stdCacher
 				  [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 				  , (a_compress, v_1		)			-- cache files will be compressed
 				  , (a_document_age,
-					 show $ (60 * 60 * 24 * 1::Integer))		-- cache remains valid 1 day
+					 show $ (60 * 60 * 24 * 1::Int))		-- cache remains valid 1 day
                                   , (a_accept_mimetypes, 	unwords [text_html, application_xhtml])
 				  , (a_parse_html,              v_0)
 				  , (a_parse_by_mimetype,	v_1)
@@ -36,6 +36,13 @@ simpleCacher			= stdCacher
                                     disableRobotsTxt					-- for hayoo robots.txt is not needed
                                   )
 -}
+
+crawlDoc			:: (Int, Int, Int)
+crawlSav			:: (Int, String)
+crawlLog			:: (Priority, Priority)
+crawlPar			:: [(String, String)]
+crawlFct			:: CacheCrawlerConfig -> CacheCrawlerConfig
+
 crawlDoc			= (15000, 100, 10)					-- max docs, max par docs, max threads
 crawlSav			= (500, "./tmp/ix-")					-- save intervall and path
 crawlLog			= (DEBUG, NOTICE)					-- log cache and hxt
@@ -60,33 +67,38 @@ editPackageURIs			= update theProcessRefs (>>> arr editLatestPackage)
 -- ------------------------------------------------------------
 
 hayooCacher 			:: Maybe String -> IO CacheState
-hayooCacher resume              = stdCacher crawlDoc crawlSav crawlLog crawlPar crawlFct resume hayooStart hayooRefs
+hayooCacher resume              = stdCacher crawlDoc crawlSav crawlLog crawlPar crawlFct resume hayooStart (hayooRefs [])
 
 -- ------------------------------------------------------------
 
 hayooPackageUpdate		:: [String] -> IO CacheState
-hayooPackageUpdate pkgs		= stdCacher crawlDoc crawlSav crawlLog crawlPar' crawlFct Nothing (hayooPkgStart pkgs) (hayooPkgRefs pkgs)
+hayooPackageUpdate pkgs		= stdCacher crawlDoc crawlSav crawlLog crawlPar' crawlFct Nothing hayooStart (hayooRefs pkgs)
     where
-    crawlPar'			= addEntries [(a_document_age, show $ (60 * 1 * 1 * 1::Integer))] crawlPar
-    hayooPkgStart		= undefined
-    hayooPkgRefs		= undefined
+    crawlPar'			= addEntries [(a_document_age, show $ (1 * 1 * 1 * 1::Int))] crawlPar		-- cache validation initiated (1 sec valid) 
 
 -- ------------------------------------------------------------
 
-getOptions                      :: [String] -> (Maybe String, String, String)
-getOptions ("-r":fn:as)         = (Just fn, s, r)
+getOptions                      :: [String] -> (Maybe [String], Maybe String, String, String)
+getOptions ("-r":fn:as)         = (Nothing, Just fn, s, r)
                                   where
-                                  (_, s, r) = getOptions as
-getOptions (uri : out : _)      = (Nothing, uri, out)
-getOptions (uri : _)            = (Nothing, uri, "")
-getOptions []                   = (Nothing, "", "")
+                                  (_, _, s, r) = getOptions as
+getOptions ("-u":pns:as)	= (Just pnl, Nothing, s, r)
+				  where
+				  (_, _, s, r) = getOptions as
+				  pnl = words . map (\ x -> if x == ',' then ' ' else x) $ pns
+getOptions (uri : out : _)      = (Nothing, Nothing, uri, out)
+getOptions (uri : _)            = (Nothing, Nothing, uri, "")
+getOptions []                   = (Nothing, Nothing, "", "")
 
 main                            :: IO ()
 main                            = do
-                                  (resume, _sid, out) <- getArgs >>= return . getOptions
+                                  (updpkg, resume, _sid, out) <- getArgs >>= return . getOptions
                                   runX ( hxtSetTraceAndErrorLogger NOTICE
                                          >>>
-                                         arrIO0 (hayooCacher resume)
+                                         arrIO0 ( case updpkg of
+						  Nothing -> hayooCacher resume
+						  Just ps -> hayooPackageUpdate ps
+						)
                                          >>>
                                          traceMsg 0 (unwords ["writing cache into XML file", out])
                                          >>>
