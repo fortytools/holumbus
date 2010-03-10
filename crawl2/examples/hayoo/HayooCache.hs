@@ -11,8 +11,9 @@ import		 Holumbus.Crawler.CacheCore
 
 import           System.Environment
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Arrow	hiding	( readDocument ) 
 import           Text.XML.HXT.Arrow.XmlCache
+import		 Text.XML.HXT.XPath
 
 import		 HayooConfig
 
@@ -66,6 +67,18 @@ editPackageURIs			= update theProcessRefs (>>> arr editLatestPackage)
 
 -- ------------------------------------------------------------
 
+getRecentPackages		:: IOSArrow b String
+getRecentPackages		= readDocument [ (a_validate, v_0)
+					       ] "http://hackage.haskell.org/packages/archive/recent.rss"
+				  >>>
+				  getXPathTrees "/rss/channel/item/title"
+				  >>>
+				  xshow (deep isText)
+				  >>>
+				  arr (words >>> take 1 >>> concat)
+
+-- ------------------------------------------------------------
+
 hayooCacher 			:: Maybe String -> IO CacheState
 hayooCacher resume              = stdCacher crawlDoc crawlSav crawlLog crawlPar crawlFct resume hayooStart (hayooRefs [])
 
@@ -93,12 +106,23 @@ getOptions []                   = (Nothing, Nothing, "", "")
 main                            :: IO ()
 main                            = do
                                   (updpkg, resume, _sid, out) <- getArgs >>= return . getOptions
-                                  runX ( hxtSetTraceAndErrorLogger NOTICE
+                                  runX ( setTraceLevel 1 -- hxtSetTraceAndErrorLogger DEBUG -- NOTICE
                                          >>>
-                                         arrIO0 ( case updpkg of
-						  Nothing -> hayooCacher resume
-						  Just ps -> hayooPackageUpdate ps
-						)
+					 ( case updpkg of
+					   Nothing -> arrIO0 (hayooCacher resume)
+					   Just [] -> ( traceMsg 0 "fetching hackage rss feed of recent packages"
+							>>>
+							listA getRecentPackages
+							>>>
+							traceValue 0 (("updating recent packages: " ++) . show)
+							>>>
+							( isA (not . null) `guards` arrIO hayooPackageUpdate )
+						      )
+					   Just ps -> ( traceMsg 0 ("updating packages: " ++ show ps)
+							>>>
+							arrIO0 (hayooPackageUpdate ps)
+						      )
+					 )
                                          >>>
                                          traceMsg 0 (unwords ["writing cache into XML file", out])
                                          >>>
