@@ -22,10 +22,13 @@ test	: run
 run	: $(prog)
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	$(prog) +RTS -N$(N) -s -K100M -RTS "" tmp/ix.xml
+	$(prog) +RTS -N$(N) -s -K100M -RTS -o tmp/ix.xml
 
 update	: $(prog)
-	$(prog) +RTS -N$(N) -s -K100M -RTS -u "$(pkg)" "" tmp/ix.xml
+	$(prog) +RTS -N$(N) -s -K100M -RTS -p "$(pkg)" -o tmp/ix.xml
+
+recent	: $(prog)
+	$(prog) +RTS -N$(N) -s -K100M -RTS -r -o tmp/ix.xml
 
 
 clean	:

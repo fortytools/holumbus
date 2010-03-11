@@ -18,6 +18,7 @@ module Holumbus.Crawler.Logger
     , warnC
     , errC
     , setLogLevel
+    , setLogLevel'
     )
 where
 
@@ -57,8 +58,10 @@ warnC   n			= logC n WARNING
 errC    n       		= logC n ERROR
 
 setLogLevel			:: String -> Priority -> CrawlerAction c r ()
-setLogLevel logName' priority	= liftIO $
-                                  updateGlobalLogger (realLogName logName') (setLevel priority)
+setLogLevel  logName' priority	= liftIO $ setLogLevel' logName' priority
+
+setLogLevel'			:: String -> Priority -> IO ()
+setLogLevel' logName' priority	= updateGlobalLogger (realLogName logName') (setLevel priority)
 
 -- ------------------------------------------------------------
 
