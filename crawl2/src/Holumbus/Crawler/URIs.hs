@@ -5,7 +5,8 @@
 module Holumbus.Crawler.URIs
 where
 
-import qualified Data.Set       		as S
+-- import qualified Data.Set       		as S
+import qualified Holumbus.Data.PrefixTree	as S
 
 -- ------------------------------------------------------------
 
@@ -13,8 +14,10 @@ import qualified Data.Set       		as S
 type URI			= String
 
 
--- | A set of URIs
-type URIs			= S.Set URI
+-- | A set of URIs implemeted as a prefix tree. This implementation
+-- is space efficient, because of many equal prefixes in the crawled set of URIs
+
+type URIs			= S.PrefixTree ()
 
 -- ------------------------------------------------------------
 
@@ -22,7 +25,7 @@ emptyURIs		:: URIs
 emptyURIs		= S.empty
 
 singletonURIs		:: URI -> URIs
-singletonURIs		= S.singleton
+singletonURIs		= flip S.singleton ()
 
 nullURIs		:: URIs -> Bool
 nullURIs		= S.null
@@ -34,13 +37,13 @@ cardURIs		:: URIs -> Int
 cardURIs		= S.size
 
 nextURI			:: URIs -> URI
-nextURI			= S.findMin
+nextURI			= head . toListURIs
 
 nextURIs		:: Int -> URIs -> [URI]
-nextURIs n		= take n . S.toList
+nextURIs n		= take n . toListURIs
 
 insertURI		:: URI -> URIs	-> URIs
-insertURI		= S.insert
+insertURI		= flip S.insert ()
 
 deleteURI		:: URI -> URIs	-> URIs
 deleteURI		= S.delete
@@ -55,13 +58,13 @@ diffURIs   		:: URIs -> URIs -> URIs
 diffURIs   		= S.difference
 
 fromListURIs		:: [URI] -> URIs
-fromListURIs		= S.fromList
+fromListURIs		= S.fromList . map (\ x -> (x, ()))
 
 toListURIs		:: URIs -> [URI]
-toListURIs		= S.toList
+toListURIs		= map fst . S.toList
 
 foldURIs		:: (URI -> b -> b) -> b -> URIs -> b
-foldURIs		= S.fold
+foldURIs f		= S.foldWithKey (\ x _ r -> f x r)
 
 -- ------------------------------------------------------------
 

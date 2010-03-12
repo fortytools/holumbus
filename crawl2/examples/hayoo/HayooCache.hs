@@ -156,7 +156,7 @@ main1 pn args
 
 -- ------------------------------------------------------------
 
-parseTime			:: String -> Either String Int
+parseTime				:: String -> Either String Int
 parseTime s
     | match "[0-9]+(s(ec)?)?"      s	= Right $ t
     | match "[0-9]+(m(in)?)?"      s	= Right $ t * 60
@@ -166,7 +166,7 @@ parseTime s
     | match "[0-9]+(m(onth(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 30
     | otherwise				= Left  $ "error in duration format"
     where
-    t = read . filter isDigit $ s
+    t 					= read . filter isDigit $ s
 
 setDocAge			:: Int -> [(String, String)] -> [(String, String)]
 setDocAge d			=  addEntries [(a_document_age, show d)]

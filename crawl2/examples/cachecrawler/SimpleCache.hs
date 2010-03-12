@@ -15,7 +15,7 @@ import           Text.XML.HXT.Arrow.XmlCache
 
 -- ------------------------------------------------------------
 
-simpleCacher			:: Maybe String -> [URI] -> (URI -> Bool) -> IO CacheState
+simpleCacher			:: Maybe String -> [URI] -> (URI -> Bool) -> IO CacheCrawlerState
 simpleCacher			= stdCacher
                                   (5000, 5, 5)						-- max docs, max par docs, max threads
                                   (500, "./tmp/ix-")					-- save intervall and path
@@ -32,7 +32,7 @@ simpleCacher			= stdCacher
 
 -- ------------------------------------------------------------
 
-siCacher                       :: Maybe String -> IO CacheState
+siCacher                       :: Maybe String -> IO CacheCrawlerState
 siCacher resume                = simpleCacher resume startUris refs
     where
     startUris                   = [ "http://www.fh-wedel.de/~si/index.html"
