@@ -51,8 +51,8 @@ deleteURIs		= flip S.difference
 unionURIs		:: URIs -> URIs	-> URIs
 unionURIs		= S.union
 
-diffURIs   :: URIs -> URIs -> URIs
-diffURIs   = S.difference
+diffURIs   		:: URIs -> URIs -> URIs
+diffURIs   		= S.difference
 
 fromListURIs		:: [URI] -> URIs
 fromListURIs		= S.fromList

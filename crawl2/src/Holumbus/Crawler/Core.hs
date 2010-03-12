@@ -331,10 +331,8 @@ runCrawler a			= runReaderStateIO (initCrawler >> a)
 
 -- run a crawler and deliver just the accumulated result value
 
-execCrawler			:: CrawlerAction a r x -> CrawlerConfig a r -> CrawlerState r -> IO r
+execCrawler			:: CrawlerAction a r x -> CrawlerConfig a r -> CrawlerState r -> IO (CrawlerState r)
 execCrawler cmd config initState
-				= do
-				  (_, finalState) <- runCrawler cmd config initState
-				  return (getS theResultAccu finalState)
+				= runCrawler cmd config initState >>= return . snd
 
 -- ------------------------------------------------------------

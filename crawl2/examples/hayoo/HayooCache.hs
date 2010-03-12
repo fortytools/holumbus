@@ -5,6 +5,7 @@
 module Main
 where
 
+import           Data.Char
 import		 Data.Function.Selector		( update )
 import           Data.Maybe
 
@@ -19,6 +20,7 @@ import           System.IO
 import		 Text.XML.HXT.Arrow	hiding	( readDocument ) 
 import           Text.XML.HXT.Arrow.XmlCache
 import		 Text.XML.HXT.XPath
+import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
 import		 HayooConfig
 
@@ -41,19 +43,19 @@ getRecentPackages		= readDocument [ (a_validate, v_0)
 
 -- ------------------------------------------------------------
 
-hayooCacher 			:: AppOpts -> IO CacheState
+hayooCacher 			:: AppOpts -> IO CacheCrawlerState
 hayooCacher o              	= stdCacher (ao_crawlDoc o) (ao_crawlSav o) (ao_crawlLog o) (ao_crawlPar o) (ao_crawlFct o) (ao_resume o)
 				            hayooStart
 					    (hayooRefs [])
 
 -- ------------------------------------------------------------
 
-hayooPackageUpdate		:: AppOpts -> [String] -> IO CacheState
+hayooPackageUpdate		:: AppOpts -> [String] -> IO CacheCrawlerState
 hayooPackageUpdate o pkgs	= stdCacher (ao_crawlDoc o) (ao_crawlSav o) (ao_crawlLog o) crawlPar' (ao_crawlFct o) Nothing
 				            hayooStart
 					    (hayooRefs pkgs)
     where
-    crawlPar'			= addEntries [(a_document_age, show $ (1 * 1 * 1 * 1::Int))] (ao_crawlPar o)		-- cache validation initiated (1 sec valid) 
+    crawlPar'			= setDocAge 1 (ao_crawlPar o)							-- cache validation initiated (1 sec valid) 
 
 -- ------------------------------------------------------------
 
@@ -84,11 +86,13 @@ initAppOpts			= AO { ao_output	= ""
 				     , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
 				     , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
 				     , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
-				     , ao_crawlPar	= [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
+				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 1) $			-- cache remains valid 1 day
+                                                          [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 							  , (a_compress, v_1		)			-- cache files will be compressed
-							  , (a_document_age,
-							     show $ (60 * 60 * 24 * 1::Int))			-- cache remains valid 1 day
-							  , (a_accept_mimetypes, 	unwords [text_html, application_xhtml])
+							  , (a_accept_mimetypes,
+ 	                                                     unwords [ text_html
+                                                                     , application_xhtml
+                                                                     ])
 							  , (a_parse_html,              v_0)
 							  , (a_parse_by_mimetype,	v_1)
 							  ]
@@ -138,8 +142,34 @@ main1 pn args
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) "PACKAGE-LIST")	"update a comma separated list of packages"
 				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  "FILE")		"resume program with status file"
 				  , Option "u"  ["update"]	(NoArg  $ \   x -> x { ao_recent   = True })				"update packages from hackage rss feed" 
+                                  , Option "d"  ["valid"]	(ReqArg ( \ t x -> either (\ e -> x { ao_msg  = e
+                                                                                                    , ao_help = True
+                                                                                                    }
+                                                                                          )
+                                                                                          (\ s -> x { ao_crawlPar = setDocAge s $
+                                                                                                                    ao_crawlPar x
+                                                                                                    }
+                                                                                          ) . parseTime $ t
+                                                                        )					 "DURATION")		"validate cache for pages older than given time, format: 10sec, 5min, 20hours, 3days, 5weeks, 1month"
 				  ]
     pkgList			= words . map (\ x -> if x == ',' then ' ' else x)
+
+-- ------------------------------------------------------------
+
+parseTime			:: String -> Either String Int
+parseTime s
+    | match "[0-9]+(s(ec)?)?"      s	= Right $ t
+    | match "[0-9]+(m(in)?)?"      s	= Right $ t * 60
+    | match "[0-9]+(h(our(s)?)?)?" s	= Right $ t * 60 * 60
+    | match "[0-9]+(d(ay(s)?)?)?"  s	= Right $ t * 60 * 60 * 24
+    | match "[0-9]+(w(wwk(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 7
+    | match "[0-9]+(m(onth(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 30
+    | otherwise				= Left  $ "error in duration format"
+    where
+    t = read . filter isDigit $ s
+
+setDocAge			:: Int -> [(String, String)] -> [(String, String)]
+setDocAge d			=  addEntries [(a_document_age, show d)]
 
 -- ------------------------------------------------------------
 
@@ -148,7 +178,7 @@ main2 opts			= runX ( hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ opts)
                                          >>>
 				         action
                                          >>>
-                                         traceMsg 0 (unwords ["writing cache into XML file", out])
+                                         traceMsg 0 (unwords ["writing cache state into XML file", out])
                                          >>>
                                          xpickleDocument xpickle [(a_indent, v_1)] out
                                          >>>
