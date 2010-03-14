@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 {- |
   Module     : Holumbus.Common.FileHandling
-  Copyright  : Copyright (C) 2008 Stefan Schmidt
+  Copyright  : Copyright (C) 2010 Stefan Schmidt
   License    : MIT
 
   Maintainer : Stefan Schmidt (stefanschmidt@web.de)
@@ -71,7 +71,7 @@ import qualified Data.ByteString.Lazy as B
 import           Data.Char
 import           Data.List
 import           Foreign
-import           System.IO
+import           System.IO hiding (utf8)
 import           System.IO.Unsafe
 
 import           Text.XML.HXT.Arrow
