@@ -3,7 +3,7 @@ version:       0.0.1
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Stefan Schmidt
-copyright:     Copyright (c) 2008 Uwe Schmidt, Stefan Schmidt
+copyright:     Copyright (c) 2010 Stefan Schmidt, Uwe Schmidt, Sebastian Reese
 maintainer:    Stefan Schmidt <sts@holumbus.org>
 stability:     experimental
 category:      Distributed Computing
