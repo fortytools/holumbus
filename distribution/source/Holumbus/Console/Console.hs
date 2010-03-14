@@ -51,12 +51,9 @@ module Holumbus.Console.Console
 where
 
 import           Control.Concurrent
-import           Control.Monad
 
-import           Data.Char
 import qualified Data.Map as Map
 
-import           System.IO
 import           System.Console.Editline.Readline
 
 import           Holumbus.Common.Utils	( handleAll )

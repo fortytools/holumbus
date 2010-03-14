@@ -95,7 +95,7 @@ loadFromXmlFile f
 saveToXmlFile :: (XmlPickler a) => FilePath -> a -> IO ()
 saveToXmlFile f i 
   = do
-    runX (constA i >>> xpickleDocument xpickle options f)
+    _ <- runX (constA i >>> xpickleDocument xpickle options f)
     return ()
     where
     options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]

@@ -45,9 +45,6 @@ import qualified Data.ByteString.Lazy as B
 
 -- import qualified Data.Map as Map
 
-import           Data.Maybe
-import           Data.Char
-
 -- import           System.Exit
 
 -- ------------------------------------------------------------

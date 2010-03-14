@@ -46,7 +46,6 @@ module Holumbus.Data.KeyMap
 where
 
 import           Prelude hiding (null, lookup)
-import           Data.Maybe
 import qualified Data.Map as Map
 
 -- | Every element of this map has to implement a key-function. which

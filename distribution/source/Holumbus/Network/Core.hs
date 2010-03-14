@@ -53,7 +53,6 @@ import           Control.Exception      ( Exception
           , bracket
           , catch
           )
-import           Control.Monad
 
 import           Data.Binary
 --import           Holumbus.Common.MRBinary
@@ -195,7 +194,7 @@ getSocket po =
   -- for MS-Windows Systems
   withSocketsDo $ do
   -- Don't let the server be terminated by sockets closed unexpectedly by the client.
-  installHandler sigPIPE Ignore Nothing
+  _ <- installHandler sigPIPE Ignore Nothing
   socket <- listenOn po
   return socket
 
@@ -206,7 +205,7 @@ waitForRequests :: ServerDispatcher -> Socket -> SocketId -> IO ()
 waitForRequests f socket soid = 
   do
   client <- accept socket
-  forkIO $ processRequest f soid client   -- Spawn new thread to answer the current request.
+  _ <- forkIO $ processRequest f soid client   -- Spawn new thread to answer the current request.
   waitForRequests f socket soid       -- Wait for more requests.
 
 
@@ -239,7 +238,7 @@ processRequest f soid client =
 sendRequest :: (Handle -> IO a) -> HostName -> PortNumber -> IO a
 sendRequest f n p = 
   withSocketsDo $ do 
-    installHandler sigPIPE Ignore Nothing
+    _ <- installHandler sigPIPE Ignore Nothing
     
     --TODO exception handling
     --handle (\e -> do putStrLn $ show e return False) $
