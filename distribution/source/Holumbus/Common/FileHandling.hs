@@ -69,7 +69,6 @@ import           Control.Exception
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
-import           Data.List
 import           Foreign
 import           System.IO hiding (utf8)
 import           System.IO.Unsafe
