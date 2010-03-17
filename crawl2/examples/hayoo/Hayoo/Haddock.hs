@@ -19,7 +19,16 @@ import           Text.XML.HXT.XPath
 -- ------------------------------------------------------------
 
 hayooGetFctInfo			:: IOSArrow XmlTree FunctionInfo
-hayooGetFctInfo			= getAttrValue transferURI >>^ mkFunctionInfo
+hayooGetFctInfo			= ( getAttrValue "module"
+				    &&&
+				    getAttrValue "signature"
+				    &&&
+				    getAttrValue "package"
+				    &&&
+				    getAttrValue "source"
+				  )
+				  >>^
+				  (\ (m, (s, (p, r))) -> mkFunctionInfo m s p r)
 
 -- ------------------------------------------------------------
 

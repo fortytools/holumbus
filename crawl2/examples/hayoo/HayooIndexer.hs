@@ -52,7 +52,7 @@ hayooIndexer o                  = stdIndexer
                                   (hayooRefs $ ao_packages o)
                                   Nothing
                                   (Just $ checkDocumentStatus >>> prepareHaddock)
-                                  (Just getTitleOrDocName)                              -- the document title
+                                  (Just $ fromLA getTitle)
 				  (Just $ hayooGetFctInfo)
                                   hayooIndexContextConfig
 

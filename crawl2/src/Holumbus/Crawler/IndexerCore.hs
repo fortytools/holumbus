@@ -68,21 +68,23 @@ instance (NFData i, NFData (d c)) => NFData (IndexerState i d c) where
 -- ------------------------------------------------------------
 
 instance (Binary i, Binary (d c)) => Binary (IndexerState i d c) where
-    put s               = B.put (ixs_index s)
-                          >>
-                          B.put (ixs_documents s)
-    get                 = do
-                          ix <- B.get
-                          dm <- B.get
-                          return $ IndexerState
-                                   { ixs_index          = ix
-                                   , ixs_documents      = dm
-                                   }
+    put s               	= B.put (ixs_index s)
+				  >>
+				  B.put (ixs_documents s)
+    get                 	= do
+				  ix <- B.get
+				  dm <- B.get
+				  return $ IndexerState
+					     { ixs_index          = ix
+					     , ixs_documents      = dm
+					     }
 
 instance (XmlPickler i, XmlPickler (d c)) => XmlPickler (IndexerState i d c) where
-    xpickle             = xpElem "index-state" $
-                          xpWrap (uncurry IndexerState, \ ix -> (ixs_index ix, ixs_documents ix)) $
-                          xpPair xpickle xpickle
+    xpickle             	= xpElem "index-state" $
+				  xpWrap ( uncurry IndexerState
+					 , \ ix -> (ixs_index ix, ixs_documents ix)
+					 ) $
+					 xpPair xpickle xpickle
 
 -- ------------------------------------------------------------
 
