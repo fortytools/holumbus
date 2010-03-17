@@ -2,12 +2,14 @@
 
 -- ------------------------------------------------------------
 
-module HayooConfig
+module Hayoo.URIConfig
+{-
     ( hayooStart
     , hayooRefs
     , hayooGetPackage
     , editLatestPackage
     )
+-}
 where
 
 import           Control.Applicative
@@ -60,19 +62,25 @@ hackageStart			=  [ hackageHome ++ "archive/pkg-list.html" ]
 hackageRefs			:: [String] -> URI -> Bool
 hackageRefs pkgs		= simpleFollowRef'
 				  [ hackagePackages ++ packageName
-                                  , hackagePackageDocPath ++ modulePath ++ ext "html"
+                                  , packageDocPath  ++ modulePath ++ ext "html"
                                   ]
-                                  [ hackagePackageDocPath ++ "doc-index.*" ++ ext "html"	-- no index files
-                                  , hackagePackageDocPath ++ "src/.*"				-- no hscolored sources
-                                  , hackagePackages ++ packageName ++ "-[0-9.]+"	-- no package pages with (old) version numbers
+                                  [ packageDocPath ++ alternatives
+                                                       [ "doc-index.*" ++ ext "html"		-- no index files
+                                                       , "src/.*"				-- no hscolored sources
+                                                       ]
+                                  , hackagePackages ++ packageName ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
                                   , rottenDocumentation
                                   ]
     where
+    packageVersion		= "[0-9]+([.][0-9])+"
+    packageVersion'		= alternatives [packageVersion, "latest"]
+    packageDocPath		= hackagePackageDocPath ++ packageName ++ "/" ++ packageVersion' ++ "/doc/html/"
+
     packageName
 	| null pkgs		= fileName
 	| otherwise		= alternatives pkgs
 
-    rottenDocumentation		= hackagePackageDocPath ++ alternatives ds ++ ext "html"
+    rottenDocumentation		= packageDocPath ++ alternatives ds ++ ext "html"
         where
         ds			= [ "Database-HaskellDB-BoundedList"
                                   , "Data-TypeLevel-Num-Aliases"
@@ -134,6 +142,7 @@ path                        	= "[^?]+"
 ext				:: String -> String
 ext                         	= ("[.]" ++)
 
+-- ------------------------------------------------------------
 
 -- In the package doc URIs the package version number "/*.*.*/" is substituted by the alias "/latest/"
 

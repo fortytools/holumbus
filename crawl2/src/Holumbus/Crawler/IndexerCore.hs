@@ -45,6 +45,7 @@ type RawWord                    = (Word, Position)
 type RawTitle                   = String
 
 type IndexCrawlerConfig i d c   = CrawlerConfig (RawDoc c) (IndexerState i d c)
+type IndexCrawlerState  i d c   = CrawlerState             (IndexerState i d c)
 
 data IndexContextConfig         = IndexContextConfig
                                   { ixc_name           :: String
@@ -94,16 +95,14 @@ emptyIndexerState eix edm       = IndexerState
 -- ------------------------------------------------------------
 
 stdIndexer                      :: (Binary i, HolIndexM IO i, HolDocuments d c, NFData i, NFData (d c), NFData c, Binary c) =>
-                                   Maybe String                                 -- ^ resume from interrupted index run with state stored in file
+                                   IndexCrawlerConfig i d c                     -- ^ adapt configuration to special needs, use id if default is ok
+                                -> Maybe String                                 -- ^ resume from interrupted index run with state stored in file
                                 -> [URI]                                        -- ^ start indexing with this set of uris
-                                -> IndexCrawlerConfig i d c                     -- ^ adapt configuration to special needs, use id if default is ok
                                 -> IndexerState i d c                           -- ^ the initial empty indexer state
-                                -> IO (IndexerState i d c)                      -- ^ result is a state consisting of the index and the map of indexed documents
+                                -> IO (IndexCrawlerState i d c)                 -- ^ result is a state consisting of the index and the map of indexed documents
 
-stdIndexer resumeLoc startUris config eis
-                                = do
-                                  (_, ixState) <- runCrawler action config (initCrawlerState eis)
-                                  return (getS theResultAccu ixState)
+stdIndexer config resumeLoc startUris eis
+                                = execCrawler action config (initCrawlerState eis)
     where
     action                      = do
                                   noticeC "indexerCore" ["indexer started"]

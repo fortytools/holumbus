@@ -2,37 +2,47 @@ N       = 1
 
 pkg	= hxt,hxt-filter,hxt-binary,hxt-cache
 
-src	= HayooCache.hs HayooConfig.hs
+src	= $(wildcard Hayoo/*..hs)
 
-prog	= ./updateCache
+progs	= ./hayooCache ./hayooIndexer
+
 
 GHCOPTS	= -Wall -O2 -threaded -i../../src:../../../searchengine/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
 
-all	: $(prog)
+all	: $(progs)
 
-$(prog)	: $(src)
+./hayooCache	: HayooCache.hs $(src)
+	ghc  $(GHCOPTS) -o $@ --make $<
+
+./hayooIndexer	: HayooIndexer.hs $(src)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
 force	:
 	rm -f $(prog)
 	$(MAKE) GHCOPTS="$(GHCOPTS) -fforce-recomp"
 
-test	: run
+test	: cache
 
-run	: $(prog)
+index	: ./hayooIndexer
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	$(prog) +RTS -N$(N) -s -K100M -RTS -o tmp/ix.xml
+	$< +RTS -N$(N) -s -K100M -RTS -o tmp/ix.xml
 
-update	: $(prog)
-	$(prog) +RTS -N$(N) -s -K100M -RTS -p "$(pkg)" -o tmp/ix.xml
 
-recent	: $(prog)
-	$(prog) +RTS -N$(N) -s -K100M -RTS -r -o tmp/ix.xml
+cache	: ./hayooCache
+	[ -d ./tmp ]   || mkdir tmp
+	[ -d ./cache ] || mkdir cache
+	$< +RTS -N$(N) -s -K100M -RTS -o tmp/ix.xml
+
+update	: ./hayooCache
+	$< +RTS -N$(N) -s -K100M -RTS -p "$(pkg)" -o tmp/ix.xml
+
+recent	: ./hayooCache
+	$< +RTS -N$(N) -s -K100M -RTS -r -o tmp/ix.xml
 
 
 clean	:
-	rm -f *.o *.hi $(prog)
+	rm -f *.o *.hi $(progs)
 
 reset	:
 	rm -rf cache/* tmp/*

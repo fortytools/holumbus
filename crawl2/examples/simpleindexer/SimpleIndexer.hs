@@ -9,6 +9,7 @@ import           Control.DeepSeq
 
 import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B                    -- else naming conflict with put and get from Monad.State
+import           Data.Function.Selector
 
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
@@ -47,6 +48,8 @@ instance XmlPickler PlainText where
 type SimpleIndexerState         = IndexerState       Inverted Documents PlainText
 type SimpleIndexerConfig        = IndexCrawlerConfig Inverted Documents PlainText
 
+type SimpleIndexerCrawlerState	= CrawlerState SimpleIndexerState
+
 simpleIndexerConfig             :: (URI -> Bool)
                                 -> [IndexContextConfig]
                                 -> SimpleIndexerConfig
@@ -70,16 +73,16 @@ simpleIndexerConfig followRef ixc
 simpleIndexer                   :: (URI -> Bool)                                        -- uris to be processed
                                 -> [IndexContextConfig]
                                 -> [URI]                                                -- start uris
-                                -> IO SimpleIndexerState                                -- the index and document table with start of plain text
+                                -> IO SimpleIndexerCrawlerState                         -- the index and document table with start of plain text
 simpleIndexer refs ixc startUris
                                 = stdIndexer
-                                  Nothing
-                                  startUris
                                   ( setCrawlerTraceLevel indexerTraceLevel indexerTraceLevelHxt $
                                     setCrawlerSaveConf indexerSaveIntervall indexerSavePath $
                                     setCrawlerMaxDocs indexerMaxDocs indexerMaxParDocs indexerMaxParThreads $
                                     simpleIndexerConfig refs ixc
                                   )
+                                  Nothing
+                                  startUris
                                   ( emptyIndexerState emptyInverted emptyDocuments )
 
 -- ------------------------------------------------------------
@@ -107,7 +110,7 @@ indexerMaxParThreads		= 10
 
 -- ------------------------------------------------------------
 
-siIndexer                       :: IO SimpleIndexerState
+siIndexer                       :: IO SimpleIndexerCrawlerState
 siIndexer                       = simpleIndexer refs ixc startUris
     where
     startUris                   = [ "http://www.fh-wedel.de/~si/index.html"
@@ -240,6 +243,8 @@ main                            = do
                                   runX ( hxtSetTraceAndErrorLogger NOTICE
                                          >>>
                                          arrIO0 siIndexer
+                                         >>>
+                                         arr (getS theResultAccu)
                                          >>>
                                          traceMsg 0 (unwords ["writing index into XML file", out])
                                          >>>

@@ -1,11 +1,12 @@
-module Haddock
+module Hayoo.Haddock
 where
 
 import		 Data.List
 import		 Data.Maybe
 
-import           HayooConfig
-import		 HayooSignature
+import           Hayoo.URIConfig
+import           Hayoo.FunctionInfo
+import		 Hayoo.Signature
 
 import           Holumbus.Utility
 
@@ -14,6 +15,11 @@ import           Network.URI		( unEscapeString )
 import           Text.XML.HXT.Arrow     
 import           Text.XML.HXT.Arrow.XmlRegex
 import           Text.XML.HXT.XPath
+
+-- ------------------------------------------------------------
+
+hayooGetFctInfo			:: IOSArrow XmlTree FunctionInfo
+hayooGetFctInfo			= getAttrValue transferURI >>^ mkFunctionInfo
 
 -- ------------------------------------------------------------
 

@@ -1,4 +1,8 @@
-module HayooSignature
+{-# OPTIONS #-}
+
+-- ------------------------------------------------------------
+
+module Hayoo.Signature
 where
  
 import		 Data.Char
