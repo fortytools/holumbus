@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 {- |
   Module     : Holumbus.Common.FileHandling
-  Copyright  : Copyright (C) 2008 Stefan Schmidt
+  Copyright  : Copyright (C) 2010 Stefan Schmidt
   License    : MIT
 
   Maintainer : Stefan Schmidt (stefanschmidt@web.de)
@@ -69,9 +69,8 @@ import           Control.Exception
 import           Data.Binary
 import qualified Data.ByteString.Lazy as B
 import           Data.Char
-import           Data.List
 import           Foreign
-import           System.IO
+import           System.IO hiding (utf8)
 import           System.IO.Unsafe
 
 import           Text.XML.HXT.Arrow
@@ -96,7 +95,7 @@ loadFromXmlFile f
 saveToXmlFile :: (XmlPickler a) => FilePath -> a -> IO ()
 saveToXmlFile f i 
   = do
-    runX (constA i >>> xpickleDocument xpickle options f)
+    _ <- runX (constA i >>> xpickleDocument xpickle options f)
     return ()
     where
     options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]

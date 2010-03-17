@@ -194,7 +194,7 @@ getSocket po =
   -- for MS-Windows Systems
   withSocketsDo $ do
   -- Don't let the server be terminated by sockets closed unexpectedly by the client.
-  installHandler sigPIPE Ignore Nothing
+  _ <- installHandler sigPIPE Ignore Nothing
   socket <- listenOn (PortNumber po)
   return socket
 
@@ -205,7 +205,7 @@ waitForRequests :: HandlerFunction () -> Socket -> IO ()
 waitForRequests f socket = 
   do
   (hdl,_,_) <- accept socket
-  forkIO $ processRequest f hdl  -- Spawn new thread to answer the current request.
+  _ <- forkIO $ processRequest f hdl  -- Spawn new thread to answer the current request.
   waitForRequests f socket       -- Wait for more requests.
 
 
@@ -237,7 +237,7 @@ processRequest f conn =
 sendRequest :: HandlerFunction a -> HostName -> PortNumber -> IO a
 sendRequest f n p = 
   withSocketsDo $ do 
-    installHandler sigPIPE Ignore Nothing
+    _ <- installHandler sigPIPE Ignore Nothing
     
     --TODO exception handling
     --handle (\e -> do putStrLn $ show e return False) $

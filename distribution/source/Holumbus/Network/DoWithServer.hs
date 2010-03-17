@@ -78,7 +78,7 @@ doWithServer port action converter prompt =
     servSock <- listenOn . PortNumber . fromIntegral $ port
     handleAll (\_ -> sClose servSock) $ do
       acceptChan <- atomically newTChan
-      forkIO $ acceptLoop servSock acceptChan converter prompt
+      _ <- forkIO $ acceptLoop servSock acceptChan converter prompt
       mainLoop servSock acceptChan [] action prompt --`finally` sClose servSock
 
 
@@ -88,7 +88,7 @@ acceptLoop servSock chan convert prompt = do
   (handle, host, port) <- accept servSock
   hPrompt handle prompt
   ch <- atomically newTChan
-  forkIO $ clientLoop (Client ch handle host port) convert
+  _ <- forkIO $ clientLoop (Client ch handle host port) convert
   atomically $ writeTChan chan (Client ch handle host port)
   acceptLoop servSock chan convert prompt
 

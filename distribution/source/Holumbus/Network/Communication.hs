@@ -278,7 +278,7 @@ closeServer s@(Server server)
     debugM localLogger "closeServer: closeStream"
     closeStream stream
     debugM localLogger "closeServer: unregister clients"
-    mapM (\i -> do unregisterClient i s) allIds
+    _ <- mapM (\i -> do unregisterClient i s) allIds
     debugM localLogger "closeServer: end"
     return ()
 
