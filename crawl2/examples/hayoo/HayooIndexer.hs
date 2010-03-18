@@ -52,7 +52,7 @@ hayooIndexer o                  = stdIndexer
                                   (hayooRefs $ ao_packages o)
                                   Nothing
                                   (Just $ checkDocumentStatus >>> prepareHaddock)
-                                  (Just $ fromLA getTitle)
+                                  (Just $ hayooGetTitle)
 				  (Just $ hayooGetFctInfo)
                                   hayooIndexContextConfig
 
@@ -94,7 +94,7 @@ initAppOpts			= AO { ao_output	= ""
 				     , ao_msg		= ""
 				     , ao_crawlDoc	= (5, 5, 0)					-- max docs, max par docs, max threads
 				     , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
-				     , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
+				     , ao_crawlLog	= (DEBUG, DEBUG)					-- log cache and hxt
 				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
                                                           [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 							  , (a_compress, v_1		)			-- cache files will be compressed

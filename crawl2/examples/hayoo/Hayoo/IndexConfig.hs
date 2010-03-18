@@ -12,10 +12,16 @@ import		 Text.XML.HXT.Arrow
 import		 Text.XML.HXT.DOM.Unicode
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
+import           Hayoo.Haddock
+
 -- ------------------------------------------------------------
 
 hayooIndexContextConfig		:: [IndexContextConfig]
-hayooIndexContextConfig		= ixc
+hayooIndexContextConfig		= [ ixModule
+				  , ixHierachy
+				  , ixName
+				  , ixPartial
+				  ]
     where
     ixDefault                   =  IndexContextConfig
                                    { ixc_name           = "default"
@@ -23,21 +29,40 @@ hayooIndexContextConfig		= ixc
                                    , ixc_textToWords    = deleteNotAllowedChars >>> words
                                    , ixc_boringWord     = boringWord
                                    }
-    ixc                         = [ ixDefault
-                                    { ixc_name          = "module"
-                                    , ixc_collectText   = getAttrValue "module"
-				    , ixc_textToWords	= (:[])
-                                    }
-                                  , ixDefault
-                                    { ixc_name          = "hierarchy"
-                                    , ixc_collectText   = getAttrValue "module"
-				    , ixc_textToWords	= tokenize "[^.]+"		-- split module name at .
-                                    }
-                                  , ixDefault
-                                    { ixc_name          = "description"
-                                    , ixc_collectText   = getAllText this
-                                    }
-                                  ]
+    ixModule              	= ixDefault
+                                  { ixc_name          	= "module"
+                                  , ixc_collectText   	= getAttrValue "module"
+				  , ixc_textToWords	= (:[])
+                                  }
+    ixHierachy			= ixModule
+                                  { ixc_name          	= "hierarchy"
+				  , ixc_textToWords	= tokenize "[^.]+"		-- split module name at .
+                                  }
+    ixName			= ixDefault
+				  { ixc_name          	= "name"
+                                  , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "decl"))
+				  , ixc_textToWords	= tokenize "[^ ():](.*[^ ():])?"
+				  , ixc_boringWord	= (`elem` ["type", "class", "data"])
+                                  }
+    ixPartial			= ixName
+                                  { ixc_name          	= "partial"
+				  , ixc_textToWords	= deCamel >>> tokenize "[^ ():]([^ ]*[^ ():])?"
+                                  }
+
+deCamel				:: String -> String
+deCamel				= deCamel' False
+    where
+    deCamel' _ []     		= []
+    deCamel' _ ('_' : xs)	= ' ' : deCamel' True xs
+    deCamel' cap (x : xs)
+	| isCap x		= ( if cap
+				    then id
+				    else (' ' :)
+				  ) $
+                                  x : deCamel' True      xs
+	| otherwise		= x : deCamel' (isCap x) xs
+	where
+	isCap			= (`elem` ['A'..'Z'])
 
 -- -----------------------------------------------------------------------------    
 {-
@@ -48,7 +73,6 @@ theHayooXPath =  "//td[@class='decl']"
   
 ccs_Hayoo :: [ContextConfig]
 ccs_Hayoo = [ 
-            , ccHayooName     
             , ccHayooPartialName 
             , ccHayooSignature 
             , ccHayooNormalizedSignature

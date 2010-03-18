@@ -30,6 +30,10 @@ hayooGetFctInfo			= ( getAttrValue "module"
 				  >>^
 				  (\ (m, (s, (p, r))) -> mkFunctionInfo m s p r)
 
+hayooGetTitle			:: IOSArrow XmlTree String
+hayooGetTitle			= fromLA $
+				  getAttrValue "module"
+
 -- ------------------------------------------------------------
 
 prepareHaddock			:: IOSArrow XmlTree XmlTree
