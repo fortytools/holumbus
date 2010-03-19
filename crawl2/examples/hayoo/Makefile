@@ -2,7 +2,7 @@ N       = 1
 
 pkg	= hxt,hxt-filter,hxt-binary,hxt-cache
 
-src	= $(wildcard Hayoo/*..hs)
+src	= $(wildcard Hayoo/*.hs)
 
 progs	= ./hayooCache ./hayooIndexer
 

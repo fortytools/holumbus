@@ -41,12 +41,12 @@ hayooIndexContextConfig		= [ ixModule
     ixName			= ixDefault
 				  { ixc_name          	= "name"
                                   , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "decl"))
-				  , ixc_textToWords	= tokenize "[^ ():](.*[^ ():])?"
+				  , ixc_textToWords	= tokenize "[^ ():]+" >>> take 1
 				  , ixc_boringWord	= (`elem` ["type", "class", "data"])
                                   }
     ixPartial			= ixName
                                   { ixc_name          	= "partial"
-				  , ixc_textToWords	= deCamel >>> tokenize "[^ ():]([^ ]*[^ ():])?"
+				  , ixc_textToWords	= deCamel >>> tokenize "[A-Za-z][A-Za-z0-9_]*"
                                   }
 
 deCamel				:: String -> String
@@ -64,6 +64,15 @@ deCamel				= deCamel' False
 	where
 	isCap			= (`elem` ['A'..'Z'])
 
+stripSignature 			:: String -> String
+stripSignature 			= tokenize "[()\\[\\],.]|::|=>|->|[A-Za-z0-9_#]+|[^()\\[\\],. A-Za-z0-9_#]+"
+				  >>>
+				  unwords
+				  >>>
+				  sed (take 1) "[(\\[][ ]"
+				  >>>
+				  sed (drop 1) "[ ][\\]),]"
+
 -- -----------------------------------------------------------------------------    
 {-
                         
@@ -73,7 +82,6 @@ theHayooXPath =  "//td[@class='decl']"
   
 ccs_Hayoo :: [ContextConfig]
 ccs_Hayoo = [ 
-            , ccHayooPartialName 
             , ccHayooSignature 
             , ccHayooNormalizedSignature
             , ccHayooDescription
