@@ -48,9 +48,8 @@ where
 
 import           Prelude hiding                 ( catch )
 
-import		 Control.Exception.Extensible		( Exception
+import		 Control.Exception.Extensible   ( Exception
 						, throw
-						, throwTo
 						, catch
 						)
 import           Control.Concurrent
@@ -358,7 +357,7 @@ stopAllTasks tp
   = do
     debugM localLogger $ "waiting to stop all Tasks"
     tids <- withMVar tp $ \tpd -> return $ getTasksIds tpd
-    mapM (\tid -> stopTask tid tp) tids
+    _ <- mapM (\tid -> stopTask tid tp) tids
     return ()
 
 

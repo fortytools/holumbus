@@ -39,9 +39,9 @@ import           System.Log.Logger
 import           System.Environment
 import           System.Exit
 import           Data.Time.Clock.POSIX
-import           System.Console.Readline
 import qualified Data.ByteString.Lazy as B
 
+{-
 splitConfiguration
   :: (Hash k1, NFData v1, NFData k1, Binary a, Binary k1, Binary v1)
   => SplitConfiguration a k1 v1
@@ -50,6 +50,7 @@ splitConfiguration
       defaultSplit
       defaultInputReader
       defaultOutputWriter
+-}
 
 mapConfiguration
   :: (Hash k2, NFData v1, NFData k1, NFData v2, NFData k2, Ord k2, Binary a, Binary k1, Binary v1, Binary k2, Binary v2)

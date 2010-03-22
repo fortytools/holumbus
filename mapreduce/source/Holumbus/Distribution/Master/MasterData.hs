@@ -28,7 +28,6 @@ where
 import           Control.Concurrent
 
 import           Data.List
-import           Data.Maybe
 import qualified Data.Set                                       as Set
 
 import           System.Log.Logger
@@ -139,11 +138,11 @@ dispatch m msg
     case msg of
       (M.MReqTaskCompleted td) ->
         do
-        MC.receiveTaskCompleted td md
+        _ <- MC.receiveTaskCompleted td md
         return $ Just $ M.MRspSuccess
       (M.MReqTaskError td) ->
         do
-        MC.receiveTaskError td md
+        _ <- MC.receiveTaskError td md
         return $ Just $ M.MRspSuccess
       (M.MReqStartControlling) ->
         do
@@ -155,7 +154,7 @@ dispatch m msg
         return $ Just $ M.MRspSuccess         
       (M.MReqIsControlling) ->
         do
-        MR.isControlling md
+        _ <- MR.isControlling md
         return $ Just $ M.MRspSuccess         
       (M.MReqSingleStep) ->
         do
@@ -288,7 +287,7 @@ sendStartTask s wc td
             case info of
               (Just ci) ->
                 do
-                WC.startTask td $ WP.newWorkerPort (ci_Port ci)
+                _ <- WC.startTask td $ WP.newWorkerPort (ci_Port ci)
                 let wcd' = addTaskToWorker (td_TaskId td) wid wcd
                 return (wcd', TSRSend)                
               (Nothing) ->

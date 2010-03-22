@@ -1,3 +1,18 @@
+-- ----------------------------------------------------------------------------
+{- |
+  Module     : Holumbus.Distribution.Master.MasterState
+  Copyright  : Copyright (C) 2010 Sebastian Reese
+  License    : MIT
+
+  Maintainer : Stefan Schmidt (stefanschmidt@web.de)
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+
+-}
+-- ----------------------------------------------------------------------------
+
 module Holumbus.Distribution.Master.MasterState 
 (
     State
@@ -12,7 +27,6 @@ module Holumbus.Distribution.Master.MasterState
 import qualified Data.List as List
 import qualified Data.Map                                as Map
 import           System.IO.Unsafe
-import           System.IO
 import           Control.Concurrent.MVar
 import           Holumbus.MapReduce.Types
 import           Holumbus.Common.FileHandling

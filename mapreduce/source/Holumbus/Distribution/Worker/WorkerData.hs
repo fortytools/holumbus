@@ -26,8 +26,6 @@ where
 
 import           Control.Concurrent
 
-import           Data.Maybe
-
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
@@ -91,18 +89,18 @@ dispatch w msg
       (M.WReqStartTask td) ->
         do
         infoM localLogger "recieved start task"
-        startTask td wd
+        _ <- startTask td wd
         infoM localLogger "task started"
         return $ Just $ M.WRspSuccess
       (M.WReqStopTask tid) ->
         do
         infoM localLogger "stop task"
-        stopTask tid wd
+        _ <- stopTask tid wd
         infoM localLogger "task stopped"
         return $ Just $ M.WRspSuccess
       (M.WReqStopAllTasks) ->
         do
-        stopAllTasks wd
+        _ <- stopAllTasks wd
         return $ Just $ M.WRspSuccess
       (M.WReqGetActionNames) ->
         do
@@ -124,7 +122,7 @@ sendTaskCompleted mvmp td
         \mp ->
         do
         debugM localLogger $ "completed Task" ++ show (td_TaskId td)
-        MC.receiveTaskCompleted td mp
+        _ <- MC.receiveTaskCompleted td mp
         return (mp, True)
 
 
@@ -135,7 +133,7 @@ sendTaskError mvmp td
         \mp ->
         do
         debugM localLogger $ "error Task" ++ show (td_TaskId td)
-        MC.receiveTaskError td mp
+        _ <- MC.receiveTaskError td mp
         return (mp, True)
 
 

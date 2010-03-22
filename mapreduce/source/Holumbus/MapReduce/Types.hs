@@ -125,7 +125,6 @@ import           Text.XML.HXT.Arrow
 import qualified Holumbus.Data.AccuMap as AMap
 import           Holumbus.Common.FileHandling
 import           Holumbus.Common.Utils
-import qualified Holumbus.Data.AccuMap as AMap
 import qualified Holumbus.Data.KeyMap as KMap
 import qualified Holumbus.FileSystem.FileSystem as FS
 import           Control.Parallel.Strategies
