@@ -30,7 +30,6 @@ import           Prelude hiding (appendFile)
 import           Control.Concurrent
 import           Control.Monad
 import           Data.Maybe
-import           System.IO hiding (appendFile)
 import           System.Log.Logger
 
 import           Holumbus.Common.Debug
@@ -158,13 +157,14 @@ logStorage (Node node) = withMVar node $ \nd ->  logStorage2 (nd_Client nd)
   logStorage2 (Client client) = withMVar client $ \cd -> debugM "measure.readStorage" ((show . cd_SiteId) cd)
 
 
-
+{-
 multiThread :: [S.FileId] -> Node -> MVar [(S.FileId,S.FileContent)] -> IO ()
-multiThread l nd mvar = do
-  l <- getMultiFileContent l nd
+multiThread l' nd mvar = do
+  l <- getMultiFileContent l' nd
   putMVar mvar l
   return ()
-  
+-}
+
 -- ----------------------------------------------------------------------------
 -- Typeclass instanciation (NodeClass)
 -- ----------------------------------------------------------------------------
