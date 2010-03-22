@@ -27,7 +27,7 @@ type RobotRestriction		= [RobotSpec]
 type RobotSpec			= (URI, RobotAction)
 
 data RobotAction		= Disallow | Allow
-			          deriving (Eq, Show, Enum)
+			          deriving (Eq, Show, Read, Enum)
 
 type AddRobotsAction            = URI -> Robots -> IO Robots
 
@@ -41,6 +41,19 @@ instance Binary RobotAction where
 
 instance NFData RobotAction where
     rnf	x		= x `seq` ()
+
+instance XmlPickler RobotAction where
+    xpickle		= xpPrim
+
+xpRobots		:: PU Robots
+xpRobots		= xpElem "robots" $
+                          xpMap "robot" "host" xpText xpRobotRestriction
+
+xpRobotRestriction	:: PU RobotRestriction
+xpRobotRestriction	= xpList $
+                          xpElem "restriction" $
+                          xpPair ( xpAttr "href"   $ xpText )
+                                 ( xpAttr "access" $ xpickle )
 
 -- ------------------------------------------------------------
 

@@ -2,11 +2,14 @@
 
 -- ------------------------------------------------------------
 
-module HayooConfig
+module Hayoo.URIConfig
+{-
     ( hayooStart
     , hayooRefs
+    , hayooGetPackage
     , editLatestPackage
     )
+-}
 where
 
 import           Control.Applicative
@@ -38,6 +41,15 @@ hayooRefs pkgs 			= liftA2 (||) hackageRefs' gtk2hsRefs'
 	where
 	gtk2hsPkgs		= filter (`elem` ["gtk2hs"]) $ pkgs
 
+hayooGetPackage			:: String -> String
+hayooGetPackage u
+    | not . null $ hpn		= hpn
+    | not . null $ gpn		= gpn
+    | otherwise			= ""
+    where
+    hpn				= hackageGetPackage u
+    gpn				= gtk2hsGetPackage  u
+
 hackageHome			:: String
 hackageHome			= "http://hackage.haskell.org/packages/"
 
@@ -50,19 +62,23 @@ hackageStart			=  [ hackageHome ++ "archive/pkg-list.html" ]
 hackageRefs			:: [String] -> URI -> Bool
 hackageRefs pkgs		= simpleFollowRef'
 				  [ hackagePackages ++ packageName
-                                  , packageDocPath ++ modulePath ++ ext "html"
+                                  , packageDocPath  ++ modulePath ++ ext "html"
                                   ]
-                                  [ packageDocPath ++ "doc-index.*" ++ ext "html"	-- no index files
-                                  , packageDocPath ++ "src/.*"				-- no hscolored sources
-                                  , hackagePackages ++ packageName ++ "-[0-9.]+"	-- no package pages with (old) version numbers
+                                  [ packageDocPath ++ alternatives
+                                                       [ "doc-index.*" ++ ext "html"		-- no index files
+                                                       , "src/.*"				-- no hscolored sources
+                                                       ]
+                                  , hackagePackages ++ packageName ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
                                   , rottenDocumentation
                                   ]
     where
+    packageVersion		= "[0-9]+([.][0-9])+"
+    packageVersion'		= alternatives [packageVersion, "latest"]
+    packageDocPath		= hackagePackageDocPath ++ packageName ++ "/" ++ packageVersion' ++ "/doc/html/"
+
     packageName
 	| null pkgs		= fileName
 	| otherwise		= alternatives pkgs
-
-    packageDocPath		= hackageHome ++ "archive/" ++ packageName ++ "/" ++ path ++ "/doc/html/"
 
     rottenDocumentation		= packageDocPath ++ alternatives ds ++ ext "html"
         where
@@ -77,6 +93,15 @@ hackageRefs pkgs		= simpleFollowRef'
                                   , "Types-Data-Num-Decimal-Literals"
                                   ]
 
+hackagePackageDocPath		:: String
+hackagePackageDocPath		= hackageHome ++ "archive/"
+
+hackageGetPackage		:: String -> String
+hackageGetPackage u
+    | hackagePackageDocPath `isPrefixOf` u
+				= takeWhile (/= '/') . drop (length hackagePackageDocPath) $ u
+    | otherwise			= ""
+
 gtk2hsStart			:: [URI]
 gtk2hsStart			= [ gtk2hsHome ++ "index.html" ]
 
@@ -89,6 +114,11 @@ gtk2hsRefs			= simpleFollowRef'
 
 gtk2hsHome			:: String
 gtk2hsHome			= "http://www.haskell.org/gtk2hs/docs/current/"
+
+gtk2hsGetPackage		:: String -> String
+gtk2hsGetPackage u
+    | gtk2hsHome `isPrefixOf` u	= "gtk2hs"
+    | otherwise			= ""
 
 -- ------------------------------------------------------------
 
@@ -112,6 +142,7 @@ path                        	= "[^?]+"
 ext				:: String -> String
 ext                         	= ("[.]" ++)
 
+-- ------------------------------------------------------------
 
 -- In the package doc URIs the package version number "/*.*.*/" is substituted by the alias "/latest/"
 

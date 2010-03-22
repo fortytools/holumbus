@@ -10,63 +10,61 @@ import		 Data.Function.Selector		( update )
 import           Data.Maybe
 
 import		 Holumbus.Crawler
-import		 Holumbus.Crawler.CacheCore
+import		 Holumbus.Crawler.IndexerCore
+
+import           Holumbus.Index.Documents       ( Documents(..)
+                                                , emptyDocuments
+                                                )
+import		 Holumbus.Index.Inverted.PrefixMem
 
 import           System.Console.GetOpt
 import           System.Environment
 import           System.Exit
-import           System.IO
+import		 System.IO
 
-import		 Text.XML.HXT.Arrow	hiding	( readDocument ) 
+import		 Text.XML.HXT.Arrow		hiding ( readDocument )
 import           Text.XML.HXT.Arrow.XmlCache
-import		 Text.XML.HXT.XPath
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
-import		 Hayoo.URIConfig
+import		 Hayoo.FunctionInfo
+import           Hayoo.Haddock
+import		 Hayoo.IndexConfig
+import           Hayoo.URIConfig
 
 -- ------------------------------------------------------------
 
-editPackageURIs			:: CacheCrawlerConfig -> CacheCrawlerConfig
-editPackageURIs			= update theProcessRefs (>>> arr editLatestPackage)
+type HayooIndexerState         	= IndexerState       Inverted Documents FunctionInfo
+type HayooIndexerConfig        	= IndexCrawlerConfig Inverted Documents FunctionInfo
+
+type HayooIndexerCrawlerState	= CrawlerState HayooIndexerState
 
 -- ------------------------------------------------------------
 
-getRecentPackages		:: IOSArrow b String
-getRecentPackages		= readDocument [ (a_validate, v_0)
-					       ] "http://hackage.haskell.org/packages/archive/recent.rss"
-				  >>>
-				  getXPathTrees "/rss/channel/item/title"
-				  >>>
-				  xshow (deep isText)
-				  >>>
-				  arr (words >>> take 1 >>> concat)
-
--- ------------------------------------------------------------
-
-hayooCacher 			:: AppOpts -> IO CacheCrawlerState
-hayooCacher o              	= stdCacher
-                                  (ao_crawlDoc o)
-                                  (ao_crawlSav o)
-                                  (ao_crawlLog o)
-                                  (ao_crawlPar o)
-                                  (ao_crawlFct o)
+hayooIndexer			:: AppOpts -> IO HayooIndexerCrawlerState
+hayooIndexer o                  = stdIndexer
+                                  config
                                   (ao_resume o)
-				  hayooStart
-				  (hayooRefs [])
-
--- ------------------------------------------------------------
-
-hayooPackageUpdate		:: AppOpts -> [String] -> IO CacheCrawlerState
-hayooPackageUpdate o pkgs	= stdCacher
-                                  (ao_crawlDoc o)
-                                  (ao_crawlSav o)
-                                  (ao_crawlLog o)
-                                  (setDocAge 1 (ao_crawlPar o))		-- cache validation initiated (1 sec valid) 
-                                  (ao_crawlFct o)
+                                  hayooStart
+                                  ( emptyIndexerState emptyInverted emptyDocuments )
+    where
+    config0			= indexCrawlerConfig
+                                  (ao_crawlPar o)
+                                  (hayooRefs $ ao_packages o)
                                   Nothing
-				  hayooStart
-				  (hayooRefs pkgs)
+                                  (Just $ checkDocumentStatus >>> prepareHaddock)
+                                  (Just $ hayooGetTitle)
+				  (Just $ hayooGetFctInfo)
+                                  hayooIndexContextConfig
 
+    config			= ao_crawlFct o $
+                                  setCrawlerTraceLevel ct ht $
+                                  setCrawlerSaveConf si sp   $
+                                  setCrawlerMaxDocs md mp mt $
+                                  config0
+
+    (ct, ht)			= ao_crawlLog o
+    (si, sp)			= ao_crawlSav o
+    (md, mp, mt)		= ao_crawlDoc o
 
 -- ------------------------------------------------------------
 
@@ -80,7 +78,7 @@ data AppOpts			= AO { ao_output	:: String
 				     , ao_crawlSav	:: (Int, String)
 				     , ao_crawlLog	:: (Priority, Priority)
 				     , ao_crawlPar	:: [(String, String)]
-				     , ao_crawlFct	:: CacheCrawlerConfig -> CacheCrawlerConfig
+				     , ao_crawlFct	:: HayooIndexerConfig -> HayooIndexerConfig
 				     }
 
 type SetAppOpt			= AppOpts -> AppOpts
@@ -94,10 +92,10 @@ initAppOpts			= AO { ao_output	= ""
 				     , ao_packages	= []
 				     , ao_recent	= False
 				     , ao_msg		= ""
-				     , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
+				     , ao_crawlDoc	= (5, 5, 0)					-- max docs, max par docs, max threads
 				     , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
-				     , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
-				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 1) $			-- cache remains valid 1 day
+				     , ao_crawlLog	= (DEBUG, DEBUG)					-- log cache and hxt
+				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
                                                           [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
 							  , (a_compress, v_1		)			-- cache files will be compressed
 							  , (a_accept_mimetypes,
@@ -112,6 +110,9 @@ initAppOpts			= AO { ao_output	= ""
 							    disableRobotsTxt					-- for hayoo robots.txt is not needed
 							  )
 				     }
+    where
+    editPackageURIs		= update theProcessRefs (>>> arr editLatestPackage)
+
 
 -- ------------------------------------------------------------
 
@@ -152,8 +153,6 @@ main1 pn args
 				  , Option "o"  ["output"]	(ReqArg ( \ f x -> x { ao_output   = f    }) 	  	"OUTPUT-FILE")	"output file"
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) 	"PACKAGE-LIST")	"update a comma separated list of packages"
 				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  	"FILE")		"resume program with status file"
-				  , Option "u"  ["update"]	(NoArg  $ \   x -> x { ao_recent   = True })				"update packages from hackage rss feed"
-
                                   , Option "m"  ["maxdocs"]     (ReqArg ( setOption parseInt
                                                                           (\ x i -> x { ao_crawlDoc = setMaxDocs i $
                                                                                                       ao_crawlDoc x
@@ -217,38 +216,28 @@ main2 opts			= runX ( hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ opts)
                                          >>>
 				         action
                                          >>>
-                                         traceMsg 0 (unwords ["writing cache state into XML file", out])
+                                         traceMsg 0 (unwords ["writing indexer state into XML file", out])
                                          >>>
                                          xpickleDocument xpickle [(a_indent, v_1)] out
                                          >>>
-                                         traceMsg 0 "writing cache finished"
+                                         traceMsg 0 "writing indexer finished"
 				       )
 				  >> exitSuccess
     where
+    action0			= arrIO0 (hayooIndexer opts)
     action
-	| ao_recent opts	= traceMsg 0 "fetching hackage rss feed of recent packages"
-				  >>>
-				  listA getRecentPackages
-				  >>>
-				  traceValue 0 (("updating recent packages: " ++) . show)
-				  >>>
-				  ( isA (not . null)
-				    `guards`
-				    arrIO (hayooPackageUpdate opts)
-				  )
-
 	| not . null $ packageList
-				= traceMsg 0 ("updating packages: " ++ unwords packageList)
+				= traceMsg 0 ("indexing packages: " ++ unwords packageList)
 				  >>>
-				  arrIO0 (hayooPackageUpdate opts packageList)
+				  action0
 
-	| isJust resume		= traceMsg 0 "resume document crawling"
+	| isJust resume		= traceMsg 0 "resume document indexing"
 				  >>>
-				  arrIO0 (hayooCacher opts)
+				  action0
 
-	| otherwise		= traceMsg 0 ("cache hayoo pages")
+	| otherwise		= traceMsg 0 ("indexing hayoo pages")
 				  >>>
-				  arrIO0 (hayooCacher opts)
+				  action0
 
     resume			= ao_resume   opts
     packageList			= ao_packages opts

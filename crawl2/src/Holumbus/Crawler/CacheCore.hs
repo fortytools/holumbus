@@ -21,6 +21,7 @@ import		 Text.XML.HXT.Arrow
 -- ------------------------------------------------------------
 
 type CacheCrawlerConfig         = CrawlerConfig () CacheState
+type CacheCrawlerState		= CrawlerState CacheState
 
 newtype CacheState		= CS ()
 
@@ -104,7 +105,7 @@ stdCacher			:: (Int, Int, Int)				-- ^ the parameters for parallel crawling
                                 -> (CacheCrawlerConfig -> CacheCrawlerConfig)	-- ^ further configuration settings
                                 -> Maybe String                                 -- ^ resume from interrupted index run with state stored in file
                                 -> [URI]                                        -- ^ start caching with this set of uris
-                                -> (URI -> Bool) -> IO CacheState
+                                -> (URI -> Bool) -> IO CacheCrawlerState
 
 stdCacher (maxDocs, maxParDocs, maxParThreads)
           (saveIntervall, savePath)
@@ -113,9 +114,7 @@ stdCacher (maxDocs, maxParDocs, maxParThreads)
           furtherConfigs
           resumeLoc
           startUris
-          followRef		= do
-			          (_, cState) <- runCrawler action config initState
-			          return (getS theResultAccu cState)
+          followRef		= execCrawler action config initState
     where
     initState			= initCrawlerState emptyCacheState
     action			= do

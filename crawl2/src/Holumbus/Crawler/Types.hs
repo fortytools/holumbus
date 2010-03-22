@@ -81,6 +81,35 @@ instance (NFData r) => NFData (CrawlerState r) where
                    , cs_resultInit	 = g
                    }		= rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f `seq` rnf g
 
+instance (XmlPickler r) => XmlPickler (CrawlerState r) where
+  xpickle		= xpElem "crawler-state" $
+                          xpWrap ( \ ((d, e), (a, b, c, f, g)) -> CrawlerState a b c d e f g
+                                 , \ (CrawlerState a b c d e f g) -> ( (d, e)
+                                                                     , (a, b, c, f, g)
+                                                                     )
+                                 ) $
+                          xpPair ( xpPair
+                                   ( xpAttr "no-of-docs"       xpPrim )
+                                   ( xpAttr "no-of-docs-saved" xpPrim )
+                                 )
+                                 ( xp5Tuple
+                                   ( xpElem "to-be-processed" $
+                                     xpURIs
+                                   )
+                                   ( xpElem "already-processed" $
+                                     xpURIs
+                                   )
+                                   xpRobots
+                                   xpickle
+                                   xpickle
+                                 )
+      where
+      xpURIs		= xpWrap ( fromListURIs, toListURIs ) $
+                          xpList $
+                          xpElem "doc" $
+                          xpAttr "href" $
+                          xpText
+
 -- ------------------------------------------------------------
 
 -- | selector functions for CrawlerState
