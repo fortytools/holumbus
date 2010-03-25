@@ -54,7 +54,7 @@ import           Control.Concurrent
 
 import qualified Data.Map as Map
 
-import           System.Console.Editline.Readline
+import           System.Console.Readline
 
 import           Holumbus.Common.Utils	( handleAll )
 
