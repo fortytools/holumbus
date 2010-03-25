@@ -80,6 +80,7 @@ library
                  , Holumbus.Distribution.DStreamPort
                  , Holumbus.Distribution.DFunction
                  , Holumbus.Distribution.DMVar
+                 , Holumbus.Distribution.DValue
                  , Holumbus.Console.Console
                  , Holumbus.Console.ServerConsole                 
                  , Holumbus.Common.Debug
