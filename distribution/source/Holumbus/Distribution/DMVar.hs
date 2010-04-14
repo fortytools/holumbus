@@ -200,7 +200,7 @@ handleTake r@(DMVarReference _ v o) dni hdl
     a <- takeMVar v
     debugM localLogger $ "handleTake: 2"
     -- install handler and save backup
-    mbDhi <- addForeignDNodeHandler dni (handleErrorTake r)
+    mbDhi <- addForeignDNodeHandler False dni (handleErrorTake r)
     debugM localLogger $ "handleTake: 3"
     putMVar o (a, mbDhi)
     debugM localLogger $ "handleTake: 4"
@@ -208,15 +208,12 @@ handleTake r@(DMVarReference _ v o) dni hdl
     debugM localLogger $ "handleTake: 5"
     
 
-handleErrorTake :: (Binary a) => DMVarReference a -> IO ()
-handleErrorTake (DMVarReference _ v o)
+handleErrorTake :: (Binary a) => DMVarReference a -> DHandlerId -> IO ()
+handleErrorTake (DMVarReference _ v o) dhi
   = do
     debugM localLogger $ "handleErrorTake: 1"
     (a,_ ) <- takeMVar o
-    -- no need to kill handler... it's only called once
-    -- case mbDhi of
-    --  (Just dhi) -> delForeignHandler dhi
-    --  (Nothing)  -> return ()
+    delForeignHandler dhi
     debugM localLogger $ "handleErrorTake: 2"
     putMVar v a
 

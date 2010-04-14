@@ -28,13 +28,7 @@ module Holumbus.FileSystem.Storage.FileStorage
     )
 where
 
-import           Control.Monad
---import           Control.Exception
---import qualified Data.ByteString.Lazy as B
 import           Data.Binary
---import           Holumbus.Common.MRBinary
-import           Data.Maybe
-import           System.IO
 import           System.Directory
 import           System.Log.Logger
 import qualified Data.Map as Map
@@ -192,10 +186,10 @@ instance S.Storage FileStorage where
       writeDirectory stor'
       where
         writeFiles :: FileStorage -> [(S.FileId,S.FileContent)] -> IO FileStorage
-        writeFiles stor [] = return stor
-        writeFiles stor ((fn,c):xs) = do
-          stor' <- writeSingleFile stor fn c
-          writeFiles stor' xs
+        writeFiles stor'' [] = return stor''
+        writeFiles stor'' ((fn,c):xs) = do
+          stor''' <- writeSingleFile stor'' fn c
+          writeFiles stor''' xs
  
 
   deleteFile stor i

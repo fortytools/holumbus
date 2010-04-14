@@ -102,7 +102,7 @@ mkVirtualDoc rt			= getDecls
                                                           >>>
                                                           mkText
                                                         )
-                                    += this
+                                    += removeSourceLinks
                                   )
     where
     getDecls			= deep ( isDecl' >>> hasAttr "id" )

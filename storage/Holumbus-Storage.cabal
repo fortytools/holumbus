@@ -36,8 +36,8 @@ library
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
-                , Holumbus-Distribution >= 0.0.1
-                , random
+                , Holumbus-Distribution >= 0.0.1 && < 0.1
+                , random     >= 1.0
 
   hs-source-dirs: 
                   source

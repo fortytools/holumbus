@@ -66,11 +66,11 @@ import           Control.Exception
 import           Control.Concurrent
 import           Data.Typeable
 import           Data.Binary
---import           Holumbus.Common.MRBinary
 import           Data.Char
 import           Data.Maybe
 import           Data.Unique
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import           Network.Socket (HostName, PortNumber)
 import           System.IO
 import           System.IO.Unsafe
@@ -192,18 +192,22 @@ mkDNodeAddress :: String -> HostName -> Int -> DNodeAddress
 mkDNodeAddress s hn po = DNodeAddress i hn (fromIntegral po)
   where
   i = mkDNodeId s
-
   
+type DHandlerFunction = DHandlerId -> IO ()
+
 data DNodeEntry = DNodeEntry {
-    dne_Address           :: DNodeAddress
-  , dne_PingThreadId      :: Maybe ThreadId
-  , dne_NodeHandlers      :: [(Unique, IO ())]
-  , dne_RessourceHandlers :: Map.Map DRessourceId [(Unique, IO ())]
-  } -- deriving (Show)
+    dne_Address              :: DNodeAddress
+  , dne_PingThreadId         :: Maybe ThreadId
+  , dne_HandlerFunctions     :: Map.Map DHandlerId DHandlerFunction
+  , dne_TriggeredHandlers    :: Set.Set DHandlerId
+  , dne_PositiveNodeHandlers :: Set.Set DHandlerId
+  , dne_NegativeNodeHandlers :: Set.Set DHandlerId
+  , dne_PositiveResourceHandlers :: Set.Set DHandlerId
+  , dne_NegativeResourceHandlers :: Set.Set DHandlerId
+  }
 
 instance Show DNodeEntry where
   show _ = "{DNodeEntry}"
-
 
 data DHandlerId = DHandlerId {
     dhi_Id      :: Unique
@@ -354,7 +358,7 @@ deinitDNode
 addNode :: DNodeAddress -> IO ()
 addNode dna
   = do
-    let dne = DNodeEntry dna Nothing [] Map.empty
+    let dne = DNodeEntry dna Nothing Map.empty Set.empty Set.empty Set.empty Set.empty Set.empty
         dni = dna_Id dna
     modifyMVar_ myDNode $ \dnd -> return $ addNodeP dni dne dnd
    
@@ -427,7 +431,7 @@ checkDNodeRequest s r
       do
       let isValid = (dna_Id r) == (dna_Id $ dnd_Address dnd)
           dni     = dna_Id s
-          dne     = DNodeEntry s Nothing [] Map.empty
+          dne     = DNodeEntry s Nothing Map.empty Set.empty Set.empty Set.empty Set.empty Set.empty
           dnd'    = if (Map.member dni (dnd_NodeMap dnd))
                     then dnd 
                     else addNodeP dni dne dnd
@@ -662,36 +666,40 @@ checkForeignDNode dni
       (Nothing) -> return False
 
 
-addForeignDNodeHandler :: DNodeId -> IO () -> IO (Maybe DHandlerId)
-addForeignDNodeHandler dni f
+addForeignDNodeHandler :: Bool -> DNodeId -> DHandlerFunction -> IO (Maybe DHandlerId)
+addForeignDNodeHandler positive dni f
   = modifyMVar myDNode $ \dnd ->
       do
-      let myDna = dnd_Address dnd
       case (lookupNodeP dni dnd) of
         (Just dne) ->
           do
           let oldTid = dne_PingThreadId dne
           -- do we have an existing ping thread?
-          tid <- if (isNothing $ oldTid)
+          tid <- if (isNothing oldTid)
             then do 
-              t <- startPingThread myDna (dne_Address dne)
+              t <- startPingThread dni
               return $ Just t
             else return oldTid
           uid <- newUnique
           let dhi  = DHandlerId uid dni Nothing
-              dne' = dne { dne_NodeHandlers = (dne_NodeHandlers dne) ++ [(uid,f)]
+              dne' = dne { dne_HandlerFunctions = Map.insert dhi f (dne_HandlerFunctions dne)
+                         , dne_PositiveNodeHandlers = if positive 
+                                                        then Set.insert dhi (dne_PositiveNodeHandlers dne)
+                                                        else (dne_PositiveNodeHandlers dne)
+                         , dne_NegativeNodeHandlers = if positive
+                                                        then (dne_NegativeNodeHandlers dne)
+                                                        else Set.insert dhi (dne_NegativeNodeHandlers dne)
                          , dne_PingThreadId = tid }
           return ((addNodeP dni dne' dnd), Just dhi)
         (Nothing) -> return (dnd, Nothing)
 
 
-addForeignDRessourceHandler :: DRessourceAddress -> IO () -> IO (Maybe DHandlerId)
-addForeignDRessourceHandler dra f
+addForeignDRessourceHandler :: Bool -> DRessourceAddress -> DHandlerFunction -> IO (Maybe DHandlerId)
+addForeignDRessourceHandler positive dra f
   = modifyMVar myDNode $ \dnd ->
       do
       let dni   = dra_NodeId dra
           dri   = dra_Id dra
-          myDna = dnd_Address dnd
       case (lookupNodeP dni dnd) of
         (Just dne) ->
           do
@@ -699,13 +707,18 @@ addForeignDRessourceHandler dra f
           -- do we have an existing ping thread?
           tid <- if (isNothing $ oldTid)
             then do 
-              t <- startPingThread myDna (dne_Address dne)
+              t <- startPingThread dni
               return $ Just t
             else return oldTid
           uid <- newUnique
           let dhi  = DHandlerId uid dni (Just dri)
-              rhm  = Map.unionWith (++) (dne_RessourceHandlers dne) (Map.singleton dri  [(uid,f)])
-              dne' = dne { dne_RessourceHandlers = rhm
+              dne' = dne { dne_HandlerFunctions = Map.insert dhi f (dne_HandlerFunctions dne)
+                         , dne_PositiveResourceHandlers = if positive 
+                                                            then Set.insert dhi (dne_PositiveResourceHandlers dne)
+                                                            else (dne_PositiveResourceHandlers dne)
+                         , dne_NegativeResourceHandlers = if positive
+                                                            then (dne_NegativeResourceHandlers dne)
+                                                            else Set.insert dhi (dne_NegativeResourceHandlers dne)
                          , dne_PingThreadId = tid }
           return ((addNodeP dni dne' dnd), Just dhi)
         (Nothing) -> return (dnd, Nothing)
@@ -716,27 +729,19 @@ delForeignHandler dhi
   = do
     modifyMVar_ myDNode $ \dnd ->
       do
-      let uid   = dhi_Id dhi
-          dni   = dhi_DNodeId dhi
-          mbDri = dhi_DRessourceId dhi
+      let dni   = dhi_DNodeId dhi
       case (lookupNodeP dni dnd) of
         (Just dne) ->
           do
-          dne' <- case (mbDri) of
-            -- delete RessourceHandler
-            (Just dri) ->
-              do
-              let rhm = Map.update (checkList . uidFilter uid) dri (dne_RessourceHandlers dne)
-              return $ dne { dne_RessourceHandlers = rhm }
-            -- delete NodeHandler
-            (Nothing) -> 
-              do
-              return $ dne { dne_NodeHandlers = uidFilter uid (dne_NodeHandlers dne) }
+          let dne' = dne { dne_HandlerFunctions = Map.delete dhi (dne_HandlerFunctions dne)
+                     , dne_TriggeredHandlers = Set.delete dhi (dne_TriggeredHandlers dne)
+                     , dne_PositiveResourceHandlers = Set.delete dhi (dne_PositiveResourceHandlers dne)
+                     , dne_NegativeResourceHandlers = Set.delete dhi (dne_NegativeResourceHandlers dne)
+                     , dne_PositiveNodeHandlers = Set.delete dhi (dne_PositiveNodeHandlers dne)
+                     , dne_NegativeNodeHandlers = Set.delete dhi (dne_NegativeNodeHandlers dne)
+                     }
           return $ addNodeP dni dne' dnd
         (Nothing) -> return dnd
-  where
-  uidFilter uid = filter (\(uid',_) -> uid /= uid')
-  checkList ls  = if (null ls) then Nothing else (Just ls)
 
 
 genLocalRessourceAddress :: DRessourceType -> String -> IO DRessourceAddress
@@ -770,8 +775,12 @@ delForeignRessource dra
       case (lookupNodeP dni dnd) of
         (Just dne) ->
           do
-          let rhldsM = Map.delete dri (dne_RessourceHandlers dne)
-              dne'   = dne { dne_RessourceHandlers = rhldsM }
+          let handlerIds = Set.fromList $ filter (\dhi -> (dhi_DRessourceId dhi) == (Just dri)) $ Map.keys (dne_HandlerFunctions dne)
+              dne'   = dne { dne_HandlerFunctions = Map.filterWithKey (\k _ -> Set.notMember k handlerIds) (dne_HandlerFunctions dne)
+                           , dne_TriggeredHandlers = Set.difference (dne_TriggeredHandlers dne) handlerIds
+                           , dne_PositiveResourceHandlers = Set.difference (dne_PositiveResourceHandlers dne) handlerIds
+                           , dne_NegativeResourceHandlers = Set.difference (dne_NegativeResourceHandlers dne) handlerIds
+                           }
           return $ addNodeP dni dne' dnd
         (Nothing) -> return dnd
 
@@ -823,58 +832,99 @@ unsafeAccessForeignRessource dra requester
         throwIO $ DistributedException "node not registered" "unsafeAccessForeignRessource" "DNode"
     
 
-startPingThread :: DNodeAddress -> DNodeAddress -> IO ThreadId
-startPingThread me a
-  = forkIO $ pingLoop me a
+startPingThread :: DNodeId -> IO ThreadId
+startPingThread otherDNodeId
+  = do
+    forkIO $ pingLoop
     where
-    pingLoop myDna dna = do
-      let dni       = dna_Id dna
-          hn        = dna_HostName dna
-          po        = dna_ServiceName dna
-      mbDne <- lookupNode dni
-      if (isJust mbDne) 
-        then do
-          let ressources = Map.keys$ dne_RessourceHandlers $ fromJust mbDne
-              otherDna   = dne_Address $ fromJust mbDne 
-          -- do the pinging with our ressourcelist
-          res <- performSafeSendRequest (requestPing myDna otherDna dni ressources) Nothing hn po
-          -- collect the handlers and delete them from the list
-          (hdls,again,pingDelay) <- modifyMVar myDNode $ \dnd -> do
-            let pingDelay = dnd_PingDelay dnd
-            case (Map.lookup dni (dnd_NodeMap dnd)) of
-              -- the node entry still exists
-              (Just dne) -> do
-                let rhdlsM = dne_RessourceHandlers dne
-                    nhdls  = map snd $ dne_NodeHandlers dne
-                case (res) of
-                  -- we've got a resonse with the list of ressources
-                  (Just ls) -> do
-                    let rs      = map (fst) $ filter (not . snd) ls
-                        rhdls   = map snd $ concat $ catMaybes $ map (\r -> Map.lookup r rhdlsM) rs
-                        rhdlsM' = foldr (Map.delete) rhdlsM rs
-                        rsLeft  = (not $ null nhdls) || (not $ Map.null rhdlsM')
-                        tid'    = if (rsLeft) then (dne_PingThreadId dne) else Nothing
-                        dne'    = dne { dne_PingThreadId = tid'
-                                      , dne_RessourceHandlers = rhdlsM' }
-                        dnd'    = addNodeP dni dne' dnd
-                    return (dnd', (rhdls,rsLeft, pingDelay))
-                  -- ping not successfull, collect all handlers and delete them from the entry
-                  (Nothing) -> do
-                    let rhdls = map snd $ concat $ Map.elems rhdlsM
-                        dne'  = dne { dne_PingThreadId = Nothing
-                                    , dne_NodeHandlers = []
-                                    , dne_RessourceHandlers = Map.empty }
-                        dnd'  = addNodeP dni dne' dnd 
-                    return (dnd', (nhdls ++ rhdls, False, pingDelay))      
-              -- in the meantime, the node entry was deleted
-              (Nothing) -> return (dnd, ([],False, pingDelay))
-          sequence_ $ map forkIO hdls
-          if (again)
+    -- the function for the main ping loop
+    pingLoop = do
+      myDnd <- readMVar myDNode
+      let myDna = dnd_Address myDnd
+      -- get NodeData from local DNode
+      mbDne <- lookupNode otherDNodeId
+      case mbDne of
+        (Just dne) -> do
+          myTid <- myThreadId
+          if ((Just myTid) == (dne_PingThreadId dne))
             then do
+              -- do the pinging
+              pingRes <- doPinging myDna dne
+              -- evaluate the results and collect the handlers to execute
+              (hdls,pingDelay) <- evaluatePingResult pingRes
+              -- execute handlers
+              sequence_ $ map (\(dhi,f) -> forkIO $ f dhi) hdls
+              -- wait and redo the pinging
               threadDelay pingDelay
-              pingLoop myDna dna
+              pingLoop
             else do
-              debugM localLogger $ "no handlers left, leaving thread"
-        else do
-          debugM localLogger $ "ressource not found - leaving thread: " ++ show dna
+              debugM localLogger $ "the thread ids don't match - leaving thread" ++ show otherDNodeId
+              return ()
+        (Nothing) -> do
+          debugM localLogger $ "ressource not found - leaving thread: " ++ show otherDNodeId
           return ()
+    -- the function which does the pinging of the external node
+    doPinging myDna dne = do
+      let resources = mapMaybe (dhi_DRessourceId) $ Map.keys $ dne_HandlerFunctions dne
+          otherDna  = dne_Address dne
+          hn        = dna_HostName otherDna
+          po        = dna_ServiceName otherDna
+      performSafeSendRequest (requestPing myDna otherDna otherDNodeId resources) Nothing hn po
+    -- the function which evaluates the result of the ping (changes state of local DNode)
+    evaluatePingResult res =
+      modifyMVar myDNode $ \dnd -> do
+        let pingDelay = dnd_PingDelay dnd
+        (dnd', hdls) <- case (Map.lookup otherDNodeId (dnd_NodeMap dnd)) of
+          -- the node entry still exists
+          (Just dne) -> do    
+            let tid            = if (hasAnyHandlers dne)then (dne_PingThreadId dne) else Nothing
+                allPosNodeHdls = dne_PositiveNodeHandlers dne
+                allPosResHdls  = dne_PositiveResourceHandlers dne
+                allNegNodeHdls = dne_NegativeNodeHandlers dne
+                allNegResHdls  = dne_NegativeResourceHandlers dne
+                trigHdls       = dne_TriggeredHandlers dne
+                hdlFuncs       = dne_HandlerFunctions dne
+            (allTrigHdls, hdls) <- case (res) of
+              -- we've got a response with the list of ressources
+              (Just ls) -> do
+                let untrigPosNodeHdls = Set.difference allPosNodeHdls trigHdls
+                    existingRes = Set.fromList $ map fst $ filter (snd) ls
+                    missingRes = Set.fromList $ map fst $ filter (not . snd) ls
+                    existingPosResHdls = Set.filter (isMatchingResHdl existingRes) allPosResHdls
+                    missingPosResHdls = Set.filter (isMatchingResHdl missingRes) allPosResHdls
+                    existingNegResHdls = Set.filter (isMatchingResHdl existingRes) allNegResHdls
+                    missingNegResHdls = Set.filter (isMatchingResHdl missingRes) allNegResHdls
+                    untrigPosResHdls = Set.difference existingPosResHdls trigHdls
+                    untrigNegResHdls = Set.difference missingNegResHdls trigHdls
+                    untrigHdls = Set.unions [untrigPosNodeHdls, untrigPosResHdls, untrigNegResHdls]
+                    reUntrigHdls = Set.unions [allNegNodeHdls, missingPosResHdls, existingNegResHdls]
+                    -- new triggered handler set
+                    allTrigHdls = Set.union untrigHdls $ Set.difference trigHdls reUntrigHdls
+                    -- list of Handlers to execute
+                    hdls = filter (\(dhi,_) -> Set.member dhi untrigHdls) $ Map.toList hdlFuncs
+                return (allTrigHdls, hdls)
+              -- external node was not reachable
+              (Nothing) -> do
+                let untrigNegNodeHdls = Set.difference allNegNodeHdls trigHdls
+                    untrigNegResHdls = Set.difference allNegResHdls trigHdls
+                    untrigHdls = Set.union untrigNegNodeHdls untrigNegResHdls
+                    -- new triggered handler set
+                    allTrigHdls = Set.union allNegNodeHdls allNegResHdls
+                    -- list of Handlers to execute
+                    hdls = filter (\(dhi,_) -> Set.member dhi untrigHdls) $ Map.toList hdlFuncs
+                return (allTrigHdls, hdls)
+            let dne' = dne { dne_PingThreadId = tid, dne_TriggeredHandlers = allTrigHdls }
+                dnd' = addNodeP otherDNodeId dne' dnd
+            return (dnd', hdls)
+          -- in the meantime, the node entry was deleted
+          (Nothing) -> return (dnd, [])
+        return (dnd', (hdls, pingDelay))
+    isMatchingResHdl :: Set.Set DRessourceId -> DHandlerId -> Bool
+    isMatchingResHdl resIds dhi = if (isJust mbResId) then isMember else False
+      where
+        mbResId = dhi_DRessourceId dhi
+        resId = fromJust mbResId
+        isMember = Set.member resId resIds
+    hasAnyHandlers :: DNodeEntry -> Bool
+    hasAnyHandlers dne = not $ Map.null (dne_HandlerFunctions dne)
+

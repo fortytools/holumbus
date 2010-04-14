@@ -47,8 +47,7 @@ where
 
 import           Prelude hiding                 ( catch )
 
-import           Control.Exception.Extensible              ( Exception
-                                                , throwTo
+import           Control.Exception.Extensible   ( Exception
                                                 , catch
                                                 )
 
@@ -500,7 +499,7 @@ sendTask :: JobController -> TaskData -> IO ()
 sendTask jc td
   = do
     -- own thread for this... so it is non-blocking
-    forkIO $ 
+    _ <- forkIO $ 
       do
       yield
       -- get the sendFunction (just read it)
@@ -559,7 +558,7 @@ handleTasks jc
       -- get all sending taskdatas                  
       let sendingTaskDatas = mapMaybe (\tid -> Map.lookup tid (jcd_TaskMap jcd1)) idleTasks
       -- send all idle Tasks (non-blocking)
-      mapM (sendTask jc) sendingTaskDatas
+      _ <- mapM (sendTask jc) sendingTaskDatas
       
       -- get all completed Tasks
       let completedTasks = getTaskIds runningJobs [] [TSCompleted] jcd1
