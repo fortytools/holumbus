@@ -76,11 +76,6 @@ instance MapReducible Inverted (Context, Word) Occurrences where
                         let idx = singleton c w (IM.unionsWith IS.union os)
                             _   = rnf idx
                         return $ Just $ idx 
---    do
---    idx <- mapReduce 10 ("/scratch30/db_" ++ c ++ ".db") emptyInverted 
---                 (\_ (w,o) -> return $ [(c, (w,o))]) 
---                 (zip (repeat ()) os)
---    return $ Just idx   
 
 -- ----------------------------------------------------------------------------
 
@@ -100,9 +95,12 @@ instance HolIndex Inverted where
   insertOccurrences c w o i 	= mergeIndexes (singleton c w o) i
   deleteOccurrences c w o i 	= substractIndexes i (singleton c w o)
 
-  splitByContexts (Inverted parts) = splitInternal (map annotate $ M.toList parts)
+  splitByContexts (Inverted ps) = splitInternal (map (uncurry annotate) . M.toList $ ps)
     where
-    annotate (c, p) = let i 	= Inverted (M.singleton c p) in (sizeWords i, i)
+    annotate c p 		= let
+ 				  i = Inverted (M.singleton c p)
+                                  in
+                                  (sizeWords i, i)
 
   splitByDocuments i 		= splitInternal ( map convert $
 						  IM.toList $
