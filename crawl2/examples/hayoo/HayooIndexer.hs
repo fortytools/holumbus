@@ -5,9 +5,15 @@
 module Main
 where
 
+import qualified Data.Binary			as B
 import           Data.Char
-import		 Data.Function.Selector		( update )
+import		 Data.Function.Selector		( update, getS )
 import           Data.Maybe
+
+import		 Hayoo.FunctionInfo
+import           Hayoo.Haddock
+import		 Hayoo.IndexConfig
+import           Hayoo.URIConfig
 
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
@@ -20,16 +26,12 @@ import		 Holumbus.Index.Inverted.PrefixMem
 import           System.Console.GetOpt
 import           System.Environment
 import           System.Exit
+import		 System.FilePath		( takeExtension )
 import		 System.IO
 
 import		 Text.XML.HXT.Arrow		hiding ( readDocument )
 import           Text.XML.HXT.Arrow.XmlCache
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
-
-import		 Hayoo.FunctionInfo
-import           Hayoo.Haddock
-import		 Hayoo.IndexConfig
-import           Hayoo.URIConfig
 
 -- ------------------------------------------------------------
 
@@ -68,48 +70,50 @@ hayooIndexer o                  = stdIndexer
 
 -- ------------------------------------------------------------
 
-data AppOpts			= AO { ao_output	:: String
-				     , ao_help		:: Bool
-				     , ao_resume	:: Maybe String
-				     , ao_packages	:: [String]
-				     , ao_recent	:: Bool
-				     , ao_msg		:: String
-				     , ao_crawlDoc	:: (Int, Int, Int)
-				     , ao_crawlSav	:: (Int, String)
-				     , ao_crawlLog	:: (Priority, Priority)
-				     , ao_crawlPar	:: [(String, String)]
-				     , ao_crawlFct	:: HayooIndexerConfig -> HayooIndexerConfig
-				     }
+data AppOpts			= AO
+                                  { ao_output	:: String
+				  , ao_help	:: Bool
+				  , ao_resume	:: Maybe String
+				  , ao_packages	:: [String]
+				  , ao_recent	:: Bool
+				  , ao_msg	:: String
+				  , ao_crawlDoc	:: (Int, Int, Int)
+				  , ao_crawlSav	:: (Int, String)
+				  , ao_crawlLog	:: (Priority, Priority)
+				  , ao_crawlPar	:: [(String, String)]
+				  , ao_crawlFct	:: HayooIndexerConfig -> HayooIndexerConfig
+				  }
 
 type SetAppOpt			= AppOpts -> AppOpts
 
 -- ------------------------------------------------------------
 
 initAppOpts			:: AppOpts
-initAppOpts			= AO { ao_output	= ""
-				     , ao_help		= False
-				     , ao_resume	= Nothing
-				     , ao_packages	= []
-				     , ao_recent	= False
-				     , ao_msg		= ""
-				     , ao_crawlDoc	= (5, 5, 0)						-- max docs, max par docs, max threads
-				     , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
-				     , ao_crawlLog	= (DEBUG, DEBUG)					-- log cache and hxt
-				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
-                                                          [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
-							  , (a_compress, v_1		)			-- cache files will be compressed
-							  , (a_accept_mimetypes,
- 	                                                     unwords [ text_html
-                                                                     , application_xhtml
-                                                                     ])
-							  , (a_parse_html,              v_0)
-							  , (a_parse_by_mimetype,	v_1)
-							  ]
-				     , ao_crawlFct	= ( editPackageURIs					-- configure URI rewriting
-							    >>>
-							    disableRobotsTxt					-- for hayoo robots.txt is not needed
-							  )
-				     }
+initAppOpts			= AO
+                                  { ao_output	= ""
+				  , ao_help		= False
+				  , ao_resume	= Nothing
+				  , ao_packages	= []
+				  , ao_recent	= False
+				  , ao_msg		= ""
+				  , ao_crawlDoc	= (5, 5, 0)						-- max docs, max par docs, max threads
+				  , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
+				  , ao_crawlLog	= (DEBUG, DEBUG)					-- log cache and hxt
+				  , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
+                                                  [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
+						  , (a_compress, v_1		)			-- cache files will be compressed
+						  , (a_accept_mimetypes,
+ 	                                             unwords [ text_html
+                                                             , application_xhtml
+                                                             ])
+						  , (a_parse_html,              v_0)
+						  , (a_parse_by_mimetype,	v_1)
+						  ]
+				  , ao_crawlFct	= ( editPackageURIs					-- configure URI rewriting
+						    >>>
+						    disableRobotsTxt					-- for hayoo robots.txt is not needed
+						  )
+				  }
     where
     editPackageURIs		= update theProcessRefs (>>> arr editLatestPackage)
 
@@ -150,7 +154,7 @@ main1 pn args
 					   }
 
     optDescr			= [ Option "h?" ["help"] 	(NoArg  $ \   x -> x { ao_help     = True }) 				"usage info"
-				  , Option "o"  ["output"]	(ReqArg ( \ f x -> x { ao_output   = f    }) 	  	"OUTPUT-FILE")	"output file"
+				  , Option "o"  ["output"]	(ReqArg ( \ f x -> x { ao_output   = f    }) 	  	"OUTPUT-FILE")	"output file, when name has .xml extension, then state output as XML else binary output of index"
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) 	"PACKAGE-LIST")	"update a comma separated list of packages"
 				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  	"FILE")		"resume program with status file"
                                   , Option "m"  ["maxdocs"]     (ReqArg ( setOption parseInt
@@ -212,16 +216,16 @@ setDocAge d				=  addEntries [(a_document_age, show d)]
 -- ------------------------------------------------------------
 
 main2                           :: AppOpts -> IO ()
-main2 opts			= runX ( hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ opts)
-                                         >>>
-				         action
-                                         >>>
-                                         traceMsg 0 (unwords ["writing indexer state into XML file", out])
-                                         >>>
-                                         xpickleDocument xpickle [(a_indent, v_1)] out
-                                         >>>
-                                         traceMsg 0 "writing indexer finished"
-				       )
+main2 opts			= runX
+				  ( hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ opts)
+                                    >>>
+				    action
+                                    >>>
+				    ( if xmlOutput
+				      then writeXml
+				      else writeBin
+				    )
+				  )
 				  >> exitSuccess
     where
     action0			= arrIO0 (hayooIndexer opts)
@@ -239,8 +243,28 @@ main2 opts			= runX ( hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ opts)
 				  >>>
 				  action0
 
+    writeXml			= traceMsg 0 (unwords ["writing indexer state into XML file", out])
+                                  >>>
+                                  xpickleDocument xpickle [(a_indent, v_1)] out
+				  >>>
+				  constA ()
+				  >>>
+                                  traceMsg 0 "writing indexer finished"
+
+    writeBin			= traceMsg 0 (unwords ["writing index into binary file", out])
+                                  >>>
+                                  ( arrIO $ \ s ->
+				    do
+				    B.encodeFile out (getS theResultAccu s)
+				  )
+                                  >>>
+				  constA ()
+				  >>>
+                                  traceMsg 0 "writing index finished"
+
     resume			= ao_resume   opts
     packageList			= ao_packages opts
     out				= ao_output   opts
+    xmlOutput			= takeExtension out == ".xml"
 
 -- ------------------------------------------------------------

@@ -127,6 +127,7 @@ crawlerCheckSaveState	= do
 			  m  <- getConf  theSaveIntervall
 			  when ( m > 0 && n1 - n0 >= m)
                                crawlerSaveState
+
 crawlerSaveState	:: Binary r => CrawlerAction a r ()
 crawlerSaveState	= do
 			  n1 <- getState theNoOfDocs

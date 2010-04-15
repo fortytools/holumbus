@@ -26,14 +26,15 @@ hayooIndexContextConfig		= [ ixModule
 				  , ixPartial
                                   , ixSignature
                                   , ixNormalizedSig
+				  , ixDescription
 				  ]
     where
-    ixDefault                   =  IndexContextConfig
-                                   { ixc_name           = "default"
-                                   , ixc_collectText    = getHtmlPlainText
-                                   , ixc_textToWords    = deleteNotAllowedChars >>> words
-                                   , ixc_boringWord     = boringWord
-                                   }
+    ixDefault                   = IndexContextConfig
+                                  { ixc_name           	= "default"
+                                  , ixc_collectText    	= getHtmlPlainText
+                                  , ixc_textToWords    	= deleteNotAllowedChars >>> words
+                                  , ixc_boringWord     	= boringWord
+                                  }
     ixModule              	= ixDefault
                                   { ixc_name          	= "module"
                                   , ixc_collectText   	= getAttrValue "module"
@@ -68,6 +69,11 @@ hayooIndexContextConfig		= [ ixModule
     ixNormalizedSig		= ixSignature
 				  { ixc_name          	= "normalized"
 				  , ixc_textToWords	= normSignature >>> return
+                                  }
+    ixDescription              	= ixDefault
+                                  { ixc_name          	= "description"
+                                  , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "doc"))
+				  , ixc_textToWords	= tokenize "[A-Za-z0-9.-_'():]+"
                                   }
 
 -- -----------------------------------------------------------------------------    
