@@ -94,8 +94,8 @@ initAppOpts			= AO { ao_output	= ""
 				     , ao_packages	= []
 				     , ao_recent	= False
 				     , ao_msg		= ""
-				     , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
-				     , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
+				     , ao_crawlDoc	= (50000, 100, 10)					-- max docs, max par docs, max threads
+				     , ao_crawlSav	= (500, "./tmp/cache-")					-- save intervall and path
 				     , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
 				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 1) $			-- cache remains valid 1 day
                                                           [ (a_cache, 	"./cache"	)			-- local cache dir "cache"

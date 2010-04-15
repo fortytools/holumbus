@@ -5,6 +5,8 @@
 module Hayoo.IndexConfig
 where
 
+import           Data.Maybe
+
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
 
@@ -19,8 +21,11 @@ import           Hayoo.Haddock
 hayooIndexContextConfig		:: [IndexContextConfig]
 hayooIndexContextConfig		= [ ixModule
 				  , ixHierachy
+                                  , ixPackage
 				  , ixName
 				  , ixPartial
+                                  , ixSignature
+                                  , ixNormalizedSig
 				  ]
     where
     ixDefault                   =  IndexContextConfig
@@ -32,11 +37,17 @@ hayooIndexContextConfig		= [ ixModule
     ixModule              	= ixDefault
                                   { ixc_name          	= "module"
                                   , ixc_collectText   	= getAttrValue "module"
-				  , ixc_textToWords	= (:[])
+				  , ixc_textToWords	= return
                                   }
     ixHierachy			= ixModule
                                   { ixc_name          	= "hierarchy"
 				  , ixc_textToWords	= tokenize "[^.]+"		-- split module name at .
+                                  }
+    ixPackage              	= ixDefault
+                                  { ixc_name          	= "package"
+                                  , ixc_collectText   	= getAttrValue "package"
+				  , ixc_textToWords	= return
+                                  , ixc_boringWord	= (== "unknownpackage")
                                   }
     ixName			= ixDefault
 				  { ixc_name          	= "name"
@@ -48,6 +59,18 @@ hayooIndexContextConfig		= [ ixModule
                                   { ixc_name          	= "partial"
 				  , ixc_textToWords	= deCamel >>> tokenize "[A-Za-z][A-Za-z0-9_]*"
                                   }
+    ixSignature			= ixDefault
+				  { ixc_name          	= "signature"
+                                  , ixc_collectText   	= getAttrValue "signature"
+				  , ixc_textToWords	= stripSignature >>> return
+				  , ixc_boringWord	= null
+                                  }
+    ixNormalizedSig		= ixSignature
+				  { ixc_name          	= "normalized"
+				  , ixc_textToWords	= normSignature >>> return
+                                  }
+
+-- -----------------------------------------------------------------------------    
 
 deCamel				:: String -> String
 deCamel				= deCamel' False
@@ -64,14 +87,31 @@ deCamel				= deCamel' False
 	where
 	isCap			= (`elem` ['A'..'Z'])
 
-stripSignature 			:: String -> String
-stripSignature 			= tokenize "[()\\[\\],.]|::|=>|->|[A-Za-z0-9_#]+|[^()\\[\\],. A-Za-z0-9_#]+"
+-- -----------------------------------------------------------------------------    
+
+stripSignature'			:: ([String] -> [String]) -> String -> String
+stripSignature' nf		= tokenize "[()\\[\\],.]|::|=>|->|[A-Za-z0-9_#'.xdg]+|[^()\\[\\],. A-Za-z0-9_#']+"
 				  >>>
+                                  nf
+                                  >>>
 				  unwords
 				  >>>
-				  sed (take 1) "[(\\[][ ]"
+				  sed init  "([,()\\[\\]]|->)[ ]"
 				  >>>
-				  sed (drop 1) "[ ][\\]),]"
+				  sed (drop 1) "[ ]([\\[\\](),]|->)"
+
+stripSignature			:: String -> String
+stripSignature			= stripSignature' id
+
+normSignature			:: String -> String
+normSignature			= stripSignature' normIds
+
+normIds				:: [String] -> [String]
+normIds	ts			= map renId ts
+    where
+    ids				= flip zip (map (:[]) ['a' ..]) . filter isId $ ts
+    isId			= (`elem` (['A'..'Z'] ++ ['a'..'z'] ++ "#_")) . head
+    renId t			= fromMaybe t . lookup t $ ids
 
 -- -----------------------------------------------------------------------------    
 {-
@@ -82,35 +122,10 @@ theHayooXPath =  "//td[@class='decl']"
   
 ccs_Hayoo :: [ContextConfig]
 ccs_Hayoo = [ 
-            , ccHayooSignature 
-            , ccHayooNormalizedSignature
             , ccHayooDescription
             , ccPackage
             ]
             
-ccHayooName :: ContextConfig
-ccHayooName 
-  = ContextConfig { cc_name        = "name"
-                  , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_fExtract    = getXPathTrees theHayooXPath  
-                  , cc_fTokenize   = (\a -> [stripWith (\b -> b `elem` "():") (strip (takeWhile ( (/=) ' ') (dropWhile ( (==) ' ') a)))])
-                  , cc_fIsStopWord = (flip elem) ["type", "class", "data"]  
-                  , cc_addToCache  = False
-                  }
-
-ccHayooPartialName :: ContextConfig
-ccHayooPartialName 
-  = ccHayooName   { cc_name        = "partial"
-                  , cc_fTokenize   = (\s -> split " " (deCamel False (takeWhile ( (/=) ' ') s))) 
-                  } 
-  where 
-    deCamel :: Bool -> String -> String  -- Bool flag: last character was a capital letter
-    deCamel _ []     = []
-    deCamel wasCap (x:xs) 
-      = if x == '_' then ' ' : deCamel True xs
-                    else if x `elem` ['A'..'Z'] then if wasCap then x: deCamel True xs
-                                                               else ' ' : (x : deCamel True xs) 
-                                                else x : deCamel (x `elem` ['A'..'Z']) xs
 
 -- | Configruation for description context.
 ccHayooDescription :: ContextConfig 
@@ -125,39 +140,6 @@ ccHayooDescription
                   , cc_addToCache  = True
                   }
 
-ccHayooSignature :: ContextConfig
-ccHayooSignature  
-  = ContextConfig { cc_name        = "signature"
-                  , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_fExtract    = getXPathTrees theHayooXPath
-                  , cc_fTokenize   = \s -> [getSignature s]
-                  , cc_fIsStopWord = const False
-                  , cc_addToCache  = False     
-                  }
-
-ccHayooNormalizedSignature :: ContextConfig
-ccHayooNormalizedSignature 
-  = ccHayooSignature { cc_name        = "normalized"
-                     , cc_fTokenize   = (\s -> [normalizeSignature (getSignature s)])
-                     , cc_fIsStopWord = (\s -> length s ==  0) 
-                     }
-                  
-ccModule :: ContextConfig
-ccModule 
-  = ContextConfig { cc_name        = "module"
-                  , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_fExtract    = getXPathTrees "/table/tr/td[@id='module']" 
-                  , cc_fTokenize   = \a -> [stripWith (==' ') a]
-                  , cc_fIsStopWord = const False     
-                  , cc_addToCache  = False
-                  }
-
-ccHierarchy :: ContextConfig
-ccHierarchy 
-  = ccModule      { cc_name        = "hierarchy" 
-                  , cc_fTokenize   = split "." . stripWith (==' ') 
-                  }     
-            
 ccPackage :: ContextConfig
 ccPackage
   = ContextConfig { cc_name        = "package"
@@ -198,7 +180,9 @@ removeDeclbut = processTopDown (  none `when` isDeclbut )
 -- ------------------------------------------------------------
 
 boringWord              	:: String -> Bool
-boringWord w            	= length w <= 1
+boringWord w            	= null w
+                                  ||
+                                  (null . tail $ w)
 				  ||
 				  not (any isXmlLetter w)
 
