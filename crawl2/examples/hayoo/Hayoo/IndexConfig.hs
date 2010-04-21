@@ -73,7 +73,7 @@ hayooIndexContextConfig		= [ ixModule
     ixDescription              	= ixDefault
                                   { ixc_name          	= "description"
                                   , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "doc"))
-				  , ixc_textToWords	= tokenize "[A-Za-z0-9.-_'():]+"
+				  , ixc_textToWords	= tokenize "[A-Za-z0-9.-_':]+"
                                   }
 
 -- -----------------------------------------------------------------------------    

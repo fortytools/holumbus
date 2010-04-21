@@ -72,7 +72,7 @@ hackageRefs pkgs		= simpleFollowRef'
                                   , rottenDocumentation
                                   ]
     where
-    packageVersion		= "[0-9]+([.][0-9])+"
+    packageVersion		= "[0-9]+([.][0-9]+)+"
     packageVersion'		= alternatives [packageVersion, "latest"]
     packageDocPath		= hackagePackageDocPath ++ packageName ++ "/" ++ packageVersion' ++ "/doc/html/"
 

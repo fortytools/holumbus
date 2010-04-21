@@ -98,8 +98,10 @@ initAppOpts			= AO { ao_output	= ""
 				     , ao_crawlSav	= (500, "./tmp/cache-")					-- save intervall and path
 				     , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
 				     , ao_crawlPar	= setDocAge (60 * 60 * 24 * 1) $			-- cache remains valid 1 day
-                                                          [ (a_cache, 	"./cache"	)			-- local cache dir "cache"
-							  , (a_compress, v_1		)			-- cache files will be compressed
+                                                          [ (a_cache,	  "./cache"	)			-- local cache dir "cache"
+							  , (a_compress,  v_1		)			-- cache files will be compressed
+                                                          , (a_cache_404, v_1		)			-- 404 pages will also be cached, these are wrong URLs in haddock docs
+														-- and remain wrong over time
 							  , (a_accept_mimetypes,
  	                                                     unwords [ text_html
                                                                      , application_xhtml

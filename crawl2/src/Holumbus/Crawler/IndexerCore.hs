@@ -15,6 +15,8 @@ module Holumbus.Crawler.IndexerCore
     , emptyIndexerState
     , indexCrawlerConfig
     , stdIndexer
+    , unionIndexerStatesM
+    , insertRawDocM
     )
 where
 

@@ -51,9 +51,9 @@ prepareHaddock			= process
                                   ]
     where
     process			= seqA . zipWith phase [(0::Int)..]
-    phase i f			= fromLA f
-                                  >>>
-                                  traceDoc ("prepare haddock: step " ++ show i)
+    phase _i f			= fromLA f
+                                  -- >>>
+                                  -- traceDoc ("prepare haddock: step " ++ show i)
 
 -- ------------------------------------------------------------
 
