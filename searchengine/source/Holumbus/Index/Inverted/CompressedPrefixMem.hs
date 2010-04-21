@@ -29,6 +29,9 @@ module Holumbus.Index.Inverted.CompressedPrefixMem
     , insertPosOcc
     , deletePosOcc
     , updateDocIdOcc
+    , deleteDocIds
+
+    , removeDocIdsInverted
     )
 where
 
@@ -91,6 +94,9 @@ deletePosOcc d p	= mapOcc $ deleteOccurrence d p
 
 updateDocIdOcc		:: (ComprOccurrences s) => (DocId -> DocId) -> s -> s
 updateDocIdOcc f 	= mapOcc $ updateOccurrences f
+
+deleteDocIds		:: (ComprOccurrences s) => Occurrences -> s -> s
+deleteDocIds ids	= mapOcc $ flip IM.difference ids
 
 -- ----------------------------------------------------------------------------
 --
@@ -349,6 +355,15 @@ diffPart 			= PT.differenceWith subtractDiffLists
         where
         res                     = zipOcc substractOccurrences o1 o2
 
+removeDocIdsPart		:: (ComprOccurrences i) => Occurrences -> Part i -> Part i
+removeDocIdsPart ids		= PT.foldWithKey removeDocIds PT.empty
+    where
+    removeDocIds k occ acc
+        | nullOcc occ'		= acc
+        | otherwise		= PT.insert k occ' acc
+        where
+        occ'			= deleteDocIds ids occ
+
 -- ----------------------------------------------------------------------------
 
 mapInverted                     :: (Parts i -> Parts i) -> Inverted i -> Inverted i
@@ -372,6 +387,11 @@ sizeofAttrsInverted		:: (Sizeof i) => Inverted i -> Int64
 sizeofAttrsInverted		= M.fold ((+) . sizeofPT) 0 . unInverted
 	                          where
         	                  sizeofPT = PT.fold ((+) . sizeof) 0
+
+-- | Remove DocIds from index
+
+removeDocIdsInverted		:: (ComprOccurrences i) => Occurrences -> Inverted i -> Inverted i
+removeDocIdsInverted ids	= mapInverted $ M.map (removeDocIdsPart ids)
 
 -- ----------------------------------------------------------------------------
 --

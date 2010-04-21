@@ -175,11 +175,11 @@ class (Binary i) => HolIndex i where
 
   -- | Insert a position for a single document.
   insertPosition 		:: Context -> Word -> DocId -> Position -> i -> i
-  insertPosition c w d p i = insertOccurrences c w (IM.singleton d (IS.singleton p)) i
+  insertPosition c w d p i 	= insertOccurrences c w (IM.singleton d (IS.singleton p)) i
 
   -- | Delete a position for a single document.
   deletePosition 		:: Context -> Word -> DocId -> Position -> i -> i
-  deletePosition c w d p i = deleteOccurrences c w (IM.singleton d (IS.singleton p)) i
+  deletePosition c w d p i 	= deleteOccurrences c w (IM.singleton d (IS.singleton p)) i
 
   -- | Merges two indexes. 
   mergeIndexes  		:: i -> i -> i
@@ -201,7 +201,7 @@ class (Binary i) => HolIndex i where
   -- in the occurrences for a word in a specific context.
   updateDocIds			:: (Context -> Word -> DocId -> DocId) -> i -> i
 
-  -- | Update document id's with an simple injective editing function.
+  -- | Update document id's with a simple injective editing function.
   updateDocIds'			:: (DocId -> DocId) -> i -> i
   updateDocIds' f		= updateDocIds (const . const $ f)
 

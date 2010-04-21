@@ -69,7 +69,7 @@ hackageRefs pkgs		= simpleFollowRef'
                                                        , "src/.*"				-- no hscolored sources
                                                        ]
                                   , hackagePackages ++ packageName ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
-                                  , rottenDocumentation
+                                  -- , rottenDocumentation
                                   ]
     where
     packageVersion		= "[0-9]+([.][0-9]+)+"
@@ -79,6 +79,8 @@ hackageRefs pkgs		= simpleFollowRef'
     packageName
 	| null pkgs		= fileName
 	| otherwise		= alternatives pkgs
+
+{- rotten documentation is filtered out by limiting the length of the document (max 1Mb)
 
     rottenDocumentation		= packageDocPath ++ alternatives ds ++ ext "html"
         where
@@ -92,6 +94,7 @@ hackageRefs pkgs		= simpleFollowRef'
                                   , "Harpy-X86Assembler"
                                   , "Types-Data-Num-Decimal-Literals"
                                   ]
+-}
 
 hackagePackageDocPath		:: String
 hackagePackageDocPath		= hackageHome ++ "archive/"

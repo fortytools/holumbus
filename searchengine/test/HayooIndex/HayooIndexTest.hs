@@ -4,46 +4,20 @@ module Main where
 
 import           Control.DeepSeq
 
--- import           Data.Function
 import           Data.Maybe
--- import           Data.Char
 import qualified Data.Binary            as B
 
--- import qualified Data.List 			as L
--- import qualified Data.Map 			as M
--- import qualified Data.IntMap 			as IM
--- import qualified Data.IntSet 			as IS
+import 		 Holumbus.Index.Inverted.OneFile	( Persistent )
+import 		 Holumbus.Index.Inverted.Memory		( Inverted, emptyInverted )
 
--- import qualified Data.ByteString.UTF8 as B
+import 		 Holumbus.Index.SmallDocuments		( SmallDocuments )
+import 		 Holumbus.Index.Common
 
--- import Network.URI (unEscapeString)
-
--- import Text.XML.HXT.Arrow
--- import Text.XML.HXT.DOM.Unicode
-
-import Holumbus.Index.Inverted.OneFile		( Persistent )
-import Holumbus.Index.Inverted.Memory		( Inverted, emptyInverted )
-
-import Holumbus.Index.SmallDocuments		( SmallDocuments )
--- import Holumbus.Index.Cache
-import Holumbus.Index.Common
-
--- import Holumbus.Query.Language.Grammar
--- import Holumbus.Query.Processor
--- import Holumbus.Query.Result
--- import Holumbus.Query.Ranking
--- import Holumbus.Query.Fuzzy
-
--- import Holumbus.Utility
-
-import Hayoo.Common
+import 		 Hayoo.Common
 
 import 		 System.IO
 import 		 System.Environment
 import 		 System.FilePath
--- import 		 System.Exit
--- import 		 System.Console.Editline.Readline
--- import 		 System.Console.GetOpt
 import 		 System.CPUTime
 
 import qualified Holumbus.Index.Inverted.CompressedPrefixMem as PX

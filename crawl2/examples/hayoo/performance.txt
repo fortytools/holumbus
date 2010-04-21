@@ -1,0 +1,221 @@
+test run with CompressedPrefixMem.Inverted0 (no compression at all)
+
+./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+
+ 745,457,989,368 bytes allocated in the heap
+  62,357,959,344 bytes copied during GC
+     883,009,880 bytes maximum residency (153 sample(s))
+      24,503,176 bytes maximum slop
+            2498 MB total memory in use (39 MB lost due to fragmentation)
+
+  Generation 0: 21543 collections,     0 parallel, 273.51s, 319.77s elapsed
+  Generation 1:   153 collections,     0 parallel, 148.67s, 324.22s elapsed
+
+  Parallel GC work balance: nan (0 / 0, ideal 1)
+
+                        MUT time (elapsed)       GC time  (elapsed)
+  Task  0 (worker) :    0.00s    ( 880.26s)       0.00s    (  0.00s)
+  Task  1 (worker) :    0.00s    (   0.00s)       0.04s    (  0.04s)
+  Task  2 (worker) :   59.05s    ( 882.06s)      24.37s    ( 28.93s)
+  Task  3 (worker) :  195.91s    (1334.71s)      53.18s    ( 86.59s)
+  Task  4 (worker) :   91.44s    (1334.90s)      32.01s    ( 36.02s)
+  Task  5 (worker) :  113.14s    (1334.82s)      41.89s    ( 51.75s)
+  Task  6 (bound)  :    0.00s    (   0.00s)     270.68s    (440.65s)
+
+  SPARKS: 0 (0 converted, 0 pruned)
+
+  INIT  time     0.00s  (   0.00s elapsed)
+  MUT   time   602.00s  (1334.78s elapsed)
+  GC    time   422.18s  ( 643.99s elapsed)
+  EXIT  time    13.94s  (   0.23s elapsed)
+  Total time  1038.12s  (1978.99s elapsed)
+
+  %GC time      40.7%  (32.5% elapsed)
+
+  Alloc rate    1,210,272,043 bytes per MUT second
+
+  Productivity  59.3% of total user, 31.1% of total elapsed
+
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_large_objects: 0
+
+> ls -altr tmp
+-rw-r--r-- 1 theo users    117136 2010-04-21 10:43 ix-0000000502
+-rw-r--r-- 1 theo users    178220 2010-04-21 10:44 ix-0000001002
+-rw-r--r-- 1 theo users    244933 2010-04-21 10:44 ix-0000001502
+-rw-r--r-- 1 theo users    327279 2010-04-21 10:45 ix-0000002002
+-rw-r--r-- 1 theo users   7405914 2010-04-21 10:46 ix-0000002502
+-rw-r--r-- 1 theo users  12943189 2010-04-21 10:47 ix-0000003002
+-rw-r--r-- 1 theo users  17446743 2010-04-21 10:48 ix-0000003502
+-rw-r--r-- 1 theo users  22947844 2010-04-21 10:49 ix-0000004002
+-rw-r--r-- 1 theo users  30417801 2010-04-21 10:50 ix-0000004502
+-rw-r--r-- 1 theo users  42264368 2010-04-21 10:51 ix-0000005002
+-rw-r--r-- 1 theo users  47810746 2010-04-21 10:52 ix-0000005502
+-rw-r--r-- 1 theo users  51879519 2010-04-21 10:52 ix-0000006002
+-rw-r--r-- 1 theo users  56553483 2010-04-21 10:53 ix-0000006502
+-rw-r--r-- 1 theo users  61885192 2010-04-21 10:55 ix-0000007002
+-rw-r--r-- 1 theo users  67286665 2010-04-21 10:56 ix-0000007502
+-rw-r--r-- 1 theo users  69643670 2010-04-21 10:57 ix-0000008002
+-rw-r--r-- 1 theo users  75929024 2010-04-21 10:58 ix-0000008502
+-rw-r--r-- 1 theo users  80470396 2010-04-21 11:00 ix-0000009002
+-rw-r--r-- 1 theo users  85580857 2010-04-21 11:01 ix-0000009502
+-rw-r--r-- 1 theo users  91158413 2010-04-21 11:03 ix-0000010002
+-rw-r--r-- 1 theo users  96067012 2010-04-21 11:05 ix-0000010502
+-rw-r--r-- 1 theo users 101032974 2010-04-21 11:07 ix-0000011002
+-rw-r--r-- 1 theo users 109647052 2010-04-21 11:10 ix-0000011502
+-rw-r--r-- 1 theo users 112550357 2010-04-21 11:12 ix-0000012002
+-rw-r--r-- 1 theo users 119214115 2010-04-21 11:15 ix-0000012402
+-rw-r--r-- 1 theo users 118885160 2010-04-21 11:16 ix.bin
+
+--------------------------------------------------------------------------------
+
+test run with CompressedPrefixMem.InvertedCompressed (simple-9 compression of occurrences)
+
+./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+
+1208,140,436,352 bytes allocated in the heap
+  86,110,977,792 bytes copied during GC
+     923,286,744 bytes maximum residency (173 sample(s))
+      22,069,840 bytes maximum slop
+            2612 MB total memory in use (41 MB lost due to fragmentation)
+
+  Generation 0: 58206 collections,     0 parallel, 379.92s, 454.05s elapsed
+  Generation 1:   173 collections,     0 parallel, 243.37s, 454.38s elapsed
+
+  Parallel GC work balance: nan (0 / 0, ideal 1)
+
+                        MUT time (elapsed)       GC time  (elapsed)
+  Task  0 (worker) :    0.00s    (   0.00s)       0.01s    (  0.01s)
+  Task  1 (worker) :    0.00s    (1236.90s)       0.57s    (  0.65s)
+  Task  2 (worker) :  249.77s    (1844.68s)      40.31s    ( 47.01s)
+  Task  3 (worker) :  200.42s    (1844.78s)      45.07s    ( 61.90s)
+  Task  4 (worker) :  280.13s    (1844.81s)      75.05s    ( 97.72s)
+  Task  5 (bound)  :    0.00s    (   0.00s)     462.27s    (701.14s)
+
+
+  SPARKS: 0 (0 converted, 0 pruned)
+
+  INIT  time     0.00s  (   0.00s elapsed)
+  MUT   time   975.12s  (1844.78s elapsed)
+  GC    time   623.29s  ( 908.43s elapsed)
+  EXIT  time     0.01s  (   0.23s elapsed)
+  Total time  1598.43s  (2753.43s elapsed)
+
+  %GC time      39.0%  (33.0% elapsed)
+
+  Alloc rate    1,238,944,325 bytes per MUT second
+
+  Productivity  61.0% of total user, 35.4% of total elapsed
+
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_large_objects: 0
+
+> ls -altr tmp
+-rw-r--r-- 1 theo users    117136 2010-04-21 11:34 ix-0000000502
+-rw-r--r-- 1 theo users    178220 2010-04-21 11:35 ix-0000001002
+-rw-r--r-- 1 theo users    244933 2010-04-21 11:35 ix-0000001502
+-rw-r--r-- 1 theo users    327127 2010-04-21 11:36 ix-0000002002
+-rw-r--r-- 1 theo users   7140626 2010-04-21 11:37 ix-0000002502
+-rw-r--r-- 1 theo users  12526341 2010-04-21 11:38 ix-0000003002
+-rw-r--r-- 1 theo users  16917863 2010-04-21 11:39 ix-0000003502
+-rw-r--r-- 1 theo users  22363636 2010-04-21 11:41 ix-0000004002
+-rw-r--r-- 1 theo users  29656921 2010-04-21 11:42 ix-0000004502
+-rw-r--r-- 1 theo users  41139904 2010-04-21 11:45 ix-0000005002
+-rw-r--r-- 1 theo users  46475058 2010-04-21 11:46 ix-0000005502
+-rw-r--r-- 1 theo users  50446519 2010-04-21 11:47 ix-0000006002
+-rw-r--r-- 1 theo users  54966331 2010-04-21 11:49 ix-0000006502
+-rw-r--r-- 1 theo users  60169504 2010-04-21 11:50 ix-0000007002
+-rw-r--r-- 1 theo users  65452817 2010-04-21 11:52 ix-0000007502
+-rw-r--r-- 1 theo users  67771622 2010-04-21 11:53 ix-0000008002
+-rw-r--r-- 1 theo users  73886224 2010-04-21 11:55 ix-0000008502
+-rw-r--r-- 1 theo users  78291732 2010-04-21 11:57 ix-0000009002
+-rw-r--r-- 1 theo users  83232361 2010-04-21 11:59 ix-0000009502
+-rw-r--r-- 1 theo users  88622213 2010-04-21 12:01 ix-0000010002
+-rw-r--r-- 1 theo users  93347372 2010-04-21 12:04 ix-0000010502
+-rw-r--r-- 1 theo users  98082262 2010-04-21 12:06 ix-0000011002
+-rw-r--r-- 1 theo users 106460732 2010-04-21 12:11 ix-0000011502
+-rw-r--r-- 1 theo users 109263293 2010-04-21 12:14 ix-0000012002
+-rw-r--r-- 1 theo users 115700547 2010-04-21 12:18 ix-0000012402
+-rw-r--r-- 1 theo users 115371592 2010-04-21 12:20 ix.bin
+
+--------------------------------------------------------------------------------
+
+test run with PrefixMem.Inverted (simple-9 compression of occurrences)
+
+./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+
+1189,908,225,360 bytes allocated in the heap
+  87,376,389,144 bytes copied during GC
+     920,225,880 bytes maximum residency (179 sample(s))
+      24,796,040 bytes maximum slop
+            2609 MB total memory in use (41 MB lost due to fragmentation)
+
+  Generation 0: 57076 collections,     0 parallel, 364.53s, 423.60s elapsed
+  Generation 1:   179 collections,     0 parallel, 237.64s, 565.97s elapsed
+
+  Parallel GC work balance: nan (0 / 0, ideal 1)
+
+                        MUT time (elapsed)       GC time  (elapsed)
+  Task  0 (worker) :    0.00s    (1029.42s)       0.00s    (  0.00s)
+  Task  1 (worker) :    0.00s    (  0.00s)       0.01s    (  0.01s)
+  Task  2 (worker) :  121.01s    (1040.44s)      31.16s    ( 39.37s)
+  Task  3 (worker) :   85.70s    (1451.06s)      21.58s    ( 22.94s)
+  Task  4 (worker) :  432.31s    (1451.12s)      99.10s    (114.17s)
+  Task  5 (worker) :    0.00s    (1451.12s)       0.00s    (  0.00s)
+  Task  6 (bound)  :    0.00s    (  0.00s)     450.32s    (813.08s)
+
+  SPARKS: 0 (0 converted, 0 pruned)
+
+  INIT  time    0.00s  (  0.00s elapsed)
+  MUT   time  902.66s  (1451.10s elapsed)
+  GC    time  602.17s  (989.58s elapsed)
+  EXIT  time    0.00s  (  0.15s elapsed)
+  Total time  1504.84s  (2440.82s elapsed)
+
+  %GC time      40.0%  (40.5% elapsed)
+
+  Alloc rate    1,318,217,722 bytes per MUT second
+
+  Productivity  60.0% of total user, 37.0% of total elapsed
+
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_large_objects: 0
+
+> ls -altr tmp
+-rw-r--r-- 1 theo users    117136 2010-04-21 13:12 ix-0000000502
+-rw-r--r-- 1 theo users    178220 2010-04-21 13:12 ix-0000001002
+-rw-r--r-- 1 theo users    244933 2010-04-21 13:12 ix-0000001502
+-rw-r--r-- 1 theo users    327127 2010-04-21 13:12 ix-0000002002
+-rw-r--r-- 1 theo users   7140626 2010-04-21 13:14 ix-0000002502
+-rw-r--r-- 1 theo users  12526341 2010-04-21 13:14 ix-0000003002
+-rw-r--r-- 1 theo users  16917863 2010-04-21 13:15 ix-0000003502
+-rw-r--r-- 1 theo users  22363636 2010-04-21 13:16 ix-0000004002
+-rw-r--r-- 1 theo users  29656921 2010-04-21 13:17 ix-0000004502
+-rw-r--r-- 1 theo users  41139904 2010-04-21 13:19 ix-0000005002
+-rw-r--r-- 1 theo users  46475058 2010-04-21 13:20 ix-0000005502
+-rw-r--r-- 1 theo users  50446519 2010-04-21 13:21 ix-0000006002
+-rw-r--r-- 1 theo users  54966331 2010-04-21 13:22 ix-0000006502
+-rw-r--r-- 1 theo users  60169504 2010-04-21 13:23 ix-0000007002
+-rw-r--r-- 1 theo users  65452817 2010-04-21 13:24 ix-0000007502
+-rw-r--r-- 1 theo users  67771622 2010-04-21 13:25 ix-0000008002
+-rw-r--r-- 1 theo users  73886224 2010-04-21 13:28 ix-0000008502
+-rw-r--r-- 1 theo users  78291732 2010-04-21 13:31 ix-0000009002
+-rw-r--r-- 1 theo users  83232361 2010-04-21 13:33 ix-0000009502
+-rw-r--r-- 1 theo users  88622213 2010-04-21 13:35 ix-0000010002
+-rw-r--r-- 1 theo users  93347372 2010-04-21 13:38 ix-0000010502
+-rw-r--r-- 1 theo users  98082262 2010-04-21 13:40 ix-0000011002
+-rw-r--r-- 1 theo users 106460732 2010-04-21 13:44 ix-0000011502
+-rw-r--r-- 1 theo users 109263293 2010-04-21 13:47 ix-0000012002
+-rw-r--r-- 1 theo users 115700547 2010-04-21 13:51 ix-0000012402
+-rw-r--r-- 1 theo users 115371592 2010-04-21 13:52 ix.bin
+
+--------------------------------------------------------------------------------

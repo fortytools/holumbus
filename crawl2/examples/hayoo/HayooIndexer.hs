@@ -23,12 +23,10 @@ import		 Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Documents       ( Documents(..)
                                                 , emptyDocuments
                                                 )
-import		 Holumbus.Index.Inverted.PrefixMem
 
 import           System.Console.GetOpt
 import           System.Environment
 import           System.Exit
--- import		 System.FilePath		( takeExtension )
 import		 System.IO
 
 import		 Text.XML.HXT.Arrow		hiding ( readDocument )
@@ -37,14 +35,59 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
 -- ----
 
+-- imports for removePackages
+
+import qualified Data.ByteString.Char8		as C
 import qualified Data.IntSet			as IS
 import qualified Data.IntMap			as IM
-import qualified Data.Map			as M
-import           Data.List			( )
-import           Holumbus.Index.Common
-import qualified Data.ByteString.Char8		as C
-import qualified Holumbus.Data.PrefixTree	as PT
-import 		 Holumbus.Index.Compression
+import           Data.List			( foldl' )
+import           Holumbus.Index.Common		( Occurrences, custom, editDocIds, removeById, toMap, updateDocIds' )
+
+-- ------------------------------------------------------------
+
+{- .1: direct use of prefix tree with simple-9 encoded occurences
+
+   concerning efficiency this implementation is about the same as the 2. one,
+   space and time are minimally better, the reason could be less code working with classes
+
+import		 Holumbus.Index.Inverted.PrefixMem
+
+-}
+-- ------------------------------------------------------------
+
+{- .2: indirect use of prefix tree with simple-9 encoded occurences via InvertedCompressed
+
+   minimal overhead compared to .1
+   but less efficient in time (1598s / 1038s) and space
+   total mem use (2612MB / 2498MB) than .3
+
+import qualified Holumbus.Index.Inverted.CompressedPrefixMem	as PM
+
+type Inverted			= PM.InvertedCompressed
+
+emptyInverted			:: Inverted
+emptyInverted			= PM.emptyInvertedCompressed
+-}
+
+-- ------------------------------------------------------------
+
+{- .3: indirect prefix tree without compression of position sets
+
+   best of these 3 implementations
+
+   implementations with serializations become much more inefficient
+   in runtime and are not worth to be considered
+-}
+ 
+import qualified Holumbus.Index.Inverted.CompressedPrefixMem	as PM
+
+type Inverted			= PM.Inverted0
+
+emptyInverted			:: Inverted
+emptyInverted			= PM.emptyInverted0
+
+removeDocIdsInverted 		:: Occurrences -> Inverted -> Inverted
+removeDocIdsInverted		= PM.removeDocIdsInverted
 
 -- ------------------------------------------------------------
 
@@ -101,24 +144,19 @@ removePack ps IndexerState
                                   , ixs_documents = ds'
                                   }
     where
-    ix'				= removeDocs (`IS.member` docIds) ix
-    ds'				= IS.fold (flip removeById) ds docIds
-    docIds			= IM.foldWithKey checkDoc IS.empty . toMap $ ds
+							-- collect all DocIds used in the given packages
+    docIds			= IM.foldWithKey checkDoc IM.empty . toMap $ ds
     checkDoc did doc xs
-        | docPartOfPack		= IS.insert did xs
-        | otherwise		=               xs
+        | docPartOfPack		= IM.insert did IS.empty xs
+        | otherwise		=                        xs
         where
         docPartOfPack		= (`elem` ps) . C.unpack . package . fromJust . custom $ doc
 
-removeDocs			:: (DocId -> Bool) -> Inverted -> Inverted
-removeDocs p			= Inverted . M.map (removeDocsFromPart p) . indexParts
+							-- remove all DocIds from index
+    ix'				= removeDocIdsInverted docIds ix
 
--- this one must be more efficient, conversion to/from list should be eliminated
-removeDocsFromPart		:: (DocId -> Bool) -> Part -> Part
-removeDocsFromPart p pt		= PT.fromList . filter (not . IM.null . snd) . map (second (removeDocsFromOcc p)) . PT.toList $ pt
-
-removeDocsFromOcc		:: (DocId -> Bool) -> CompressedOccurrences -> CompressedOccurrences
-removeDocsFromOcc p occ		= IM.foldWithKey (\ k a r -> if p k then r else IM.insert k a r) IM.empty $ occ
+							-- restrict document table
+    ds'				= foldl' removeById ds $ IM.keys docIds
 
 -- ------------------------------------------------------------
 
@@ -173,7 +211,7 @@ initAppOpts			= AO
 				  , ao_packages	= []
 				  , ao_recent	= False
 				  , ao_msg		= ""
-				  , ao_crawlDoc	= (5000, 100, 10)					-- max docs, max par docs, max threads
+				  , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
 				  , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
 				  , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
 				  , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
