@@ -18,7 +18,7 @@ import		 Data.List
 
 import		 Holumbus.Crawler
 
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( sed )
+import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match, sed )
 
 -- ------------------------------------------------------------
 
@@ -56,27 +56,28 @@ hackageHome			= "http://hackage.haskell.org/packages/"
 hackagePackages			:: String
 hackagePackages			= "http://hackage.haskell.org/package/"		-- no "s" at the end !!!
 
+hackageStartPage		:: URI
+hackageStartPage		=  hackageHome ++ "archive/pkg-list.html"
+
 hackageStart			:: [URI]
-hackageStart			=  [ hackageHome ++ "archive/pkg-list.html" ]
+hackageStart			=  [ hackageStartPage ]
 
 hackageRefs			:: [String] -> URI -> Bool
 hackageRefs pkgs		= simpleFollowRef'
-				  [ hackagePackages ++ packageName
+				  [ hackagePackages ++ packageName'
                                   , packageDocPath  ++ modulePath ++ ext "html"
                                   ]
                                   [ packageDocPath ++ alternatives
                                                        [ "doc-index.*" ++ ext "html"		-- no index files
                                                        , "src/.*"				-- no hscolored sources
                                                        ]
-                                  , hackagePackages ++ packageName ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
+                                  , hackagePackages ++ packageName' ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
                                   -- , rottenDocumentation
                                   ]
     where
-    packageVersion		= "[0-9]+([.][0-9]+)+"
-    packageVersion'		= alternatives [packageVersion, "latest"]
-    packageDocPath		= hackagePackageDocPath ++ packageName ++ "/" ++ packageVersion' ++ "/doc/html/"
+    packageDocPath		= hackagePackageDocPath ++ packageName' ++ "/" ++ packageVersion' ++ "/doc/html/"
 
-    packageName
+    packageName'
 	| null pkgs		= fileName
 	| otherwise		= alternatives pkgs
 
@@ -105,6 +106,14 @@ hackageGetPackage u
 				= takeWhile (/= '/') . drop (length hackagePackageDocPath) $ u
     | otherwise			= ""
 
+getHackagePackage		:: String -> String
+getHackagePackage s
+    | match (hackagePackages ++ packageName) s
+				= drop (length hackagePackages) s
+    | otherwise			= ""
+
+-- ------------------------------------------------------------
+
 gtk2hsStart			:: [URI]
 gtk2hsStart			= [ gtk2hsHome ++ "index.html" ]
 
@@ -116,12 +125,15 @@ gtk2hsRefs			= simpleFollowRef'
                                   ]
 
 gtk2hsHome			:: String
-gtk2hsHome			= "http://www.haskell.org/gtk2hs/docs/current/"
+gtk2hsHome			= "http://www.haskell.org/" ++ gtk2hsPackage ++ "/docs/current/"
 
 gtk2hsGetPackage		:: String -> String
 gtk2hsGetPackage u
-    | gtk2hsHome `isPrefixOf` u	= "gtk2hs"
+    | gtk2hsHome `isPrefixOf` u	= gtk2hsPackage
     | otherwise			= ""
+
+gtk2hsPackage			:: String
+gtk2hsPackage			= "gtk2hs"
 
 -- ------------------------------------------------------------
 
@@ -144,6 +156,13 @@ path                        	= "[^?]+"
 
 ext				:: String -> String
 ext                         	= ("[.]" ++)
+
+packageName			:: String
+packageName			= "[A-Za-z]([A-Za-z0-9_]|-)*"
+
+packageVersion, packageVersion'	:: String
+packageVersion			= "[0-9]+([.][0-9]+)+"
+packageVersion'			= alternatives [packageVersion, "latest"]
 
 -- ------------------------------------------------------------
 

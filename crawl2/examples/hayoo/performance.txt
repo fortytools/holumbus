@@ -1,4 +1,4 @@
-test run with CompressedPrefixMem.Inverted0 (no compression at all)
+sichel> test run with CompressedPrefixMem.Inverted0 (no compression at all)
 
 ./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
 
@@ -74,7 +74,7 @@ gen[1].steps[0].sync_large_objects: 0
 
 test run with CompressedPrefixMem.InvertedCompressed (simple-9 compression of occurrences)
 
-./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+sichel> ./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
 
 1208,140,436,352 bytes allocated in the heap
   86,110,977,792 bytes copied during GC
@@ -148,7 +148,7 @@ gen[1].steps[0].sync_large_objects: 0
 
 test run with PrefixMem.Inverted (simple-9 compression of occurrences)
 
-./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+sichel> ./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
 
 1189,908,225,360 bytes allocated in the heap
   87,376,389,144 bytes copied during GC
@@ -217,5 +217,199 @@ gen[1].steps[0].sync_large_objects: 0
 -rw-r--r-- 1 theo users 109263293 2010-04-21 13:47 ix-0000012002
 -rw-r--r-- 1 theo users 115700547 2010-04-21 13:51 ix-0000012402
 -rw-r--r-- 1 theo users 115371592 2010-04-21 13:52 ix.bin
+
+--------------------------------------------------------------------------------
+
+statistics cache run
+
+delle> ./hayooCache +RTS -N1 -s -K100M -RTS -o tmp/2010-04-22-13:35:08-cache.xml
+
+ 517,115,754,152 bytes allocated in the heap
+  72,762,960,872 bytes copied during GC
+      73,885,336 bytes maximum residency (5832 sample(s))
+       1,167,768 bytes maximum slop
+             147 MB total memory in use (2 MB lost due to fragmentation)
+
+  Generation 0: 969889 collections,     0 parallel, 116.84s, 119.84s elapsed
+  Generation 1:   5832 collections,     0 parallel, 115.47s, 117.57s elapsed
+
+  Parallel GC work balance: nan (0 / 0, ideal 1)
+
+                        MUT time (elapsed)       GC time  (elapsed)
+  Task  0 (worker) :    0.04s    (4381.48s)       0.01s    (  0.01s)
+  Task  1 (worker) :    0.00s    (   0.00s)       0.21s    (  0.20s)
+  Task  2 (worker) :  157.98s    (4396.29s)      62.79s    ( 64.28s)
+  Task  3 (worker) :  150.12s    (4396.30s)      59.16s    ( 60.19s)
+  Task  4 (worker) :  146.65s    (4396.31s)      56.22s    ( 57.57s)
+  Task  5 (worker) :  142.33s    (4396.31s)      50.85s    ( 52.12s)
+  Task  6 (bound)  :    0.00s    (   0.00s)       3.07s    (  3.05s)
+
+  SPARKS: 0 (0 converted, 0 pruned)
+
+  INIT  time    0.00s  (   0.00s elapsed)
+  MUT   time  524.39s  (4396.31s elapsed)
+  GC    time  232.31s  ( 237.42s elapsed)
+  EXIT  time    0.00s  (   0.00s elapsed)
+  Total time  751.05s  (4633.73s elapsed)
+
+  %GC time      30.9%  (5.1% elapsed)
+
+  Alloc rate    996,883,560 bytes per MUT second
+
+  Productivity  69.1% of total user, 11.2% of total elapsed
+
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_large_objects: 0
+
+--------------------------------------------------------------------------------
+
+statistics indexer run on delle with 1 processor (-N1)
+
+delle> ./hayooIndexer +RTS -N1 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+ 757,614,827,544 bytes allocated in the heap
+  69,057,543,544 bytes copied during GC
+     884,625,720 bytes maximum residency (161 sample(s))
+      23,744,616 bytes maximum slop
+            2506 MB total memory in use (39 MB lost due to fragmentation)
+
+  Generation 0: 22093 collections,     0 parallel, 254.63s, 255.51s elapsed
+  Generation 1:   161 collections,     0 parallel,  49.34s,  50.29s elapsed
+
+  Parallel GC work balance: nan (0 / 0, ideal 1)
+
+                        MUT time (elapsed)       GC time  (elapsed)
+  Task  0 (worker) :    0.00s    (  0.00s)       0.00s    (  0.00s)
+  Task  1 (worker) :    0.00s    (  0.00s)       0.02s    (  0.01s)
+  Task  2 (worker) :    0.00s    (400.16s)       6.82s    (  6.83s)
+  Task  3 (worker) :  301.38s    (654.38s)      68.87s    ( 69.50s)
+  Task  4 (worker) :  132.71s    (654.43s)      72.21s    ( 72.33s)
+  Task  5 (worker) :    0.00s    (654.43s)       0.00s    (  0.00s)
+  Task  6 (bound)  :    0.00s    (  0.00s)     156.05s    (157.12s)
+
+  SPARKS: 0 (0 converted, 0 pruned)
+
+  INIT  time    0.00s  (  0.00s elapsed)
+  MUT   time  527.51s  (654.43s elapsed)
+  GC    time  303.96s  (305.80s elapsed)
+  EXIT  time    0.00s  (  0.01s elapsed)
+  Total time  824.87s  (960.23s elapsed)
+
+  %GC time      36.8%  (31.8% elapsed)
+
+  Alloc rate    1,454,410,230 bytes per MUT second
+
+  Productivity  63.2% of total user, 54.2% of total elapsed
+
+gc_alloc_block_sync: 0
+whitehole_spin: 0
+gen[0].steps[0].sync_large_objects: 0
+gen[0].steps[1].sync_large_objects: 0
+gen[1].steps[0].sync_large_objects: 0
+
+> ls -altr tmp
+-rw-r--r-- 1 emil users    117201 2010-04-22 13:39 ix-0000000502
+-rw-r--r-- 1 emil users    178934 2010-04-22 13:39 ix-0000001002
+-rw-r--r-- 1 emil users    245240 2010-04-22 13:40 ix-0000001502
+-rw-r--r-- 1 emil users    312927 2010-04-22 13:40 ix-0000002002
+-rw-r--r-- 1 emil users   6506891 2010-04-22 13:40 ix-0000002502
+-rw-r--r-- 1 emil users  12776657 2010-04-22 13:41 ix-0000003002
+-rw-r--r-- 1 emil users  17428287 2010-04-22 13:41 ix-0000003502
+-rw-r--r-- 1 emil users  22566507 2010-04-22 13:42 ix-0000004002
+-rw-r--r-- 1 emil users  30776724 2010-04-22 13:43 ix-0000004502
+-rw-r--r-- 1 emil users  42536394 2010-04-22 13:43 ix-0000005002
+-rw-r--r-- 1 emil users  48335024 2010-04-22 13:44 ix-0000005502
+-rw-r--r-- 1 emil users  52461859 2010-04-22 13:45 ix-0000006002
+-rw-r--r-- 1 emil users  57007173 2010-04-22 13:45 ix-0000006502
+-rw-r--r-- 1 emil users  62383728 2010-04-22 13:46 ix-0000007002
+-rw-r--r-- 1 emil users  68085649 2010-04-22 13:47 ix-0000007502
+-rw-r--r-- 1 emil users  70641156 2010-04-22 13:47 ix-0000008002
+-rw-r--r-- 1 emil users  76378648 2010-04-22 13:48 ix-0000008502
+-rw-r--r-- 1 emil users  81292391 2010-04-22 13:48 ix-0000009002
+-rw-r--r-- 1 emil users  86460648 2010-04-22 13:49 ix-0000009502
+-rw-r--r-- 1 emil users  91788944 2010-04-22 13:50 ix-0000010002
+-rw-r--r-- 1 emil users  96675313 2010-04-22 13:51 ix-0000010502
+-rw-r--r-- 1 emil users 101828959 2010-04-22 13:52 ix-0000011002
+-rw-r--r-- 1 emil users 108865570 2010-04-22 13:53 ix-0000011502
+-rw-r--r-- 1 emil users 113341923 2010-04-22 13:54 ix-0000012002
+-rw-r--r-- 1 emil users 120473229 2010-04-22 13:55 ix-0000012461
+-rw-r--r-- 1 emil users 120142637 2010-04-22 13:55 ix.bin
+
+--------------------------------------------------------------------------------
+
+statistics indexer run on delle with 2 processors (-N2)
+
+delle> ./hayooIndexer +RTS -N2 -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+ 749,964,795,576 bytes allocated in the heap
+  70,557,373,728 bytes copied during GC
+     921,881,072 bytes maximum residency (178 sample(s))
+      28,344,280 bytes maximum slop
+            2583 MB total memory in use (40 MB lost due to fragmentation)
+
+  Generation 0: 28893 collections, 28892 parallel, 613.59s, 313.84s elapsed
+  Generation 1:   178 collections,   178 parallel , 76.97s,  39.95s elapsed
+
+  Parallel GC work balance: 1.36 (8819277440 / 6467923638, ideal 2)
+
+                        MUT time (elapsed)       GC time  (elapsed)
+  Task  0 (worker) :    0.00s    (359.67s)       0.11s    (  0.05s)
+  Task  1 (worker) :    0.00s    (  0.00s)       0.02s    (  0.02s)
+  Task  2 (worker) :    0.00s    (360.74s)       0.06s    (  0.03s)
+  Task  3 (worker) :   99.75s    (620.26s)      27.97s    ( 14.42s)
+  Task  4 (worker) :  184.38s    (620.26s)      78.00s    ( 40.80s)
+  Task  5 (worker) :  302.72s    (620.41s)     111.67s    ( 58.25s)
+  Task  6 (worker) :  192.71s    (620.44s)      68.97s    ( 35.88s)
+  Task  7 (bound)  :    0.00s    (  0.00s)     403.76s    (204.33s)
+  Task  8 (worker) :    0.00s    (620.51s)       0.00s    (  0.00s)
+
+  SPARKS: 0 (0 converted, 0 pruned)
+
+  INIT  time    0.00s  (  0.00s elapsed)
+  MUT   time  652.33s  (620.51s elapsed)
+  GC    time  690.56s  (353.78s elapsed)
+  EXIT  time    3.05s  (  0.02s elapsed)
+  Total time 1349.30s  (974.30s elapsed)
+
+  %GC time      51.2%  (36.3% elapsed)
+
+  Alloc rate    1,138,495,507 bytes per MUT second
+
+  Productivity  48.8% of total user, 67.6% of total elapsed
+
+gc_alloc_block_sync: 7835235
+whitehole_spin: 273
+gen[0].steps[0].sync_large_objects: 3530
+gen[0].steps[1].sync_large_objects: 142
+gen[1].steps[0].sync_large_objects: 22321
+
+> ls -altr tmp
+-rw-r--r-- 1 emil users    117201 2010-04-22 14:11 ix-0000000502
+-rw-r--r-- 1 emil users    178934 2010-04-22 14:11 ix-0000001002
+-rw-r--r-- 1 emil users    245240 2010-04-22 14:12 ix-0000001502
+-rw-r--r-- 1 emil users    312927 2010-04-22 14:12 ix-0000002002
+-rw-r--r-- 1 emil users   6506891 2010-04-22 14:12 ix-0000002502
+-rw-r--r-- 1 emil users  12776657 2010-04-22 14:13 ix-0000003002
+-rw-r--r-- 1 emil users  17428287 2010-04-22 14:13 ix-0000003502
+-rw-r--r-- 1 emil users  22566507 2010-04-22 14:14 ix-0000004002
+-rw-r--r-- 1 emil users  30776724 2010-04-22 14:15 ix-0000004502
+-rw-r--r-- 1 emil users  42536394 2010-04-22 14:16 ix-0000005002
+-rw-r--r-- 1 emil users  48335024 2010-04-22 14:16 ix-0000005502
+-rw-r--r-- 1 emil users  52461859 2010-04-22 14:17 ix-0000006002
+-rw-r--r-- 1 emil users  57007173 2010-04-22 14:17 ix-0000006502
+-rw-r--r-- 1 emil users  62383728 2010-04-22 14:18 ix-0000007002
+-rw-r--r-- 1 emil users  68085649 2010-04-22 14:19 ix-0000007502
+-rw-r--r-- 1 emil users  70641156 2010-04-22 14:19 ix-0000008002
+-rw-r--r-- 1 emil users  76378648 2010-04-22 14:20 ix-0000008502
+-rw-r--r-- 1 emil users  81292391 2010-04-22 14:20 ix-0000009002
+-rw-r--r-- 1 emil users  86460648 2010-04-22 14:21 ix-0000009502
+-rw-r--r-- 1 emil users  91788944 2010-04-22 14:22 ix-0000010002
+-rw-r--r-- 1 emil users  96675313 2010-04-22 14:23 ix-0000010502
+-rw-r--r-- 1 emil users 101828959 2010-04-22 14:24 ix-0000011002
+-rw-r--r-- 1 emil users 108865570 2010-04-22 14:25 ix-0000011502
+-rw-r--r-- 1 emil users 113341923 2010-04-22 14:26 ix-0000012002
+-rw-r--r-- 1 emil users 120473229 2010-04-22 14:27 ix-0000012461
+-rw-r--r-- 1 emil users 120142637 2010-04-22 14:27 ix.bin
 
 --------------------------------------------------------------------------------

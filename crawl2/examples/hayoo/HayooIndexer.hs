@@ -40,7 +40,7 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 import qualified Data.ByteString.Char8		as C
 import qualified Data.IntSet			as IS
 import qualified Data.IntMap			as IM
-import           Data.List			( foldl' )
+import           Data.List			( foldl', sort, nub )
 import           Holumbus.Index.Common		( Occurrences, custom, editDocIds, removeById, toMap, updateDocIds' )
 
 -- ------------------------------------------------------------
@@ -173,6 +173,23 @@ defragmentIndex IndexerState
     ds'				= editDocIds editId ds
     idMap			= IM.fromList . flip zip [1..] . IM.keys . toMap $ ds
     editId i			= fromJust . IM.lookup i $ idMap
+
+-- ------------------------------------------------------------
+
+hayooPackageNames		:: AppOpts -> IO [String]
+hayooPackageNames o		= runX $
+				  ( ( readDocument (ao_crawlPar o) hackageStartPage
+				      >>>
+				      getHtmlReferences
+				      >>>
+				      arr getHackagePackage
+				      >>>
+				      isA (not . null)
+				    )
+				    <+>
+				    constA gtk2hsPackage
+				  )
+				  >>. (sort >>> nub)
 
 -- ------------------------------------------------------------
 
