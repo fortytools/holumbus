@@ -34,7 +34,7 @@ module Holumbus.Distribution.DNode
   , delForeignDNode
   , checkForeignDNode
   , addForeignDNodeHandler
-  , addForeignDRessourceHandler
+  , addForeignDResourceHandler
   , delForeignHandler
   
   , getDNodeData                  -- debug

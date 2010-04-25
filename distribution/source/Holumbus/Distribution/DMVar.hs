@@ -44,11 +44,11 @@ import           Holumbus.Distribution.DNode.Base
 localLogger :: String
 localLogger = "Holumbus.Distribution.DMVar"
 
-dMVarType :: DRessourceType
-dMVarType = mkDRessourceType "DMVAR"
+dMVarType :: DResourceType
+dMVarType = mkDResourceType "DMVAR"
 
-mkDMVarEntry :: (Binary a) => DMVarReference a -> DRessourceEntry
-mkDMVarEntry d = DRessourceEntry {
+mkDMVarEntry :: (Binary a) => DMVarReference a -> DResourceEntry
+mkDMVarEntry d = DResourceEntry {
     dre_Dispatcher   = dispatchDMVarRequest d 
   }
 
@@ -108,40 +108,40 @@ dispatchDMVarRequest dch dna hdl
 
 
 data DMVar a
-  = DMVarLocal DRessourceAddress (MVar a) (MVar (a, Maybe DHandlerId))
-  | DMVarRemote DRessourceAddress
+  = DMVarLocal DResourceAddress (MVar a) (MVar (a, Maybe DHandlerId))
+  | DMVarRemote DResourceAddress
 
 instance Binary (DMVar a) where
   put(DMVarLocal dra _ _) = put dra
   put(DMVarRemote dra)    = put dra
   get = get >>= \dra -> return (DMVarRemote dra)
 
-data DMVarReference a = DMVarReference DRessourceAddress (MVar a) (MVar (a, Maybe DHandlerId))
+data DMVarReference a = DMVarReference DResourceAddress (MVar a) (MVar (a, Maybe DHandlerId))
   
 
 newDMVar :: (Binary a) => String -> a -> IO (DMVar a)
 newDMVar s d
   = do
-    dra <- genLocalRessourceAddress dMVarType s
+    dra <- genLocalResourceAddress dMVarType s
     v <- newMVar d
     o <- newEmptyMVar
     let dmv = (DMVarLocal dra v o)
         dvr = (DMVarReference dra v o)
         dve = (mkDMVarEntry dvr)
-    addLocalRessource dra dve
+    addLocalResource dra dve
     return dmv
 
 
 newEmptyDMVar :: (Binary a) => String -> IO (DMVar a)
 newEmptyDMVar s
   = do
-    dra <- genLocalRessourceAddress dMVarType s
+    dra <- genLocalResourceAddress dMVarType s
     v <- newEmptyMVar
     o <- newMVar (undefined, Nothing)
     let dmv = (DMVarLocal dra v o)
         dvr = (DMVarReference dra v o)
         dve = (mkDMVarEntry dvr)
-    addLocalRessource dra dve
+    addLocalResource dra dve
     return dmv
 
 
@@ -150,16 +150,16 @@ newRemoteDMVar r n
   = do
     return $ DMVarRemote dra
     where
-    dra = mkDRessourceAddress dMVarType r n
+    dra = mkDResourceAddress dMVarType r n
 
 
 closeDMVar :: (DMVar a) -> IO ()
 closeDMVar (DMVarLocal dra _ _)
   = do
-    delLocalRessource dra
+    delLocalResource dra
 closeDMVar (DMVarRemote dra)
   = do
-    delForeignRessource dra
+    delForeignResource dra
 
 
 
@@ -248,7 +248,7 @@ readDMVar (DMVarLocal _ v _)
     readMVar v
 readDMVar (DMVarRemote a)
   = do
-    unsafeAccessForeignRessource a requestRead
+    unsafeAccessForeignResource a requestRead
 
 
 takeDMVar :: (Binary a) => DMVar a -> IO a
@@ -259,7 +259,7 @@ takeDMVar (DMVarLocal _ v o)
     return a
 takeDMVar (DMVarRemote a)
   = do
-    unsafeAccessForeignRessource a requestTake
+    unsafeAccessForeignResource a requestTake
 
 
 putDMVar :: (Binary a) => DMVar a -> a -> IO ()  
@@ -272,5 +272,5 @@ putDMVar (DMVarLocal _ v o) d
     putMVar v d
 putDMVar (DMVarRemote a) d
   = do
-    unsafeAccessForeignRessource a (requestPut d)
+    unsafeAccessForeignResource a (requestPut d)
 

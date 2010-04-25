@@ -44,11 +44,11 @@ localLogger :: String
 localLogger = "Holumbus.Distribution.DChan"
 
 
-dChanType :: DRessourceType
-dChanType = mkDRessourceType "DCHAN"
+dChanType :: DResourceType
+dChanType = mkDResourceType "DCHAN"
 
-mkDChanEntry :: (Binary a) => DChanReference a -> DRessourceEntry
-mkDChanEntry d = DRessourceEntry {
+mkDChanEntry :: (Binary a) => DChanReference a -> DResourceEntry
+mkDChanEntry d = DResourceEntry {
     dre_Dispatcher   = dispatchDChanRequest d 
   }
 
@@ -108,8 +108,8 @@ dispatchDChanRequest dch _ hdl
     
 
 data DChan a
-  = DChanLocal DRessourceAddress (Chan a)
-  | DChanRemote DRessourceAddress
+  = DChanLocal DResourceAddress (Chan a)
+  | DChanRemote DResourceAddress
 
 instance Binary (DChan a) where
   put(DChanLocal a _) = put a
@@ -117,18 +117,18 @@ instance Binary (DChan a) where
   get = get >>= \a -> return (DChanRemote a)
 
 
-data DChanReference a = DChanReference DRessourceAddress (Chan a) 
+data DChanReference a = DChanReference DResourceAddress (Chan a) 
 
 
 newDChan :: (Binary a) => String -> IO (DChan a)
 newDChan s
   = do
-    dra <- genLocalRessourceAddress dChanType s
+    dra <- genLocalResourceAddress dChanType s
     c <- newChan
     let dch = (DChanLocal dra c)
         dcr = (DChanReference dra c)
         dce = (mkDChanEntry dcr)
-    addLocalRessource dra dce
+    addLocalResource dra dce
     return dch
     
 
@@ -138,16 +138,16 @@ newRemoteDChan r n
   = do
     return $ DChanRemote dra
     where
-    dra = mkDRessourceAddress dChanType r n
+    dra = mkDResourceAddress dChanType r n
 
 
 closeDChan :: (DChan a) -> IO ()
 closeDChan (DChanLocal dra _)
   = do
-    delLocalRessource dra
+    delLocalResource dra
 closeDChan (DChanRemote dra)
   = do
-    delForeignRessource dra
+    delForeignResource dra
 
 
 
@@ -211,7 +211,7 @@ writeDChan (DChanLocal _ c) v
     writeChan c v
 writeDChan (DChanRemote a) v
   = do
-    unsafeAccessForeignRessource a (requestWrite v)
+    unsafeAccessForeignResource a (requestWrite v)
 
 
 readDChan :: (Binary a) => DChan a -> IO a
@@ -220,7 +220,7 @@ readDChan (DChanLocal _ c)
     readChan c
 readDChan (DChanRemote a)
   = do
-    unsafeAccessForeignRessource a requestRead
+    unsafeAccessForeignResource a requestRead
 
 
 tryReadDChan :: (Binary a) => DChan a -> IO (Maybe a)
@@ -242,4 +242,4 @@ isEmptyDChan (DChanLocal _ c)
     isEmptyChan c
 isEmptyDChan (DChanRemote a)
   = do
-    unsafeAccessForeignRessource a requestIsEmpty
+    unsafeAccessForeignResource a requestIsEmpty

@@ -63,11 +63,11 @@ instance (Binary a, BinaryFunction b) => BinaryFunction (a -> b) where
 
 -- ----------------------------------------------------------------------------
 
-dFunctionType :: DRessourceType
-dFunctionType = mkDRessourceType "DFUNCTION"
+dFunctionType :: DResourceType
+dFunctionType = mkDResourceType "DFUNCTION"
 
-mkDFunctionEntry :: (BinaryFunction a) => DFunctionReference a -> DRessourceEntry
-mkDFunctionEntry d = DRessourceEntry {
+mkDFunctionEntry :: (BinaryFunction a) => DFunctionReference a -> DResourceEntry
+mkDFunctionEntry d = DResourceEntry {
     dre_Dispatcher   = dispatchDFunctionRequest d 
   }
 
@@ -109,8 +109,8 @@ dispatchDFunctionRequest dfun _ hdl
 
 
 data DFunction a
-  = DFunctionLocal DRessourceAddress a
-  | DFunctionRemote DRessourceAddress
+  = DFunctionLocal DResourceAddress a
+  | DFunctionRemote DResourceAddress
 
 instance Binary (DFunction a) where
   put(DFunctionLocal dra _) = put dra
@@ -118,18 +118,18 @@ instance Binary (DFunction a) where
   get = get >>= \dra -> return (DFunctionRemote dra)
   
   
-data DFunctionReference a = DFunctionReference DRessourceAddress a
+data DFunctionReference a = DFunctionReference DResourceAddress a
 
 
 
 newDFunction :: (BinaryFunction a) => String -> a -> IO (DFunction a)
 newDFunction s f
   = do
-    a <- genLocalRessourceAddress dFunctionType s
+    a <- genLocalResourceAddress dFunctionType s
     let df  = (DFunctionLocal a f)
         dfr = (DFunctionReference a f)
         dfd = (mkDFunctionEntry dfr)
-    addLocalRessource a dfd
+    addLocalResource a dfd
     return df
 
 
@@ -138,16 +138,16 @@ newRemoteDFunction r n
   = do
     return $ DFunctionRemote dra
     where
-    dra = mkDRessourceAddress dFunctionType r n
+    dra = mkDResourceAddress dFunctionType r n
 
 
 closeDFunction :: DFunction a -> IO ()
 closeDFunction (DFunctionLocal dra _)
   = do
-    delLocalRessource dra
+    delLocalResource dra
 closeDFunction (DFunctionRemote dra)
   = do
-    delForeignRessource dra
+    delForeignResource dra
 
 
 requestCall :: [B.ByteString] -> Handle -> IO B.ByteString
@@ -176,7 +176,7 @@ accessDFunction :: (BinaryFunction a) => DFunction a -> a
 accessDFunction (DFunctionLocal _ f) = f
 accessDFunction (DFunctionRemote a)
   = remoteCall $ \bs ->
-      unsafeAccessForeignRessource a (requestCall bs)
+      unsafeAccessForeignResource a (requestCall bs)
 
 
 {-
