@@ -30,7 +30,7 @@ import           MessagesDChan
 
 
 data ServerData = ServerData {
-    sd_clients   :: Map.Map Int (String, ReceiveChatMessageFunction)
+    sd_clients   :: Map.Map Int (String, RemoteClientInterface)
   , sd_names     :: Set.Set String
   , sd_number    :: Int
   }
@@ -40,7 +40,7 @@ type Server = MVar ServerData
 
 registerClient :: Server -> RegisterClientFunction
 registerClient _ "" _ = return Nothing
-registerClient cs cn receivefun
+registerClient cs cn stub
   = do
     putStrLn $ "registering: " ++ cn
     server <- takeMVar cs
@@ -49,7 +49,7 @@ registerClient cs cn receivefun
         putMVar cs server
         return Nothing
       else do
-        let sd_clients' = Map.insert (sd_number server) (cn, accessDFunction receivefun) (sd_clients server)
+        let sd_clients' = Map.insert (sd_number server) (cn, createRemoteClientInterface stub) (sd_clients server)
             sd_names'   = Set.insert cn (sd_names server)
             sd_number'  = 1 + (sd_number server)
         putMVar cs $ server { sd_clients = sd_clients', sd_names = sd_names', sd_number = sd_number' }
@@ -83,7 +83,7 @@ sendChatMessage cs cId msg
         return ()
       (Just (cn,_)) -> do
         -- TODO exception handling here
-        let funs = map (\t -> (snd t) cn msg) $ Map.elems $ Map.filterWithKey (\cId' _ -> cId' /= cId) (sd_clients server)
+        let funs = map (\t -> (cif_receive $ snd t) cn msg) $ Map.elems $ Map.filterWithKey (\cId' _ -> cId' /= cId) (sd_clients server)
         sequence_ funs
 
 
@@ -98,13 +98,12 @@ main
     initDNode $ (defaultDNodeConfig "ChatServer")
       { dnc_MinPort = (fromInteger 7999), dnc_MaxPort = (fromInteger 7999) }
     cs <- mkChatServer
-    df1 <- newDFunction "register" (registerClient cs)
-    df2 <- newDFunction "unregister" (unregisterClient cs)
-    df3 <- newDFunction "send" (sendChatMessage cs)
+    sifs <- createLocalServerInterfaceStub
+      (registerClient cs)
+      (unregisterClient cs)
+      (sendChatMessage cs)
     inputLoop
-    closeDFunction df1
-    closeDFunction df2
-    closeDFunction df3
+    closeLocalServerInterfaceStub sifs
     deinitDNode
 
 

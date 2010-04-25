@@ -35,14 +35,12 @@ instance Exception ConnectionException
 
 
 data ClientData = ClientData {
-    cd_id         :: Maybe Int
-  , cd_tid        :: ThreadId
-  , cd_name       :: String
-  , cd_register   :: RegisterClientFunction
-  , cd_unregister :: UnregisterClientFunction
-  , cd_send       :: SendChatMessageFunction
-  , cd_exit       :: IO ()
-  , cd_receiveDF  :: DFunction ReceiveChatMessageFunction
+    cd_id      :: Maybe Int
+  , cd_tid     :: ThreadId
+  , cd_name    :: String
+  , cd_stub    :: ClientInterfaceStub
+  , cd_server  :: RemoteServerInterface
+  , cd_exit    :: IO ()
   }
 
 type Client = MVar ClientData
@@ -76,13 +74,10 @@ negativeHandlerFunction cc _
     putMVar cc $ client { cd_id = Nothing, cd_tid = tid }
     
 
-mkChatClient :: String -> ThreadId -> IO () -> DFunction ReceiveChatMessageFunction -> IO Client
-mkChatClient sn tid endfun receiveDF
+mkChatClient :: ThreadId -> ClientInterfaceStub -> RemoteServerInterface -> IO () -> IO Client
+mkChatClient tid cifs rsif endfun
   = do
-    regfun <- mkRegisterClientFunction sn
-    unregfun <- mkUnregisterClientFunction sn
-    sendfun <- mkSendChatMessageFunction sn
-    newMVar $ ClientData Nothing tid "" regfun unregfun sendfun endfun receiveDF
+    newMVar $ ClientData Nothing tid "" cifs rsif endfun
 
 
 clearStdIn :: IO()
@@ -136,14 +131,14 @@ chatLoop cc
           msg <- getLine
           case msg of
             "exit" -> do
-              (cd_unregister client) cid
+              (sif_unregister $ cd_server client) cid
               (cd_exit client)
-            _ -> (cd_send client) cid msg
+            _ -> (sif_send $ cd_server client) cid msg
         Nothing -> do
           putStr "login with name: "
           hFlush stdout
           cn <- getLine
-          mbId <- (cd_register client) cn (cd_receiveDF client)
+          mbId <- (sif_register $ cd_server client) cn (cd_stub client)
           client' <- takeMVar cc
           putMVar cc $ client' {cd_id = mbId, cd_name = cn}
       chatLoop cc
@@ -162,12 +157,13 @@ main
     initializeLogging []
     initDNode $ defaultDNodeConfig ""
     addForeignDNode $ mkDNodeAddress "ChatServer" "april" (fromInteger 7999)
-    df <- newDFunction "receive" receiveChatMessage
     (waitForTermination, terminateProgram) <- generateExitFunktions
     -- start with the wait loop
     tid <- forkIO waitLoop
     -- create chat client data strukture
-    cc <- mkChatClient "ChatServer" tid terminateProgram df
+    cifs <- createLocalClientInterfaceStub receiveChatMessage
+    rsif <- createRemoveServerInterface "ChatServer"
+    cc <- mkChatClient tid cifs rsif terminateProgram
     -- register the handlers which will controll the existence of the server
     let dni = mkDNodeId "ChatServer"
     addForeignDNodeHandler True dni (positiveHandlerFunction cc)
@@ -175,7 +171,7 @@ main
     -- wait for the chatLoop to stop by the user
     waitForTermination
     -- clean up
-    closeDFunction df
+    closeLocalClientInterfaceStub cifs
     deinitDNode
 
 
