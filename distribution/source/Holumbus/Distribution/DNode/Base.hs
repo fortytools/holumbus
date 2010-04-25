@@ -29,6 +29,8 @@ module Holumbus.Distribution.DNode.Base
   
   , DHandlerId
   
+  -- rf == only to be used by new resource implementations
+
   , DRessourceType                -- rf
   , mkDRessourceType              -- rf
   
@@ -304,7 +306,7 @@ myDNode
 
 -- | Initializes the DNode of the program. You have to call this function
 --   once BEFORE you can use other functions. 
-initDNode :: DNodeConfig -> IO ()
+initDNode :: DNodeConfig -> IO DNodeId
 initDNode c
   = do
     let minPort     = fromIntegral $ dnc_MinPort c
@@ -336,6 +338,7 @@ initDNode c
           else do
             stopSocketServer ss
             error "dnode already initialized"
+    return n
 
 
 -- | deinitializes a DNode
