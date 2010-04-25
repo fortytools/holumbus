@@ -40,7 +40,7 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 import qualified Data.ByteString.Char8		as C
 import qualified Data.IntSet			as IS
 import qualified Data.IntMap			as IM
-import           Data.List			( foldl', sort, nub )
+import           Data.List			( foldl' )
 import           Holumbus.Index.Common		( Occurrences, custom, editDocIds, removeById, toMap, updateDocIds' )
 
 -- ------------------------------------------------------------
@@ -173,23 +173,6 @@ defragmentIndex IndexerState
     ds'				= editDocIds editId ds
     idMap			= IM.fromList . flip zip [1..] . IM.keys . toMap $ ds
     editId i			= fromJust . IM.lookup i $ idMap
-
--- ------------------------------------------------------------
-
-hayooPackageNames		:: AppOpts -> IO [String]
-hayooPackageNames o		= runX $
-				  ( ( readDocument (ao_crawlPar o) hackageStartPage
-				      >>>
-				      getHtmlReferences
-				      >>>
-				      arr getHackagePackage
-				      >>>
-				      isA (not . null)
-				    )
-				    <+>
-				    constA gtk2hsPackage
-				  )
-				  >>. (sort >>> nub)
 
 -- ------------------------------------------------------------
 
@@ -366,41 +349,44 @@ main2 opts
 				  )
 				  >> exitSuccess
     where
-    action0 opts'		= arrIO0 (hayooIndexer opts' >>= return . getS theResultAccu)
+    actIndex  opts'		= arrIO0 (hayooIndexer opts' >>= return . getS theResultAccu)
+
+    actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from index" )
+                                  >>>
+                                  arrIO0 (removePackages opts')
+
+    actMerge			= traceMsg 0 ("merging existing index with new packages")
+                                  >>>
+                                  arrIO (\ (new, old) -> unionIndexerStatesM old new)
+
+    actNoOp			= traceMsg 0 ("no packages to be processed")
+                                  >>>
+                                  none
     action
         | ( ixAction `elem` [UpdatePkg, RemovePkg] )
           &&
-          null packageList	= traceMsg 0 ("no packages to be processed")
-                                  >>>
-                                  none
+          null packageList	= actNoOp
     
-        | ixAction == RemovePkg	= traceMsg 0 ("deleting packages " ++ unwords packageList ++ " from index" )
-                                  >>>
-                                  arrIO0 (removePackages opts)
+        | ixAction == RemovePkg	= actRemove opts
 
-        | ixAction == UpdatePkg	= ( action0 (opts { ao_action = BuildIx })
+        | ixAction == UpdatePkg	= ( actIndex (opts { ao_action = BuildIx })
                                     &&&
-                                    ( traceMsg 0 ("deleting packages " ++ unwords packageList ++ " from index" )
-                                      >>>
-                                      arrIO0 (removePackages opts)
-                                    )
+                                    actRemove opts
                                   )
                                   >>>
-                                  traceMsg 0 ("merging existing index with new packages")
-                                  >>>
-                                  arrIO (\ (new, old) -> unionIndexerStatesM old new)
-	| notNullPackageList
-				= traceMsg 0 ("indexing packages: " ++ unwords packageList)
+                                  actMerge
+
+	| notNullPackageList	= traceMsg 0 ("indexing packages: " ++ unwords packageList)
 				  >>>
-				  action0 opts
+				  actIndex opts
 
 	| isJust resume		= traceMsg 0 "resume document indexing"
 				  >>>
-				  action0 opts
+				  actIndex opts
 
-	| otherwise		= traceMsg 0 ("indexing hayoo pages")
+	| otherwise		= traceMsg 0 "indexing all hayoo pages"
 				  >>>
-				  action0 opts
+				  actIndex opts
 
     resume			= ao_resume   opts
     ixAction			= ao_action   opts

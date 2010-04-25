@@ -7,6 +7,7 @@ module Hayoo.URIConfig
     ( hayooStart
     , hayooRefs
     , hayooGetPackage
+    , hayooPackageNames
     , editLatestPackage
     )
 -}
@@ -18,6 +19,8 @@ import		 Data.List
 
 import		 Holumbus.Crawler
 
+import		 Text.XML.HXT.Arrow		hiding ( readDocument )
+import           Text.XML.HXT.Arrow.XmlCache
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match, sed )
 
 -- ------------------------------------------------------------
@@ -172,3 +175,118 @@ editLatestPackage		:: String -> String
 editLatestPackage		= sed (const "/latest/") "/[0-9.]+/"
 
 -- ------------------------------------------------------------
+
+hayooPackageNames		:: [(String, String)] -> IOSArrow b String
+hayooPackageNames crawlPars	= ( ( readDocument crawlPars hackageStartPage
+				      >>>
+				      getHtmlReferences
+				      >>>
+				      arr getHackagePackage
+				      >>>
+				      isA (not . null)
+				    )
+				    <+>
+				    constA gtk2hsPackage
+				  )
+				  >>. (sort >>> nub)
+
+-- ------------------------------------------------------------
+
+hayooPackageDescr		:: [String] -> [(String, String)] -> IOSArrow b (String, (String, ([String], Bool)))
+hayooPackageDescr pkgList crawlPars
+				= pkgDescr $< ( if null pkgList
+                                                then hayooPackageNames crawlPars
+                                                else constL pkgList
+                                              )
+    where
+    pkgDescr pn			= readDocument crawlPars pkgUrl
+                                  >>>
+                                  ( ( documentStatusOk
+                                      >>>
+                                      hasAttrValue transferStatus (== "200")
+                                    )
+                                    `guards`
+                                    fromLA
+                                    ( constA pn
+                                      &&&
+                                      ( getVersionNo `withDefault` "unknown" )
+                                      &&&
+                                      ( getDepends   `withDefault` []        )
+                                      &&&
+                                      ( hasHaddock   `withDefault` False     )
+                                    )
+                                  )
+        where
+        pkgUrl			= hackagePackages ++ pn
+
+        getProperties		:: LA XmlTree XmlTree
+        getProperties		= deep ( isElemWithAttr "table" "class" (== "properties") )
+                                  />
+                                  hasName "tr"
+
+        getProperty		:: String -> LA XmlTree XmlTree
+        getProperty kw		= getProperties
+                                  >>>
+                                  ( ( getChildren
+                                      >>>
+                                      hasName "th"
+                                      >>>
+                                      ( getChildren >>. take 1 )
+                                      >>>
+                                      hasText (match kw)
+                                    )
+                                    `guards`
+                                    ( getChildren
+                                      >>>
+                                      hasName "td"
+                                    )
+                                  )
+
+        getVersionNo		:: LA XmlTree String
+        getVersionNo		= getProperty "Version(s)?"
+                                  >>>
+                                  xshow
+                                  ( getChildren
+                                    >>>
+                                    hasName "b"
+                                    >>>
+                                    ( getChildren >>. take 1 )
+                                    >>>
+                                    isText
+                                  )
+                                         
+        getDepends		= getProperty "Dependencies"
+                                  >>>
+                                  listA
+                                  ( getChildren
+                                    >>>
+                                    hasName "a"
+                                    >>>
+                                    getChildren
+                                    >>>
+                                    getText
+                                    >>>
+                                    this -- checkPackageName
+                                  )
+                                  >>>
+                                  arr (sort >>> nub)
+
+        hasHaddock		= listA
+                                  ( deep ( isElemWithAttr "ul" "class" (== "modules") )
+                                    />
+                                    deep ( isElemWithAttr "a" "href" ( ("/packages/archive/" ++ pn ++ "/") `isPrefixOf`) )
+                                  )
+                                  >>^ (not . null)
+
+
+-- ------------------------------------------------------------
+
+isElemWithAttr			:: String -> String -> (String -> Bool) -> LA XmlTree XmlTree
+isElemWithAttr en an av		= isElem
+                                  >>>
+                                  hasName en
+                                  >>>
+                                  hasAttrValue an av
+
+-- ------------------------------------------------------------
+

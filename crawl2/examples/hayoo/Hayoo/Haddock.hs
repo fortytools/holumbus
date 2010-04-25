@@ -388,13 +388,6 @@ removeSpacers 			= processTopDown
 getPath				:: String -> LA XmlTree XmlTree
 getPath				= foldl (/>) this . map hasName . split "/"
 
-isElemWithAttr			:: String -> String -> (String -> Bool) -> LA XmlTree XmlTree
-isElemWithAttr en an av		= isElem
-                                  >>>
-                                  hasName en
-                                  >>>
-                                  hasAttrValue an av
-
 hasTDClass			:: (String -> Bool) -> LA XmlTree XmlTree
 hasTDClass av			= hasName "tr"
                                   />
