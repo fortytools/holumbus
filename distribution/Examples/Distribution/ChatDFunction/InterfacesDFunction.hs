@@ -40,6 +40,7 @@ where
 
 import           Data.Binary
 
+import           Holumbus.Distribution.DNode
 import           Holumbus.Distribution.DFunction
 
 
@@ -48,7 +49,7 @@ import           Holumbus.Distribution.DFunction
 -- ----------------------------------------------------------------------------
 
 -- functions of the chat server
-type RegisterClientFunction = String -> ClientInterfaceStub -> IO (Maybe Int)
+type RegisterClientFunction = String -> DNodeId -> ClientInterfaceStub -> IO (Maybe Int)
 type UnregisterClientFunction = Int -> IO ()
 type SendChatMessageFunction = Int -> String -> IO ()
 

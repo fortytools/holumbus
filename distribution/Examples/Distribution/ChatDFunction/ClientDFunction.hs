@@ -26,7 +26,7 @@ import           Holumbus.Distribution.DNode
 import           Holumbus.Distribution.DFunction
 import           Holumbus.Common.Logging
 
-import           MessagesDChan
+import           InterfacesDFunction
 
 
 data ConnectionException = ConnectionException
@@ -35,7 +35,8 @@ instance Exception ConnectionException
 
 
 data ClientData = ClientData {
-    cd_id      :: Maybe Int
+    cd_DNodeId :: DNodeId
+  , cd_id      :: Maybe Int
   , cd_tid     :: ThreadId
   , cd_name    :: String
   , cd_stub    :: ClientInterfaceStub
@@ -74,10 +75,10 @@ negativeHandlerFunction cc _
     putMVar cc $ client { cd_id = Nothing, cd_tid = tid }
     
 
-mkChatClient :: ThreadId -> ClientInterfaceStub -> RemoteServerInterface -> IO () -> IO Client
-mkChatClient tid cifs rsif endfun
+mkChatClient :: DNodeId -> ThreadId -> ClientInterfaceStub -> RemoteServerInterface -> IO () -> IO Client
+mkChatClient myDNodeId tid cifs rsif endfun
   = do
-    newMVar $ ClientData Nothing tid "" cifs rsif endfun
+    newMVar $ ClientData myDNodeId Nothing tid "" cifs rsif endfun
 
 
 clearStdIn :: IO()
@@ -138,7 +139,7 @@ chatLoop cc
           putStr "login with name: "
           hFlush stdout
           cn <- getLine
-          mbId <- (sif_register $ cd_server client) cn (cd_stub client)
+          mbId <- (sif_register $ cd_server client) cn (cd_DNodeId client) (cd_stub client)
           client' <- takeMVar cc
           putMVar cc $ client' {cd_id = mbId, cd_name = cn}
       chatLoop cc
@@ -155,7 +156,7 @@ main :: IO ()
 main
   = do
     initializeLogging []
-    initDNode $ defaultDNodeConfig ""
+    myDNodeId <- initDNode $ defaultDNodeConfig ""
     addForeignDNode $ mkDNodeAddress "ChatServer" "april" (fromInteger 7999)
     (waitForTermination, terminateProgram) <- generateExitFunktions
     -- start with the wait loop
@@ -163,7 +164,7 @@ main
     -- create chat client data strukture
     cifs <- createLocalClientInterfaceStub receiveChatMessage
     rsif <- createRemoveServerInterface "ChatServer"
-    cc <- mkChatClient tid cifs rsif terminateProgram
+    cc <- mkChatClient myDNodeId tid cifs rsif terminateProgram
     -- register the handlers which will controll the existence of the server
     let dni = mkDNodeId "ChatServer"
     addForeignDNodeHandler True dni (positiveHandlerFunction cc)

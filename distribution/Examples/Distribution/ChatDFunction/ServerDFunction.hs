@@ -25,7 +25,7 @@ import           Holumbus.Distribution.DNode
 import           Holumbus.Distribution.DFunction
 import           Holumbus.Common.Logging
 
-import           MessagesDChan
+import           InterfacesDFunction
 
 
 
@@ -38,9 +38,19 @@ data ServerData = ServerData {
 type Server = MVar ServerData
 
 
+-- what to do when a client becomes unreachable
+negativeHandlerFunction :: Server -> Int -> DHandlerId -> IO ()
+negativeHandlerFunction cs cId hdlId
+  = do
+    putStrLn "negative Trigger"
+    unregisterClient cs cId
+    -- delete this trigger, it won't be called again
+    delForeignHandler hdlId
+
+
 registerClient :: Server -> RegisterClientFunction
-registerClient _ "" _ = return Nothing
-registerClient cs cn stub
+registerClient _ "" _ _ = return Nothing
+registerClient cs cn dni stub
   = do
     putStrLn $ "registering: " ++ cn
     server <- takeMVar cs
@@ -53,6 +63,8 @@ registerClient cs cn stub
             sd_names'   = Set.insert cn (sd_names server)
             sd_number'  = 1 + (sd_number server)
         putMVar cs $ server { sd_clients = sd_clients', sd_names = sd_names', sd_number = sd_number' }
+        -- install a handler to remove the client when he becomes unreachable
+        addForeignDNodeHandler False dni (negativeHandlerFunction cs (sd_number server))
         return (Just $ sd_number server)
 
 
