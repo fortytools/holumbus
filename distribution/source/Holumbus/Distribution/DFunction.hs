@@ -18,6 +18,7 @@
 module Holumbus.Distribution.DFunction 
 (
     DFunction
+  , BinaryFunction
     
   , newDFunction
   , newRemoteDFunction
