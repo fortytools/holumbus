@@ -168,12 +168,12 @@ main1 pn args
                                                                                       }
                                                                           )
                                                                         )					  	"NUMBER")	"maximum # of parallel threads (0: no threads at all)"
-                                  , Option "d"  ["valid"]	(ReqArg ( setOption parseTime
+                                  , Option ""   ["valid"]	(ReqArg ( setOption parseTime
                                                                           (\ x t -> x { ao_crawlPar = setDocAge t $
                                                                                                       ao_crawlPar x
                                                                                       }
                                                                           )
-                                                                        )					 	"DURATION")	"validate cache for pages older than given time, format: 10sec, 5min, 20hours, 3days, 5weeks, 1month"
+                                                                        )					 	"DURATION")	"validate cache for pages older than given time, format: 10sec, 5min, 20hours, 3days, 5weeks, 1month, default 1day"
 
 				  ]
     pkgList			= words . map (\ x -> if x == ',' then ' ' else x)

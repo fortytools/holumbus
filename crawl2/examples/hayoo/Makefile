@@ -1,4 +1,5 @@
 N       = 1
+OPT	=
 
 pkg	= hxt,hxt-filter,hxt-binary,hxt-cache
 
@@ -29,12 +30,12 @@ test	: cache
 index	: ./hayooIndexer
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	./$< +RTS -N$(N) -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000
+	./$< +RTS -N$(N) -s -K100M -H1500M -RTS -i tmp/ix.bin -m 15000 $(OPT)
 
 cache	: ./hayooCache
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	./$< +RTS -N$(N) -s -K100M -RTS -o $(outch)
+	./$< +RTS -N$(N) -s -K100M -RTS -o $(outch) $(OPT)
 
 update	: ./hayooCache
 	./$< +RTS -N$(N) -s -K100M -RTS -p "$(pkg)" -o $(outch)
