@@ -52,7 +52,7 @@ hayooCacher o              	= stdCacher
                                   (ao_crawlFct o)
                                   (ao_resume o)
 				  hayooStart
-				  (hayooRefs [])
+				  (hayooRefs True [])
 
 -- ------------------------------------------------------------
 
@@ -65,7 +65,7 @@ hayooPackageUpdate o pkgs	= stdCacher
                                   (ao_crawlFct o)
                                   Nothing
 				  hayooStart
-				  (hayooRefs pkgs)
+				  (hayooRefs True pkgs)
 
 
 -- ------------------------------------------------------------

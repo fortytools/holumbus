@@ -28,13 +28,13 @@ import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match, sed )
 hayooStart			:: [URI]
 hayooStart			= hackageStart ++ gtk2hsStart
 
-hayooRefs			:: [String] -> URI -> Bool
-hayooRefs pkgs 			= liftA2 (||) hackageRefs' gtk2hsRefs'
+hayooRefs			:: Bool -> [String] -> URI -> Bool
+hayooRefs withDoc pkgs		= liftA2 (||) hackageRefs' gtk2hsRefs'
     where
     hackageRefs'
-	| null pkgs		= hackageRefs pkgs
+	| null pkgs		= hackageRefs withDoc pkgs
 	| null hackagePkgs	= const False
-	| otherwise		= hackageRefs hackagePkgs
+	| otherwise		= hackageRefs withDoc hackagePkgs
 	where
 	hackagePkgs		= filter (`notElem` ["gtk2hs"]) $ pkgs
     gtk2hsRefs'
@@ -65,17 +65,19 @@ hackageStartPage		=  hackageHome ++ "archive/pkg-list.html"
 hackageStart			:: [URI]
 hackageStart			=  [ hackageStartPage ]
 
-hackageRefs			:: [String] -> URI -> Bool
-hackageRefs pkgs		= simpleFollowRef'
-				  [ hackagePackages ++ packageName'
-                                  , packageDocPath  ++ modulePath ++ ext "html"
-                                  ]
+hackageRefs			:: Bool -> [String] -> URI -> Bool
+hackageRefs withDoc pkgs	= simpleFollowRef'
+				  ( (hackagePackages ++ packageName')
+                                    : ( if withDoc
+                                        then [ packageDocPath  ++ modulePath ++ ext "html" ]
+                                        else []
+                                      )
+                                  )
                                   [ packageDocPath ++ alternatives
                                                        [ "doc-index.*" ++ ext "html"		-- no index files
                                                        , "src/.*"				-- no hscolored sources
                                                        ]
                                   , hackagePackages ++ packageName' ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
-                                  -- , rottenDocumentation
                                   ]
     where
     packageDocPath		= hackagePackageDocPath ++ packageName' ++ "/" ++ packageVersion' ++ "/doc/html/"
@@ -83,22 +85,6 @@ hackageRefs pkgs		= simpleFollowRef'
     packageName'
 	| null pkgs		= fileName
 	| otherwise		= alternatives pkgs
-
-{- rotten documentation is filtered out by limiting the length of the document (max 1Mb)
-
-    rottenDocumentation		= packageDocPath ++ alternatives ds ++ ext "html"
-        where
-        ds			= [ "Database-HaskellDB-BoundedList"
-                                  , "Data-TypeLevel-Num-Aliases"
-                                  , "Graphics-UI-WXCore-WxcClassesAL"
-                                  , "Graphics-UI-WXCore-WxcClassesMZ"
-                                  , "Graphics-UI-WXCore-WxcClassTypes"
-                                  , "Graphics-UI-WXCore-WxcDefs"
-                                  , "Graphics-X11-Types"
-                                  , "Harpy-X86Assembler"
-                                  , "Types-Data-Num-Decimal-Literals"
-                                  ]
--}
 
 hackagePackageDocPath		:: String
 hackagePackageDocPath		= hackageHome ++ "archive/"
@@ -278,15 +264,6 @@ hayooPackageDescr pkgList crawlPars
                                   )
                                   >>^ (not . null)
 
-
--- ------------------------------------------------------------
-
-isElemWithAttr			:: String -> String -> (String -> Bool) -> LA XmlTree XmlTree
-isElemWithAttr en an av		= isElem
-                                  >>>
-                                  hasName en
-                                  >>>
-                                  hasAttrValue an av
 
 -- ------------------------------------------------------------
 

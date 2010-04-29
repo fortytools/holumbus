@@ -12,6 +12,7 @@ import           Data.Char
 import		 Data.Function.Selector		( update, getS )
 import           Data.Maybe
 
+import           Hayoo.HackagePackage
 import           Hayoo.Haddock
 import		 Hayoo.IndexConfig
 import           Hayoo.IndexTypes
@@ -19,8 +20,6 @@ import           Hayoo.URIConfig
 
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
-
-import           Holumbus.Index.Documents       ( emptyDocuments )
 
 import           System.Console.GetOpt
 import           System.Environment
@@ -39,11 +38,11 @@ hayooIndexer o                  = stdIndexer
                                   config
                                   (ao_resume o)
                                   hayooStart
-                                  ( emptyIndexerState emptyInverted emptyDocuments )
+                                  emptyHayooState
     where
     config0			= indexCrawlerConfig
                                   (ao_crawlPar o)
-                                  (hayooRefs $ ao_packages o)
+                                  (hayooRefs True $ ao_packages o)
                                   Nothing
                                   (Just $ checkDocumentStatus >>> prepareHaddock)
                                   (Just $ hayooGetTitle)
@@ -62,14 +61,43 @@ hayooIndexer o                  = stdIndexer
 
 -- ------------------------------------------------------------
 
-removePackages			:: AppOpts -> IO HayooIndexerState
-removePackages o		= do
-                                  ix <- B.decodeFile (ao_index o)
-                                  let ix1  = removePack (ao_packages o) ix
-                                  let ix2  = if ao_defrag o
-	                                     then defragmentIndex ix1
-                                             else ix1
-                                  rnf ix2 `seq` return ix2
+hayooPkgIndexer			:: AppOpts -> IO HayooPkgIndexerCrawlerState
+hayooPkgIndexer o               = stdIndexer
+                                  config
+                                  (ao_resume o)
+                                  hackageStart
+                                  emptyHayooState
+    where
+    config0			= indexCrawlerConfig
+                                  (ao_crawlPar o)
+                                  (hayooRefs False $ ao_packages o)
+                                  Nothing
+                                  (Just $ checkDocumentStatus >>> preparePkg)
+                                  (Just $ hayooGetPkgTitle)
+				  (Just $ hayooGetPkgInfo)
+                                  hayooPkgIndexContextConfig
+
+    config			= ao_crawlPkg o $
+                                  setCrawlerTraceLevel ct ht $
+                                  setCrawlerSaveConf si sp   $
+                                  setCrawlerMaxDocs md mp mt $
+                                  config0
+
+    (ct, ht)			= ao_crawlLog o
+    (si, sp)			= ao_crawlSav o
+    (md, mp, mt)		= ao_crawlDoc o
+
+-- ------------------------------------------------------------
+
+removePackages			:: (B.Binary di, NFData di) =>
+                                   (Document di -> String) -> AppOpts -> IO (HayooState di)
+removePackages getPkgName' o	= removePackages' getPkgName' (ao_index o) (ao_packages o) (ao_defrag o)
+
+removePackagesIx		:: AppOpts -> IO HayooIndexerState 
+removePackagesIx		= removePackages getPkgNameFct
+
+removePackagesPkg		:: AppOpts -> IO HayooPkgIndexerState 
+removePackagesPkg		= removePackages getPkgNamePkg
 
 -- ------------------------------------------------------------
 
@@ -80,6 +108,7 @@ data AppOpts			= AO
                                   { ao_index	:: String
                                   , ao_xml	:: String
 				  , ao_help	:: Bool
+                                  , ao_pkgIndex	:: Bool
                                   , ao_action	:: AppAction
                                   , ao_defrag	:: Bool
 				  , ao_resume	:: Maybe String
@@ -90,7 +119,8 @@ data AppOpts			= AO
 				  , ao_crawlSav	:: (Int, String)
 				  , ao_crawlLog	:: (Priority, Priority)
 				  , ao_crawlPar	:: [(String, String)]
-				  , ao_crawlFct	:: HayooIndexerConfig -> HayooIndexerConfig
+				  , ao_crawlFct	:: HayooIndexerConfig    -> HayooIndexerConfig
+                                  , ao_crawlPkg :: HayooPkgIndexerConfig -> HayooPkgIndexerConfig
 				  }
 
 type SetAppOpt			= AppOpts -> AppOpts
@@ -102,6 +132,7 @@ initAppOpts			= AO
                                   { ao_index	= ""
                                   , ao_xml	= ""
 				  , ao_help	= False
+                                  , ao_pkgIndex	= False
                                   , ao_action	= BuildIx
                                   , ao_defrag	= False
 				  , ao_resume	= Nothing
@@ -127,6 +158,7 @@ initAppOpts			= AO
 						    >>>
 						    disableRobotsTxt					-- for hayoo robots.txt is not needed
 						  )
+                                  , ao_crawlPkg	= disableRobotsTxt
 				  }
     where
     editPackageURIs		= update theProcessRefs (>>> arr editLatestPackage)
@@ -151,7 +183,14 @@ main1 pn args
 				     else exitFailure
     | otherwise			= do
 				  setLogLevel' "" (fst . ao_crawlLog $ appOpts)
-				  main2 appOpts
+				  runX (  hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ appOpts)
+                                          >>>
+				          ( if ao_pkgIndex appOpts
+                                            then mainHackage
+                                            else mainHaddock
+                                          ) appOpts
+                                       )
+                                    >> exitSuccess
     where
     appOpts			= foldl (.) (ef1 . ef2) opts $ initAppOpts
     (opts, ns, es)		= getOpt Permute optDescr args
@@ -174,7 +213,11 @@ main1 pn args
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) 	"PACKAGE-LIST")	"packages to be processed, a comma separated list of package names"
                                   , Option "u"  ["update"]	(NoArg  $ \   x -> x { ao_action   = UpdatePkg })			"update packages specified by \"packages\" option"
                                   , Option "d"  ["delete"]	(NoArg  $ \   x -> x { ao_action   = RemovePkg })			"delete packages specified by \"packages\" option"
-                                  , Option "f"  ["defragment"]	(NoArg  $ \   x -> x { ao_defrag   = True })				"defragment index after delete or update"
+                                  , Option "f"  ["defragment"]	(NoArg  $ \   x -> x { ao_defrag   = True  })				"defragment index after delete or update"
+                                  , Option ""   ["pkg-index"]	(NoArg  $ \   x -> x { ao_pkgIndex = True
+                                                                                     , ao_crawlSav = (500, "./tmp/pkg-") })		"process index for hackage package description pages"
+                                  , Option ""   ["fct-index"]	(NoArg  $ \   x -> x { ao_pkgIndex = False
+                                                                                     , ao_crawlSav = (500, "./tmp/ix-") })		"process index for haddock functions and types"
                                   , Option "m"  ["maxdocs"]     (ReqArg ( setOption parseInt
                                                                           (\ x i -> x { ao_crawlDoc = setMaxDocs i $
                                                                                                       ao_crawlDoc x
@@ -233,32 +276,25 @@ setDocAge d				=  addEntries [(a_document_age, show d)]
 
 -- ------------------------------------------------------------
 
-main2                           :: AppOpts -> IO ()
-main2 opts
-    | otherwise			= runX
-				  ( hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ opts)
-                                    >>>
-				    action
-                                    >>>
-                                    writeXml opts
-                                    >>>
-                                    writeBin opts
-				  )
-				  >> exitSuccess
-    where
-    actIndex  opts'		= arrIO0 (hayooIndexer opts' >>= return . getS theResultAccu)
-
-    actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from index" )
+mainHackage                     :: AppOpts -> IOSArrow b ()
+mainHackage opts		= action
                                   >>>
-                                  arrIO0 (removePackages opts')
+                                  writeResults opts
+    where
+    actIndex  opts'		= arrIO0 (hayooPkgIndexer opts' >>= return . getS theResultAccu)
 
-    actMerge			= traceMsg 0 ("merging existing index with new packages")
+    actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from hackage package index" )
+                                  >>>
+                                  arrIO0 (removePackagesPkg opts')
+
+    actMerge			= traceMsg 0 ("merging existing hackage package index with new packages")
                                   >>>
                                   arrIO (\ (new, old) -> unionIndexerStatesM old new)
 
     actNoOp			= traceMsg 0 ("no packages to be processed")
                                   >>>
                                   none
+
     action
         | ( ixAction `elem` [UpdatePkg, RemovePkg] )
           &&
@@ -273,15 +309,15 @@ main2 opts
                                   >>>
                                   actMerge
 
-	| notNullPackageList	= traceMsg 0 ("indexing packages: " ++ unwords packageList)
+	| notNullPackageList	= traceMsg 0 ("indexing hackage package descriptions for packages: " ++ unwords packageList)
 				  >>>
 				  actIndex opts
 
-	| isJust resume		= traceMsg 0 "resume document indexing"
+	| isJust resume		= traceMsg 0 "resume hackage package description indexing"
 				  >>>
 				  actIndex opts
 
-	| otherwise		= traceMsg 0 "indexing all hayoo pages"
+	| otherwise		= traceMsg 0 "indexing all hackage package descriptions"
 				  >>>
 				  actIndex opts
 
@@ -289,6 +325,64 @@ main2 opts
     ixAction			= ao_action   opts
     packageList			= ao_packages opts
     notNullPackageList		= not . null $ packageList
+
+
+mainHaddock                     :: AppOpts -> IOSArrow b ()
+mainHaddock opts		= action
+                                  >>>
+                                  writeResults opts
+    where
+    actIndex  opts'		= arrIO0 (hayooIndexer opts' >>= return . getS theResultAccu)
+
+    actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from haddock index" )
+                                  >>>
+                                  arrIO0 (removePackagesIx opts')
+
+    actMerge			= traceMsg 0 ("merging existing haddock index with new packages")
+                                  >>>
+                                  arrIO (\ (new, old) -> unionIndexerStatesM old new)
+
+    actNoOp			= traceMsg 0 ("no packages to be processed")
+                                  >>>
+                                  none
+
+    action
+        | ( ixAction `elem` [UpdatePkg, RemovePkg] )
+          &&
+          null packageList	= actNoOp
+    
+        | ixAction == RemovePkg	= actRemove opts
+
+        | ixAction == UpdatePkg	= ( actIndex (opts { ao_action = BuildIx })
+                                    &&&
+                                    actRemove opts
+                                  )
+                                  >>>
+                                  actMerge
+
+	| notNullPackageList	= traceMsg 0 ("indexing haddock for packages: " ++ unwords packageList)
+				  >>>
+				  actIndex opts
+
+	| isJust resume		= traceMsg 0 "resume haddock document indexing"
+				  >>>
+				  actIndex opts
+
+	| otherwise		= traceMsg 0 "indexing all hayoo haddock pages"
+				  >>>
+				  actIndex opts
+
+    resume			= ao_resume   opts
+    ixAction			= ao_action   opts
+    packageList			= ao_packages opts
+    notNullPackageList		= not . null $ packageList
+
+-- ------------------------------------------------------------
+
+writeResults			:: (XmlPickler a, B.Binary a) => AppOpts -> IOSArrow a ()
+writeResults opts		= writeXml opts
+                                  >>>
+                                  writeBin opts
 
 -- ------------------------------------------------------------
 
@@ -311,8 +405,8 @@ writeXml opts
 
 -- ------------------------------------------------------------
 
-writeBin			:: (B.Binary b) =>
-                                   AppOpts -> IOSArrow b ()
+writeBin			:: (B.Binary a) =>
+                                   AppOpts -> IOSArrow a ()
 
 writeBin opts			= traceMsg 0 (unwords ["writing index into binary file", out])
                                   >>>

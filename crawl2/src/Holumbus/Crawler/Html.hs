@@ -153,6 +153,15 @@ getTitleOrDocName		= ( getHtmlTitle >>> isA (not . null) )
 				  `orElse`
 				  ( getAttrValue transferURI >>^ takeFileName )
 
+isElemWithAttr			:: ArrowXml a => String -> String -> (String -> Bool) -> a XmlTree XmlTree
+isElemWithAttr en an av		= isElem
+                                  >>>
+                                  hasName en
+                                  >>>
+                                  hasAttrValue an av
+
+-- ------------------------------------------------------------
+
 application_pdf			:: String
 application_pdf			= "application/pdf"
 

@@ -8,6 +8,7 @@ import           Hayoo.URIConfig
 import           Hayoo.FunctionInfo
 import		 Hayoo.Signature
 
+import           Holumbus.Crawler.Html
 import           Holumbus.Utility
 
 import           Network.URI		( unEscapeString )

@@ -3,8 +3,14 @@
 -- ------------------------------------------------------------
 
 module Hayoo.IndexTypes
+    ( module Hayoo.IndexTypes
+    , Document
+    )
 where
 
+import           Control.DeepSeq
+
+import           Data.Binary
 import qualified Data.ByteString.Char8		as C
 import qualified Data.IntSet			as IS
 import qualified Data.IntMap			as IM
@@ -12,13 +18,18 @@ import           Data.List			( foldl' )
 import           Data.Maybe
 
 import		 Hayoo.FunctionInfo
+import		 Hayoo.PackageInfo
 
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
 
-import           Holumbus.Index.Common		( Occurrences, custom, editDocIds, removeById, toMap, updateDocIds' )
-
-import           Holumbus.Index.Documents       ( Documents(..) )
+import           Holumbus.Index.Common		( Document
+                                                , Occurrences
+                                                , custom, editDocIds, removeById, toMap, updateDocIds'
+                                                )
+import           Holumbus.Index.Documents       ( Documents(..)
+                                                , emptyDocuments
+                                                )
 
 -- ------------------------------------------------------------
 
@@ -68,15 +79,41 @@ removeDocIdsInverted		= PM.removeDocIdsInverted
 
 -- ------------------------------------------------------------
 
-type HayooIndexerState         	= IndexerState       Inverted Documents FunctionInfo
-type HayooIndexerConfig        	= IndexCrawlerConfig Inverted Documents FunctionInfo
+type HayooState  di        	= IndexerState       Inverted Documents di
+type HayooConfig di        	= IndexCrawlerConfig Inverted Documents di
 
-type HayooIndexerCrawlerState	= CrawlerState HayooIndexerState
+type HayoorCrawlerState	di 	= CrawlerState (HayooState di)
+
+emptyHayooState			:: HayooState di
+emptyHayooState			= emptyIndexerState emptyInverted emptyDocuments
 
 -- ------------------------------------------------------------
 
-removePack			:: [String] -> HayooIndexerState -> HayooIndexerState
-removePack ps IndexerState
+getPkgNameFct			:: Document FunctionInfo -> String
+getPkgNameFct			= C.unpack . package . fromJust . custom
+
+getPkgNamePkg			:: Document PackageInfo -> String
+getPkgNamePkg			= C.unpack . p_name . fromJust . custom
+
+-- ------------------------------------------------------------
+
+removePackages'			:: (Binary di, NFData di) =>
+                                   (Document di -> String) -> String -> [String] -> Bool -> IO (HayooState di)
+removePackages' pkgName ixName pkgList defragment
+				= do
+                                  ix <- decodeFile ixName
+                                  let ix1  = removePack' pkgName pkgList ix
+                                  let ix2  = if defragment
+	                                     then defragmentIndex ix1
+                                             else ix1
+                                  rnf ix2 `seq` return ix2
+
+-- ------------------------------------------------------------
+
+removePack'			:: (Binary di) =>
+                                   (Document di -> String) -> [String] ->
+                                   HayooState di -> HayooState di
+removePack' pkgName ps IndexerState
               { ixs_index     = ix
               , ixs_documents = ds
               }			= IndexerState
@@ -90,7 +127,7 @@ removePack ps IndexerState
         | docPartOfPack		= IM.insert did IS.empty xs
         | otherwise		=                        xs
         where
-        docPartOfPack		= (`elem` ps) . C.unpack . package . fromJust . custom $ doc
+        docPartOfPack		= (`elem` ps) . pkgName $ doc
 
 							-- remove all DocIds from index
     ix'				= removeDocIdsInverted docIds ix
@@ -100,7 +137,8 @@ removePack ps IndexerState
 
 -- ------------------------------------------------------------
 
-defragmentIndex			:: HayooIndexerState -> HayooIndexerState
+defragmentIndex			:: (Binary di) =>
+                                   HayooState di -> HayooState di
 defragmentIndex IndexerState
               { ixs_index     = ix
               , ixs_documents = ds
@@ -115,3 +153,18 @@ defragmentIndex IndexerState
     editId i			= fromJust . IM.lookup i $ idMap
 
 -- ------------------------------------------------------------
+
+type HayooIndexerState         		= HayooState   FunctionInfo
+type HayooIndexerConfig        		= HayooConfig  FunctionInfo
+
+type HayooIndexerCrawlerState		= CrawlerState HayooIndexerState
+
+-- ------------------------------------------------------------
+
+type HayooPkgIndexerState         	= HayooState   PackageInfo
+type HayooPkgIndexerConfig        	= HayooConfig  PackageInfo
+
+type HayooPkgIndexerCrawlerState	= CrawlerState HayooPkgIndexerState
+
+-- ------------------------------------------------------------
+

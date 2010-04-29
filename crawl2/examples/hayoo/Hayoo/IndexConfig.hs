@@ -7,14 +7,15 @@ where
 
 import           Data.Maybe
 
+import           Hayoo.Haddock
+import           Hayoo.HackagePackage
+
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
 
 import		 Text.XML.HXT.Arrow
 import		 Text.XML.HXT.DOM.Unicode
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
-
-import           Hayoo.Haddock
 
 -- ------------------------------------------------------------
 
@@ -73,7 +74,54 @@ hayooIndexContextConfig		= [ ixModule
     ixDescription              	= ixDefault
                                   { ixc_name          	= "description"
                                   , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "doc"))
-				  , ixc_textToWords	= tokenize "[A-Za-z0-9.-_':]+"
+				  , ixc_textToWords	= tokenize "[-A-Za-z0-9._':]+"	-- "-" as 1. char in set !!!
+                                  }
+
+-- -----------------------------------------------------------------------------    
+
+hayooPkgIndexContextConfig	:: [IndexContextConfig]
+hayooPkgIndexContextConfig	= [ ixCategory
+                                  , ixPkgName
+				  , ixDepends
+				  , ixDescription
+                                  , ixSynopsis
+                                  , ixAuthor
+				  ]
+    where
+    ixDefault                   = IndexContextConfig
+                                  { ixc_name           	= "default"
+                                  , ixc_collectText    	= getHtmlPlainText
+                                  , ixc_textToWords    	= deleteNotAllowedChars >>> words
+                                  , ixc_boringWord     	= boringWord
+                                  }
+    ixCategory              	= ixDefault
+                                  { ixc_name          	= "category"
+                                  , ixc_collectText   	= fromLA getPkgCategory
+				  , ixc_textToWords	= words
+                                  }
+    ixPkgName              	= ixDefault
+                                  { ixc_name          	= "pkgname"
+                                  , ixc_collectText   	= fromLA $ getPkgName
+				  , ixc_textToWords	= return
+                                  }
+    ixDepends              	= ixDefault
+                                  { ixc_name          	= "dependencies"
+                                  , ixc_collectText   	= fromLA $ getPkgDependencies >>^ unwords
+				  , ixc_textToWords	= words
+                                  }
+    ixDescription              	= ixDefault
+                                  { ixc_name          	= "pkgdescr"
+                                  , ixc_collectText   	= fromLA $ getPkgDescr
+				  , ixc_textToWords	= tokenize "[A-Za-z][-A-Za-z0-9.@]+"	-- "-" as 1. char in set !!!
+                                  }
+    ixSynopsis              	= ixDescription
+                                  { ixc_name          	= "synopsis"
+                                  , ixc_collectText   	= fromLA $ getPkgSynopsis
+                                  }
+    ixAuthor              	= ixDescription
+                                  { ixc_name          	= "author"
+                                  , ixc_collectText   	= fromLA $
+                                                          listA (getPkgAuthor <+> getPkgMaintainer) >>^ unwords
                                   }
 
 -- -----------------------------------------------------------------------------    
@@ -120,70 +168,6 @@ normIds	ts			= map renId ts
     renId t			= fromMaybe t . lookup t $ ids
 
 -- -----------------------------------------------------------------------------    
-{-
-                        
-
-theHayooXPath :: String
-theHayooXPath =  "//td[@class='decl']"     
-  
-ccs_Hayoo :: [ContextConfig]
-ccs_Hayoo = [ 
-            , ccHayooDescription
-            , ccPackage
-            ]
-            
-
--- | Configruation for description context.
-ccHayooDescription :: ContextConfig 
-ccHayooDescription 
-  = ContextConfig { cc_name        = "description" 
-                  , cc_preFilter   = fromLA preFilterSignatures
-                  , cc_fExtract    = getXPathTrees "//td[@class='doc']"
-                  , cc_fTokenize   = map (stripWith (=='.')) . 
-                                         (parseWords (\c -> isAlphaNum c || c `elem` ".-_'@():"))
---                  , cc_fTokenize   = map (stripWith (=='.')) . (parseWords isWordChar)
-                  , cc_fIsStopWord = \s -> length s < 2
-                  , cc_addToCache  = True
-                  }
-
-ccPackage :: ContextConfig
-ccPackage
-  = ContextConfig { cc_name        = "package"
-                  , cc_preFilter   = this
-                  , cc_fExtract    = getXPathTrees "/table/tr/td[@id='package']"
-                  , cc_fTokenize   = \a -> [stripWith (==' ') a]
-                  , cc_fIsStopWord = (flip elem) ["unknownpackage"]
-                  , cc_addToCache  = False
-                  }
-                              
-getSignature :: String -> String
-getSignature s = stripWith (==' ') $ 
-                  if "=>" `isInfixOf` s  then stripSignature $ drop 3 $ dropWhile ((/=) '=') s
-                                         else stripSignature $ drop 3 $ dropWhile ((/=) ':') s
-
-
--- | TODO some of this is redundant, some important. find out what and why and simplify
-preFilterSignatures :: LA XmlTree XmlTree
-preFilterSignatures = this
---      >>> topDeclToDecl
-      >>> flattenElementsByType "a"
-      >>> flattenElementsByType "b"
-      >>> flattenElementsByType "span"
-      >>> flattenElementsByType "em"
-      >>> flattenElementsByType "p"
-      >>> flattenElementsByType "pre" 
---      >>> removeDeclbut
-
-
-flattenElementsByType :: String -> LA XmlTree XmlTree
-flattenElementsByType s = processTopDown ( getChildren `when` hasName s )
-
-removeDeclbut :: ArrowXml a => a XmlTree XmlTree
-removeDeclbut = processTopDown (  none `when` isDeclbut )
-  where isDeclbut = isElem  >>> hasName "td" >>> hasAttrValue "class" (isPrefixOf "declbut") 
-
--}
--- ------------------------------------------------------------
 
 boringWord              	:: String -> Bool
 boringWord w            	= null w
@@ -206,4 +190,4 @@ deleteNotAllowedChars   	= map notAllowedToSpace
         | isAllowedWordChar c   = c
         | otherwise             = ' '
 
--- ------------------------------------------------------------
+-- -----------------------------------------------------------------------------    
