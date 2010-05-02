@@ -1,5 +1,5 @@
 name:          Holumbus-Distribution
-version:       0.0.2.0
+version:       0.1.0
 license:       OtherLicense
 license-file:  LICENSE
 author:        Stefan Schmidt, Uwe Schmidt
@@ -9,9 +9,10 @@ stability:     experimental
 category:      Distributed Computing, Network
 synopsis:      intra- and inter-program communication
 homepage:      http://holumbus.fh-wedel.de
-description:   Holumbus-Distribution offers Erlang-Style mailboxes for an easy implementation
-               of distributed systems in Haskell. The mailboxes can be used to exchange messages
-               between threads inside a single program or between programs over the network.
+description:   Holumbus-Distribution offers distributed data structures like Chan, MVar or functions.
+               These datatype can be used between different programs on different computers to exchange
+               data. With the help of this library it is possible to build Erlang-Style mailboxes for an
+               easy implementation of distributed systems in Haskell. 
 build-type:    Simple
 cabal-version: >=1.6
 

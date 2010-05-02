@@ -1,5 +1,5 @@
 name:          Holumbus-Storage
-version:       0.0.1
+version:       0.1.0
 license:       OtherLicense
 license-file:  LICENSE
 author:        Uwe Schmidt, Stefan Schmidt
@@ -36,7 +36,7 @@ library
                 , network    >= 2.1
                 , time       >= 1.1
                 , unix       >= 2.3
-                , Holumbus-Distribution >= 0.0.1 && < 0.1
+                , Holumbus-Distribution >= 0.0.1 && < 0.2
                 , random     >= 1.0
 
   hs-source-dirs: 
