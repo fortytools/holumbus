@@ -28,7 +28,7 @@ main
     -- make a Haskell DNode, we don't care about its name, so we leave it
     -- blank. The system will generate a unique random name on its own.
     -- this only needs to be called once during the runtime of the program
-    initDNode $ defaultDNodeConfig ""
+    _ <- initDNode $ defaultDNodeConfig ""
     -- we need to know how to address the receiver node, so we have to provide
     -- its address, this only needs to be done once, or when the address of
     -- the receiver changes (which will not happen in most applications)

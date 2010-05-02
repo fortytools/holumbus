@@ -27,7 +27,7 @@ main
     initializeLogging []
     -- make a Haskell DNode, named "myReceiver" on the Port 7999
     -- this only needs to be called once during the runtime of the program
-    initDNode $ (defaultDNodeConfig "myReceiver")
+    _ <- initDNode $ (defaultDNodeConfig "myReceiver")
       { dnc_MinPort = (fromInteger 7999), dnc_MaxPort = (fromInteger 7999) }
     -- make a new DStream, named "myStream"
     -- this stream can be used until you close it with "closeDStream"
