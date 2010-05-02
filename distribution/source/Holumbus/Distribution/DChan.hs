@@ -10,18 +10,27 @@
   Portability: portable
   Version    : 0.1
   
+  This module offers a distributed channel datatype (DChan).
+
+  It is similar to Control.Concurrent.Chan, except that you can use it
+  between multiple processes on different computers. You can access a
+  DChan (reading and writing) from your local process as well as from
+  another one.
 -}
 
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Distribution.DChan 
 (
-  DChan
+  -- * datatypes
+    DChan
   
+  -- * creating and closing channels
   , newDChan
   , newRemoteDChan
   , closeDChan
   
+  -- * operations on a channel
   , writeDChan
   , readDChan
   , tryReadDChan
@@ -32,7 +41,6 @@ where
 
 import           Control.Concurrent.Chan
 import           Data.Binary
---import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger
@@ -105,8 +113,12 @@ dispatchDChanRequest dch _ hdl
       (DCMReqRead)    -> handleRead dch hdl
       (DCMReqWrite d) -> handleWrite dch (decode d) hdl
       (DCMReqIsEmpty) -> handleIsEmpty dch hdl
-    
 
+    
+-- | The DChan datatype.
+--   Notice that this datatype implements the Data.Binary typeclass.
+--   That means that you can pass a DChan, so that another computer
+--   can access the channel.
 data DChan a
   = DChanLocal DResourceAddress (Chan a)
   | DChanRemote DResourceAddress
@@ -120,6 +132,9 @@ instance Binary (DChan a) where
 data DChanReference a = DChanReference DResourceAddress (Chan a) 
 
 
+-- | Creates a new DChan on the local computer. The first parameter
+--   is the name of the Channel which could be used in other processes to
+--   access this stream. If you leave it empty, a random Id will be created.
 newDChan :: (Binary a) => String -> IO (DChan a)
 newDChan s
   = do
@@ -131,8 +146,11 @@ newDChan s
     addLocalResource dra dce
     return dch
     
-
--- merge this with newDChan
+-- TODO merge this with newDChan?
+-- | Creates a reference to a DChan which was created in a different
+--   process.
+--   The first parameter is the name of the resource and the second one
+--   the name of the node.
 newRemoteDChan :: String -> String -> IO (DChan a)
 newRemoteDChan r n
   = do
@@ -141,6 +159,7 @@ newRemoteDChan r n
     dra = mkDResourceAddress dChanType r n
 
 
+-- | Closes a DChan object, could not be used anymore after this call.
 closeDChan :: (DChan a) -> IO ()
 closeDChan (DChanLocal dra _)
   = do
@@ -205,6 +224,7 @@ handleIsEmpty (DChanReference _ ch) hdl
     putByteStringMessage (encode $ DCMRspIsEmpty b) hdl 
 
 
+-- | Writes data to a DChan.
 writeDChan :: (Binary a) => DChan a -> a -> IO ()
 writeDChan (DChanLocal _ c) v
   = do
@@ -214,6 +234,7 @@ writeDChan (DChanRemote a) v
     unsafeAccessForeignResource a (requestWrite v)
 
 
+-- | Reads data from a DChan, blocks if DChan is empty.
 readDChan :: (Binary a) => DChan a -> IO a
 readDChan (DChanLocal _ c)
   = do
@@ -223,6 +244,8 @@ readDChan (DChanRemote a)
     unsafeAccessForeignResource a requestRead
 
 
+-- | Tries to read data from a DChan, if the DChan is empty,
+--   the function return with Nothing.
 tryReadDChan :: (Binary a) => DChan a -> IO (Maybe a)
 tryReadDChan dc
   = do
@@ -232,10 +255,14 @@ tryReadDChan dc
       else do return Nothing
 
 
+-- | Reads data from a DChan. If the channel is empty, it waits
+--   for a given time (in microseconds) an returns immediately
+--   when new data arrives, otherwise it return Nothing.
 tryWaitReadDChan :: (Binary a) => DChan a -> Int -> IO (Maybe a) 
 tryWaitReadDChan dc t = timeout t (readDChan dc)
     
 
+-- | Tests, if a DChan is empty.
 isEmptyDChan :: DChan a -> IO Bool
 isEmptyDChan (DChanLocal _ c)
   = do

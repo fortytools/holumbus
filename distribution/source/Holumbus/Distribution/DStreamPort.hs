@@ -9,6 +9,14 @@
   Stability  : experimental
   Portability: portable
   Version    : 0.1
+
+  This module offers distributed streams and ports.
+
+  Because a DChan allows external read access, the idea came up to
+  split a DChan into two parts: a stream and a port. A stream only allows
+  you to read data from it. The read-access is limited to the local process which
+  created the stream. To send data to a stream, you need a port. This can be used
+  on forgein nodes to send data to your local stream.
   
 -}
 
@@ -16,14 +24,17 @@
 
 module Holumbus.Distribution.DStreamPort
 (
+  -- * datatypes
     DStream
   , DPort
   , StreamPortMessage(..)
   
+  -- * creating and closing a stream
   , newDStream
   , closeDStream
-  , isEmptyDStream
-  
+
+  -- * operations on a stream
+  , isEmptyDStream  
   , receive
   , receiveMsg
   , tryReceive
@@ -32,8 +43,11 @@ module Holumbus.Distribution.DStreamPort
   , tryWaitReceiveMsg
   , withStream
     
+  -- * creating a port
   , newDPortFromStream
   , newDPort
+
+  -- * operations on a port
   , send
   , sendWithGeneric
   , sendWithMaybeGeneric
@@ -68,6 +82,7 @@ instance (Binary a) => Binary (StreamPortMessage a) where
 newtype DStream a = DStream (DChan (StreamPortMessage a))
 
 
+-- | Creates a new local stream.
 newDStream :: (Binary a) => String -> IO (DStream a) 
 newDStream s
   = do
@@ -75,10 +90,12 @@ newDStream s
     return (DStream dc)
 
 
+-- | Closes a stream.
 closeDStream :: DStream a -> IO ()
 closeDStream (DStream dc) = closeDChan dc
 
 
+-- | Tests, if a stream has no more data to read.
 isEmptyDStream :: DStream a -> IO Bool
 isEmptyDStream (DStream dc) = isEmptyDChan dc
 
@@ -153,6 +170,8 @@ newDPortFromStream (DStream dc) = return (DPort dc)
 
 
 -- | Creates a new port from a streamname and its socketId.
+--   The first parameter is the name of the resource and the second one
+--   the name of the node.
 newDPort :: String -> String -> IO (DPort a)
 newDPort r n = newRemoteDChan r n >>= \dc -> return (DPort dc)
     

@@ -10,6 +10,15 @@
   Portability: portable
   Version    : 0.1
   
+  This module offers distributed functions.
+
+  This idea behind this is to implement RPC based on DNodes. You specify
+  a function which could be called from other programs and register this
+  as a resource in your local DNode. Then the foreign DNodes can create
+  a link to this function an execute it. The function parameters will be
+  serialized and send to the local DNode. There the parameters are deserialized
+  and the function will be called. After this the return-value will be send
+  back to the calling node. 
 -}
 
 -- ----------------------------------------------------------------------------
@@ -17,13 +26,16 @@
 {-# OPTIONS_GHC -XMultiParamTypeClasses -XFunctionalDependencies -XFlexibleInstances -XFlexibleContexts #-}
 module Holumbus.Distribution.DFunction 
 (
+  -- * datatypes
     DFunction
   , BinaryFunction
-    
+   
+  -- * creating and closing function references
   , newDFunction
   , newRemoteDFunction
   , closeDFunction
   
+  -- * invoking functions
   , accessDFunction
 )
 where
@@ -32,7 +44,6 @@ import           Prelude hiding (catch)
 
 import           Control.Exception
 import           Data.Binary
---import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger
@@ -44,6 +55,10 @@ localLogger :: String
 localLogger = "Holumbus.Distribution.DFunction"
 
 -- ----------------------------------------------------------------------------
+
+-- | Binary function typeclass. You can only use functions whose parameters
+--   and return value are serializable. The idea of this typeclass comes from
+--   the haxr library by Bjorn Bringert (http://www.haskell.org/haskellwiki/HaXR)
 class BinaryFunction a where
     toFun :: a -> [B.ByteString] -> IO B.ByteString
     remoteCall :: ([B.ByteString] -> IO B.ByteString) -> a
@@ -108,6 +123,9 @@ dispatchDFunctionRequest dfun _ hdl
       (DFMReqCall l)  -> handleCall dfun l hdl
 
 
+-- | The DFunction datatype. This is more like a reference to
+--   a function located on a different node. You can call this
+--   function via the accessDFunction function.
 data DFunction a
   = DFunctionLocal DResourceAddress a
   | DFunctionRemote DResourceAddress
@@ -121,7 +139,10 @@ instance Binary (DFunction a) where
 data DFunctionReference a = DFunctionReference DResourceAddress a
 
 
-
+-- | Creates a new distributed function. Only functions which are registered
+--   at the local node can be called from the outside. The string parameter
+--   specifies the name of the function which could the used by other nodes
+--   to call it. If you leave it empty, a random name will be generated.
 newDFunction :: (BinaryFunction a) => String -> a -> IO (DFunction a)
 newDFunction s f
   = do
@@ -133,6 +154,8 @@ newDFunction s f
     return df
 
 
+-- | Created a reference to a function on a remote node. The first parameter
+--   is the name of the function, the second parameter is the name of the node.
 newRemoteDFunction :: (BinaryFunction a) => String -> String -> IO (DFunction a)
 newRemoteDFunction r n
   = do
@@ -141,6 +164,7 @@ newRemoteDFunction r n
     dra = mkDResourceAddress dFunctionType r n
 
 
+-- | Closes a DFunction reference.
 closeDFunction :: DFunction a -> IO ()
 closeDFunction (DFunctionLocal dra _)
   = do
@@ -172,6 +196,9 @@ handleCall (DFunctionReference _ f) bs hdl
        putByteStringMessage (encode $ DFMRspCallException (show e)) hdl)
 
 
+-- | Transforms a DFunction object to a normal function which could be called and passed around.
+--   Because you have network tranfer everytime you call the function, this might throw a
+--   DistributedException when the foreign node becomes unreachable.
 accessDFunction :: (BinaryFunction a) => DFunction a -> a
 accessDFunction (DFunctionLocal _ f) = f
 accessDFunction (DFunctionRemote a)
@@ -180,6 +207,8 @@ accessDFunction (DFunctionRemote a)
 
 
 {-
+Example Code:
+
 addInt :: Int -> Int -> IO Int
 addInt i1 i2 = return $ i1 + i2 
 

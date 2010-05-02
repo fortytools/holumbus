@@ -10,19 +10,36 @@
   Portability: portable
   Version    : 0.1
   
+  This module offers the distributed MVar datatype.
+
+  The datatype behaves just like a normal MVar, but the content of the
+  variable may be stored on a different DNode. When accessing the DMVar,
+  the content will be fetched from the external node and written back.
+
+  It is guaranteed, that only one node at a time can take the content
+  of the DMVar. Just like normal DMVars, you can produce deadlocks.
+
+  When a node dies which holds the content of a DMVar, the node which
+  created the variable will reset its value to the last known value.
+  
+  If the owner dies, the other nodes cannot access the content of the
+  DMVar any more.
 -}
 
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Distribution.DMVar
 (
+  -- * datatype
     DMVar
 
+  -- * creating and closing DMVars
   , newDMVar
   , newEmptyDMVar
   , newRemoteDMVar
   , closeDMVar
 
+  -- * acccessing DMVars
   , readDMVar
   , takeDMVar
   , putDMVar
@@ -33,7 +50,6 @@ import           Prelude hiding (catch)
 
 import           Control.Concurrent.MVar
 import           Data.Binary
---import           Holumbus.Common.MRBinary
 import qualified Data.ByteString.Lazy as B
 import           System.IO
 import           System.Log.Logger
@@ -106,7 +122,7 @@ dispatchDMVarRequest dch dna hdl
       (DVMReqPut b) -> handlePut dch (decode b) hdl
 
 
-
+-- | The DMVar datatype.
 data DMVar a
   = DMVarLocal DResourceAddress (MVar a) (MVar (a, Maybe DHandlerId))
   | DMVarRemote DResourceAddress
@@ -119,6 +135,9 @@ instance Binary (DMVar a) where
 data DMVarReference a = DMVarReference DResourceAddress (MVar a) (MVar (a, Maybe DHandlerId))
   
 
+-- | Creates a new local DMVar with a start value.
+--   The string parameter specifies the name of the variable.
+--   If you leave it empty, a random value will be generated.
 newDMVar :: (Binary a) => String -> a -> IO (DMVar a)
 newDMVar s d
   = do
@@ -132,6 +151,8 @@ newDMVar s d
     return dmv
 
 
+-- | Creates a new empty local DMVar. The string parameter specifies the name of
+--   the variable. If you leave it empty, a random value will be generated.
 newEmptyDMVar :: (Binary a) => String -> IO (DMVar a)
 newEmptyDMVar s
   = do
@@ -145,6 +166,9 @@ newEmptyDMVar s
     return dmv
 
 
+-- | Creates a reference to an external DMVar.
+--   The first parameter is the name of the resource and the second one
+--   the name of the node.
 newRemoteDMVar :: String -> String -> IO (DMVar a)
 newRemoteDMVar r n
   = do
@@ -153,6 +177,7 @@ newRemoteDMVar r n
     dra = mkDResourceAddress dMVarType r n
 
 
+-- | Closes a DMVar
 closeDMVar :: (DMVar a) -> IO ()
 closeDMVar (DMVarLocal dra _ _)
   = do
@@ -242,6 +267,8 @@ handlePut (DMVarReference _ v o) a hdl
 
 
 
+-- | Reads the content of a DMVar. Blocks if the Variable is empty.
+--   This may throw an exception if the owner of the variable is unreachable.
 readDMVar :: (Binary a) => DMVar a -> IO a
 readDMVar (DMVarLocal _ v _)
   = do
@@ -251,6 +278,8 @@ readDMVar (DMVarRemote a)
     unsafeAccessForeignResource a requestRead
 
 
+-- | Takes the content of a DMVar. Blocks if the Variable is empty.
+--   This may throw an exception if the owner of the variable is unreachable.
 takeDMVar :: (Binary a) => DMVar a -> IO a
 takeDMVar (DMVarLocal _ v o)
   = do
@@ -262,6 +291,8 @@ takeDMVar (DMVarRemote a)
     unsafeAccessForeignResource a requestTake
 
 
+-- | Writes a value to the DMvar. Blocks if the Variable is not empty.
+--   This may throw an exception if the owner of the variable is unreachable.
 putDMVar :: (Binary a) => DMVar a -> a -> IO ()  
 putDMVar (DMVarLocal _ v o) d
   = do

@@ -11,6 +11,8 @@
   Portability: portable
   Version    : 0.1
   
+  Public interface of the DNode datatype. See Holumbus.Distribution.DNode.Base
+  for further documentation.
 -}
 
 -- ----------------------------------------------------------------------------

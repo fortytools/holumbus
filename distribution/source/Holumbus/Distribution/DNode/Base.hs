@@ -10,6 +10,13 @@
   Portability: portable
   Version    : 0.1
   
+  The main module for the implementation of the distributed data structures.
+  It contains the DNode-datatype which is needed to register new local and
+  remote resources. The main datatypes (Ids, Handlers, etc.) are also defined
+  here.
+
+  The module should only be used from within this library. User applications
+  should refer to Holumbus.Distribution.DNode.
 -}
 
 -- ----------------------------------------------------------------------------
@@ -17,6 +24,7 @@
 {-# OPTIONS_GHC -XDeriveDataTypeable -XScopedTypeVariables #-}
 module Holumbus.Distribution.DNode.Base
 (
+    -- * datatypes
     DistributedException(..)
     
   , DNodeConfig(..)
@@ -41,24 +49,30 @@ module Holumbus.Distribution.DNode.Base
   , DResourceDispatcher          -- rf
   , DResourceEntry(..)           -- rf
     
+  -- * Initializing and Deinitializing of the local node
   , initDNode
   , deinitDNode
+
+  -- * adding, deleting other nodes
   , addForeignDNode
   , delForeignDNode
+
+  -- * checking other nodes and resources
   , checkForeignDNode
   , addForeignDNodeHandler
   , addForeignDResourceHandler
   , delForeignHandler
   
+  -- * needed by the resources
   , genLocalResourceAddress      -- rf
   , addLocalResource             -- rf
   , delLocalResource             -- rf
   , delForeignResource           -- rf
   , safeAccessForeignResource    -- rf
   , unsafeAccessForeignResource  -- rf
-  , getByteStringMessage          -- rf -- reimported from Network-Module
-  , putByteStringMessage          -- rf -- reimported from Network-Module
-  , getDNodeData                  -- debug
+  , getByteStringMessage         -- rf -- reimported from Network-Module
+  , putByteStringMessage         -- rf -- reimported from Network-Module
+  , getDNodeData                 -- debug
 )
 where
 
@@ -92,9 +106,9 @@ localLogger = "Holumbus.Distribution.DNode.Base"
 
 -- | The exception type, used by distributed communication
 data DistributedException = DistributedException {
-    distEx_msg :: String
-  , distEx_fct :: String
-  , distEx_mod :: String
+    distEx_msg :: String -- ^ the message of the exception
+  , distEx_fct :: String -- ^ the function in which the exception was thrown
+  , distEx_mod :: String -- ^ the module in which the exception was thrown
   } deriving(Typeable, Show)
 instance Exception DistributedException
 
@@ -120,7 +134,7 @@ instance Binary DId where
 genDId :: String -> IO DId
 genDId "" 
   = do
-    -- TODO make more unique -> uuids
+    -- TODO make more unique -> uuids or other things
     i <- getStdRandom (randomR (1,1000000)):: IO Integer
     return $ DIdNumber i
 genDId st
@@ -195,8 +209,12 @@ mkDNodeAddress s hn po = DNodeAddress i hn (fromIntegral po)
   where
   i = mkDNodeId s
   
+-- | The type of the functions which could be called by a handler.
+--   The DHandlerId is the Id of the handler which called the function,
+--   you can use this to delete the handler.
 type DHandlerFunction = DHandlerId -> IO ()
 
+-- | Internal data of another DNode
 data DNodeEntry = DNodeEntry {
     dne_Address              :: DNodeAddress
   , dne_PingThreadId         :: Maybe ThreadId
@@ -211,6 +229,7 @@ data DNodeEntry = DNodeEntry {
 instance Show DNodeEntry where
   show _ = "{DNodeEntry}"
 
+-- | The Id of a handler, is needed to stop the handler from further execution.
 data DHandlerId = DHandlerId {
     dhi_Id      :: Unique
   , dhi_DNodeId :: DNodeId
@@ -269,10 +288,10 @@ mkDResourceAddress t r n = DResourceAddress dri dni
   dri = mkDResourceId t r
   dni = mkDNodeId n
 
--- The DResource callback functions
-type DResourceDispatcher   = DNodeId -> Handle -> IO ()
+-- | The DResource callback functions
+type DResourceDispatcher = DNodeId -> Handle -> IO ()
 
--- The container for the DResources
+-- | The container for the DResources
 data DResourceEntry = DResourceEntry {
     dre_Dispatcher   :: DResourceDispatcher
   }
@@ -628,7 +647,12 @@ handleResourceMessage sender dra hdl
         putByteStringMessage (encode $ DNMRspError "resource not found") hdl
       
 -- ----------------------------------------------------------------------------
--- always returns...
+-- Functions for adding/deleting other nodes to the system
+-- ----------------------------------------------------------------------------
+
+
+-- | Add a foreign DNode to the list of known DNodes.
+--   Only DNodes in this list could be reached by the local node.
 addForeignDNode :: DNodeAddress -> IO ()
 addForeignDNode dna
   = do
@@ -638,7 +662,8 @@ addForeignDNode dna
     addNode dna 
 
 
--- always returns...
+-- | removes a foreign DNode entry. You should clean up the foreign DNode
+--   entries.
 delForeignDNode :: DNodeId -> IO ()
 delForeignDNode i
   = do
@@ -654,7 +679,8 @@ delForeignDNode i
       (Nothing) -> return ()
 
 
--- always returns... if other dnode is not reachable, the function return false
+-- | Manually Checks, if another DNode is reachable. Returns true if this is the case,
+--   otherwise false. Always returns, does not throw an exception caused by network failures.
 checkForeignDNode :: DNodeId -> IO (Bool)
 checkForeignDNode dni
   = do
@@ -669,6 +695,11 @@ checkForeignDNode dni
       (Nothing) -> return False
 
 
+-- | Adds a handler function which periodically checks the existences (or non-existence)
+--   of other DNodes. The first parameter indicates the type of the handler.
+--   If you want to install a handler which is fired when a Node becomes reachable (positive trigger),
+--   it needs to be true. If you want to monitor the event when a specific node disappears,
+--   pass false.
 addForeignDNodeHandler :: Bool -> DNodeId -> DHandlerFunction -> IO (Maybe DHandlerId)
 addForeignDNodeHandler positive dni f
   = modifyMVar myDNode $ \dnd ->
@@ -697,6 +728,11 @@ addForeignDNodeHandler positive dni f
         (Nothing) -> return (dnd, Nothing)
 
 
+-- | Adds a handler function which periodically checks the existences (or non-existence)
+--   of resources on other DNodes. The first parameter indicates the type of the handler.
+--   If you want to install a handler which is fired when a Node becomes reachable (positive trigger),
+--   it needs to be true. If you want to monitor the event when a specific node disappears,
+--   pass false.
 addForeignDResourceHandler :: Bool -> DResourceAddress -> DHandlerFunction -> IO (Maybe DHandlerId)
 addForeignDResourceHandler positive dra f
   = modifyMVar myDNode $ \dnd ->
@@ -727,6 +763,7 @@ addForeignDResourceHandler positive dra f
         (Nothing) -> return (dnd, Nothing)
 
 
+-- | Deletes a Handler from the system, will not be called anymore.
 delForeignHandler :: DHandlerId -> IO ()
 delForeignHandler dhi
   = do
