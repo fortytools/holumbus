@@ -27,7 +27,7 @@ import           Holumbus.Distribution.DNode
 import           Holumbus.Distribution.DChan
 import           Holumbus.Common.Logging
 
-import           Examples.Distribution.ChatDChan.MessagesDChan
+import           MessagesDChan
 
 data ClientData = ClientData {
     cd_server :: DChan ChatRequest

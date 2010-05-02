@@ -14,7 +14,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Examples.Distribution.ChatDChan.MessagesDChan
+module MessagesDChan
 (
     ChatRequest(..)
   , ChatResponse(..)
