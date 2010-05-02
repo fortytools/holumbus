@@ -1,8 +1,8 @@
 # Making FileSystem-Standalone Programs
 
-HOME		= ../..
+# HOME		= ../..
 
-SOURCE		= .
+# SOURCE		= .
 
 GHC_FLAGS	= -Wall -threaded -O2 -hidir $(OUTPUT) -odir $(OUTPUT)
 GHC		= ghc $(GHC_FLAGS)

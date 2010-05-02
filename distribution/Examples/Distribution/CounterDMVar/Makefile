@@ -1,3 +1,4 @@
+# Making FileSystem-Standalone Programs
 
 GHC_FLAGS	= -Wall -threaded -O2 -hidir $(OUTPUT) -odir $(OUTPUT)
 GHC		= ghc $(GHC_FLAGS)
@@ -5,7 +6,7 @@ GHC		= ghc $(GHC_FLAGS)
 RM_FLAGS	= -rf
 RM		= rm $(RM_FLAGS)
 
-PROG		= PortRegistryDaemon
+PROG		= ErrorSlaveCounter MasterCounter SlaveCounter WaitSlaveCounter
 
 OUTPUT		= output
 
@@ -22,5 +23,5 @@ all : $(PROG)
 	$(GHC) --make -o $@ $<
 
 clean :
-	$(RM) $(PROG) $(OUTPUT) registry.xml registry.port
+	$(RM) $(PROG) $(OUTPUT) *.port
 	

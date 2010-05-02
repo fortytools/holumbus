@@ -1,7 +1,6 @@
 # Making all examples
 
-ALLEXAMPLES       = ClientServer Distribution Ports
-
+ALLEXAMPLES       = ChatDChan ChatDFunction CounterDFunction CounterDMVar HelloWorld
 
 all :
 	$(foreach i,$(ALLEXAMPLES),$(MAKE) -C $i all ;)
