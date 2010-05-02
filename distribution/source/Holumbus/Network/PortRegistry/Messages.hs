@@ -16,6 +16,7 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Network.PortRegistry.Messages
+{-# DEPRECATED "this module will be remove in the next release, please use the packages from Holumbus.Distribution.*" #-}
 (
   PortRegistryRequestStream
 , PortRegistryRequestPort

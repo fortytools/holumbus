@@ -20,6 +20,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-binds #-}	-- for unused record field selectors
 
 module Holumbus.Network.Port
+{-# DEPRECATED "this module will be remove in the next release, please use the packages from Holumbus.Distribution.*" #-}
 (
 -- * Constants
   time1

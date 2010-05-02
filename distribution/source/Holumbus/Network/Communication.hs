@@ -28,6 +28,7 @@
 
 {-# OPTIONS -fglasgow-exts #-}
 module Holumbus.Network.Communication
+{-# DEPRECATED "this module will be remove in the next release, please use the packages from Holumbus.Distribution.*" #-}
 (
   StreamName       -- (reexport)
 , SocketId         -- (reexport)

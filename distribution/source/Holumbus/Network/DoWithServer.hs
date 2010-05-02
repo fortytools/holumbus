@@ -28,6 +28,7 @@
 
 -- ----------------------------------------------------------------------------
 module Holumbus.Network.DoWithServer
+{-# DEPRECATED "this module will be remove in the next release, please use the packages from Holumbus.Distribution.*" #-}
 (
     Client (..)
   , ServerAction
