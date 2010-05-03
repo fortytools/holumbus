@@ -77,6 +77,7 @@ function processQuery (start) {
           lastLocation = window.location.hash;
           displayResult(transport.responseText, query);
           checkForQuery();
+          piwikTracker.trackPageView("hayoo.html?query=" + encodeURIComponent(query));
         },
         onFailure: function() {
           var resultError = "<div id=\"result\"><div id=\"status\">Error: Could not execute query.</div><div id=\"words\">&nbsp;</div><div id=\"documents\">&nbsp;</div><div id=\"pager\">&nbsp;</div></div>";
