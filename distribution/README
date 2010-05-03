@@ -1,6 +1,6 @@
 This is the Holumbus-Distribution Library
 
-Version 0.0.1
+Version 0.1.0
 
 Stefan Schmidt sts@holumbus.org
 
@@ -12,50 +12,58 @@ About
 
 Holumbus is a set of Haskell libraries. This package contains the 
 Holumbus-Distribution library for building and running a distributed systems.
-One of the core elements of this library is an Erlang-like mailbox 
-system for interchanging messages between different threads or applications. 
+One of the core elements of this library is an Erlang-style communication 
+system for interchanging data between different threads or applications. 
 
-This library itself is independent from other Holumbus libraries.
+This library was completely rewritten between version 0.0.1 and 0.1.0. The old
+packages can be found under Holumbus.Network.* while the new ones are
+located at Holumbus.Distribution.*. The old packages will be removed in
+future versions.
+
+This library itself is independent from other Holumbus libraries although it
+contains some modules which are only to be used by the other Holumbus
+libraries but this may change in the near future.
 
 
 Documentation:
 ------------------------------------------
 
-The "Chan" data type form Control.Concurrent.Chan is pretty useful.
-You can easily use it as a queue for the consumer-producer-problem. One
-thread writes into the channel, the other reads the data from it. But this
-only works, if the two threads are running in the same address space.
-That means the Chan data type cannot be used for the communication of
-distinct applications, but this scenario is a normal use case.
+Haskell offers great libraries and datatypes for the implementation
+of intra-process communication, e.g. MVars, Chans, STM. But compared
+to other functional languages like Erlang or Mozart/Oz (ok, the later
+is a multi paradigm language) offer better support for building distributed
+systems. Holumbus-Distribution wants to close this gap by offering multiple
+distributed data structures.
 
-Therefore it would be very useful to have a single framework for inter- 
-and intra-process communication. One thread can create a mailbox and other 
-threads can send messages to it, though it should make no difference, 
-if the threads are in the same address space or not.
+The following datastructures are implemented so far:
 
-This libary offers a "Stream-Port" implementation, borrowed from the
-multi-paradigm programming language Mozart/Oz.
+* distributed Chan (DChan)
+  like the Chan datatype, but it allows the writing
+  and reading (!) from other programs
 
-A stream in this context is like a mailbox or a receiver. Other threads can send
-messages to it via a port. A port in this context has nothing to do with the
-port number of a unix-socket. Think of it as a sender.
+* distributed MVar (DMVar)
+  like the MVar datatype, but the content of the
+  MVar can be shared among multiple programs.
 
-To address a stream over the network easily, you can give him a unique name.
-Then you can create a port, give him that stream name and the messages will
-be send directly to the stream. This requires you to start the PortRegistry.
+* distributed Functions (DFunction)
+  an easy way to do remote procedure calls, just like
+  haxr  
 
-The PortRegistry keeps a log for all global communication streams in the
-network. It MUST be started BEFORE all other programs. In future versions this
-explicit execution sequence might not be necessary any more, but for now the
-FIRST thing you have to start is the PortRegistry. There is ONLY ONE one
-instance allowed in the whole communication network (this might also change).
+* distributed Values (DValue)
+  a variable which could only be written once and
+  which could easily read by other programs
 
-You can find the main parts for the communication in the module
-"Holumbus.Network.Port"
+* distributed Streams and Ports (DStream, DPort) 
+  just like the DChan, but this time, you are only
+  allowed to read from the channel from one program
 
-This library also contains some parts which might be useful, e.g. some
-specialized maps (Holumbus.Data) and a commandline user interface
-(Holumbus.Console). They are used in other Holumbus libraries.
+
+To be able to use these data structures, your program needs to become a
+distributed node (DNode, comparable to an Erlang-Node). After initializing
+the node, you can create instances of the data structures described above.
+You only need to register these resources at your node and then other nodes
+are able to access them. 
+
 
 
 Contents
@@ -63,6 +71,8 @@ Contents
 
 Examples  Some example applications
 Programs  The applications you need to run a distributed system.
+          (these are not needed any more an belongs to the old
+           Holumbus.Network.* packages, they will be deleted in 0.2.0)
 source    Source code of the Holumbus-Distribution library.
 
 
@@ -94,63 +104,63 @@ $ runhaskell Setup.hs configure
 $ runhaskell Setup.hs build
 $ runhaskell Setup.hs install --global # with root privileges
 
-This will generate the library and the PortRegestry program.
+This will generate the library and the PortRegestry programs.
 
 For those who prefer to build it the old way with make:
 
 $ make build
 $ make install # with root privileges
 
-If you want to run your own distributed system, you'll need to compile the
-PortRegistry, too. This can be done with
-
-$ make programs
-
 
 Steps to make a distributed system running
 --------------------------------
 
-Before you can use the mailboxes in your own programs, you need to start the
-PortRegistry BEFORE running any of you programs. If you have compiled the
-PortRegistry, you can start it with: 
+How to use Streams and Ports:
 
-$ cd Programs/PortRegistry
-$ ./PortRegistry
+On the receive side:
+    -- Step 1:
+    -- make a Haskell DNode, named "myReceiver" on the Port 7999
+    -- this only needs to be called once during the runtime of the program
+    _ <- initDNode $ (defaultDNodeConfig "myReceiver")
+      { dnc_MinPort = (fromInteger 7999), dnc_MaxPort = (fromInteger 7999) }
+    
+    -- Step 2:
+    -- make a new DStream, named "myStream"
+    -- this stream can be used until you close it with "closeDStream"
+    stream <- newDStream "myStream"
 
-This will create a file "registry.xml" in your "/tmp" directory. This file
-contains all information for your programs to access the PortRegistry.
-It is wise to copy this file to every computer, on which you want to run a 
-program of your system.
-
-Before you can send/receive messages in your programs, you'll need to
-load the "registry.xml" file. This can be done by two simple lines in the
-IO-monad:
-
-p <- newPortRegistryFromXmlFile "/tmp/registry.xml"
-setPortRegistry p
-
-To create a simple Mailbox for receiving messages, you can look a the following
-demo-program:
-      
-main :: IO ()
-main
-  = do
-    reg <- newPortRegistryFromXmlFile "/tmp/registry.xml"
-    setPortRegistry reg
-    gS <- (newGlobalStream "global"):: IO (Stream String)
-    msg <- readStream gS
+    -- Step 3:
+    -- wait for the next message, read it print it out to stdout
+    msg <- (receive stream)::(IO String)
     putStrLn msg
 
-This program will set up a mailbox and wait till the first message is received
-and print it out. Then is will terminate.
-And the following program will send a message to your mailbox:      
-      
-main :: IO ()
-main
-  = do
-    reg <- newPortRegistryFromXmlFile "/tmp/registry.xml"
-    setPortRegistry reg
-    gP <- (newGlobalPort "global")::IO (Port String)
-    send gP "Hello World"
-      
-This program just sends one message to your mailbox.      
+    -- Step 4:
+    -- we are behaving nicely and clean everything up before we leave
+    closeDStream stream
+    deinitDNode
+
+On the sender side:
+
+    -- Step 1:
+    -- make a Haskell DNode, we don't care about its name, so we leave it
+    -- blank. The system will generate a unique random name on its own.
+    -- this only needs to be called once during the runtime of the program
+    _ <- initDNode $ defaultDNodeConfig ""
+
+    -- Step 2:
+    -- we need to know how to address the receiver node, so we have to provide
+    -- its address, this only needs to be done once, or when the address of
+    -- the receiver changes (which will not happen in most applications)
+    addForeignDNode $ mkDNodeAddress "myReceiver" "localhost" (fromInteger 7999)
+
+    -- Step 3:
+    -- we make a new port, connected to "myStream" at the node "myReceiver"
+    port <- newDPort "myStream" "myReceiver"
+
+    -- Step 4:
+    -- send the messages
+    send port "Hello World"
+
+    -- Step 5:
+    -- we are behaving nicely and clean everything up before we leave
+    deinitDNode
