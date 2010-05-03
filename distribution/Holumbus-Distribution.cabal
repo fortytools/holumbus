@@ -32,15 +32,27 @@ extra-source-files:
     Examples/Ports/Receiver.hs
     Examples/Ports/Sender.hs
     Examples/Ports/Single.hs
+    Examples/Distribution/Makefile
     Examples/Distribution/ChatDChan/ClientDChan.hs
+    Examples/Distribution/ChatDChan/Makefile
     Examples/Distribution/ChatDChan/ServerDChan.hs
     Examples/Distribution/ChatDChan/MessagesDChan.hs
+    Examples/Distribution/ChatDFunction/ClientDFunction.hs
+    Examples/Distribution/ChatDFunction/InterfacesDFunction.hs
+    Examples/Distribution/ChatDFunction/Makefile
+    Examples/Distribution/ChatDFunction/ServerDFunction.hs
+    Examples/Distribution/CounterDFunction/Makefile
     Examples/Distribution/CounterDFunction/MasterCounter.hs
     Examples/Distribution/CounterDFunction/SlaveCounter.hs
+    Examples/Distribution/CounterDMVar/Makefile
     Examples/Distribution/CounterDMVar/MasterCounter.hs
     Examples/Distribution/CounterDMVar/SlaveCounter.hs
     Examples/Distribution/CounterDMVar/WaitSlaveCounter.hs
     Examples/Distribution/CounterDMVar/ErrorSlaveCounter.hs
+    Examples/Distribution/HelloWorld/Makefile
+    Examples/Distribution/HelloWorld/Receiver.hs
+    Examples/Distribution/HelloWorld/Sender.hs
+
 
 library
   build-depends:  base       >= 4
