@@ -21,6 +21,11 @@ extra-source-files:
     Examples/FileSystem/ControllerMain.hs
     Examples/FileSystem/NodeMain.hs
     Examples/Makefile
+    Examples/StoragePerformance/Makefile
+    Examples/StoragePerformance/NetFile_1.hs
+    Examples/StoragePerformance/NetFile_2.hs
+    Examples/StoragePerformance/ReadFile_1.hs
+    Examples/StoragePerformance/ReadFile_2.hs
     Examples/Utils/Filehandling/FileHandlingTest.hs
     Examples/Utils/Filehandling/Makefile
 
