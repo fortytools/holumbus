@@ -5,3 +5,8 @@ hayooCache
 hayooIndexer
 *.out
 *.bin
+latestPackages
+ix.bin.*
+pkg.bin.*
+pkg.xml.*
+pkg.xml
