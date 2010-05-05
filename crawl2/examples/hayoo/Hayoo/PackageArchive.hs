@@ -10,11 +10,32 @@ import qualified Codec.Compression.GZip 	as GZip ( decompress )
 import           Control.Arrow
 
 import           Data.ByteString.Lazy  		( ByteString )
+import qualified Data.ByteString.Lazy 		as BS
 import           Data.List
 
+import           System.FilePath
+import           System.Process			( system )
 import           System.Time
 
-import           System.FilePath
+-- ------------------------------------------------------------
+
+getNewPackages		:: Bool -> Int -> IO [String]
+getNewPackages updateArchive since
+			= do
+			  if updateArchive
+			     -- this is a hack, should be done more elegant without the use of system and wget
+			     then system ("wget http://hackage.haskell.org/packages/" ++ archiveFile ++ " -O cache/" ++ archiveFile)
+				  >> return ()
+			     else return ()
+			  t <- secondsAgo
+			  a <- BS.readFile $ "cache/" ++ archiveFile
+			  return $ latestPackages t a
+    where
+    archiveFile		= "00-index.tar.gz"
+    secondsAgo		:: IO ClockTime
+    secondsAgo		= do
+			  (TOD s _f) <- getClockTime
+			  return $ TOD (s - toInteger since) 0
 
 -- ------------------------------------------------------------
 

@@ -16,9 +16,11 @@ import           Hayoo.HackagePackage
 import           Hayoo.Haddock
 import		 Hayoo.IndexConfig
 import           Hayoo.IndexTypes
+import           Hayoo.PackageArchive
 import           Hayoo.URIConfig
 
 import		 Holumbus.Crawler
+import		 Holumbus.Crawler.CacheCore
 import		 Holumbus.Crawler.IndexerCore
 
 import           System.Console.GetOpt
@@ -101,7 +103,35 @@ removePackagesPkg		= removePackages getPkgNamePkg
 
 -- ------------------------------------------------------------
 
-data AppAction			= BuildIx | UpdatePkg | RemovePkg
+hayooCacher 			:: AppOpts -> IO CacheCrawlerState
+hayooCacher o              	= stdCacher
+                                  (ao_crawlDoc o)
+                                  (ao_crawlSav o)
+                                  (ao_crawlLog o)
+                                  (ao_crawlPar o)
+                                  (ao_crawlCch o)
+                                  (ao_resume o)
+				  hayooStart
+				  (hayooRefs True [])
+
+-- ------------------------------------------------------------
+
+hayooPackageUpdate		:: AppOpts -> [String] -> IO CacheCrawlerState
+hayooPackageUpdate o pkgs	= stdCacher
+                                  (ao_crawlDoc o)
+                                  (ao_crawlSav o)
+                                  (ao_crawlLog o)
+                                  (ao_crawlPar o)
+                                  -- (setDocAge 1 (ao_crawlPar o))		-- cache validation initiated (1 sec valid) 
+                                  (ao_crawlCch o)
+                                  Nothing
+				  hayooStart
+				  (hayooRefs True pkgs)
+
+
+-- ------------------------------------------------------------
+
+data AppAction			= BuildIx | UpdatePkg | RemovePkg | BuildCache
                                   deriving (Eq, Show)
 
 data AppOpts			= AO
@@ -113,7 +143,8 @@ data AppOpts			= AO
                                   , ao_defrag	:: Bool
 				  , ao_resume	:: Maybe String
 				  , ao_packages	:: [String]
-				  , ao_recent	:: Bool
+				  , ao_latest   :: Maybe Int
+				  , ao_getHack  :: Bool
 				  , ao_msg	:: String
 				  , ao_crawlDoc	:: (Int, Int, Int)
 				  , ao_crawlSav	:: (Int, String)
@@ -121,6 +152,7 @@ data AppOpts			= AO
 				  , ao_crawlPar	:: [(String, String)]
 				  , ao_crawlFct	:: HayooIndexerConfig    -> HayooIndexerConfig
                                   , ao_crawlPkg :: HayooPkgIndexerConfig -> HayooPkgIndexerConfig
+				  , ao_crawlCch	:: CacheCrawlerConfig    -> CacheCrawlerConfig
 				  }
 
 type SetAppOpt			= AppOpts -> AppOpts
@@ -137,8 +169,9 @@ initAppOpts			= AO
                                   , ao_defrag	= False
 				  , ao_resume	= Nothing
 				  , ao_packages	= []
-				  , ao_recent	= False
-				  , ao_msg		= ""
+				  , ao_latest   = Nothing
+				  , ao_getHack  = False
+				  , ao_msg	= ""
 				  , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
 				  , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
 				  , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
@@ -159,6 +192,10 @@ initAppOpts			= AO
 						    disableRobotsTxt					-- for hayoo robots.txt is not needed
 						  )
                                   , ao_crawlPkg	= disableRobotsTxt
+				  , ao_crawlCch = ( editPackageURIs					-- configure URI rewriting
+						    >>>
+						    disableRobotsTxt					-- for hayoo robots.txt is not needed
+						  )
 				  }
     where
     editPackageURIs		= update theProcessRefs (>>> arr editLatestPackage)
@@ -185,7 +222,10 @@ main1 pn args
 				  setLogLevel' "" (fst . ao_crawlLog $ appOpts)
 				  runX (  hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ appOpts)
                                           >>>
-				          ( if ao_pkgIndex appOpts
+				          ( if ao_action appOpts == BuildCache
+					    then mainCache
+					    else
+					    if ao_pkgIndex appOpts
                                             then mainHackage
                                             else mainHaddock
                                           ) appOpts
@@ -207,17 +247,19 @@ main1 pn args
 					   }
 
     optDescr			= [ Option "h?" ["help"] 	(NoArg  $ \   x -> x { ao_help     = True }) 				"usage info"
+                                  , Option ""   ["fct-index"]	(NoArg  $ \   x -> x { ao_pkgIndex = False
+                                                                                     , ao_crawlSav = (500, "./tmp/ix-") })		"process index for haddock functions and types (default)"
+                                  , Option ""   ["pkg-index"]	(NoArg  $ \   x -> x { ao_pkgIndex = True
+                                                                                     , ao_crawlSav = (500, "./tmp/pkg-") })		"process index for hackage package description pages"
+				  , Option ""   ["cache"]	(NoArg  $ \   x -> x { ao_action   = BuildCache })			"update the cache"
+
 				  , Option "i"  ["index"]	(ReqArg ( \ f x -> x { ao_index    = f    }) 	  	"INDEX-FILE")	"index file (binary format) to be generated or updated"
-				  , Option "x"  ["xml-output"] 	(ReqArg ( \ f x -> x { ao_xml      = f    }) 	  	"XML-FILE")	"output of final crawler state in xml format, ( \"-\" for stdout"
+				  , Option "x"  ["xml-output"] 	(ReqArg ( \ f x -> x { ao_xml      = f    }) 	  	"XML-FILE")	"output of final crawler state in xml format, \"-\" for stdout"
 				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  	"FILE")		"resume program with status file"
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) 	"PACKAGE-LIST")	"packages to be processed, a comma separated list of package names"
                                   , Option "u"  ["update"]	(NoArg  $ \   x -> x { ao_action   = UpdatePkg })			"update packages specified by \"packages\" option"
                                   , Option "d"  ["delete"]	(NoArg  $ \   x -> x { ao_action   = RemovePkg })			"delete packages specified by \"packages\" option"
                                   , Option "f"  ["defragment"]	(NoArg  $ \   x -> x { ao_defrag   = True  })				"defragment index after delete or update"
-                                  , Option ""   ["pkg-index"]	(NoArg  $ \   x -> x { ao_pkgIndex = True
-                                                                                     , ao_crawlSav = (500, "./tmp/pkg-") })		"process index for hackage package description pages"
-                                  , Option ""   ["fct-index"]	(NoArg  $ \   x -> x { ao_pkgIndex = False
-                                                                                     , ao_crawlSav = (500, "./tmp/ix-") })		"process index for haddock functions and types"
                                   , Option "m"  ["maxdocs"]     (ReqArg ( setOption parseInt
                                                                           (\ x i -> x { ao_crawlDoc = setMaxDocs i $
                                                                                                       ao_crawlDoc x
@@ -236,6 +278,10 @@ main1 pn args
                                                                                       }
                                                                           )
                                                                         )					 	"DURATION")	"validate cache for pages older than given time, format: 10sec, 5min, 20hours, 3days, 5weeks, 1month, default is 1month"
+                                  , Option ""   ["latest"]	(ReqArg ( setOption parseTime
+                                                                          (\ x t -> x { ao_latest   = Just t })
+                                                                        )					 	"DURATION")	"select latest packages newer than given time, format like in option \"valid\""
+                                  , Option ""   ["hackage"]	(NoArg  $ \   x -> x { ao_getHack   = True })				"when processing latest packages, first update the package list from hackage"
 
 				  ]
     pkgList			= words . map (\ x -> if x == ',' then ' ' else x)
@@ -326,6 +372,7 @@ mainHackage opts		= action
     packageList			= ao_packages opts
     notNullPackageList		= not . null $ packageList
 
+-- ------------------------------------------------------------
 
 mainHaddock                     :: AppOpts -> IOSArrow b ()
 mainHaddock opts		= action
@@ -376,6 +423,50 @@ mainHaddock opts		= action
     ixAction			= ao_action   opts
     packageList			= ao_packages opts
     notNullPackageList		= not . null $ packageList
+
+-- ------------------------------------------------------------
+
+mainCache                       :: AppOpts -> IOSArrow b ()
+mainCache opts			= action opts
+				  >>>
+				  writeResults opts
+    where
+    actBuild opts'		= arrIO0 (hayooCacher opts')
+
+    actUpdate _ []		= traceMsg 0 ("no packages to be updated")
+				  >>>
+				  none
+    actUpdate opts' pl		= traceMsg 0 ("updating cache with packages: " ++ unwords pl)
+				  >>>
+				  arrIO0 (hayooPackageUpdate opts' pl)
+    action opts'
+	| isJust latest		= traceMsg 0 ("compute list of latest packages")
+                                  >>>
+                                  ( actUpdate (opts' { ao_latest   = Nothing
+						     , ao_crawlPar = setDocAge 1 $ ao_crawlPar opts'	-- force cache update
+						     }
+					      )
+				    $< arrIO0 (getNewPackages (ao_getHack opts') (fromJust latest))
+				  )
+				  >>>
+                                  traceMsg 0 "update of latest packages finished"
+				  
+	| not . null $ packageList
+				= traceMsg 0 ("updating cache with packages: " ++ unwords packageList)
+				  >>>
+				  actUpdate opts' packageList
+
+	| isJust resume		= traceMsg 0 "resume cache update"
+				  >>>
+				  actBuild opts'
+
+	| otherwise		= traceMsg 0 ("cache hayoo pages")
+				  >>>
+				  actBuild opts'
+	where
+	resume			= ao_resume   opts'
+	packageList		= ao_packages opts'
+	latest			= ao_latest   opts'
 
 -- ------------------------------------------------------------
 
