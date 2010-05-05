@@ -55,7 +55,6 @@ update	: ./hayooCache
 	./$< +RTS -N$(N) -s -K100M -RTS -p "$(pkg)" -o $(outch)
 
 recent	: ./hayooIndexer
-	@echo $(OPT)
 	@echo not done: $(MAKE) archive
 	[ -f $(ix).org ] || cp $(ix) $(ix).org
 	./$< +RTS -N$(N) -s -K100M -RTS --update --packages=$$(./latestPackages $(DAYS)) --valid=1hour --index=$(ix) --maxdocs=15000 --fct-index

@@ -21,11 +21,16 @@ extra-source-files:
     Examples/FileSystem/ControllerMain.hs
     Examples/FileSystem/NodeMain.hs
     Examples/Makefile
+    Examples/StoragePerformance/Makefile
+    Examples/StoragePerformance/NetFile_1.hs
+    Examples/StoragePerformance/NetFile_2.hs
+    Examples/StoragePerformance/ReadFile_1.hs
+    Examples/StoragePerformance/ReadFile_2.hs
     Examples/Utils/Filehandling/FileHandlingTest.hs
     Examples/Utils/Filehandling/Makefile
 
 library
-  build-depends:  base >= 3
+  build-depends:  base >= 4 && < 5
                 , binary     >= 0.4
                 , bytestring >= 0.9
                 , containers >= 0.1
@@ -53,7 +58,7 @@ library
                 , Holumbus.FileSystem.Controller
                 , Holumbus.FileSystem.Controller.ControllerData
                 , Holumbus.FileSystem.Controller.ControllerPort
-  ghc-options: -Wall -threaded
+  ghc-options: -Wall
   extensions: Arrows DeriveDataTypeable ExistentialQuantification
 
 executable StorageControllerDaemon
