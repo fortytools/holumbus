@@ -375,7 +375,7 @@ mainHackage opts		= action
 -- ------------------------------------------------------------
 
 mainHaddock                     :: AppOpts -> IOSArrow b ()
-mainHaddock opts		= action
+mainHaddock opts		= action opts
                                   >>>
                                   writeResults opts
     where
@@ -385,6 +385,22 @@ mainHaddock opts		= action
                                   >>>
                                   arrIO0 (removePackagesIx opts')
 
+    actUpdate _     []		= traceMsg 0 "no packages to be reindexed"
+    actUpdate opts' pl		= traceMsg 0 ("updating index with packages: " ++ unwords pl)
+				  >>>
+				  ( actIndex  (opts' { ao_action = BuildIx
+						     , ao_packages = pl
+						     }
+					      )
+                                    &&&
+                                    actRemove (opts' { ao_action = RemovePkg
+						     , ao_packages = pl
+						     }
+					      )
+                                  )
+                                  >>>
+                                  actMerge
+
     actMerge			= traceMsg 0 ("merging existing haddock index with new packages")
                                   >>>
                                   arrIO (\ (new, old) -> unionIndexerStatesM old new)
@@ -393,36 +409,47 @@ mainHaddock opts		= action
                                   >>>
                                   none
 
-    action
+    action opts'
+{-
+	| isJust latest		= traceMsg 0 "reindex with latest packages"
+				  >>>
+				  ( actUpdate (opts' { ao_latest = Nothing })
+				    $< arrIO0 (getNewPackages (ao_getHack opts') (fromJust latest))
+				  )
+	                          >>>
+				  traceMsg 0 "reindex with latest packages finished"
+-}
+
         | ( ixAction `elem` [UpdatePkg, RemovePkg] )
           &&
           null packageList	= actNoOp
     
-        | ixAction == RemovePkg	= actRemove opts
+        | ixAction == RemovePkg	= actRemove opts'
 
-        | ixAction == UpdatePkg	= ( actIndex (opts { ao_action = BuildIx })
+        | ixAction == UpdatePkg	= ( actIndex (opts' { ao_action = BuildIx })
                                     &&&
-                                    actRemove opts
+                                    actRemove opts'
                                   )
                                   >>>
                                   actMerge
 
 	| notNullPackageList	= traceMsg 0 ("indexing haddock for packages: " ++ unwords packageList)
 				  >>>
-				  actIndex opts
+				  actIndex opts'
 
 	| isJust resume		= traceMsg 0 "resume haddock document indexing"
 				  >>>
-				  actIndex opts
+				  actIndex opts'
 
 	| otherwise		= traceMsg 0 "indexing all hayoo haddock pages"
 				  >>>
-				  actIndex opts
-
-    resume			= ao_resume   opts
-    ixAction			= ao_action   opts
-    packageList			= ao_packages opts
-    notNullPackageList		= not . null $ packageList
+				  actIndex opts'
+	where
+	latest                  = ao_latest   opts'
+	resume			= ao_resume   opts'
+	ixAction		= ao_action   opts'
+	packageList		= ao_packages opts'
+	notNullPackageList	= not . null $ packageList
 
 -- ------------------------------------------------------------
 
