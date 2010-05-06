@@ -146,6 +146,7 @@ data AppOpts			= AO
 				  , ao_packages	:: [String]
 				  , ao_latest   :: Maybe Int
 				  , ao_getHack  :: Bool
+                                  , ao_pkgRank	:: Bool
 				  , ao_msg	:: String
 				  , ao_crawlDoc	:: (Int, Int, Int)
 				  , ao_crawlSav	:: (Int, String)
@@ -173,6 +174,7 @@ initAppOpts			= AO
 				  , ao_packages	= []
 				  , ao_latest   = Nothing
 				  , ao_getHack  = False
+                                  , ao_pkgRank	= False
 				  , ao_msg	= ""
 				  , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
 				  , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
@@ -286,6 +288,7 @@ main1 pn args
                                                                           (\ x t -> x { ao_latest   = Just t })
                                                                         )					 	"DURATION")	"select latest packages newer than given time, format like in option \"valid\""
                                   , Option ""   ["hackage"]	(NoArg  $ \   x -> x { ao_getHack   = True })				"when processing latest packages, first update the package list from hackage"
+                                  , Option ""   ["ranking"]	(NoArg  $ \   x -> x { ao_pkgRank   = True })				"when processing package index, compute package rank, default is no rank"
 
 				  ]
     pkgList			= words . map (\ x -> if x == ',' then ' ' else x)
@@ -328,11 +331,22 @@ setDocAge d				=  addEntries [(a_document_age, show d)]
 -- ------------------------------------------------------------
 
 mainHackage                     :: AppOpts -> IOSArrow b ()
-mainHackage opts		= action
+mainHackage opts		= action opts
                                   >>>
                                   writeResults opts
     where
     actIndex  opts'		= arrIO0 (hayooPkgIndexer opts' >>= return . getS theResultAccu)
+                                  >>>
+                                  actRank opts'
+
+
+    actRank opts'
+        | ao_pkgRank opts'	= traceMsg 0 "computing package ranks"
+                                  >>>
+                                  arrIO (\ x -> let y = packageRanking x in rnf y `seq` return y)
+                                  >>>
+                                  traceMsg 0 "package rank computation finished"
+        | otherwise		= this
 
     actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from hackage package index" )
                                   >>>
@@ -346,36 +360,40 @@ mainHackage opts		= action
                                   >>>
                                   none
 
-    action
+    action opts'
         | ( ixAction `elem` [UpdatePkg, RemovePkg] )
           &&
           null packageList	= actNoOp
     
-        | ixAction == RemovePkg	= actRemove opts
+        | ixAction == RemovePkg	= actRemove opts'
 
-        | ixAction == UpdatePkg	= ( actIndex (opts { ao_action = BuildIx })
+        | ixAction == UpdatePkg	= ( actIndex (opts' { ao_action  = BuildIx
+                                                    , ao_pkgRank = False	-- delayed until merged
+                                                    })
                                     &&&
-                                    actRemove opts
+                                    actRemove opts'
                                   )
                                   >>>
                                   actMerge
+                                  >>>
+                                  actRank opts'
 
 	| notNullPackageList	= traceMsg 0 ("indexing hackage package descriptions for packages: " ++ unwords packageList)
 				  >>>
-				  actIndex opts
+				  actIndex opts'
 
 	| isJust resume		= traceMsg 0 "resume hackage package description indexing"
 				  >>>
-				  actIndex opts
+				  actIndex opts'
 
 	| otherwise		= traceMsg 0 "indexing all hackage package descriptions"
 				  >>>
-				  actIndex opts
-
-    resume			= ao_resume   opts
-    ixAction			= ao_action   opts
-    packageList			= ao_packages opts
-    notNullPackageList		= not . null $ packageList
+				  actIndex opts'
+        where
+        resume			= ao_resume   opts'
+        ixAction		= ao_action   opts'
+        packageList		= ao_packages opts'
+        notNullPackageList	= not . null $ packageList
 
 -- ------------------------------------------------------------
 

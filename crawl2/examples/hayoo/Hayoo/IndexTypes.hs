@@ -15,21 +15,24 @@ import qualified Data.ByteString.Char8		as C
 import qualified Data.IntSet			as IS
 import qualified Data.IntMap			as IM
 import           Data.List			( foldl' )
+import qualified Data.Map			as M	( lookup )
 import           Data.Maybe
 
 import		 Hayoo.FunctionInfo
 import		 Hayoo.PackageInfo
+import		 Hayoo.PackageRank
 
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
 
-import           Holumbus.Index.Common		( Document
+import           Holumbus.Index.Common		( Document(..)
                                                 , Occurrences
-                                                , custom, editDocIds, removeById, toMap, updateDocIds'
+                                                , custom, editDocIds, removeById, toMap, updateDocIds', updateDocuments
                                                 )
 import           Holumbus.Index.Documents       ( Documents(..)
                                                 , emptyDocuments
                                                 )
+-- import           Debug.Trace
 
 -- ------------------------------------------------------------
 
@@ -151,6 +154,31 @@ defragmentIndex IndexerState
     ds'				= editDocIds editId ds
     idMap			= IM.fromList . flip zip [1..] . IM.keys . toMap $ ds
     editId i			= fromJust . IM.lookup i $ idMap
+
+-- ------------------------------------------------------------
+
+packageRanking			:: HayooPkgIndexerState -> HayooPkgIndexerState
+packageRanking ixs@(IndexerState { ixs_documents = ds })
+				= ixs { ixs_documents = updateDocuments insertRank ds }
+    where
+    rank			= ranking 0.5
+                                  . dagFromList
+                                  . map (\ p -> (getPackageName p, getPackageDependencies p))
+                                  . map fromJust
+                                  . filter isJust		-- all illegal package refs are filtered out (there are illegal refs)
+                                  . map custom
+                                  . IM.elems
+                                  . toMap $ ds
+
+    insertRank d		= d { custom = fmap insertRank' (custom d) }
+        where
+        insertRank' ci		= setPackageRank (fromMaybe (1.0) . M.lookup (getPackageName ci) $ rank) ci
+
+{-
+traceNothing d
+    | isJust . custom $ d	= d
+    | otherwise			= traceShow d $ d
+-}
 
 -- ------------------------------------------------------------
 

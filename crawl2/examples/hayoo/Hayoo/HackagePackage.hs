@@ -54,9 +54,9 @@ getPkgNameAndVersion		= getHtmlTitle
                                   >>^
                                   ( ( words >>> drop 1 >>> take 1 >>> unwords )
                                     >>>
-                                    ( sed (const "") ("-" ++ packageVersion)
+                                    ( sed (const "") packageVersion''
                                       &&&
-                                      ( tokenize packageVersion >>> concat )
+                                      ( tokenize packageVersion'' >>> reverse >>> take 1 >>> concat )
                                     )
                                   )
 

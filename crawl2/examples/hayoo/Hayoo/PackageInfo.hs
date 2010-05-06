@@ -29,6 +29,7 @@ data PackageInfo 		= PackageInfo
 				  , p_homepage		:: ! ByteString		-- ^ The home page
                                   , p_synopsis		:: ! ByteString		-- ^ The synopsis
 				  , p_description	:: ! ByteString		-- ^ The description of the package
+                                  , p_rank		:: ! Double		-- ^ The ranking
 				  } 
 				  deriving (Show, Eq)
 
@@ -36,24 +37,34 @@ mkPackageInfo 			:: String -> String -> [String] -> String -> String -> String -
 mkPackageInfo n v d a m c h y s	= PackageInfo
 				  (S.fromString n) (S.fromString v) (S.fromString . unwords $ d) (S.fromString a)
 				  (S.fromString m) (S.fromString c) (S.fromString h) (S.fromString y) (S.fromString s)
+                                  1.0
+
+setPackageRank			:: Double -> PackageInfo -> PackageInfo
+setPackageRank r p		= p { p_rank = r }
+
+getPackageName			:: PackageInfo -> String
+getPackageName			= S.toString . p_name
+
+getPackageDependencies		:: PackageInfo -> [String]
+getPackageDependencies		= words . S.toString . p_dependencies
 
 instance XmlPickler PackageInfo where
     xpickle 			= xpWrap (fromTuple, toTuple) xpPackage
 	where
-	fromTuple ((n, v, d), a, m, c, h, (y, s))
+	fromTuple ((n, v, d), a, m, c, h, (y, s, r))
 			 	= PackageInfo
 				  (S.fromString n) (S.fromString v) (S.fromString d) (S.fromString a)
 				  (S.fromString m) (S.fromString c) (S.fromString h)
-                                  (S.fromString y) (S.fromString s)
-	toTuple (PackageInfo n v d a m c h y s)
+                                  (S.fromString y) (S.fromString s) r
+	toTuple (PackageInfo n v d a m c h y s r)
 				= ((S.toString n, S.toString v, S.toString d)
                                   , S.toString a, S.toString m, S.toString c, S.toString h
-                                  ,(S.toString y, S.toString s)
+                                  ,(S.toString y, S.toString s, r)
                                   )
 	xpPackage		= xp6Tuple
                                   (xpTriple xpName xpVersion xpDependencies)
                                   xpAuthor xpMaintainer xpCategory xpHomepage
-                                  (xpPair xpSynopsis xpDescr)
+                                  (xpTriple xpSynopsis xpDescr xpRank)
 	    where 				
 	    xpName		= xpAttr "name"         xpText0
 	    xpVersion		= xpAttr "version"      xpText0
@@ -64,16 +75,19 @@ instance XmlPickler PackageInfo where
 	    xpHomepage		= xpAttr "homepage"     xpText0
 	    xpSynopsis		= xpAttr "synopsis"     xpText0
 	    xpDescr		= xpText
+            xpRank		= xpAttr "rank" $
+                                  xpWrap (read, show)   xpText0
 
 instance NFData PackageInfo where
-  rnf (PackageInfo n v d a m c h y s)
+  rnf (PackageInfo n v d a m c h y s r)
 				= S.length n `seq` S.length v `seq` S.length d `seq` S.length a `seq`
 				  S.length m `seq` S.length c `seq` S.length h `seq` S.length y `seq`
-                                  S.length s `seq` ()
+                                  S.length s `seq` r          `seq` ()
 
 instance B.Binary PackageInfo where
-    put (PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9)
-			 	= put x1 >> put x2 >> put x3 >> put x4 >> put x5 >> put x6 >> put x7 >> put x8 >> put x9
+    put (PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10)
+			 	= put x1 >> put x2 >> put x3 >> put x4 >> put x5 >>
+                                  put x6 >> put x7 >> put x8 >> put x9 >> put x10
     get 			= do
                                   x1 <- get
                                   x2 <- get
@@ -84,6 +98,7 @@ instance B.Binary PackageInfo where
                                   x7 <- get
                                   x8 <- get
                                   x9 <- get
-                                  return $! PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9
+                                  x10 <- get
+                                  return $! PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10
 
 -- ------------------------------------------------------------

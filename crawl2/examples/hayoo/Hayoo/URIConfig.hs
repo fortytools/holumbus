@@ -77,7 +77,7 @@ hackageRefs withDoc pkgs	= simpleFollowRef'
                                                        [ "doc-index.*" ++ ext "html"		-- no index files
                                                        , "src/.*"				-- no hscolored sources
                                                        ]
-                                  , hackagePackages ++ packageName' ++ "-" ++ packageVersion	-- no package pages with (old) version numbers
+                                  , hackagePackages ++ packageName' ++ packageVersion''		-- no package pages with (old) version numbers
                                   ]
     where
     packageDocPath		= hackagePackageDocPath ++ packageName' ++ "/" ++ packageVersion' ++ "/doc/html/"
@@ -149,8 +149,9 @@ ext                         	= ("[.]" ++)
 packageName			:: String
 packageName			= "[A-Za-z]([A-Za-z0-9_]|-)*"
 
-packageVersion, packageVersion'	:: String
-packageVersion			= "[0-9]+([.][0-9]+)+"
+packageVersion, packageVersion', packageVersion''	:: String
+packageVersion			= "[0-9]+([.][0-9]+)*"		-- there are package versions without sub version no
+packageVersion''		= "-" ++ packageVersion
 packageVersion'			= alternatives [packageVersion, "latest"]
 
 -- ------------------------------------------------------------

@@ -3,12 +3,13 @@ where
 
 import           Control.Arrow
 
-import           Data.List
 import           Data.Map 	( Map )
 import qualified Data.Map 	as M
 import           Data.Maybe
 import           Data.Set       ( Set )
 import qualified Data.Set 	as S
+
+-- import           Debug.Trace
 
 -- ------------------------------------------------------------
 
@@ -18,8 +19,9 @@ type Ranking a			= Map a Double
 
 -- ------------------------------------------------------------
 
-dagFromList			:: (Ord a) => [(a, [a])] -> DAG a
-dagFromList			= map (second S.fromList) >>> M.fromList
+dagFromList			:: (Ord a, Show a) => [(a, [a])] -> DAG a
+dagFromList l			= -- traceShow l $
+                                  map (second S.fromList) >>> M.fromList $ l
 
 -- ------------------------------------------------------------
 
@@ -38,8 +40,9 @@ dagInvert			= M.foldWithKey invVs M.empty
 
 -- ------------------------------------------------------------
 
-ranking				:: (Ord a) => Double -> DAG a -> Ranking a
-ranking w g			= r
+ranking				:: (Ord a, Show a) => Double -> DAG a -> Ranking a
+ranking w g			= -- traceShow r
+                                  r
     where
     g'				= dagInvert g
     r				= foldl insertRank M.empty $ M.keys g
