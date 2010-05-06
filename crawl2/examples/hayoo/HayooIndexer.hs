@@ -188,6 +188,7 @@ initAppOpts			= AO
  	                                             unwords [ text_html
                                                              , application_xhtml
                                                              ])
+                                                  , (curl_max_filesize, 	"2700000")		-- this limit includes all wxcore pages (with more than 5000 functions)
 						  , (a_parse_html,              v_0)
 						  , (a_parse_by_mimetype,	v_1)
 						  ]

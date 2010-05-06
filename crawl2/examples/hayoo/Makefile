@@ -2,16 +2,16 @@ N       = 1
 OPT	=
 DAYS	= 10
 
-pkg	= hxt,hxt-filter,hxt-binary,hxt-cache
+packages	= hxt,hxt-filter,hxt-binary,hxt-cache
+latest	= 7days
+valid	= 1hour
 
 ix	= ix.bin
 px	= pkg.bin
 
-pxxml	=$(px:.bin=.xml)
-
 src	= $(wildcard Hayoo/*.hs)
 
-progs	= ./hayooCache ./hayooIndexer ./latestPackages
+progs	= ./hayooIndexer
 
 outch	:= $(shell echo "tmp/$$(date +%Y-%m-%d-%H:%M:%S)-cache.xml")
 outix	:= $(shell echo "tmp/$$(date +%Y-%m-%d-%H:%M:%S)-ix.xml")
@@ -21,65 +21,82 @@ GHCOPTS	= -Wall -O2 -threaded -i../../src:../../../searchengine/source -ignore-p
 
 all	: $(progs)
 
-./hayooCache	: HayooCache.hs $(src)
-	ghc  $(GHCOPTS) -o $@ --make $<
-
 ./hayooIndexer	: HayooIndexer.hs $(src)
-	ghc  $(GHCOPTS) -o $@ --make $<
-
-./latestPackages	: LatestPackages.hs $(src)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
 force	:
 	rm -f $(prog)
 	$(MAKE) GHCOPTS="$(GHCOPTS) -fforce-recomp"
 
-test	: cache
 
-index	: ./hayooIndexer
+whole-cache	: ./hayooIndexer
+	@echo load hayoo cache from hackage, all package and haddock pages are (re-)loaded, parsed and stored in binary form in subdir cache
+	@echo the list of loaded pages is written into file "cache.xml"
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	./$< +RTS -N$(N) -s -K100M -H1500M -RTS --index=$(ix) -m 15000 --fct-index $(OPT)
+	./$< +RTS -N$(N) -s -K100M -RTS --cache --hackage --valid=$(valid) --xml-output=cache.xml
 
-pkgix	: ./hayooIndexer
-	[ -d ./tmp ]   || mkdir tmp
-	[ -d ./cache ] || mkdir cache
-	./$< +RTS -N$(N) -s -K100M -H1500M -RTS --index=$(px) -m 15000 --pkg-index $(OPT)
+whole-index	: ./hayooIndexer
+	@echo build an index of all haddock pages on hackage
+	@echo fill the local cache before running this, to avoid network traffic and to get an up to date index
+	@echo the result index is "$(ix)"
+	./$< +RTS -N$(N) -s -K100M -RTS --fct-index --new-index=$(ix)
 
-cache	: ./hayooCache
-	[ -d ./tmp ]   || mkdir tmp
-	[ -d ./cache ] || mkdir cache
-	./$< +RTS -N$(N) -s -K100M -RTS -o $(outch) $(OPT)
+whole-pkg	: ./hayooIndexer
+	@echo generate a new package index for all hackage packages inclusive ranking
+	@echo the resulting package index is "$(px)", an XML version is stored in "$(px).xml" 
+	./$< +RTS -N$(N) -s -K100M -RTS --pkg-index --ranking --new-index=$(px) --xml-output=$(px).xml
 
-update	: ./hayooCache
-	./$< +RTS -N$(N) -s -K100M -RTS -p "$(pkg)" -o $(outch)
-
-recent	: ./hayooIndexer
-	@echo not done: $(MAKE) archive
-	[ -f $(ix).org ] || cp $(ix) $(ix).org
-	./$< +RTS -N$(N) -s -K100M -RTS --update --packages=$$(./latestPackages $(DAYS)) --valid=1hour --index=$(ix) --maxdocs=15000 --fct-index
-
-archive	:	
-	wget http://hackage.haskell.org/packages/00-index.tar.gz -O tmp/00-index.tar.gz
-
-latest	:
-	./latestPackages $(DAYS)
-
-complete	:
-	@echo "get package archive from hackage"
-	$(MAKE) archive
-	@echo "get new packages from within the last 10 days"
-	$(MAKE) latest
-	@echo "update hackage cache, this may run about 1 to 2 hours, ./cache is the cache dir, log file is cache.out"
-	$(MAKE) cache 2> cache.out
-	@echo "create index for haddock doc pages, this may run about 10 to 20 minutes, output is $(ix), log file is ix.out"
-	$(MAKE) index 2> ix.out
+whole	:
+	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
+	$(MAKE) whole-cache 2> cache.out
+	@echo "create index for all haddock pages"
+	$(MAKE) whole-index 2> ix.out
 	@echo "create index for hackage packages, this needs just a few minutes, output is $(px), xml output pkg.xml, log file is pkg.out"
-	$(MAKE) pkgix "OPT=$(OPT) --xml-output=$(pxxml)" 2> pkg.out
-	@echo "make complete finished, look at $(ix), $(px) and $(pxxml), and the log files"
+	$(MAKE) whole-pkg 2> pkg.out
+	@echo look at the following files
+	@ls -l *.bin *.out
 
+
+update-cache	: ./hayooIndexer
+	@echo update the hayoo cache with all packages uploaded to hackage within the last $(latest)
+	@echo the list of loaded pages is written into file "cache.xml"
+	./$< +RTS -N$(N) -s -K100M -RTS --cache --hackage --latest=$(latest) --xml-output=cache.xml
+
+update-index	: ./hayooIndexer
+	@echo update an existing hayoo index with all packages uploaded to hackage within the last $(latest)
+	@echo existing index is "$(ix)", result index is "$(ix).new"
+	./$< +RTS -N$(N) -s -K100M -RTS --fct-index --latest=$(latest) --defragment --index=$(ix) --new-index=$(ix).new
+
+update-pkg	: ./hayooIndexer
+	@echo updating a package index is not neccessary, the complete index is ready within a minute
+	$(MAKE) whole-pkg px=$(px).new
+
+update	:
+	@echo "update hackage cache for latest packages"
+	$(MAKE) update-cache 2> cache.out
+	@echo "update index with haddock doc pages of latest packages"
+	$(MAKE) update-index 2> ix.out
+	@echo "create index for hackage packages"
+	$(MAKE) update-pkg "OPT=$(OPT) --xml-output=$(px).xml" 2> pkg.out
+	@echo look at the following files
+	@ls -l *.new *.out
+	@echo if no faults occurred, exec "make new-to-cur" to make the new index the current one
+
+
+load-cache	: ./hayooIndexer
+	@echo load the following list of packages into local cache: $(packages)
+	@echo use "make load-cache packages=pack1,pack2,pack3" to specify the packages 
+	./$< +RTS -N$(N) -s -K100M -RTS --cache --valid=$(valid) --packages=$(packages) --xml-output=-
+
+new-to-cur	: $(ix).new $(px).new
+	mv -f $(ix) $(ix)~
+	mv -f $(px) $(px)~
+	mv    $(ix).new $(ix)
+	mv    $(px).new $(px)
+ 
 clean	:
-	rm -f *.o *.hi $(progs)
+	rm -f *.o *.hi $(progs) *.out
 
 reset	:
 	rm -rf cache/* tmp/*
