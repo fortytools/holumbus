@@ -74,7 +74,8 @@ hayooIndexContextConfig		= [ ixModule
     ixDescription              	= ixDefault
                                   { ixc_name          	= "description"
                                   , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "doc"))
-				  , ixc_textToWords	= tokenize "[-A-Za-z0-9._':]+"	-- "-" as 1. char in set !!!
+				  , ixc_textToWords	= tokenize "[A-Za-z][-A-Za-z0-9.@]*[A-Za-z0-9]"		-- please: "-" as 1. char in set !!!
+														-- words start with a letter, ends with a letter or digit and may contain -, . and @ and digits
                                   }
 
 -- -----------------------------------------------------------------------------    
@@ -112,7 +113,7 @@ hayooPkgIndexContextConfig	= [ ixCategory
     ixDescription              	= ixDefault
                                   { ixc_name          	= "pkgdescr"
                                   , ixc_collectText   	= fromLA $ getPkgDescr
-				  , ixc_textToWords	= tokenize "[A-Za-z][-A-Za-z0-9.@]+"	-- "-" as 1. char in set !!!
+				  , ixc_textToWords	= tokenize "[A-Za-z][-A-Za-z0-9.@]*[A-Za-z0-9]"		-- "-" as 1. char in set !!!
                                   }
     ixSynopsis              	= ixDescription
                                   { ixc_name          	= "synopsis"

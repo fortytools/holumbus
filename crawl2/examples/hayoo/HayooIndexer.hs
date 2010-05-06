@@ -136,6 +136,7 @@ data AppAction			= BuildIx | UpdatePkg | RemovePkg | BuildCache
 
 data AppOpts			= AO
                                   { ao_index	:: String
+                                  , ao_ixout    :: String
                                   , ao_xml	:: String
 				  , ao_help	:: Bool
                                   , ao_pkgIndex	:: Bool
@@ -162,6 +163,7 @@ type SetAppOpt			= AppOpts -> AppOpts
 initAppOpts			:: AppOpts
 initAppOpts			= AO
                                   { ao_index	= ""
+                                  , ao_ixout    = ""
                                   , ao_xml	= ""
 				  , ao_help	= False
                                   , ao_pkgIndex	= False
@@ -253,9 +255,11 @@ main1 pn args
                                                                                      , ao_crawlSav = (500, "./tmp/pkg-") })		"process index for hackage package description pages"
 				  , Option ""   ["cache"]	(NoArg  $ \   x -> x { ao_action   = BuildCache })			"update the cache"
 
-				  , Option "i"  ["index"]	(ReqArg ( \ f x -> x { ao_index    = f    }) 	  	"INDEX-FILE")	"index file (binary format) to be generated or updated"
+				  , Option "i"  ["index"]	(ReqArg ( \ f x -> x { ao_index    = f    }) 	  	"INDEX")	"index input file (binary format) to be operated on"
+                                  , Option "n"  ["new-index"]	(ReqArg ( \ f x -> x { ao_ixout    = f    }) 	  	"NEW-INDEX")	"new index file (binary format) to be generatet, default is index file"
 				  , Option "x"  ["xml-output"] 	(ReqArg ( \ f x -> x { ao_xml      = f    }) 	  	"XML-FILE")	"output of final crawler state in xml format, \"-\" for stdout"
-				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  	"FILE")		"resume program with status file"
+				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  	"FILE")		"resume program with file containing saved intermediate state"
+
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) 	"PACKAGE-LIST")	"packages to be processed, a comma separated list of package names"
                                   , Option "u"  ["update"]	(NoArg  $ \   x -> x { ao_action   = UpdatePkg })			"update packages specified by \"packages\" option"
                                   , Option "d"  ["delete"]	(NoArg  $ \   x -> x { ao_action   = RemovePkg })			"delete packages specified by \"packages\" option"
@@ -303,8 +307,9 @@ parseTime s
     | match "[0-9]+(m(in)?)?"      s	= Right $ t * 60
     | match "[0-9]+(h(our(s)?)?)?" s	= Right $ t * 60 * 60
     | match "[0-9]+(d(ay(s)?)?)?"  s	= Right $ t * 60 * 60 * 24
-    | match "[0-9]+(w(wwk(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 7
+    | match "[0-9]+(w(eek(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 7
     | match "[0-9]+(m(onth(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 30
+    | match "[0-9]+(y(ear(s)?)?)?" s	= Right $ t * 60 * 60 * 24 * 30 * 365
     | otherwise				= Left  $ "error in duration format in option arg"
     where
     t 					= read . filter isDigit $ s
@@ -386,6 +391,8 @@ mainHaddock opts		= action opts
                                   arrIO0 (removePackagesIx opts')
 
     actUpdate _     []		= traceMsg 0 "no packages to be reindexed"
+                                  >>>
+                                  none
     actUpdate opts' pl		= traceMsg 0 ("updating index with packages: " ++ unwords pl)
 				  >>>
 				  ( actIndex  (opts' { ao_action = BuildIx
@@ -410,7 +417,6 @@ mainHaddock opts		= action opts
                                   none
 
     action opts'
-{-
 	| isJust latest		= traceMsg 0 "reindex with latest packages"
 				  >>>
 				  ( actUpdate (opts' { ao_latest = Nothing })
@@ -418,7 +424,6 @@ mainHaddock opts		= action opts
 				  )
 	                          >>>
 				  traceMsg 0 "reindex with latest packages finished"
--}
 
         | ( ixAction `elem` [UpdatePkg, RemovePkg] )
           &&
@@ -526,12 +531,20 @@ writeXml opts
 writeBin			:: (B.Binary a) =>
                                    AppOpts -> IOSArrow a ()
 
-writeBin opts			= traceMsg 0 (unwords ["writing index into binary file", out])
+writeBin opts
+    | null out			= traceMsg 0 "no binary result file written"
+                                  >>>
+                                  none
+    | otherwise			= traceMsg 0 (unwords ["writing index into binary file", out])
                                   >>>
                                   ( arrIO $ B.encodeFile out )
                                   >>>
                                   traceMsg 0 "writing index finished"
+    where
+    out
+        | null oxf		= ao_index opts
+        | otherwise		= oxf
         where
-        out			= ao_index    opts
+        oxf			= ao_ixout opts
 
 -- ------------------------------------------------------------

@@ -10,3 +10,4 @@ ix.bin.*
 pkg.bin.*
 pkg.xml.*
 pkg.xml
+t[0-9].xml
