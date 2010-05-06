@@ -343,7 +343,9 @@ mainHackage opts		= action opts
     actRank opts'
         | ao_pkgRank opts'	= traceMsg 0 "computing package ranks"
                                   >>>
-                                  arrIO (\ x -> let y = packageRanking x in rnf y `seq` return y)
+                                  arr packageRanking
+                                  >>>
+                                  rnfIO						-- force evaluation
                                   >>>
                                   traceMsg 0 "package rank computation finished"
         | otherwise		= this
@@ -351,6 +353,10 @@ mainHackage opts		= action opts
     actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from hackage package index" )
                                   >>>
                                   arrIO0 (removePackagesPkg opts')
+                                  >>>
+                                  rnfIO						-- force evaluation
+                                  >>>
+                                  traceMsg 0 ("packages " ++ unwords (ao_packages opts') ++ " deleted from hackage package index" )
 
     actMerge			= traceMsg 0 ("merging existing hackage package index with new packages")
                                   >>>
@@ -407,6 +413,10 @@ mainHaddock opts		= action opts
     actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from haddock index" )
                                   >>>
                                   arrIO0 (removePackagesIx opts')
+                                  >>>
+                                  rnfIO						-- force evaluation
+                                  >>>
+                                  traceMsg 0 ("packages " ++ unwords (ao_packages opts') ++ " deleted from haddock index" )
 
     actUpdate _     []		= traceMsg 0 "no packages to be reindexed"
                                   >>>
@@ -517,6 +527,11 @@ mainCache opts			= action opts
 	resume			= ao_resume   opts'
 	packageList		= ao_packages opts'
 	latest			= ao_latest   opts'
+
+-- ------------------------------------------------------------
+
+rnfIO				:: (ArrowIO a, NFData b) => a b b
+rnfIO				= arrIO (\ x -> rnf x `seq` return x)
 
 -- ------------------------------------------------------------
 
