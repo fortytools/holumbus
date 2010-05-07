@@ -27,9 +27,13 @@ hayooGetFctInfo			= ( getAttrValue "module"
 				    getAttrValue "package"
 				    &&&
 				    getAttrValue "source"
+				    &&&
+				    ( fromLA $
+				      getAllText (deep $ hasTDClass (== "doc")) >>^ limitLength 128
+				    )
 				  )
 				  >>^
-				  (\ (m, (s, (p, r))) -> mkFunctionInfo m s p r)
+				  (\ (m, (s, (p, (r, d)))) -> mkFunctionInfo m s p r d)
 
 hayooGetTitle			:: IOSArrow XmlTree String
 hayooGetTitle			= fromLA $

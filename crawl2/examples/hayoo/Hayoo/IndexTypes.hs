@@ -157,11 +157,24 @@ defragmentIndex IndexerState
 
 -- ------------------------------------------------------------
 
+-- | package ranking is implemented by the following algorithm
+--
+-- .1 the rank of a package not used by another package is 1.0
+--
+-- .2 the rank of a package used by other packages is 1.0 + 0.5 * sum of the ranks of the
+--    directly dependent packages. Example: a depends on b, b depends on c, d depends on c:
+--    rank a = 1.0, rank b = 1.5, rank c = 2.25, rank d = 1.0
+--
+-- .3 this leads to a ranking where rank base > 1000.0 and rank bytestring > 300. To
+--    reduce the weight differences, the log to base 2 is taken instead of the direct value
+
 packageRanking			:: HayooPkgIndexerState -> HayooPkgIndexerState
 packageRanking ixs@(IndexerState { ixs_documents = ds })
 				= ixs { ixs_documents = updateDocuments insertRank ds }
     where
-    rank			= ranking 0.5
+    deflate			= 0.5
+    scale			= (/10.0) . fromInteger . round . (*10) . (+1.0) . logBase 2
+    rank			= ranking deflate
                                   . dagFromList
                                   . map (\ p -> (getPackageName p, getPackageDependencies p))
                                   . map fromJust
@@ -172,7 +185,7 @@ packageRanking ixs@(IndexerState { ixs_documents = ds })
 
     insertRank d		= d { custom = fmap insertRank' (custom d) }
         where
-        insertRank' ci		= setPackageRank (fromMaybe (1.0) . M.lookup (getPackageName ci) $ rank) ci
+        insertRank' ci		= setPackageRank (scale . fromMaybe (1.0) . M.lookup (getPackageName ci) $ rank) ci
 
 {-
 traceNothing d
