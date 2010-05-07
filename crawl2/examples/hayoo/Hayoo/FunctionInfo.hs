@@ -20,31 +20,35 @@ import		 Text.XML.HXT.Arrow
 -- | Additional information about a function.
 
 data FunctionInfo 		= FunctionInfo 
-    				  { moduleName 	:: ! ByteString      	-- ^ The name of the module containing the function, e.g. Data.Map
-				  , signature 	:: ! ByteString       	-- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
-				  , package   	:: ! ByteString       	-- ^ The name of the package containing the module, e.g. containers
-				  , sourceURI 	:: ! ByteString 	-- ^ An optional URI to the online source of the function.
+    				  { moduleName 	:: ! ByteString      		-- ^ The name of the module containing the function, e.g. Data.Map
+				  , signature 	:: ! ByteString       		-- ^ The full signature of the function, e.g. Ord a => a -> Int -> Bool
+				  , package   	:: ! ByteString       		-- ^ The name of the package containing the module, e.g. containers
+				  , sourceURI 	:: ! (Maybe ByteString) 	-- ^ An optional URI to the online source of the function.
 				  } 
 				  deriving (Show, Eq)
 
 mkFunctionInfo 			:: String -> String -> String -> String -> FunctionInfo
-mkFunctionInfo m s p r		= FunctionInfo (S.fromString m) (S.fromString s) (S.fromString p) (S.fromString r)
+mkFunctionInfo m s p r		= FunctionInfo (S.fromString m) (S.fromString s) (S.fromString p) ( if null r
+												    then Nothing
+												    else Just $ S.fromString r
+												  )
 
 instance XmlPickler FunctionInfo where
     xpickle 			= xpWrap (fromTuple, toTuple) xpFunction
 	where
-	fromTuple (m, s, p, r) 	= FunctionInfo (S.fromString m) (S.fromString s) (S.fromString p) (S.fromString r)
+	fromTuple (m, s, p, r) 	= FunctionInfo (S.fromString m) (S.fromString s) (S.fromString p) (fmap S.fromString r)
 	toTuple (FunctionInfo m s p r)
-				= (S.toString m, S.toString s, S.toString p, S.toString r)
+				= (S.toString m, S.toString s, S.toString p, fmap S.toString r)
 	xpFunction		= xp4Tuple xpModule xpSignature xpPackage xpSource
 	    where 							-- We are inside a doc-element, therefore everything is stored as attribute.
 	    xpModule 		= xpAttr "module"    xpText0
 	    xpSignature 	= xpAttr "signature" xpText0
 	    xpPackage 		= xpAttr "package"   xpText0
-	    xpSource 		= xpAttr "source"    xpText0
+	    xpSource 		= xpOption $
+				  xpAttr "source"    xpText0
 
 instance NFData FunctionInfo where
-  rnf (FunctionInfo m s p r)	= S.length m `seq` S.length s `seq` S.length p `seq` S.length r `seq` ()
+  rnf (FunctionInfo m s p r)	= S.length m `seq` S.length s `seq` S.length p `seq` fmap S.length r `seq` ()
 
 instance B.Binary FunctionInfo where
     put (FunctionInfo m s p r) 	= put m >> put s >> put p >> put r
