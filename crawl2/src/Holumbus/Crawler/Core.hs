@@ -164,7 +164,7 @@ crawlNextDocs		= do
                                urisToBeProcessed urisNew
                                acc0 <- getState theResultAccu
                                acc1 <- liftIO $ (getS theFoldOp conf) results acc0
-                               putState theResultAccu acc1
+                               rnf acc1 `seq` putState theResultAccu acc1
                                noticeC "crawlNextDocs" ["document results accumulated"]
 
     where

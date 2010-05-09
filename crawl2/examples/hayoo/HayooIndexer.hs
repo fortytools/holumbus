@@ -176,7 +176,7 @@ initAppOpts			= AO
 				  , ao_getHack  = False
                                   , ao_pkgRank	= False
 				  , ao_msg	= ""
-				  , ao_crawlDoc	= (15000, 100, 10)					-- max docs, max par docs, max threads
+				  , ao_crawlDoc	= (15000, 100, 2)					-- max docs, max par docs, max threads
 				  , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
 				  , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
 				  , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
@@ -188,7 +188,7 @@ initAppOpts			= AO
  	                                             unwords [ text_html
                                                              , application_xhtml
                                                              ])
-                                                  , (curl_max_filesize, 	"2700000")		-- this limit includes all wxcore pages (with more than 5000 functions)
+                                                  , (curl_max_filesize, 	"500000")		-- this limit excludes automtically generated pages, sometimes > 2Mb
 						  , (a_parse_html,              v_0)
 						  , (a_parse_by_mimetype,	v_1)
 						  ]
@@ -278,7 +278,7 @@ main1 pn args
                                                                                                       ao_crawlDoc x
                                                                                       }
                                                                           )
-                                                                        )					  	"NUMBER")	"maximum # of parallel threads (0: no threads at all)"
+                                                                        )					  	"NUMBER")	"maximum # of parallel threads (0: no threads at all), default: 2"
                                   , Option ""   ["valid"]	(ReqArg ( setOption parseTime
                                                                           (\ x t -> x { ao_crawlPar = setDocAge t $
                                                                                                       ao_crawlPar x

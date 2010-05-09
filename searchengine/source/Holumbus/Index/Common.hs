@@ -341,7 +341,7 @@ class Binary (d a) => HolDocuments d a where
   removeByURI ds u 		= maybe ds (removeById ds) (lookupByURI ds u)
 
   -- | Update documents (through mapping over all documents).
-  updateDocuments 		:: (Document a -> Document b) -> d a -> d b
+  updateDocuments 		:: (Document a -> Document a) -> d a -> d a
 
   filterDocuments 		:: (Document a -> Bool) -> d a -> d a
 

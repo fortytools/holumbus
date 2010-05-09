@@ -29,7 +29,8 @@ import           Holumbus.Index.Common		( Document(..)
                                                 , Occurrences
                                                 , custom, editDocIds, removeById, toMap, updateDocIds', updateDocuments
                                                 )
-import           Holumbus.Index.Documents       ( Documents(..)
+import           Holumbus.Index.CompactDocuments
+    						( Documents(..)
                                                 , emptyDocuments
                                                 )
 -- import           Debug.Trace
