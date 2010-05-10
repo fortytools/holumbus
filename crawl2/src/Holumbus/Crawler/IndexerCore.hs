@@ -63,13 +63,15 @@ data IndexerState i d c         = IndexerState
 
 -- ------------------------------------------------------------
 
-instance (NFData i, NFData (d c)) => NFData (IndexerState i d c) where
+instance (NFData i, NFData (d c)) => NFData (IndexerState i d c)
+    where
     rnf IndexerState { ixs_index = i, ixs_documents = d }
                                 = rnf i `seq` rnf d
 
 -- ------------------------------------------------------------
 
-instance (Binary i, Binary (d c)) => Binary (IndexerState i d c) where
+instance (Binary i, Binary (d c)) => Binary (IndexerState i d c)
+    where
     put s               	= B.put (ixs_index s)
 				  >>
 				  B.put (ixs_documents s)
@@ -81,12 +83,15 @@ instance (Binary i, Binary (d c)) => Binary (IndexerState i d c) where
 					     , ixs_documents      = dm
 					     }
 
-instance (XmlPickler i, XmlPickler (d c)) => XmlPickler (IndexerState i d c) where
+-- ------------------------------------------------------------
+
+instance (XmlPickler i, XmlPickler (d c)) => XmlPickler (IndexerState i d c)
+    where
     xpickle             	= xpElem "index-state" $
 				  xpWrap ( uncurry IndexerState
 					 , \ ix -> (ixs_index ix, ixs_documents ix)
 					 ) $
-					 xpPair xpickle xpickle
+				  xpPair xpickle xpickle
 
 -- ------------------------------------------------------------
 
@@ -118,7 +123,7 @@ stdIndexer config resumeLoc startUris eis
 
 -- general HolIndexM IO i version, for old specialized version see code at end of this file
 
-indexCrawlerConfig              :: (HolIndexM IO i, HolDocuments d c, NFData i, NFData c) =>
+indexCrawlerConfig              :: (HolIndexM IO i, HolDocuments d c, NFData i, NFData c, NFData (d c)) =>
                                    Attributes                                   -- ^ document read options
                                 -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
                                 -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
@@ -218,22 +223,25 @@ unionIndexerStatesM ixs1 ixs2
 
 -- ------------------------------------------------------------
 
-insertRawDocM                   :: (MonadIO m, HolIndexM m i, HolDocuments d c, NFData i, NFData c) =>
+insertRawDocM                   :: (MonadIO m, HolIndexM m i, HolDocuments d c, NFData i, NFData c, NFData (d c)) =>
                                    (URI, RawDoc c)                              -- ^ extracted URI and doc info
                                 -> IndexerState i d c                           -- ^ old indexer state
-                                -> m (IndexerState i d c)                       -- ^ new indexer state
+				-> m (IndexerState i d c)                       -- ^ new indexer state
 
-insertRawDocM (!rawUri, (!rawContexts, !rawTitle, !rawCustom)) ixs
-                                = do
-                                  newIx <- foldM (insertRawContextM did) (ixs_index ixs) $
-                                           (rnf rawContexts `seq` rawContexts)
-				  rnf newIx `seq` rnf doc `seq`
-                                    return $! IndexerState { ixs_index        = newIx
-							   , ixs_documents    = newDocs
-							   }
+insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
+    | nullContexts		= return ixs					-- no words found in document, so there are no refs in index, doument is thrown away
+    | otherwise                 = do
+                                  newIx  <- foldM (insertRawContextM did) (ixs_index ixs) $ rawContexts
+				  newIxs <- return $
+					    IndexerState { ixs_index        = newIx
+							 , ixs_documents    = newDocs
+							 }
+				  rnf newIxs `seq`
+				      return newIxs
     where
-    (!did, !newDocs)            = insertDoc (ixs_documents ixs) doc
-    !doc                        = Document
+    nullContexts		= and . map (null . snd) $ rawContexts
+    (did, newDocs)              = insertDoc (ixs_documents ixs) doc
+    doc                         = Document
                                   { title       = rawTitle
                                   , uri         = rawUri
                                   , custom      = rawCustom

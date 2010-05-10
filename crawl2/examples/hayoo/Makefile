@@ -1,4 +1,4 @@
-OPT	=
+OPTS	=
 DAYS	= 10
 
 packages	= hxt,hxt-filter,hxt-binary,hxt-cache
@@ -40,7 +40,7 @@ whole-index	: ./hayooIndexer
 	@echo build an index of all haddock pages on hackage
 	@echo fill the local cache before running this, to avoid network traffic and to get an up to date index
 	@echo the result index is "$(ix)"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --new-index=$(ix)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --new-index=$(ix) $(OPTS)
 
 whole-pkg	: ./hayooIndexer
 	@echo generate a new package index for all hackage packages inclusive ranking

@@ -76,12 +76,12 @@ uriAddToRobotsTxt uri		= do
 				  let raa = getS theAddRobotsAction conf
 				  modifyStateIO theRobots (raa conf uri)
 
-accumulateRes			:: (URI, a) -> CrawlerAction a r ()
+accumulateRes			:: (NFData r) => (URI, a) -> CrawlerAction a r ()
 accumulateRes res		= do
 				  combine <- getConf  theAccumulateOp
 				  acc0    <- getState theResultAccu
 				  acc1    <- liftIO $ combine res acc0
-				  putState theResultAccu acc1
+				  rnf acc1 `seq` putState theResultAccu acc1
 
 -- ------------------------------------------------------------
 
@@ -204,7 +204,7 @@ crawlNextDocs		= do
 
 -- | crawl a single doc, mark doc as processed, collect new hrefs and combine doc result with accumulator in state
 
-crawlNextDoc		:: (NFData a) => CrawlerAction a r ()
+crawlNextDoc		:: (NFData a, NFData r) => CrawlerAction a r ()
 crawlNextDoc		= do
 		          uris <- getState theToBeProcessed
 			  modifyState theNoOfDocs (+1)
