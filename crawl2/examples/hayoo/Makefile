@@ -4,7 +4,11 @@ DAYS	= 10
 packages	= hxt,hxt-filter,hxt-binary,hxt-cache
 latest	= 7days
 valid	= 1hour
-threads = 0
+threads = 20
+
+# threads = 20 makes indexing much more efficent than a smaller figure,
+# the merging of indexes is more efficient with a higher # of threads
+# crawling may be a bit unfriendy to hackage it done with 20 threads
 
 ix	= ix.bin
 px	= pkg.bin
