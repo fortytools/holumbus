@@ -51,7 +51,7 @@ instance XmlPickler FunctionInfo where
 				= (toString m, toString s, toString p, toString r, toString d)
 
 	xpFunction		= xp5Tuple xpModule xpSignature xpPackage xpSource xpDescr
-	    where 							-- We are inside a doc-element, therefore everything is stored as attribute.
+	    where 							-- We are inside a doc-element, and everything is stored as attribute.
 	    xpModule 		= xpAttr "module"    xpText0
 	    xpSignature 	= xpAttr "signature" xpText0
 	    xpPackage 		= xpAttr "package"   xpText0

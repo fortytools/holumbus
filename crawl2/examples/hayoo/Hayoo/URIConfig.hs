@@ -101,6 +101,9 @@ getHackagePackage s
 				= drop (length hackagePackages) s
     | otherwise			= ""
 
+isHaddockURI			:: URI -> Bool
+isHaddockURI			= match (hackagePackageDocPath ++ fileName ++ "/.+/doc/html/.+[.]html")
+
 -- ------------------------------------------------------------
 
 gtk2hsStart			:: [URI]

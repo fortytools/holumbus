@@ -206,10 +206,11 @@ unionIndexerStatesM ixs1 ixs2
     | s1 < s2			= unionIndexerStatesM ixs2 ixs1
     | otherwise			= do
                                   ix2s <- updateDocIdsM' (+ m1) ix2
-                                  ix   <- mergeIndexesM ix1 ix2s
+                                  ! ix <- mergeIndexesM ix1 ix2s
+				  ! dc <- return $ unionDocs dt1 dt2s
                                   return $!
-                                         IndexerState { ixs_index        = ix -- mergeIndexes ix1 ix2s
-					              , ixs_documents    = unionDocs    dt1 dt2s
+                                         IndexerState { ixs_index        = ix
+					              , ixs_documents    = dc
 					              }
     where
     ix1				= ixs_index     ixs1

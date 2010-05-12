@@ -55,11 +55,16 @@ hayooIndexer o                  = stdIndexer
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
                                   setCrawlerMaxDocs md mp mt $
+				  setCrawlerPreRefsFilter noHaddockPage $	-- haddock pages don't need to be scanned for new URIs
                                   config0
 
     (ct, ht)			= ao_crawlLog o
     (si, sp)			= ao_crawlSav o
     (md, mp, mt)		= ao_crawlDoc o
+
+noHaddockPage			:: IOSArrow XmlTree XmlTree
+noHaddockPage			= fromLA $
+				  hasAttrValue transferURI (not . isHaddockURI) `guards` this
 
 -- ------------------------------------------------------------
 
@@ -80,9 +85,9 @@ hayooPkgIndexer o               = stdIndexer
                                   hayooPkgIndexContextConfig
 
     config			= ao_crawlPkg o $
-                                  setCrawlerTraceLevel ct ht $
-                                  setCrawlerSaveConf si sp   $
-                                  setCrawlerMaxDocs md mp mt $
+                                  setCrawlerTraceLevel ct ht   $
+                                  setCrawlerSaveConf si sp     $
+                                  setCrawlerMaxDocs md mp mt   $
                                   config0
 
     (ct, ht)			= ao_crawlLog o
@@ -176,8 +181,8 @@ initAppOpts			= AO
 				  , ao_getHack  = False
                                   , ao_pkgRank	= False
 				  , ao_msg	= ""
-				  , ao_crawlDoc	= (15000, 100, 2)					-- max docs, max par docs, max threads
-				  , ao_crawlSav	= (500, "./tmp/ix-")					-- save intervall and path
+				  , ao_crawlDoc	= (15000, 1024, 1)					-- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
+				  , ao_crawlSav	= (1024, "./tmp/ix-")					-- save intervall and path
 				  , ao_crawlLog	= (DEBUG, NOTICE)					-- log cache and hxt
 				  , ao_crawlPar	= setDocAge (60 * 60 * 24 * 30) $			-- cache remains valid 1 month
                                                   [ (a_cache, 	  "./cache"	)			-- local cache dir "cache"
@@ -266,19 +271,24 @@ main1 pn args
 				  , Option "p"  ["packages"]	(ReqArg ( \ l x -> x { ao_packages = pkgList l }) 	"PACKAGE-LIST")	"packages to be processed, a comma separated list of package names"
                                   , Option "u"  ["update"]	(NoArg  $ \   x -> x { ao_action   = UpdatePkg })			"update packages specified by \"packages\" option"
                                   , Option "d"  ["delete"]	(NoArg  $ \   x -> x { ao_action   = RemovePkg })			"delete packages specified by \"packages\" option"
-                                  , Option "f"  ["defragment"]	(NoArg  $ \   x -> x { ao_defrag   = True  })				"defragment index after delete or update"
-                                  , Option "m"  ["maxdocs"]     (ReqArg ( setOption parseInt
+                                  , Option ""   ["maxdocs"]     (ReqArg ( setOption parseInt
                                                                           (\ x i -> x { ao_crawlDoc = setMaxDocs i $
                                                                                                       ao_crawlDoc x
                                                                                       }
                                                                           )
                                                                         )					  	"NUMBER")	"maximum # of docs to be processed"
-                                  , Option "t"  ["maxthreads"]  (ReqArg ( setOption parseInt
+                                  , Option ""   ["maxthreads"]  (ReqArg ( setOption parseInt
                                                                           (\ x i -> x { ao_crawlDoc = setMaxThreads i $
                                                                                                       ao_crawlDoc x
                                                                                       }
                                                                           )
-                                                                        )					  	"NUMBER")	"maximum # of parallel threads (0: no threads at all), default: 2"
+                                                                        )					  	"NUMBER")	"maximum # of parallel threads, 0: sequential, 1: single thread with binary merge, else real parallel threads, default: 1"
+                                  , Option ""   ["maxpar"]      (ReqArg ( setOption parseInt
+                                                                          (\ x i -> x { ao_crawlDoc = setMaxParDocs i $
+                                                                                                      ao_crawlDoc x
+                                                                                      }
+                                                                          )
+                                                                        )					  	"NUMBER")	"maximum # of docs indexed at once before the results are inserted into index, default: 1024"
                                   , Option ""   ["valid"]	(ReqArg ( setOption parseTime
                                                                           (\ x t -> x { ao_crawlPar = setDocAge t $
                                                                                                       ao_crawlPar x
@@ -288,6 +298,7 @@ main1 pn args
                                   , Option ""   ["latest"]	(ReqArg ( setOption parseTime
                                                                           (\ x t -> x { ao_latest   = Just t })
                                                                         )					 	"DURATION")	"select latest packages newer than given time, format like in option \"valid\""
+                                  , Option ""   ["defragment"]	(NoArg  $ \   x -> x { ao_defrag    = True  })				"defragment index after delete or update"
                                   , Option ""   ["hackage"]	(NoArg  $ \   x -> x { ao_getHack   = True })				"when processing latest packages, first update the package list from hackage"
                                   , Option ""   ["ranking"]	(NoArg  $ \   x -> x { ao_pkgRank   = True })				"when processing package index, compute package rank, default is no rank"
 
@@ -321,7 +332,10 @@ parseTime s
 -- ------------------------------------------------------------
 
 setMaxDocs				:: Int -> (Int, Int, Int) -> (Int, Int, Int)
-setMaxDocs md (_md, mp, mt)		= (md, md `min` mp, mt)
+setMaxDocs    md (_md, mp, mt)		= (md, md `min` mp, mt)
+
+setMaxParDocs				:: Int -> (Int, Int, Int) -> (Int, Int, Int)
+setMaxParDocs mp (md, _mp, mt)		= (md, mp, mt)
 
 setMaxThreads				:: Int -> (Int, Int, Int) -> (Int, Int, Int)
 setMaxThreads mt (md, mp, _mt)		= (md, mp, mt)

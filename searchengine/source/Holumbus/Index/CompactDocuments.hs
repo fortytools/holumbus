@@ -66,6 +66,8 @@ data Documents a 		= Documents
                                   }
                                   deriving (Show)
 
+-- ----------------------------------------------------------------------------
+
 toDocument			:: (Binary a) => CompressedDoc a -> Document a
 toDocument			= B.decode . BZ.decompress . unCDoc
 
@@ -80,6 +82,8 @@ toDocMap			= IM.map fromDocument
 
 fromDocMap			:: (Binary a) => DocMap a -> IntMap (Document a)
 fromDocMap			= IM.map toDocument
+
+-- ----------------------------------------------------------------------------
 
 instance Binary a => HolDocuments Documents a where
   sizeDocs d 			= IM.size (idToDoc d)
@@ -121,7 +125,6 @@ instance Binary a => HolDocuments Documents a where
                                   , docToId = M.insert (uri d) i (docToId (removeById ds i))
                                   }
 
-
   removeById ds d 		= maybe ds reallyRemove (lookupById ds d)
     where
     reallyRemove (Document _ u _) = Documents (IM.delete d (idToDoc ds)) (M.delete u (docToId ds)) (lastDocId ds)
@@ -159,9 +162,13 @@ instance Eq a => 		Eq (Documents a)
 				  &&
 				  (d2ia == d2ib)
 
+-- ----------------------------------------------------------------------------
+
 instance NFData a => 		NFData (Documents a)
     where
     rnf (Documents i2d d2i lid)	= rnf i2d `seq` rnf d2i `seq` rnf lid `seq` ()
+
+-- ----------------------------------------------------------------------------
 
 instance (Binary a, XmlPickler a) =>
 				XmlPickler (Documents a)
@@ -176,6 +183,8 @@ instance (Binary a, XmlPickler a) =>
                                   )
 	xpDocumentWithId 	= xpElem "doc" $
 				  xpPair (xpAttr "id" xpPrim) xpickle
+
+-- ----------------------------------------------------------------------------
 
 instance Binary a => 		Binary (Documents a)
     where
@@ -192,10 +201,14 @@ instance (Binary a, XmlPickler a) =>
     xpickle			= xpWrap (fromDocument , toDocument) $
                                   xpickle
 
+-- ----------------------------------------------------------------------------
+
 instance Binary a => 		Binary (CompressedDoc a)
     where
     put				= B.put . unCDoc
     get				= B.get >>= return . CDoc
+
+-- ----------------------------------------------------------------------------
 
 instance 			NFData (CompressedDoc a)
     where

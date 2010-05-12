@@ -12,11 +12,19 @@ module Holumbus.Crawler.Logger
 
     , logC'
     , logC
+
     , noticeC
     , infoC
     , debugC
     , warnC
     , errC
+
+    , noticeC'
+    , infoC'
+    , debugC'
+    , warnC'
+    , errC'
+
     , setLogLevel
     , setLogLevel'
     )
@@ -78,6 +86,19 @@ logC' logName' priority msg	= logM logName priority msg'
     msg'			= fillName 23 logName        ++ " " ++
                                   fillName 9 (show priority) ++ " " ++
                                   unwords msg
+
+noticeC'
+  , infoC'
+  , debugC'
+  , warnC'
+  , errC'			:: String -> [String] -> IO ()
+
+noticeC' n			= logC' n NOTICE
+infoC'   n			= logC' n INFO
+debugC'  n       		= logC' n DEBUG
+warnC'   n			= logC' n WARNING
+errC'    n       		= logC' n ERROR
+
 
 fillName			:: Int -> String -> String
 fillName n s			= s ++ replicate b ' '

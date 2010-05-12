@@ -279,6 +279,12 @@ setCrawlerMaxDocs mxd mxp mxt
 			  >>>
 			  setS theMaxParThreads mxt
 
+-- | Set the pre hook filter executed before the hrefs are collected
+
+setCrawlerPreRefsFilter	:: IOSArrow XmlTree XmlTree -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerPreRefsFilter f
+			= setS thePreRefsFilter f
+
 -- ------------------------------------------------------------
 
 instance (Binary r) => Binary (CrawlerState r) where

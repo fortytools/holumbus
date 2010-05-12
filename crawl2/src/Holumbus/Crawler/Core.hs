@@ -1,11 +1,12 @@
-{-# OPTIONS #-}
+{-# OPTIONS -XBangPatterns #-}
 
 -- ------------------------------------------------------------
 
 module Holumbus.Crawler.Core
 where
 
-import           Control.Concurrent.MapFold
+import           Control.Concurrent.MapFold		( mapFold )
+import           Control.Sequential.MapFoldBinary	( mapFoldBinaryM )
 import           Control.DeepSeq
 
 import 		 Control.Monad.Reader
@@ -81,7 +82,7 @@ accumulateRes res		= do
 				  combine <- getConf  theAccumulateOp
 				  acc0    <- getState theResultAccu
 				  acc1    <- liftIO $ combine res acc0
-				  rnf acc1 `seq` putState theResultAccu acc1
+				  putState theResultAccu acc1
 
 -- ------------------------------------------------------------
 
@@ -105,9 +106,10 @@ crawlerLoop		= do
 			         noticeC "crawlerLoop" [show $ cardURIs tbp, "uri(s) remain to be processed"]
 				 when (not . nullURIs $ tbp)
 				      ( do
-					if t <= 0
-					  then crawlNextDoc	-- sequential crawling
-				          else crawlNextDocs    -- parallel mapFold crawling
+					case t of
+					  0         -> crawlNextDoc			-- sequential crawling
+					  1         -> crawlNextDocs mapFoldBinaryM	-- sequential crawling with binary mapFold
+					  _         -> crawlNextDocs (mapFold t)   	-- parallel mapFold crawling
 					crawlerCheckSaveState
 					crawlerLoop
 				      )
@@ -140,11 +142,13 @@ crawlerSaveState	= do
 
 -- ------------------------------------------------------------
 
-crawlNextDocs		:: (NFData r) => CrawlerAction a r ()
-crawlNextDocs		= do
+type MapFold a r	= (a -> IO r) -> (r -> r -> IO r) -> [a] -> IO r
+
+crawlNextDocs		:: (NFData r) => MapFold URI (URIs, URIs, r) -> CrawlerAction a r ()
+crawlNextDocs mapf	= do
 		          uris <- getState theToBeProcessed
-                          n <- getConf theMaxParDocs
-                          t <- getConf theMaxParThreads
+                          n    <- getConf theMaxParDocs
+                          -- t    <- getConf theMaxParThreads
                           let urisTBP = nextURIs n uris
 			  modifyState theNoOfDocs (+ (length urisTBP))
                           noticeC "crawlNextDocs" ["next", show (length urisTBP), "uri(s) will be processed"]
@@ -153,18 +157,24 @@ crawlNextDocs		= do
 
                           when (not . null $ urisAllowed) $
                                do
-                               conf  <- ask
+                               conf  	<- ask
+			       let mergeOp = getS theFoldOp conf
+
                                state <- get
-                               (urisMoved, urisNew, results) <- liftIO $
-                                                                mapFold t (processCmd conf state) (combineDocResults conf) $
-                                                                urisAllowed
+                               ( ! urisMoved,
+				 ! urisNew,
+				 ! results
+			         ) 	<- liftIO $
+                                           mapf (processCmd conf state) (combineDocResults' mergeOp) $
+					   urisAllowed
+
                                noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found, accumulating results"]
                                mapM_ (debugC "crawlNextDocs") $ map (("href" :) . (:[])) $ toListURIs urisNew
                                urisProcessed     urisMoved
                                urisToBeProcessed urisNew
-                               acc0 <- getState theResultAccu
-                               acc1 <- liftIO $ (getS theFoldOp conf) results acc0
-                               rnf acc1 `seq` putState theResultAccu acc1
+                               acc0   	<- getState theResultAccu
+                               ! acc1 	<- liftIO $ mergeOp results acc0
+			       putState theResultAccu acc1
                                noticeC "crawlNextDocs" ["document results accumulated"]
 
     where
@@ -176,32 +186,37 @@ crawlNextDocs		= do
         res0		= getS theResultInit   s
         accOp		= getS theAccumulateOp c
 
-    processDoc' u	= do
-                          noticeC "processDoc" ["processing:", show u]
+-- ------------------------------------------------------------
+
+processDoc' 		:: URI -> CrawlerAction a r (URIs, URIs, [(URI, a)])
+processDoc' uri		= do
+                          noticeC "processDoc" ["processing:", show uri]
 
                           conf <- ask
-			  [(u', (uris', docRes))] <- liftIO $ runX (processDocArrow conf u)
+			  [(uri', (uris', docRes))] <- liftIO $ runX (processDocArrow conf uri)
                           let toBeFollowed = getS theFollowRef conf
-                          let movedUris    = if null u'
+                          let movedUris    = if null uri'
                                              then emptyURIs
-                                             else singletonURIs u'
+                                             else singletonURIs uri'
                           let newUris      = fromListURIs .
                                              filter toBeFollowed $ uris'
 
-                          noticeC "processDoc" ["processed :", show u] 
+                          noticeC "processDoc" ["processed :", show uri] 
                           return (movedUris, newUris, docRes)
 
-    combineDocResults c (m1, n1, r1) (m2, n2, r2)
+combineDocResults' 	:: MergeDocResults r -> (URIs, URIs, r) -> (URIs, URIs, r) -> IO (URIs, URIs, r)
+combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
 			= do
-                          r <- mergeOp r1 r2
-			  return (m, n, r)
-	where
-        m 		= unionURIs m1 m2
-        n 		= unionURIs n1 n2
-        mergeOp		= getS theFoldOp c
+			  noticeC' "crawlNextDocs" ["combining results"]
+                          ! r   <- mergeOp r1 r2
+			  ! m 	<- return $ unionURIs m1 m2
+			  ! n	<- return $ unionURIs n1 n2
+			  ! res <- return $ (m, n, r)
+			  noticeC' "crawlNextDocs" ["results combined"]
+			  return res
 
 -- ------------------------------------------------------------
-
+--
 -- | crawl a single doc, mark doc as processed, collect new hrefs and combine doc result with accumulator in state
 
 crawlNextDoc		:: (NFData a, NFData r) => CrawlerAction a r ()
