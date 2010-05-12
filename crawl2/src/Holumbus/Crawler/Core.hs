@@ -204,15 +204,15 @@ processDoc' uri		= do
                           noticeC "processDoc" ["processed :", show uri] 
                           return (movedUris, newUris, docRes)
 
-combineDocResults' 	:: MergeDocResults r -> (URIs, URIs, r) -> (URIs, URIs, r) -> IO (URIs, URIs, r)
+combineDocResults' 	:: (NFData r) => MergeDocResults r -> (URIs, URIs, r) -> (URIs, URIs, r) -> IO (URIs, URIs, r)
 combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
 			= do
 			  noticeC' "crawlNextDocs" ["combining results"]
-                          ! r   <- mergeOp r1 r2
-			  ! m 	<- return $ unionURIs m1 m2
-			  ! n	<- return $ unionURIs n1 n2
-			  ! res <- return $ (m, n, r)
-			  noticeC' "crawlNextDocs" ["results combined"]
+                          r   <- mergeOp r1 r2
+			  m 	<- return $ unionURIs m1 m2
+			  n	<- return $ unionURIs n1 n2
+			  res   <- return $ (m, n, r)
+			  rnf res `seq` noticeC' "crawlNextDocs" ["results combined"]
 			  return res
 
 -- ------------------------------------------------------------
