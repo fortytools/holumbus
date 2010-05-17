@@ -9,7 +9,9 @@ import		 Control.Applicative				( liftA2 )
 
 import           Data.List
 
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( match )
+import qualified Text.XML.HXT.RelaxNG.XmlSchema.Regex		as RE
+import qualified Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	as RE
+import qualified Text.XML.HXT.RelaxNG.XmlSchema.RegexParser     as RE
 
 -- ------------------------------------------------------------
 
@@ -48,5 +50,23 @@ simpleFollowRef' allowed denied
     denied'
         | null denied		= const False
         | otherwise		= match $ mkAlt denied
+
+-- ------------------------------------------------------------
+
+match				:: String -> String -> Bool
+match re			= maybe True (const False) . RE.matchWithRE (parseRE re)
+
+sed				:: (String -> String) -> String -> String -> String
+sed edit re			= parseRE re `seq` RE.sed edit re
+
+tokenize			:: String -> String -> [String]
+tokenize re			= parseRE re `seq` RE.tokenize re
+
+-- ------------------------------------------------------------
+
+parseRE				:: String -> RE.Regex
+parseRE	re			= either parseError id . RE.parseRegex $ re
+    where
+    parseError s		= error $ "syntax error in regexp: " ++ s
 
 -- ------------------------------------------------------------

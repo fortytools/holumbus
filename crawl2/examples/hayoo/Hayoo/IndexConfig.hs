@@ -15,7 +15,6 @@ import		 Holumbus.Crawler.IndexerCore
 
 import		 Text.XML.HXT.Arrow
 import		 Text.XML.HXT.DOM.Unicode
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
 -- ------------------------------------------------------------
 

@@ -30,8 +30,6 @@ import		 System.IO
 
 import		 Text.XML.HXT.Arrow		hiding ( readDocument )
 import           Text.XML.HXT.Arrow.XmlCache
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
-
 
 -- ------------------------------------------------------------
 
