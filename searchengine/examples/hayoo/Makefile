@@ -49,13 +49,16 @@ clean :
 	$(RM) hayoo.standalone
 
 # ------------------------------------------------------------
-# Hack based application, either for FastCGI or as standalone webserver
+# Hack based application, either for FastCGI, Happstack or as standalone webserver
 
 fastcgi : $(SOURCE)/MainFastCGI.hs
 	$(GHC) -threaded --make -o hayoo.fcgi $< -hidir $(OUTPUT) -odir $(OUTPUT) -i./$(SOURCE)
 
 standalone : $(SOURCE)/MainStandalone.hs
 	$(GHC) -threaded --make -o hayoo.standalone $< -hidir $(OUTPUT) -odir $(OUTPUT) -i./$(SOURCE)
+
+happstack : $(SOURCE)/MainHappstack.hs
+	$(GHC) -threaded --make -o hayoo.happstack $< -hidir $(OUTPUT) -odir $(OUTPUT) -i./$(SOURCE)
 
 # ------------------------------------------------------------
 #
