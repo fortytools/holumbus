@@ -209,7 +209,7 @@ class (Binary i) => HolIndex i where
   -- implementations
   toList   			:: i -> [(Context, Word, Occurrences)]
   
-  -- Create an Index from a list. Can be used vor easy conversion between different index  
+  -- Create an Index from a list. Can be used for easy conversion between different index  
   -- implementations. Needs an empty index as first argument
   fromList 			:: i -> [(Context, Word, Occurrences)] -> i
   fromList e 			= foldl (\i (c,w,o) -> insertOccurrences c w o i) e

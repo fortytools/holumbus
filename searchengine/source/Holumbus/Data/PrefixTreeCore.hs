@@ -103,14 +103,14 @@ type Key		= [Sym]
 
 -- smart constructors
 
-empty		:: PrefixTree v
-empty		= Empty
+empty				:: PrefixTree v
+empty				= Empty
 
 {-# INLINE empty #-}
 
-val		:: v -> PrefixTree v -> PrefixTree v
-val v Empty	= Leaf v
-val v t		= Val v t
+val				:: v -> PrefixTree v -> PrefixTree v
+val v Empty			= Leaf v
+val v t				= Val v t
 
 {-# INLINE val #-}
 
@@ -139,27 +139,27 @@ brseq				:: Key -> PrefixTree v -> PrefixTree v -> PrefixTree v
 brseq k (Leaf v) n		= BrSeL k v n
 brseq k c        n              = BrSeq k c n
 
-siseq		:: Key -> PrefixTree v -> PrefixTree v
-siseq []   c    = c
-siseq [k1] c	= Last  k1 c
-siseq k    c    = LsSeq k  c
+siseq				:: Key -> PrefixTree v -> PrefixTree v
+siseq []   c    		= c
+siseq [k1] c			= Last  k1 c
+siseq k    c    		= LsSeq k  c
 
 {-# INLINE siseq #-}
 
 -- smart selectors
 
-norm			:: PrefixTree v -> PrefixTree v
-norm (Leaf v)		= Val v empty
-norm (Last k c)		= Branch k c empty
-norm (LsSeq [k] c)	= Branch k c empty
-norm (LsSeq (k:ks) c)   = Branch k (siseq ks c) empty 
-norm (BrSeq [k]    c n)	= Branch k c n
-norm (BrSeq (k:ks) c n) = Branch k (siseq ks c) n 
-norm (LsSeL    ks  v)   = norm (LsSeq ks  (val v empty))
-norm (BrSeL    ks  v n) = norm (BrSeq ks  (val v empty) n)
-norm (LsVal    k   v)   = norm (LsSeq [k] (val v empty))
-norm (BrVal    k   v n) = norm (BrSeq [k] (val v empty) n)
-norm t			= t
+norm				:: PrefixTree v -> PrefixTree v
+norm (Leaf v)			= Val v empty
+norm (Last k c)			= Branch k c empty
+norm (LsSeq [k] c)		= Branch k c empty
+norm (LsSeq (k:ks) c)   	= Branch k (siseq ks c) empty 
+norm (BrSeq [k]    c n)		= Branch k c n
+norm (BrSeq (k:ks) c n) 	= Branch k (siseq ks c) n 
+norm (LsSeL    ks  v)   	= norm (LsSeq ks  (val v empty))
+norm (BrSeL    ks  v n) 	= norm (BrSeq ks  (val v empty) n)
+norm (LsVal    k   v)   	= norm (LsSeq [k] (val v empty))
+norm (BrVal    k   v n) 	= norm (BrSeq [k] (val v empty) n)
+norm t				= t
 
 {- INLINE norm -}
 
@@ -223,31 +223,31 @@ succ t			= case norm t of
 -- | /O(min(n,L))/ Find the value associated with a key. The function will @return@ the result in
 -- the monad or @fail@ in it if the key isn't in the map.
 
-lookup 			:: Monad m => Key -> PrefixTree a -> m a
-lookup k t 		= case lookup' k t of
-                          Just v  -> return v
-                          Nothing -> fail "PrefixTree.lookup: Key not found"
+lookup 				:: Monad m => Key -> PrefixTree a -> m a
+lookup k t 			= case lookup' k t of
+				  Just v  -> return v
+				  Nothing -> fail "PrefixTree.lookup: Key not found"
 {-# INLINE lookup #-}
 
 -- | /O(min(n,L))/ Find the value associated with a key. The function will @return@ the result in
 -- the monad or @fail@ in it if the key isn't in the map.
 
-findWithDefault	:: a -> Key -> PrefixTree a -> a
-findWithDefault v0 k	= fromMaybe v0 . lookup' k
+findWithDefault			:: a -> Key -> PrefixTree a -> a
+findWithDefault v0 k		= fromMaybe v0 . lookup' k
 
 {-# INLINE findWithDefault #-}
 
 -- | /O(min(n,L))/ Is the key a member of the map?
 
-member 			:: Key -> PrefixTree a -> Bool
-member k 		= maybe False (const True) . lookup k
+member 				:: Key -> PrefixTree a -> Bool
+member k 			= maybe False (const True) . lookup k
 
 {-# INLINE member #-}
 
 -- | /O(min(n,L))/ Find the value at a key. Calls error when the element can not be found.
 
-(!) 			:: PrefixTree a -> Key -> a
-(!)	 		= flip $ findWithDefault (error "PrefixTree.! : element not in the map")
+(!) 				:: PrefixTree a -> Key -> a
+(!)	 			= flip $ findWithDefault (error "PrefixTree.! : element not in the map")
 
 -- | /O(min(n,L))/ Insert a new key and value into the map. If the key is already present in
 -- the map, the associated value will be replaced with the new value.
@@ -393,18 +393,18 @@ update' f k0			= upd k0 . norm
 -- | /O(n+m)/ Left-biased union of two maps. It prefers the first map when duplicate keys are 
 -- encountered, i.e. ('union' == 'unionWith' 'const').
 
-union 				:: PrefixTree a -> PrefixTree a -> PrefixTree a
-union 				= union' const
+union 						:: PrefixTree a -> PrefixTree a -> PrefixTree a
+union 						= union' const
 
 -- | /O(n+m)/ Union with a combining function.
 
-unionWith 			:: (a -> a -> a) -> PrefixTree a -> PrefixTree a -> PrefixTree a
-unionWith	 		= union'
+unionWith 					:: (a -> a -> a) -> PrefixTree a -> PrefixTree a -> PrefixTree a
+unionWith	 				= union'
 
-union' 				:: (a -> a -> a) -> PrefixTree a -> PrefixTree a -> PrefixTree a
-union' f pt1 pt2		= uni (norm pt1) (norm pt2)
+union' 						:: (a -> a -> a) -> PrefixTree a -> PrefixTree a -> PrefixTree a
+union' f pt1 pt2				= uni (norm pt1) (norm pt2)
     where
-    uni' t1' t2'		= union' f (norm t1') (norm t2')
+    uni' t1' t2'				= union' f (norm t1') (norm t2')
 
     uni     Empty                Empty		= empty
     uni     Empty               (Val v2 t2)	= val v2 t2
@@ -427,13 +427,13 @@ union' f pt1 pt2		= uni (norm pt1) (norm pt2)
 
 -- | /O(n+m)/ Union with a combining function, including the key.
 
-unionWithKey 			:: (Key -> a -> a -> a) -> PrefixTree a -> PrefixTree a -> PrefixTree a
-unionWithKey f			= union'' f id
+unionWithKey 					:: (Key -> a -> a -> a) -> PrefixTree a -> PrefixTree a -> PrefixTree a
+unionWithKey f					= union'' f id
 
-union'' 			:: (Key -> a -> a -> a) -> (Key -> Key) -> PrefixTree a -> PrefixTree a -> PrefixTree a
-union'' f kf pt1 pt2		= uni (norm pt1) (norm pt2)
+union'' 					:: (Key -> a -> a -> a) -> (Key -> Key) -> PrefixTree a -> PrefixTree a -> PrefixTree a
+union'' f kf pt1 pt2				= uni (norm pt1) (norm pt2)
     where
-    uni' t1' t2'		= union'' f kf (norm t1') (norm t2')
+    uni' t1' t2'				= union'' f kf (norm t1') (norm t2')
 
     uni     Empty                Empty		= empty
     uni     Empty               (Val v2 t2)	= val v2 t2
@@ -450,6 +450,7 @@ union'' f kf pt1 pt2		= uni (norm pt1) (norm pt2)
         | c1 <  c2				= branch c1                         s1     (uni' n1 t2)
         | c1 >  c2				= branch c2                            s2  (uni' t1 n2)
         | otherwise				= branch c1 (union'' f (kf . (c1:)) s1 s2) (uni' n1 n2)
+
     uni _                    _                  = normError "union''"
 
 -- ----------------------------------------
@@ -544,16 +545,16 @@ mapWithKey f 			= map' f id
 
 map'				:: (Key -> a -> b) -> (Key -> Key) -> PrefixTree a -> PrefixTree b
 map' _ _ (Empty)		= Empty
-map' f k (Val v t)		= Val    (f (k []) v)    (map' f k t)
-map' f k (Branch c s n)         = Branch c (map' f ((c :) . k) s) (map' f k n)
+map' f k (Val v t)		= Val       (f (k []) v)             (map' f k t)
+map' f k (Branch c s n)         = Branch c  (map' f ((c :) . k)   s) (map' f k n)
 map' f k (Leaf v)		= Leaf      (f (k []) v)
-map' f k (Last c s)		= Last c    (map' f ((c :)   . k) s)
+map' f k (Last c s)		= Last   c  (map' f ((c :)   . k) s)
 map' f k (LsSeq cs s)		= LsSeq  cs (map' f ((cs ++) . k) s)
 map' f k (BrSeq cs s n)         = BrSeq  cs (map' f ((cs ++) . k) s) (map' f k n)
 map' f k (LsSeL cs v)		= LsSeL  cs (f (k []) v)
-map' f k (BrSeL cs v n)         = BrSeL  cs (f (k []) v) (map' f k n)
+map' f k (BrSeL cs v n)         = BrSeL  cs (f (k []) v)             (map' f k n)
 map' f k (LsVal c  v)		= LsVal  c  (f (k []) v)
-map' f k (BrVal c  v n)         = BrVal  c  (f (k []) v) (map' f k n)
+map' f k (BrVal c  v n)         = BrVal  c  (f (k []) v)             (map' f k n)
 
 -- ----------------------------------------
 
@@ -622,9 +623,9 @@ visit			:: PrefixTreeVisitor a b -> PrefixTree a -> b
 
 visit v (Empty)		= v_empty  v
 visit v (Val v' t)	= v_val    v v' (visit v t)
-visit v (Branch c s n)  = v_branch v c (visit v s) (visit v n)
+visit v (Branch c s n)  = v_branch v c  (visit v s) (visit v n)
 visit v (Leaf v')	= v_leaf   v v'
-visit v (Last c s)	= v_last   v c (visit v s)
+visit v (Last c s)	= v_last   v c  (visit v s)
 visit v (LsSeq cs s)	= v_lsseq  v cs (visit v s)
 visit v (BrSeq cs s n)  = v_brseq  v cs (visit v s) (visit v n)
 visit v (LsSeL cs v')	= v_lssel  v cs v'

@@ -179,8 +179,11 @@ crawlNextDocs mapf	= do
 
     where
     processCmd c s u	= do
+			  noticeC' "processCmd"     ["processing document:", show u]
 			  ((m1, n1, rawRes), _) <- runCrawler (processDoc' u) c s
                           r1 <- foldM (flip accOp) res0 rawRes
+			  rnf r1 `seq` rnf m1 `seq` rnf r1 `seq`
+			      noticeC' "processCmd" ["document processed: ", show u]
                           return (m1, n1, r1)
         where
         res0		= getS theResultInit   s
@@ -190,8 +193,6 @@ crawlNextDocs mapf	= do
 
 processDoc' 		:: URI -> CrawlerAction a r (URIs, URIs, [(URI, a)])
 processDoc' uri		= do
-                          noticeC "processDoc" ["processing:", show uri]
-
                           conf <- ask
 			  [(uri', (uris', docRes))] <- liftIO $ runX (processDocArrow conf uri)
                           let toBeFollowed = getS theFollowRef conf
@@ -200,9 +201,9 @@ processDoc' uri		= do
                                              else singletonURIs uri'
                           let newUris      = fromListURIs .
                                              filter toBeFollowed $ uris'
-
-                          noticeC "processDoc" ["processed :", show uri] 
                           return (movedUris, newUris, docRes)
+
+-- ------------------------------------------------------------
 
 combineDocResults' 	:: (NFData r) => MergeDocResults r -> (URIs, URIs, r) -> (URIs, URIs, r) -> IO (URIs, URIs, r)
 combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
@@ -212,7 +213,8 @@ combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
 			  m 	<- return $ unionURIs m1 m2
 			  n	<- return $ unionURIs n1 n2
 			  res   <- return $ (m, n, r)
-			  rnf res `seq` noticeC' "crawlNextDocs" ["results combined"]
+			  rnf res `seq`
+			      noticeC' "crawlNextDocs" ["results combined"]
 			  return res
 
 -- ------------------------------------------------------------

@@ -5,13 +5,16 @@
 module Hayoo.IndexTypes
     ( module Hayoo.IndexTypes
     , Document
+    , Documents
+    , SmallDocuments
+    , docTable2smallDocTable
     )
 where
 
 import           Control.DeepSeq
 
 import           Data.Binary
-import qualified Data.ByteString.Char8		as C
+-- import qualified Data.ByteString.Char8		as C
 import qualified Data.IntSet			as IS
 import qualified Data.IntMap			as IM
 import           Data.List			( foldl' )
@@ -27,11 +30,17 @@ import		 Holumbus.Crawler.IndexerCore
 
 import           Holumbus.Index.Common		( Document(..)
                                                 , Occurrences
+						, toList, fromList
                                                 , custom, editDocIds, removeById, toMap, updateDocIds', updateDocuments
                                                 )
 import           Holumbus.Index.CompactDocuments
     						( Documents(..)
                                                 , emptyDocuments
+                                                )
+
+import           Holumbus.Index.CompactSmallDocuments
+    						( SmallDocuments(..)
+                                                , docTable2smallDocTable
                                                 )
 -- import           Debug.Trace
 
@@ -81,6 +90,11 @@ emptyInverted			= PM.emptyInverted0
 removeDocIdsInverted 		:: Occurrences -> Inverted -> Inverted
 removeDocIdsInverted		= PM.removeDocIdsInverted
 
+type CompactInverted		= PM.InvertedOSerialized
+
+inverted2compactInverted	:: Inverted -> CompactInverted
+inverted2compactInverted	= fromList PM.emptyInvertedOSerialized . toList
+
 -- ------------------------------------------------------------
 
 type HayooState  di        	= IndexerState       Inverted Documents di
@@ -94,10 +108,10 @@ emptyHayooState			= emptyIndexerState emptyInverted emptyDocuments
 -- ------------------------------------------------------------
 
 getPkgNameFct			:: Document FunctionInfo -> String
-getPkgNameFct			= C.unpack . package . fromJust . custom
+getPkgNameFct			= package . fromJust . custom
 
 getPkgNamePkg			:: Document PackageInfo -> String
-getPkgNamePkg			= C.unpack . p_name . fromJust . custom
+getPkgNamePkg			= p_name . fromJust . custom
 
 -- ------------------------------------------------------------
 

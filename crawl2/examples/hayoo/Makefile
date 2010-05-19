@@ -4,7 +4,9 @@ DAYS	= 10
 packages	= hxt,hxt-filter,hxt-binary,hxt-cache
 latest	= 7days
 valid	= 1hour
-threads = 20
+threads = 1
+
+# threads = 1 means no parallel indexing but merging of partial indexes as a binary merge
 
 # threads = 20 makes indexing much more efficent than a smaller figure,
 # the merging of indexes is more efficient with a higher # of threads

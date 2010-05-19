@@ -67,6 +67,6 @@ tokenize re			= parseRE re `seq` RE.tokenize re
 parseRE				:: String -> RE.Regex
 parseRE	re			= either parseError id . RE.parseRegex $ re
     where
-    parseError s		= error $ "syntax error in regexp: " ++ s
+    parseError s		= error $ "\nsyntax error in regexp: " ++ re ++ "\n" ++ s
 
 -- ------------------------------------------------------------

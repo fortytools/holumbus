@@ -20,15 +20,20 @@ module Holumbus.Index.CompactDocuments
 (
   -- * Documents type
   Documents (..)
+  , CompressedDoc(..)
+  , DocMap
+  , URIMap
 
   -- * Construction
   , emptyDocuments
   , singleton
-  , fromMap
-  , toMap
   
   -- * Conversion
   , simplify
+  , toDocument
+  , fromDocument
+  , fromDocMap
+  , toDocMap
 )
 where
 import qualified Codec.Compression.BZip	as BZ

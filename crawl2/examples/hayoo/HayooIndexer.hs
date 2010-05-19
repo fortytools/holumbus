@@ -140,6 +140,7 @@ data AppAction			= BuildIx | UpdatePkg | RemovePkg | BuildCache
 data AppOpts			= AO
                                   { ao_index	:: String
                                   , ao_ixout    :: String
+				  , ao_ixsearch	:: String
                                   , ao_xml	:: String
 				  , ao_help	:: Bool
                                   , ao_pkgIndex	:: Bool
@@ -168,6 +169,7 @@ initAppOpts			:: AppOpts
 initAppOpts			= AO
                                   { ao_index	= ""
                                   , ao_ixout    = ""
+				  , ao_ixsearch = ""
                                   , ao_xml	= ""
 				  , ao_help	= False
                                   , ao_pkgIndex	= False
@@ -263,6 +265,7 @@ main1 pn args
 
 				  , Option "i"  ["index"]	(ReqArg ( \ f x -> x { ao_index    = f    }) 	  	"INDEX")	"index input file (binary format) to be operated on"
                                   , Option "n"  ["new-index"]	(ReqArg ( \ f x -> x { ao_ixout    = f    }) 	  	"NEW-INDEX")	"new index file (binary format) to be generatet, default is index file"
+                                  , Option "s"  ["new-search"]	(ReqArg ( \ f x -> x { ao_ixsearch = f    }) 	  	"SEARCH-INDEX")	"new search index files (binary format) ready to be used by Hayoo! search"
 				  , Option "x"  ["xml-output"] 	(ReqArg ( \ f x -> x { ao_xml      = f    }) 	  	"XML-FILE")	"output of final crawler state in xml format, \"-\" for stdout"
 				  , Option "r"  ["resume"] 	(ReqArg ( \ s x -> x { ao_resume   = Just s}) 	  	"FILE")		"resume program with file containing saved intermediate state"
 
@@ -346,6 +349,8 @@ setDocAge d				=  addEntries [(a_document_age, show d)]
 mainHackage                     :: AppOpts -> IOSArrow b ()
 mainHackage opts		= action opts
                                   >>>
+				  writeSearchBin opts
+				  >>>
                                   writeResults opts
     where
     actIndex  opts'		= arrIO0 (hayooPkgIndexer opts' >>= return . getS theResultAccu)
@@ -419,6 +424,8 @@ mainHackage opts		= action opts
 mainHaddock                     :: AppOpts -> IOSArrow b ()
 mainHaddock opts		= action opts
                                   >>>
+				  writeSearchBin opts
+				  >>>
                                   writeResults opts
     where
     actIndex  opts'		= arrIO0 (hayooIndexer opts' >>= return . getS theResultAccu)
@@ -571,6 +578,32 @@ writeXml opts
         | otherwise		= (True,  xf)
         where
         xf			= ao_xml opts
+
+-- ------------------------------------------------------------
+
+writeSearchBin			:: (B.Binary a) =>
+                                   AppOpts -> IOSArrow (HayooState a) (HayooState a)
+writeSearchBin opts
+    | null out			= traceMsg 0 "no search index written"
+    | otherwise			= traceMsg 0 (unwords ["writing small document table into binary file", docFile])
+                                  >>>
+                                  perform ( (ixs_documents >>> docTable2smallDocTable)
+					    ^>>
+					    (arrIO $ B.encodeFile docFile)
+					  )
+				  >>>
+                                  traceMsg 0 (unwords ["writing compressed inverded index into binary file", idxFile])
+                                  >>>
+                                  perform ( (ixs_index >>> inverted2compactInverted)
+					    ^>>
+					    (arrIO $ B.encodeFile idxFile)
+					  )
+                                  >>>
+                                  traceMsg 0 "writing search index files finished"
+    where
+    out				= ao_ixsearch opts
+    docFile			= out ++ ".doc"
+    idxFile			= out ++ ".idx"
 
 -- ------------------------------------------------------------
 
