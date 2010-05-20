@@ -1,6 +1,6 @@
 # Making Hayoo!
 
-GHC_FLAGS	= -Wall -O2 
+GHC_FLAGS	= -Wall -O2 -static
 GHC				= ghc $(GHC_FLAGS)
 
 RM_FLAGS	= -rf
@@ -47,6 +47,7 @@ clean :
 	$(RM) $(OUTPUT) $(PROGS)
 	$(RM) hayoo.fcgi
 	$(RM) hayoo.standalone
+	$(RM) hayoo.happstack
 
 # ------------------------------------------------------------
 # Hack based application, either for FastCGI, Happstack or as standalone webserver
