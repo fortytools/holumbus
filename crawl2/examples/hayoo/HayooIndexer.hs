@@ -592,7 +592,7 @@ writeSearchBin opts
 					    (arrIO $ B.encodeFile docFile)
 					  )
 				  >>>
-                                  traceMsg 0 (unwords ["writing compressed inverded index into binary file", idxFile])
+                                  traceMsg 0 (unwords ["writing compressed inverted index into binary file", idxFile])
                                   >>>
                                   perform ( (ixs_index >>> inverted2compactInverted)
 					    ^>>

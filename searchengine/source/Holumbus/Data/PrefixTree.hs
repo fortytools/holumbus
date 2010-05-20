@@ -59,6 +59,7 @@ module Holumbus.Data.PrefixTree
     , space
     , keyChars
 
+    , prefixFindCaseWithKey
     , prefixFindNoCaseWithKey
     , prefixFindNoCase
     , lookupNoCase
@@ -67,5 +68,6 @@ where
 
 import Prelude hiding ( succ, lookup, map, mapM, null )
 
-import Holumbus.Data.PrefixTreeCore
-import Holumbus.Data.PrefixTreeFuzzySearch
+import Holumbus.Data.PrefixTree.Core
+import Holumbus.Data.PrefixTree.FuzzySearch
+import Holumbus.Data.PrefixTree.Types

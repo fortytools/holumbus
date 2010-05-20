@@ -104,9 +104,11 @@ library
     Holumbus.Control.Registry,
     Holumbus.Data.Crunch
     Holumbus.Data.DiffList
-    Holumbus.Data.PrefixTreeCore
-    Holumbus.Data.PrefixTreeFuzzySearch
     Holumbus.Data.PrefixTree
+    Holumbus.Data.PrefixTree.Core
+    Holumbus.Data.PrefixTree.FuzzySearch
+    Holumbus.Data.PrefixTree.PrefixSet
+    Holumbus.Data.PrefixTree.Types
     Holumbus.Data.StrMap
     Holumbus.Data.Trie
     Holumbus.Index.Cache,
@@ -114,6 +116,7 @@ library
     Holumbus.Index.Compression,
     Holumbus.Index.Documents,
     Holumbus.Index.CompactDocuments,
+    Holumbus.Index.CompactSmallDocuments,
     Holumbus.Index.SmallDocuments,
     Holumbus.Index.Hybrid.Memory,
     Holumbus.Index.Inverted.Memory,
