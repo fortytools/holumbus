@@ -147,11 +147,18 @@ type MapFold a r	= (a -> IO r) -> (r -> r -> IO r) -> [a] -> IO r
 crawlNextDocs		:: (NFData r) => MapFold URI (URIs, URIs, r) -> CrawlerAction a r ()
 crawlNextDocs mapf	= do
 		          uris <- getState theToBeProcessed
-                          n    <- getConf theMaxParDocs
-                          -- t    <- getConf theMaxParThreads
+			  nd   <- getState   theNoOfDocs
+
+                          mp   <- getConf  theMaxParDocs
+			  md   <- getConf theMaxNoOfDocs
+
+			  let n       = mp `min` (md - nd) 
                           let urisTBP = nextURIs n uris
+
 			  modifyState theNoOfDocs (+ (length urisTBP))
+
                           noticeC "crawlNextDocs" ["next", show (length urisTBP), "uri(s) will be processed"]
+
                           urisProcessed $ fromListURIs urisTBP
                           urisAllowed <- filterM isAllowedByRobots urisTBP
 

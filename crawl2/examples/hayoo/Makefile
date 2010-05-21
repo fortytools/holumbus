@@ -36,22 +36,25 @@ force	:
 
 
 whole-cache	: ./hayooIndexer
-	@echo load hayoo cache from hackage, all package and haddock pages are (re-)loaded, parsed and stored in binary form in subdir cache
-	@echo the list of loaded pages is written into file "cache.xml"
+	@echo "load hayoo cache from hackage, all package and haddock pages are (re-)loaded, parsed and stored in binary form in subdir cache"
+	@echo 'the list of loaded pages is written into file "cache.xml"'
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
 	./$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --valid=$(valid) --xml-output=cache.xml
 
 whole-index	: ./hayooIndexer
-	@echo build an index of all haddock pages on hackage
-	@echo fill the local cache before running this, to avoid network traffic and to get an up to date index
-	@echo the result index is "$(ix)"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --new-index=$(ix) $(OPTS)
+	@echo "build an index of all haddock pages on hackage"
+	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
+	@echo 'the result index is "$(ix)"'
+	@echo "the computation is done in 3 steps to prevent use of too much main memory" 
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --new-index=$(ix)-05000 $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
 
 whole-pkg	: ./hayooIndexer
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)", an XML version is stored in "$(px).xml" 
-	./$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --new-index=$(px) --xml-output=$(px).xml
+	./$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --maxpar=5000 --new-index=$(px) --xml-output=$(px).xml --new-search=$(px) $(OPTS)
 
 whole	:
 	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
