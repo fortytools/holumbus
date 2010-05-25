@@ -70,12 +70,12 @@ whole	:
 update-cache	: ./hayooIndexer
 	@echo update the hayoo cache with all packages uploaded to hackage within the last $(latest)
 	@echo the list of loaded pages is written into file "cache.xml"
-	./$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --latest=$(latest) --xml-output=cache.xml
+	./$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --maxpar=5000 --latest=$(latest) --xml-output=cache.xml
 
 update-index	: ./hayooIndexer
 	@echo update an existing hayoo index with all packages uploaded to hackage within the last $(latest)
 	@echo existing index is "$(ix)", result index is "$(ix).new"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --latest=$(latest) --defragment --index=$(ix) --new-index=$(ix).new
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --latest=$(latest) --defragment --index=$(ix) --new-index=$(ix).new  --new-search=$(ix).new
 
 update-pkg	: ./hayooIndexer
 	@echo updating a package index is not neccessary, the complete index is ready within a minute
