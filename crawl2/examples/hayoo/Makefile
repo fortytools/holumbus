@@ -19,7 +19,7 @@ src	= $(wildcard Hayoo/*.hs)
 
 progs	= ./hayooIndexer
 
-GHCOPTS	= -Wall -O2 -threaded -i../../src:../../../searchengine/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
+GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source:../../../searchengine/examples/hayoo/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
 
 N       = 1
 H       = 3000
@@ -28,6 +28,9 @@ RUNOPTS = +RTS -N$(N) -s -K50M -H$(H)M -RTS
 all	: $(progs)
 
 ./hayooIndexer	: HayooIndexer.hs $(src)
+	ghc  $(GHCOPTS) -o $@ --make $<
+
+./hayooSearch	: HayooSearch.hs $(src)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
 force	:
