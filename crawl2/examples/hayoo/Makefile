@@ -49,7 +49,8 @@ whole-index	: ./hayooIndexer
 	@echo "build an index of all haddock pages on hackage"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
-	@echo "the computation is done in 3 steps to prevent use of too much main memory" 
+	@echo "the computation is done in 3 steps to prevent use of too much main memory"
+	@echo "preparing and writing the compressed index requires most of the runtime"
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --new-index=$(ix)-05000 $(OPTS)
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
@@ -93,7 +94,7 @@ update	:
 	$(MAKE) update-pkg "OPT=$(OPT) --xml-output=$(px).xml" 2> pkg.out
 	@echo look at the following files
 	@ls -l *.new *.out
-	@echo if no faults occurred, exec "make new-to-cur" to make the new index the current one
+	@echo if no faults occurred, exec "make new2cur" to make the new index the current one
 
 
 load-cache	: ./hayooIndexer
@@ -101,12 +102,19 @@ load-cache	: ./hayooIndexer
 	@echo use "make load-cache packages=pack1,pack2,pack3" to specify the packages 
 	./$< +RTS -N$(N) -s -K100M -RTS --cache --valid=$(valid) --packages=$(packages) --xml-output=-
 
-new-to-cur	: $(ix).new $(px).new
+new2cur	: $(ix).new $(px).new
 	mv -f $(ix) $(ix)~
 	mv -f $(px) $(px)~
-	mv    $(ix).new $(ix)
-	mv    $(px).new $(px)
- 
+	mv    $(ix).new     $(ix)
+	mv    $(ix).new.doc $(ix).doc
+	mv    $(ix).new.idx $(ix).idx
+	rm -f tmp/ix*
+	mv    $(px).new     $(px)
+	mv    $(px).new.doc $(px).doc
+	mv    $(px).new.idx $(px).idx
+	mv    $(px).new.xml $(px).xml
+	rm -f tmp/pkg*
+
 clean	:
 	rm -f *.o *.hi $(progs) *.out
 

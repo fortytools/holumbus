@@ -368,13 +368,13 @@ mainHackage opts		= action opts
                                   traceMsg 0 "package rank computation finished"
         | otherwise		= this
 
-    actRemove opts'		= traceMsg 0 ("deleting packages " ++ unwords (ao_packages opts') ++ " from hackage package index" )
+    actRemove opts'		= traceMsg 0 ("deleting packages from hackage package index: " ++ unwords (ao_packages opts'))
                                   >>>
                                   arrIO0 (removePackagesPkg opts')
                                   >>>
                                   rnfIO						-- force evaluation
                                   >>>
-                                  traceMsg 0 ("packages " ++ unwords (ao_packages opts') ++ " deleted from hackage package index" )
+                                  traceMsg 0 ("packages deleted from hackage package index : " ++ unwords (ao_packages opts'))
 
     actMerge			= traceMsg 0 ("merging existing hackage package index with new packages")
                                   >>>
