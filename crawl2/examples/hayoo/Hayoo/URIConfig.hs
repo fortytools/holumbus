@@ -3,17 +3,26 @@
 -- ------------------------------------------------------------
 
 module Hayoo.URIConfig
-{-
     ( hayooStart
     , hayooRefs
     , hayooGetPackage
     , hayooPackageNames
+
+    , hackagePackages
+    , hackageStart
+    , isHaddockURI
+
     , editLatestPackage
+
+    , packageVersion
+    , packageVersion'
+    , packageVersion''
+
+    , fileName
     )
--}
 where
 
-import           Control.Applicative
+-- import           Control.Applicative
 
 import		 Data.List
 
@@ -25,32 +34,13 @@ import           Text.XML.HXT.Arrow.XmlCache
 -- ------------------------------------------------------------
 
 hayooStart			:: [URI]
-hayooStart			= hackageStart ++ gtk2hsStart
+hayooStart			= hackageStart
 
 hayooRefs			:: Bool -> [String] -> URI -> Bool
-hayooRefs withDoc pkgs		= liftA2 (||) hackageRefs' gtk2hsRefs'
-    where
-    hackageRefs'
-	| null pkgs		= hackageRefs withDoc pkgs
-	| null hackagePkgs	= const False
-	| otherwise		= hackageRefs withDoc hackagePkgs
-	where
-	hackagePkgs		= filter (`notElem` ["gtk2hs"]) $ pkgs
-    gtk2hsRefs'
-	| null pkgs		= gtk2hsRefs
-	| null gtk2hsPkgs	= const False
-	| otherwise		= gtk2hsRefs
-	where
-	gtk2hsPkgs		= filter (`elem` ["gtk2hs"]) $ pkgs
+hayooRefs			= hackageRefs
 
 hayooGetPackage			:: String -> String
-hayooGetPackage u
-    | not . null $ hpn		= hpn
-    | not . null $ gpn		= gpn
-    | otherwise			= ""
-    where
-    hpn				= hackageGetPackage u
-    gpn				= gtk2hsGetPackage  u
+hayooGetPackage			= hackageGetPackage
 
 hackageHome			:: String
 hackageHome			= "http://hackage.haskell.org/packages/"
@@ -105,29 +95,6 @@ isHaddockURI			= match (hackagePackageDocPath ++ fileName ++ "/.+/doc/html/.+[.]
 
 -- ------------------------------------------------------------
 
-gtk2hsStart			:: [URI]
-gtk2hsStart			= [ gtk2hsHome ++ "index.html" ]
-
-gtk2hsRefs			:: URI -> Bool
-gtk2hsRefs			= simpleFollowRef'
-				  [ gtk2hsHome ++ modulePath ++ ext "html"			-- allow html pages in current subdir
-                                  ]
-                                  [ path ++ "/(src/|doc-index)" ++ path				-- no source, no document index files
-                                  ]
-
-gtk2hsHome			:: String
-gtk2hsHome			= "http://www.haskell.org/" ++ gtk2hsPackage ++ "/docs/current/"
-
-gtk2hsGetPackage		:: String -> String
-gtk2hsGetPackage u
-    | gtk2hsHome `isPrefixOf` u	= gtk2hsPackage
-    | otherwise			= ""
-
-gtk2hsPackage			:: String
-gtk2hsPackage			= "gtk2hs"
-
--- ------------------------------------------------------------
-
 -- common R.E.s
 
 alternatives			:: [String] -> String
@@ -142,9 +109,6 @@ modulePath			= moduleName ++ "(-" ++ moduleName ++ ")*"
 fileName			:: String
 fileName			= "[^/?]+"
 
-path				:: String
-path                        	= "[^?]+"
-
 ext				:: String -> String
 ext                         	= ("[.]" ++)
 
@@ -152,6 +116,7 @@ packageName			:: String
 packageName			= "[A-Za-z]([A-Za-z0-9_]|-)*"
 
 packageVersion, packageVersion', packageVersion''	:: String
+
 packageVersion			= "[0-9]+([.][0-9]+)*"		-- there are package versions without sub version no
 packageVersion''		= "-" ++ packageVersion
 packageVersion'			= alternatives [packageVersion, "latest"]
@@ -174,99 +139,71 @@ hayooPackageNames crawlPars	= ( ( readDocument crawlPars hackageStartPage
 				      >>>
 				      isA (not . null)
 				    )
+{- gtk is now on hackage
 				    <+>
 				    constA gtk2hsPackage
+-}
 				  )
 				  >>. (sort >>> nub)
 
 -- ------------------------------------------------------------
+{- gtk is now on hackage
 
-hayooPackageDescr		:: [String] -> [(String, String)] -> IOSArrow b (String, (String, ([String], Bool)))
-hayooPackageDescr pkgList crawlPars
-				= pkgDescr $< ( if null pkgList
-                                                then hayooPackageNames crawlPars
-                                                else constL pkgList
-                                              )
+path				:: String
+path                        	= "[^?]+"
+
+gtk2hsStart			:: [URI]
+gtk2hsStart			= [ gtk2hsHome ++ "index.html" ]
+
+gtk2hsRefs			:: URI -> Bool
+gtk2hsRefs			= simpleFollowRef'
+				  [ gtk2hsHome ++ modulePath ++ ext "html"			-- allow html pages in current subdir
+                                  ]
+                                  [ path ++ "/(src/|doc-index)" ++ path				-- no source, no document index files
+                                  ]
+
+gtk2hsHome			:: String
+gtk2hsHome			= "http://www.haskell.org/" ++ gtk2hsPackage ++ "/docs/current/"
+
+gtk2hsGetPackage		:: String -> String
+gtk2hsGetPackage u
+    | gtk2hsHome `isPrefixOf` u	= gtk2hsPackage
+    | otherwise			= ""
+
+gtk2hsPackage			:: String
+gtk2hsPackage			= "gtk2hs"
+
+
+hayooStart			:: [URI]
+hayooStart			= hackageStart
+                                  ++
+                                  gtk2hsStart
+
+hayooRefs			:: Bool -> [String] -> URI -> Bool
+hayooRefs withDoc pkgs		= liftA2 (||) hackageRefs' gtk2hsRefs'
     where
-    pkgDescr pn			= readDocument crawlPars pkgUrl
-                                  >>>
-                                  ( ( documentStatusOk
-                                      >>>
-                                      hasAttrValue transferStatus (== "200")
-                                    )
-                                    `guards`
-                                    fromLA
-                                    ( constA pn
-                                      &&&
-                                      ( getVersionNo `withDefault` "unknown" )
-                                      &&&
-                                      ( getDepends   `withDefault` []        )
-                                      &&&
-                                      ( hasHaddock   `withDefault` False     )
-                                    )
-                                  )
-        where
-        pkgUrl			= hackagePackages ++ pn
+    hackageRefs'
+	| null pkgs		= hackageRefs withDoc pkgs
+	| null hackagePkgs	= const False
+	| otherwise		= hackageRefs withDoc hackagePkgs
+	where
+	hackagePkgs		= filter (`notElem` ["gtk2hs"]) $ pkgs
+    gtk2hsRefs'
+	| null pkgs		= gtk2hsRefs
+	| null gtk2hsPkgs	= const False
+	| otherwise		= gtk2hsRefs
+	where
+	gtk2hsPkgs		= filter (`elem` ["gtk2hs"]) $ pkgs
 
-        getProperties		:: LA XmlTree XmlTree
-        getProperties		= deep ( isElemWithAttr "table" "class" (== "properties") )
-                                  />
-                                  hasName "tr"
-
-        getProperty		:: String -> LA XmlTree XmlTree
-        getProperty kw		= getProperties
-                                  >>>
-                                  ( ( getChildren
-                                      >>>
-                                      hasName "th"
-                                      >>>
-                                      ( getChildren >>. take 1 )
-                                      >>>
-                                      hasText (match kw)
-                                    )
-                                    `guards`
-                                    ( getChildren
-                                      >>>
-                                      hasName "td"
-                                    )
-                                  )
-
-        getVersionNo		:: LA XmlTree String
-        getVersionNo		= getProperty "Version(s)?"
-                                  >>>
-                                  xshow
-                                  ( getChildren
-                                    >>>
-                                    hasName "b"
-                                    >>>
-                                    ( getChildren >>. take 1 )
-                                    >>>
-                                    isText
-                                  )
-                                         
-        getDepends		= getProperty "Dependencies"
-                                  >>>
-                                  listA
-                                  ( getChildren
-                                    >>>
-                                    hasName "a"
-                                    >>>
-                                    getChildren
-                                    >>>
-                                    getText
-                                    >>>
-                                    this -- checkPackageName
-                                  )
-                                  >>>
-                                  arr (sort >>> nub)
-
-        hasHaddock		= listA
-                                  ( deep ( isElemWithAttr "ul" "class" (== "modules") )
-                                    />
-                                    deep ( isElemWithAttr "a" "href" ( ("/packages/archive/" ++ pn ++ "/") `isPrefixOf`) )
-                                  )
-                                  >>^ (not . null)
-
+hayooGetPackage			:: String -> String
+hayooGetPackage u
+    | not . null $ hpn		= hpn
+    | not . null $ gpn		= gpn
+    | otherwise			= ""
+    where
+    hpn				= hackageGetPackage u
+    gpn				= gtk2hsGetPackage  u
+-}
 
 -- ------------------------------------------------------------
 

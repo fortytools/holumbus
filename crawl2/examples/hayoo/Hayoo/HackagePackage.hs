@@ -2,19 +2,13 @@ module Hayoo.HackagePackage
 where
 
 import		 Data.List
--- import		 Data.Maybe
 
 import           Hayoo.URIConfig
 import           Hayoo.PackageInfo
 
 import           Holumbus.Crawler.Html
--- import           Holumbus.Utility
-
--- import           Network.URI		( unEscapeString )
 
 import           Text.XML.HXT.Arrow     
--- import           Text.XML.HXT.Arrow.XmlRegex
--- import           Text.XML.HXT.XPath
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
 
 -- ------------------------------------------------------------
