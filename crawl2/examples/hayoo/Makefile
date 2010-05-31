@@ -98,13 +98,13 @@ update-pkg	: ./hayooIndexer
 
 update	:
 	@echo "update hackage cache for latest packages"
-	$(MAKE) update-cache 2> cache.out
+	$(MAKE) update-cache
 	@echo "update index with haddock doc pages of latest packages"
-	$(MAKE) update-index 2> ix.out
+	$(MAKE) update-index
 	@echo "create index for hackage packages"
-	$(MAKE) update-pkg "OPT=$(OPT) --xml-output=$(px).xml" 2> pkg.out
+	$(MAKE) update-pkg "OPT=$(OPT) --xml-output=$(px).xml"
 	@echo look at the following files
-	@ls -l *.new *.out
+	@ls -altr $(ixn)* $(pxn)*
 	@echo if no faults occurred, exec "make new2cur" to make the new index the current one
 
 
