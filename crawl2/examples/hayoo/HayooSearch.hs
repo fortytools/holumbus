@@ -25,7 +25,8 @@ import Hayoo.Search.Application
 
 import Holumbus.Index.Common
 
-import Text.XML.HXT.Arrow 		hiding (app)
+import Text.XML.HXT.Arrow
+import Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( sed )
 
 import Hack.Handler.SimpleServer
 
@@ -71,15 +72,35 @@ loadTemplate 	:: FilePath -> IO XmlTree
 loadTemplate f 	= do
                   tpl <- runX $ readDocument [ (a_parse_html,v_1)
                                              , (a_indent,v_1)
-                                             , (a_trace,v_1)
+                                             , (a_trace,v_0)
                                              ] f
                   if L.null tpl
                     then error "Unable to read template"
                     else return $ head tpl
 
+contentEdit     :: (String -> String) -> FilePath -> IO ()
+contentEdit ef f
+    = do
+      h <- openFile f ReadMode
+      c <- hGetContents h
+      b <- openFile (f ++ "~") WriteMode        -- make backup file
+      hPutStr b c
+      hClose b
+      hClose h
+      h' <- openFile f WriteMode
+      hPutStr h' (ef c)
+      hClose h'
+
+editNoOfFctPkg		:: Int -> Int -> FilePath -> IO ()
+editNoOfFctPkg n p	= contentEdit (insFct . insPkg)
+    where
+    insPkg		= sed (const $ "currently " ++ show p ++ " packages") "currently( )+[0-9]+( )+packages"
+    insFct		= sed (const $ fmt n ++ " function and type") "[0-9]+[.][0-9]+( )+function and type"
+    fmt			= show >>> reverse >>> splitAt 3 >>> (\ (x, y) -> x ++ "." ++ y) >>> reverse
+
 ixBase, wwwBase	:: String -> String
 ixBase		= ("./" ++)
-wwwBase		= ("../../../searchengine/examples/hayoo/wwwpages/" ++)
+wwwBase		= ("./" ++)	-- ("../../../searchengine/examples/hayoo/wwwpages/" ++)
 
 -- | The main application, fire up the FastCGI handler here!
 main 		:: IO ()
@@ -90,11 +111,26 @@ main 		= do
                   updateGlobalLogger rootLoggerName (setHandlers [fdl, sdl])
                   updateGlobalLogger rootLoggerName (setLevel INFO)
 
-                  idx  <- loadIndex     $ ixBase  "ix.bin.idx"
-                  doc  <- loadDocuments $ ixBase  "ix.bin.doc"
-                  pidx <- loadIndex     $ ixBase  "pkg.bin.idx"
-                  pdoc <- loadPkgDocs   $ ixBase  "pkg.bin.doc"
-                  tpl  <- loadTemplate  $ wwwBase "hayoo.html"
+                  idx  <- loadIndex     hayooIndex
+                  infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
+
+                  doc  <- loadDocuments hayooDocs
+                  infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
+                  infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs doc) ++ " functions and types")
+
+                  pidx <- loadIndex     hackageIndex
+                  infoM "Hayoo.Main" ("Hackage index loaded from file " ++ show hackageIndex)
+
+                  pdoc <- loadPkgDocs   hackageDocs
+                  infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
+                  infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
+
+                  tpl  <- loadTemplate  templ
+                  infoM "Hayoo.Main" ("Template loaded from file "      ++ show templ)
+
+                  editNoOfFctPkg (sizeDocs doc) (sizeDocs pdoc) "hayoo.html"
+                  infoM "Hayoo.Main" ("Start page \"hayoo.html\" updated with # of functions")
+
 
                   midct <- newMVar $
                            Core
@@ -105,10 +141,16 @@ main 		= do
                            , template 	= tpl
                            }
 
-                  app <- return $
+                  apl <- return $
                          url_map [ ("/hayoo.html", hayooApplication midct)
                                  , ("/hayoo.json", hayooApplication midct)
                                  ] (file Nothing empty_app)
-                  run 4242 $ app
+                  run 4242 $ apl
+  where
+  hayooIndex	= ixBase  "ix.bin.idx"
+  hayooDocs     = ixBase  "ix.bin.doc"
+  hackageIndex	= ixBase  "pkg.bin.idx"
+  hackageDocs   = ixBase  "pkg.bin.doc"
+  templ 	= wwwBase "hayoo.html"
 
 -- ----------------------------------------------------------------------------

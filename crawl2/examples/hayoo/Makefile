@@ -20,7 +20,7 @@ pxn	= new-$(px)
 
 src	= $(wildcard Hayoo/*.hs)
 
-progs	= ./hayooIndexer
+progs	= ./hayooIndexer search/hayooSearch
 
 GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source:../../../searchengine/examples/hayoo/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
 
@@ -33,7 +33,7 @@ all	: $(progs)
 ./hayooIndexer	: HayooIndexer.hs $(src)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
-./hayooSearch	: HayooSearch.hs $(src)
+search/hayooSearch	: HayooSearch.hs $(src)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
 force	:
@@ -113,7 +113,7 @@ load-cache	: ./hayooIndexer
 	@echo use "make load-cache packages=pack1,pack2,pack3" to specify the packages 
 	./$< +RTS -N$(N) -s -K100M -RTS --cache --valid=$(valid) --packages=$(packages) --xml-output=-
 
-new2cur	: $(ix).new $(px).new
+new2cur	: $(ixn).doc $(ixn).idx $(pxn).doc $(pxn).idx
 	mv -f $(ix) $(ix)~
 	mv -f $(px) $(px)~
 	mv    $(ixn)     $(ix)
@@ -125,6 +125,9 @@ new2cur	: $(ix).new $(px).new
 	mv    $(pxn).idx $(px).idx
 	mv    $(pxn).xml $(px).xml
 	rm -f tmp/pkg*
+
+install-index	: $(ix).doc $(ix).idx $(px).doc $(px).idx
+	cp -v $(ix).doc $(ix).idx $(px).doc $(px).idx search
 
 clean	:
 	rm -f *.o *.hi $(progs) *.out
