@@ -1,4 +1,4 @@
 :set -ignore-package crawl2 -ignore-package Holumbus-Searchengine
-:set -i../../src:../../../searchengine/source
+:set -i.:../../src:../../../searchengine/source:../../../searchengine/examples/hayoo/source
 :set -Wall
 :load HayooIndexer

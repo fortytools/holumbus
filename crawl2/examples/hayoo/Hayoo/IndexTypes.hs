@@ -7,6 +7,9 @@ module Hayoo.IndexTypes
     , Document
     , Documents
     , SmallDocuments
+    , FunctionInfo(..)
+    , PackageInfo(..)
+
     , docTable2smallDocTable
     )
 where

@@ -4,6 +4,7 @@ DAYS	= 10
 packages	= hxt,hxt-filter,hxt-binary,hxt-cache
 latest	= 7days
 valid	= 1hour
+validix	= 1month
 threads = 1
 
 # threads = 1 means no parallel indexing but merging of partial indexes as a binary merge
@@ -14,6 +15,8 @@ threads = 1
 
 ix	= ix.bin
 px	= pkg.bin
+ixn	= new-$(ix)
+pxn	= new-$(px)
 
 src	= $(wildcard Hayoo/*.hs)
 
@@ -51,22 +54,30 @@ whole-index	: ./hayooIndexer
 	@echo 'the result index is "$(ix)"'
 	@echo "the computation is done in 3 steps to prevent use of too much main memory"
 	@echo "preparing and writing the compressed index requires most of the runtime"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --new-index=$(ix)-05000 $(OPTS)
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --valid=$(validix) --new-index=$(ix)-05000 $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --valid=$(validix) --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
+
+whole-index1	: ./hayooIndexer
+	@echo "build an index of all haddock pages on hackage in a single run"
+	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
+	@echo 'the result index is "$(ix)"'
+	@echo "the computation is done in 1 single run"
+	@echo "preparing and writing the compressed index requires most of the runtime"
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
 
 whole-pkg	: ./hayooIndexer
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)", an XML version is stored in "$(px).xml" 
-	./$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --maxpar=5000 --new-index=$(px) --xml-output=$(px).xml --new-search=$(px) $(OPTS)
+	./$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --maxpar=5000 --valid=$(validix) --new-index=$(px) --xml-output=$(px).xml --new-search=$(px) $(OPTS)
 
 whole	:
 	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
-	$(MAKE) whole-cache 2> cache.out
+	$(MAKE) whole-cache 2> whole-cache.out
 	@echo "create index for all haddock pages"
-	$(MAKE) whole-index 2> ix.out
+	$(MAKE) whole-index 2> whole-ix.out
 	@echo "create index for hackage packages, this needs just a few minutes, output is $(px), xml output pkg.xml, log file is pkg.out"
-	$(MAKE) whole-pkg 2> pkg.out
+	$(MAKE) whole-pkg 2> whole-pkg.out
 	@echo look at the following files
 	@ls -l *.bin *.out
 
@@ -78,12 +89,12 @@ update-cache	: ./hayooIndexer
 
 update-index	: ./hayooIndexer
 	@echo update an existing hayoo index with all packages uploaded to hackage within the last $(latest)
-	@echo existing index is "$(ix)", result index is "$(ix).new"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --latest=$(latest) --defragment --index=$(ix) --new-index=$(ix).new  --new-search=$(ix).new
+	@echo existing index is "$(ix)", result index is "$(ixn)"
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --latest=$(latest) --defragment --index=$(ix) --new-index=$(ixn)  --new-search=$(ixn)
 
 update-pkg	: ./hayooIndexer
 	@echo updating a package index is not neccessary, the complete index is ready within a minute
-	$(MAKE) whole-pkg px=$(px).new
+	$(MAKE) whole-pkg px=$(pxn)
 
 update	:
 	@echo "update hackage cache for latest packages"
@@ -105,14 +116,14 @@ load-cache	: ./hayooIndexer
 new2cur	: $(ix).new $(px).new
 	mv -f $(ix) $(ix)~
 	mv -f $(px) $(px)~
-	mv    $(ix).new     $(ix)
-	mv    $(ix).new.doc $(ix).doc
-	mv    $(ix).new.idx $(ix).idx
+	mv    $(ixn)     $(ix)
+	mv    $(ixn).doc $(ix).doc
+	mv    $(ixn).idx $(ix).idx
 	rm -f tmp/ix*
-	mv    $(px).new     $(px)
-	mv    $(px).new.doc $(px).doc
-	mv    $(px).new.idx $(px).idx
-	mv    $(px).new.xml $(px).xml
+	mv    $(pxn)     $(px)
+	mv    $(pxn).doc $(px).doc
+	mv    $(pxn).idx $(px).idx
+	mv    $(pxn).xml $(px).xml
 	rm -f tmp/pkg*
 
 clean	:

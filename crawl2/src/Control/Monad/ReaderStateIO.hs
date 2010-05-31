@@ -25,7 +25,7 @@ instance Monad (ReaderStateIO env state) where
 	= RSIO $ \ e s -> do
 			  (r', s') <- cmd e s
 			  let RSIO cmd2 = f r'
-			  cmd2 e s'
+			  s' `seq` cmd2 e s'
 
 instance MonadIO (ReaderStateIO env state) where
     liftIO a
