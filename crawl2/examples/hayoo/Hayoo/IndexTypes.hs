@@ -9,11 +9,13 @@ module Hayoo.IndexTypes
     , SmallDocuments
     , FunctionInfo(..)
     , PackageInfo(..)
+    , Score
 
     , docTable2smallDocTable
     )
 where
 
+import           Control.Arrow
 import           Control.DeepSeq
 
 import           Data.Binary
@@ -31,6 +33,8 @@ import		 Hayoo.PackageRank
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
 
+import qualified Holumbus.Data.PrefixTree       as PT
+
 import           Holumbus.Index.Common		( Document(..)
                                                 , Occurrences
 						, toList, fromList
@@ -45,6 +49,9 @@ import           Holumbus.Index.CompactSmallDocuments
     						( SmallDocuments(..)
                                                 , docTable2smallDocTable
                                                 )
+
+import           Holumbus.Query.Result		( Score )
+
 -- import           Debug.Trace
 
 -- ------------------------------------------------------------
@@ -210,6 +217,22 @@ traceNothing d
     | isJust . custom $ d	= d
     | otherwise			= traceShow d $ d
 -}
+
+-- ------------------------------------------------------------
+
+type RankTable			= PT.PrefixTree Score
+
+lookupRankTable			:: String -> RankTable -> Score
+lookupRankTable p		= fromMaybe 1.0 . PT.lookup p
+
+buildRankTable			:: SmallDocuments PackageInfo -> RankTable
+buildRankTable			= toMap
+				  >>> IM.elems
+				  >>> map ( custom
+					    >>> fromJust
+					    >>> (p_name &&& p_rank)
+					  )
+				  >>> PT.fromList 
 
 -- ------------------------------------------------------------
 

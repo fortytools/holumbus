@@ -15,3 +15,5 @@ ix.bin-*
 Test
 cache.xml
 hayooSearch
+new-ix.bin*
+new-pkg.bin*

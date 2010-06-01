@@ -10,6 +10,8 @@ import           Control.DeepSeq
 import           Data.Binary                    ( Binary(..) )
 import qualified Data.Binary                    as B
 
+import           Holumbus.Query.Result		( Score )
+
 import		 Text.XML.HXT.Arrow
 
 -- ------------------------------------------------------------
@@ -31,14 +33,14 @@ data PackageInfo 		= PackageInfo
 				  , p_homepage		:: String		-- ^ The home page
                                   , p_synopsis		:: String		-- ^ The synopsis
 				  , p_description	:: String		-- ^ The description of the package
-                                  , p_rank		:: Double		-- ^ The ranking
+                                  , p_rank		:: Score		-- ^ The ranking
 				  } 
 				  deriving (Show, Eq)
 
 mkPackageInfo 			:: String -> String -> [String] -> String -> String -> String -> String -> String -> String -> PackageInfo
 mkPackageInfo n v d a m c h y s	= PackageInfo n v (unwords d) a m c h y s 1.0
 
-setPackageRank			:: Double -> PackageInfo -> PackageInfo
+setPackageRank			:: Score -> PackageInfo -> PackageInfo
 setPackageRank !r p		= p { p_rank = r }
 
 getPackageName			:: PackageInfo -> String

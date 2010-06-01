@@ -66,11 +66,12 @@ import Hayoo.Search.HTML
 import Hayoo.Parser
 
 data Core 		= Core
-  			  { index 	:: CompactInverted
-                          , documents 	:: SmallDocuments FunctionInfo
-                          , pkgIndex 	:: CompactInverted
-                          , pkgDocs 	:: SmallDocuments PackageInfo
-                          , template 	:: Template
+  			  { index 	:: !  CompactInverted
+                          , documents 	:: ! (SmallDocuments FunctionInfo)
+                          , pkgIndex 	:: !  CompactInverted
+                          , pkgDocs 	:: ! (SmallDocuments PackageInfo)
+                          , template 	:: !  Template
+			  , packRank	:: !  RankTable
                           }
 
 -- | Weights for context weighted ranking.
@@ -84,18 +85,6 @@ contextWeights 		= [ ("name", 0.9)
                           , ("description", 0.2)
                           , ("normalized", 0.1)
                           ]
-
--- | Mutliplier for score when result is from "base" package.
-factBase :: Score
-factBase = 1.5
-
--- | Mutliplier for score when result is from "Prelude" module.
-factPrelude :: Score
-factPrelude = 2.0
-
--- | Multiplier for score when result is an exact match.
-factExact :: Score
-factExact = 3.0
 
 -- | Generate the actual response
 hayooApplication :: MVar Core -> Env -> IO Response
@@ -258,41 +247,93 @@ logRequest env = do
                         )
 
 -- | Customized Hayoo! ranking function. Preferres exact matches and matches in Prelude and base.
-hayooRanking :: [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
-hayooRanking ws ts _ di dch = baseScore
-                            * factModule
-                            * (if isInPrelude then factPrelude else 1.0)
-                            * (if isExactMatch then factExact else 1.0)
-                            * (if isInBase then factBase else 1.0)
+hayooRanking 		:: RankTable -> [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
+hayooRanking rt ws ts _ di dch
+			= baseScore
+                          * factModule
+			  * factPackage
+			  * factPrelude
+                          * factExactMatch
   where
-  baseScore = M.foldWithKey calcWeightedScore 0.0 dch
-  isExactMatch = L.foldl' (\r t -> t == (title $ document di) || r) False ts
-  isInPrelude = maybe False (\fi -> (moduleName fi) == "Prelude") (custom $ document di)
-  isInBase = maybe False (\fi -> (package fi) == "base") (custom $ document di)
-  factModule = maybe 1.0 (\fi -> 1.0 / (fromIntegral $ length $ split "." $ moduleName fi)) (custom $ document di)
-  calcWeightedScore :: Context -> DocWordHits -> Score -> Score
-  calcWeightedScore c h r = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
+  fctInfo		= custom $ document di
+
+  baseScore		= M.foldWithKey calcWeightedScore 0.0 dch
+
+  factExactMatch	= L.foldl' (\r t -> t == (title $ document di) || r) False
+                          >>> fromEnum
+                          >>> (+ 1)
+                          >>> fromIntegral
+                          >>> (* 4.0)
+                          $ ts
+
+  factPrelude		= fmap ( moduleName
+                                 >>> (== "Prelude")
+                                 >>> fromEnum
+                                 >>> (+ 1)
+                                 >>> fromIntegral
+                                 >>> (* 2.0)
+                               )
+                          >>> fromMaybe 1.0
+                          $ fctInfo
+
+  factPackage		= fmap ( package
+                                 >>> flip lookupRankTable rt
+                               )
+                          >>> fromMaybe 1.0
+                          $ fctInfo
+
+  factModule		= fmap ( moduleName
+                                 >>> split "."
+                                 >>> length
+                                 >>> fromIntegral
+                                 >>> (1.0 /)
+                               )
+                          >>> fromMaybe 1.0
+                          $ fctInfo
+
+  calcWeightedScore 	:: Context -> DocWordHits -> Score -> Score
+  calcWeightedScore c h r
+			= maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
     where
-    count = fromIntegral $ M.fold ((+) . IS.size) 0 h
-    mw = snd $ L.maximumBy (compare `on` snd) ws
-    lookupWeight [] = Nothing
+    count 		= fromIntegral $ M.fold ((+) . IS.size) 0 h
+    mw 			= snd $ L.maximumBy (compare `on` snd) ws
+    lookupWeight [] 	= Nothing
     lookupWeight (x:xs) = if fst x == c then
                             if snd x /= 0.0
                             then Just (snd x)
                             else Nothing
                           else lookupWeight xs
 
+{- old stuff
+
+
 -- | This is the core arrow where the request is finally processed.
 genResult :: ArrowXml a => a (Query, Core) StatusResultFct
 genResult = ifP (\(q, _) -> checkWith isEnough q)
               (proc (q, idc) -> do
                 res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
-                cfg <- (arr $ (\q' -> RankConfig (hayooRanking contextWeights (extractTerms q')) wordRankByCount)) -< q
+                cfg <- (arr $ (\q' -> RankConfig (hayooRanking undefined contextWeights (extractTerms q')) wordRankByCount)) -< q
                 rnk <- (arr $ rank cfg)            -<< res -- Rank the results
                 (arr $ (\r -> (msgSuccess r, r, genModules r, genPackages r))) -< rnk -- Include a success message in the status
               )
               -- Tell the user to enter more characters if the search terms are too short.
               (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult, [], [])))
+
+-}
+
+-- | This is the core arrow where the request is finally processed.
+genResult		:: ArrowXml a => a (Query, Core) StatusResultFct
+genResult		= arr $ uncurry genResult'
+
+genResult'		:: Query -> Core -> StatusResultFct
+genResult' q idc
+    | checkWith isEnough q
+			= let res = curry makeQuery q idc in
+			  let cfg = RankConfig (hayooRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount in
+			  let rnk = rank cfg res in
+			  (msgSuccess rnk, rnk, genModules rnk, genPackages rnk)	-- Include a success message in the status
+
+    | otherwise		= ("Please enter some more characters.", emptyResult, [], [])
 
 isEnough 		:: String -> Bool
 isEnough (c:[]) 	= not (isAlpha c)

@@ -29,7 +29,7 @@ hayooGetFctInfo			= ( getAttrValue "module"
 				    getAttrValue "source"
 				    &&&
 				    ( fromLA $
-				      getAllText (deep $ hasTDClass (== "doc")) >>^ limitLength 128
+				      getAllText (deep $ hasTDClass (== "doc")) >>^ limitLength 80
 				    )
 				  )
 				  >>^
@@ -37,7 +37,7 @@ hayooGetFctInfo			= ( getAttrValue "module"
 
 hayooGetTitle			:: IOSArrow XmlTree String
 hayooGetTitle			= fromLA $
-				  getAttrValue "module"
+				  getAttrValue "title"
 
 -- ------------------------------------------------------------
 

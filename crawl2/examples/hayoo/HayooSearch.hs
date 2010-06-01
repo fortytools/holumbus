@@ -125,12 +125,14 @@ main 		= do
                   infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
                   infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
 
-                  tpl  <- loadTemplate  templ
-                  infoM "Hayoo.Main" ("Template loaded from file "      ++ show templ)
-
                   editNoOfFctPkg (sizeDocs doc) (sizeDocs pdoc) "hayoo.html"
                   infoM "Hayoo.Main" ("Start page \"hayoo.html\" updated with # of functions")
 
+                  prnk <- return $ buildRankTable pdoc
+                  infoM "Hayoo.Main" ("Hackage package rank table computed")
+
+                  tpl  <- loadTemplate  templ
+                  infoM "Hayoo.Main" ("Template loaded from file "      ++ show templ)
 
                   midct <- newMVar $
                            Core
@@ -139,6 +141,7 @@ main 		= do
                            , pkgIndex	= pidx
                            , pkgDocs	= pdoc
                            , template 	= tpl
+			   , packRank   = prnk
                            }
 
                   apl <- return $
