@@ -33,10 +33,9 @@ import qualified Data.ByteString.UTF8 as B
 
 import Data.ByteString.Lazy.Char8 (pack)
 
-import Network.URI (unEscapeString)
+import Network.CGI (urlEncode, urlDecode)
 
 import Text.XML.HXT.Arrow
-import Text.XML.HXT.DOM.Unicode
 
 import Holumbus.Index.Inverted.CompressedPrefixMem
        ( InvertedOSerialized
@@ -179,13 +178,6 @@ readM s = case reads s of
             [(x, "")] -> return x
             _         -> fail "No parse"
 
--- | Proper URL decoding including substitution of "the annoying +" (tm)
-urlDecode :: String -> String
-urlDecode = unEscapeString . replaceElem '+' ' '
-
-replaceElem :: Eq a => a -> a -> [a] -> [a]
-replaceElem x y = map (\z -> if z == x then y else z)
-
 -- | Perform some postprocessing on the status and the result.
 arrFilterStatusResult :: ArrowXml a => a StatusResult StatusResult
 arrFilterStatusResult = arr $ (\(s, r, m, p) -> (s, filterResult r, m, p))
@@ -194,13 +186,7 @@ arrFilterStatusResult = arr $ (\(s, r, m, p) -> (s, filterResult r, m, p))
 
 -- | Tries to parse the search string and returns either the parsed query or an error message.
 arrParseQuery :: ArrowXml a => a (String, Core) (Either (String, Core) (Query, Core))
-arrParseQuery =  (first (arr decode))
-                 >>>
-                 (arr $ (\(r, idc) -> either (\m -> Left (m, idc)) (\q -> Right (q, idc)) (parseQuery r)))
-
--- | Decode any URI encoded entities and transform to unicode.
-decode :: String -> String
-decode = fst . utf8ToUnicode . urlDecode
+arrParseQuery = (arr $ (\(r, idc) -> either (\m -> Left (m, idc)) (\q -> Right (q, idc)) (parseQuery r)))
 
 -- | Log a request to stdout.
 logRequest :: Env -> IO ()
@@ -210,8 +196,6 @@ logRequest env = do
   rawRequest <- return $ getValDef (params env) "query" ""
   start      <- return $ getValDef (params env) "start" "0"
   userAgent  <- return $ getValDef (http env) "User-Agent" "No user agent"
-  -- Decode URI encoded entities in the search string.
-  decodedRequest <- return $ decode rawRequest
   -- Get the current date and time.
   unixTime <- getClockTime
   currTime <- return $ calendarTimeToString $ toUTCTime unixTime
@@ -219,8 +203,7 @@ logRequest env = do
   infoM "Hayoo.Request" (currTime ++ "\t" ++
                          remHost ++ "\t "++
                          userAgent ++ "\t" ++
-                         rawRequest ++ "\t" ++
-                         decodedRequest ++ "\t" ++
+                         (urlEncode rawRequest) ++ "\t" ++
                          start
                         )
 
