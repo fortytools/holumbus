@@ -27,6 +27,10 @@ function checkForInitialQuery() {
 }
 */
 
+Event.observe(window, 'load', function() {
+  $("querytext").focus();
+});
+
 function checkForQuery () {
   if (lastLocation != window.location.hash) {
     lastLocation = window.location.hash;
