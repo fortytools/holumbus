@@ -29,7 +29,7 @@ hayooGetFctInfo			= ( getAttrValue "module"
 				    getAttrValue "source"
 				    &&&
 				    ( fromLA $
-				      getAllText (deep $ hasTDClass (== "doc")) >>^ limitLength 80
+				      getAllText (deep $ hasTDClass (== "doc")) -- no limitation of description text but (TODO) still no markup -- >>^ limitLength 80
 				    )
 				  )
 				  >>^
