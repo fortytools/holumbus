@@ -26,7 +26,6 @@ import Hayoo.Search.Application
 import Holumbus.Index.Common
 
 import Text.XML.HXT.Arrow
-import Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch	( sed )
 
 import Hack.Handler.SimpleServer
 
@@ -68,35 +67,40 @@ loadPkgDocs 	= loadFromFile
 
 -- | Load the template.
 
-loadTemplate 	:: FilePath -> IO XmlTree
-loadTemplate f 	= do
-                  tpl <- runX $ readDocument [ (a_parse_html,v_1)
-                                             , (a_indent,v_1)
-                                             , (a_trace,v_0)
-                                             ] f
+loadTemplate 	:: Int -> Int -> FilePath -> IO XmlTree
+loadTemplate fcnt pcnt f
+	 	= do
+                  tpl <- runX
+                         ( readDocument [ (a_parse_html,v_1)
+                                        , (a_indent,v_1)
+                                        , (a_trace,v_0)
+                                        ] f
+                           >>>
+                           processTopDownUntil				-- insert # of functions and # of packages into start page
+                           ( ( hasAttrValue "id" (== "no-of-functions")
+                               `guards`
+                               txt (showCnt fcnt)
+                             )
+                             `orElse`
+                             ( hasAttrValue "id" (== "no-of-packages")
+                               `guards`
+                               txt (showCnt pcnt)
+                             )
+                           )
+                         )
                   if L.null tpl
                     then error "Unable to read template"
                     else return $ head tpl
 
-contentEdit     :: (String -> String) -> FilePath -> IO ()
-contentEdit ef f
-    = do
-      h <- openFile f ReadMode
-      c <- hGetContents h
-      b <- openFile (f ++ "~") WriteMode        -- make backup file
-      hPutStr b c
-      hClose b
-      hClose h
-      h' <- openFile f WriteMode
-      hPutStr h' (ef c)
-      hClose h'
-
-editNoOfFctPkg		:: Int -> Int -> FilePath -> IO ()
-editNoOfFctPkg n p	= contentEdit (insFct . insPkg)
+showCnt		:: Int -> String
+showCnt		= show >>> fmtCnt
     where
-    insPkg		= sed (const $ "currently " ++ show p ++ " packages") "currently( )+[0-9]+( )+packages"
-    insFct		= sed (const $ fmt n ++ " function and type") "[0-9]+[.][0-9]+( )+function and type"
-    fmt			= show >>> reverse >>> splitAt 3 >>> (\ (x, y) -> x ++ "." ++ y) >>> reverse
+    fmtCnt	= reverse >>> insDot >>> reverse
+    insDot s
+        | null y	= s
+        | otherwise	= x ++ "." ++ insDot y
+        where
+        (x , y) = splitAt 3 s
 
 ixBase, wwwBase	:: String -> String
 ixBase		= ("./" ++)
@@ -125,13 +129,10 @@ main 		= do
                   infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
                   infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
 
-                  editNoOfFctPkg (sizeDocs doc) (sizeDocs pdoc) "hayoo.html"
-                  infoM "Hayoo.Main" ("Start page \"hayoo.html\" updated with # of functions")
-
                   prnk <- return $ buildRankTable pdoc
                   infoM "Hayoo.Main" ("Hackage package rank table computed")
 
-                  tpl  <- loadTemplate  templ
+                  tpl  <- loadTemplate (sizeDocs doc) (sizeDocs pdoc) templ
                   infoM "Hayoo.Main" ("Template loaded from file "      ++ show templ)
 
                   midct <- newMVar $
