@@ -29,7 +29,13 @@ hayooGetFctInfo			= ( getAttrValue "module"
 				    getAttrValue "source"
 				    &&&
 				    ( fromLA $
-				      getAllText (deep $ hasTDClass (== "doc")) -- no limitation of description text but (TODO) still no markup -- >>^ limitLength 80
+				      xshow (deep (hasTDClass (== "doc")
+						   >>>
+						   getChildren
+						   >>>
+						   editDescrMarkup
+						  )
+					    )
 				    )
 				  )
 				  >>^
@@ -38,6 +44,12 @@ hayooGetFctInfo			= ( getAttrValue "module"
 hayooGetTitle			:: IOSArrow XmlTree String
 hayooGetTitle			= fromLA $
 				  getAttrValue "title"
+
+editDescrMarkup			:: LA XmlTree XmlTree
+editDescrMarkup			= processTopDown
+				  ( remHref `when` hasName "a" )
+    where
+    remHref			= processAttrl (none `when` hasName "href")
 
 -- ------------------------------------------------------------
 

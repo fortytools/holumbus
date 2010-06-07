@@ -196,48 +196,51 @@ xpDocInfoHtml	 	= xpWrap (undefined, docToHtml) $
       -- pkgLink "gtk2hs" 	= "http://www.haskell.org/gtk2hs"
       pkgLink p' 		= "http://hackage.haskell.org/package/" ++ p'
 
-  xpQualified 		= xpElemClass "tr" "function" $
-                          xpTriple xpModule
-                                   xpFunction
-                                   xpSignature
+  xpQualified 			= xpElemClass "tr" "function" $
+                        	  xpTriple xpModule
+                        	           xpFunction
+                        	           xpSignature
     where
-    xpModule 		= xpCell "module" $
-                          xpLink "module" xpText (xpAppend "." $ xpText)
-    xpFunction 		= xpCell "name" $
-                          xpElemClass "a" "function" $
-                          xpTriple (xpAttr "href" xpText)
-                                   (xpAttr "title" xpText)
-                                   xpText
-    xpSignature 	= xpCell "signature" $
-                          xpPrepend ":: " xpSigDecl
-  xpAdditional 		= xpElemClass "tr" "details" $
-                          xpPair xpPackage
-                                 xpDescSrc
+    xpModule 			= xpCell "module" $
+                        	  xpLink "module" xpText (xpAppend "." $ xpText)
+    xpFunction 			= xpCell "name" $
+                        	  xpElemClass "a" "function" $
+                        	  xpTriple (xpAttr "href" xpText)
+                        	           (xpAttr "title" xpText)
+                        	           xpText
+    xpSignature 		= xpCell "signature" $
+                        	  xpPrepend ":: " xpSigDecl
+  xpAdditional 			= xpElemClass "tr" "details" $
+                        	  xpPair xpPackage
+                        	         xpDescSrc
     where
-    xpPackage 		= xpCell "package" $
-                          xpLink "package" xpText xpText
-    xpDescSrc 		= xpCell "description" $
-                          xpAddFixedAttr "colspan" "2" $
-                          xpElem "div" $
-                          xpPair xpDescription
-                                 xpSource
-    xpDescription 	= xpWrap (undefined, limitDescription) $
-                          xpPair xpUnfoldLink
-                                 (xpElemClass "span" "description" xpText)
-    xpUnfoldLink 	= xpElemClass "a" "toggleFold" $
-                          xpAddFixedAttr "onclick" "toggleFold(this);" $
-                          xpText
-    xpSource 		= xpOption $
-                          xpElemClass "span" "source" $
-                          xpElemClass "a" "source" $
-                          xpAppend "Source" $
-                          xpAttr "href" $
-                          xpText
-    limitDescription 	= maybe ("+", "No description. ") (\d -> ("+", d))
+    xpPackage 			= xpCell "package" $
+                        	  xpLink "package" xpText xpText
+    xpDescSrc 			= xpCell "description" $
+                        	  xpAddFixedAttr "colspan" "2" $
+                        	  xpElem "div" $
+                        	  xpPair xpDescription
+                        	         xpSource
+    xpDescription 		= xpWrap (undefined, limitDescription) $
+                        	  xpPair xpUnfoldLink
+                        	         (xpWrap (undefined, runLA xread) $
+					  xpElemClass "span" "description"$
+					  xpTrees
+					 )
+    xpUnfoldLink 		= xpElemClass "a" "toggleFold" $
+                        	  xpAddFixedAttr "onclick" "toggleFold(this);" $
+                        	  xpText
+    xpSource 			= xpOption $
+                        	  xpElemClass "span" "source" $
+                        	  xpElemClass "a" "source" $
+                        	  xpAppend "Source" $
+                        	  xpAttr "href" $
+                        	  xpText
+    limitDescription 		= maybe ("+", "No description. ") (\d -> ("+", d))
 
-xpLink 			:: String -> PU String -> PU String -> PU (String, String)
-xpLink c pa pb 		= xpElemClass "a" c $
-                          xpPair (xpAttr "href" pa) pb
+xpLink 				:: String -> PU String -> PU String -> PU (String, String)
+xpLink c pa pb 			= xpElemClass "a" c $
+                        	  xpPair (xpAttr "href" pa) pb
 
 data Signature 			= Signature String
                         	| Declaration String
