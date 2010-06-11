@@ -23,6 +23,8 @@ module Hayoo.Search.HTML
     )
 where
 
+import           Char (toLower)
+import           Data.Maybe
 import           Data.Function
 import qualified Data.IntMap 		as IM
 import qualified Data.List 		as L
@@ -39,22 +41,59 @@ import           Hayoo.IndexTypes
 import           Hayoo.Search.Common
 
 data PickleState 	= PickleState
-    			  { psQuery    :: String
+    			                { psQuery    :: String
                           , psStart    :: Int
                           , psStatic   :: Bool
                           , psTemplate :: Template
                           }
 
+pageLimit 			:: Int
+pageLimit 			= 10
+
+maxWordHits :: Int
+maxWordHits = 50
+
 staticRoot 		:: String
 staticRoot 		= "hayoo.html"
 
+wrapMaybe :: [a] -> Maybe [a]
+wrapMaybe [] = Nothing
+wrapMaybe xs = Just xs
+
+wrapMaybePair :: ([a], [b]) -> Maybe ([a], [b])
+wrapMaybePair ([], []) = Nothing
+wrapMaybePair p = Just p
+
 -- | The combined pickler for the status response and the result.
-xpStatusResult 		:: PickleState -> PU StatusResultFct
+xpStatusResult 		:: PickleState -> PU StatusResult
 xpStatusResult ps 	= xpDivId "result" $
-                          xpWrap (undefined, \(s, r, m, p) -> (s, (m, p), r)) $
-                          xpTriple xpStatus xpAggregation (xpResultHtml ps)
+                          xpWrap (undefined, \(s, r, h, m, p) -> (s, h, (m, p), r, "", total r h)) $
+                          xp6Tuple xpStatus (xpHackage ps) xpAggregation (xpResultHtml ps) xpClear (xpPager ps (psStart ps))
+
   where
-  xpAggregation 	= xpDivId "aggregation" $ xpPair (xpModules ps) (xpPackages ps) 
+  total r h       = max (sizeDocHits r) (sizeDocHits h)
+  xpAggregation 	= xpWrap (undefined, wrapMaybePair) $ xpOption $ xpDivId "aggregation" $ xpPair (xpModules ps) (xpPackages ps)
+  xpClear         = xpElemClass "div" "clear" xpText0 
+
+-- | The Hackage hits (i.e. packages)
+xpHackage :: PickleState -> PU (Result PackageInfo)
+xpHackage ps = xpWrap (undefined, extractPackages) $ xpOption $ xpDivId "hackage" $ xpList $ xpPackageInfo ps
+  where
+  extractPackages = wrapMaybe . take pageLimit . drop (psStart ps) . (mapMaybe (\(_, (di, _)) -> custom $ document di)) . 
+                    reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList . docHits
+
+xpPackageInfo :: PickleState -> PU PackageInfo
+xpPackageInfo _ = xpElemClass "div" "package" $ xpWrap (undefined, extractComponents) $ xp4Tuple xpCategory xpNameSynopsis xpDescription xpAuthor
+  where
+  extractComponents p = (p_category p, (p_name p, p_synopsis p), p_description p, p_author p)
+  xpCategory = xpElemClass "div" "category" $ xpElemClass "a" "category" $ xpDuplicate $ xpPair xpCategoryLink xpText0
+  xpNameSynopsis = xpElemClass "div" "name" $ xpPair (xpElemClass "a" "name" $ xpDuplicate $ xpPair xpHackageLink xpText0) (xpElemClass "span" "synopsis" $ xpPrepend ": " xpText0)
+  xpDescription = xpElemClass "div" "description" xpText0
+  xpAuthor = xpElemClass "div" "author" xpText0
+  xpHackageLink = xpAttr "href" $ xpPrepend "http://hackage.haskell.org/package/" xpText0
+  xpCategoryLink = xpAttr "href" $ xpWrap (undefined, \c -> "http://hackage.haskell.org/packages/archive/pkg-list.html#cat:" ++ map toLower c) xpText0
+
+-- xpElemClass "a" "category" $ xpDuplicate $ xpPair (xpPrepend "http://hackage.haskell.org/packages/archive/pkg-list.html#cat:" xpText)
 
 -- | The aggregated modules list.
 xpModules 		:: PickleState -> PU [(String, Int)]
@@ -113,9 +152,7 @@ xpStatus 		= xpDivId "status" xpText
 
 -- | The HTML Result pickler. Extracts the maximum word score for proper scaling in the cloud.
 xpResultHtml 		:: PickleState -> PU (Result FunctionInfo)
-xpResultHtml s 		= xpWrap ( \ ((_, wh), (_, dh)) -> Result dh wh
-                                 , \ r -> ((maxScoreWordHits r, wordHits r), (sizeDocHits r, docHits r))
-                                 ) $
+xpResultHtml s 		= xpWrap ( undefined , \ r -> ((maxScoreWordHits r, wordHits r), docHits r) ) $
                           xpPair (xpWordHitsHtml s)
                                  (xpDocHitsHtml s)
 
@@ -144,18 +181,13 @@ xpPrepend t p 		= xpWrap (\(_, v) -> v, \v -> (t, v)) $
                           xpPair xpText p
 
 -- | The HTML pickler for the document hits. Will be sorted by score. Also generates the navigation.
-xpDocHitsHtml 		:: PickleState -> PU (Int, DocHits FunctionInfo)
-xpDocHitsHtml s 	= xpWrap ( \ (d, n) -> (n, d)
-                                 , \ (n, d) -> (d, n)
-                                 ) $
-                          xpPair  xpDocs
-                                 (xpPager s (psStart s))
-  where
-  xpDocs 		= xpDivId "documents" $
+xpDocHitsHtml 		:: PickleState -> PU (DocHits FunctionInfo)
+xpDocHitsHtml s 	= xpDivId "documents" $
                           xpElem "table" $
                           xpWrap (IM.fromList, toListSorted) $
                           xpList $ 
                           xpDocInfoHtml
+  where
   toListSorted 		= take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
 
 xpPager 		:: PickleState -> Int -> PU Int
@@ -224,7 +256,7 @@ xpDocInfoHtml	 	= xpWrap (undefined, docToHtml) $
     xpDescription 		= xpWrap (undefined, limitDescription) $
                         	  xpPair xpUnfoldLink
                         	         (xpWrap (undefined, runLA xread) $
-					  xpElemClass "span" "description"$
+					  xpElemClass "div" "description"$
 					  xpTrees
 					 )
     xpUnfoldLink 		= xpElemClass "a" "toggleFold" $
@@ -236,7 +268,7 @@ xpDocInfoHtml	 	= xpWrap (undefined, docToHtml) $
                         	  xpAppend "Source" $
                         	  xpAttr "href" $
                         	  xpText
-    limitDescription 		= maybe ("+", "No description. ") (\d -> ("+", d))
+    limitDescription 		= maybe (" ", "No description. ") (\d -> (" ", d))
 
 xpLink 				:: String -> PU String -> PU String -> PU (String, String)
 xpLink c pa pb 			= xpElemClass "a" c $
@@ -275,6 +307,8 @@ xpWordHitsHtml ps 		= xpDivId "words" $
   fromListSorted _ 		= (0.0, M.empty)
   toListSorted (s, wh) 		= map (\a -> (s, a)) $
                         	  L.sortBy (compare `on` fst) $
+                            take maxWordHits $ 
+                            L.sortBy (compare `on` (wordScore . fst . snd) ) $
                         	  M.toList wh -- Sort by word
   xpWordHitHtml 		= xpWrap (wordFromHtml, wordToHtml) (xpWordHtml)
     where
@@ -322,9 +356,6 @@ xpScore 			= xpElem "span" $
   scoreToHtml (v, top) 		= "cloud" ++ (show $ ((round (weightScore 1 9 top v))::Int))
   scoreFromHtml _ 		= (0.0, 0.0)
   weightScore mi ma to v 	= ma - ((to - v) / to) * (ma - mi)
-
-pageLimit 			:: Int
-pageLimit 			= 10
 
 data Pager 			= Pager 
                                   { _prevPage  :: Maybe Int -- == last predPages
@@ -399,3 +430,4 @@ xpDuplicate 			= xpWrap (\(v, _) -> v, \v -> (v, v))
 -- | Replace a given list with another list in a list.
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace old new l = L.intercalate new . split old $ l
+

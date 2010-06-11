@@ -28,12 +28,9 @@ import Text.XML.HXT.Arrow	( XmlTree )
 
 -- Status information of query processing (status message, result, top modules, top packages).
 
-type StatusResult a 		= (String, Result a, [(String, Int)], [(String, Int)])
-
-type StatusResultFct		= StatusResult FunctionInfo
-
-type StatusResultPkg		= StatusResult PackageInfo
+type StatusResult 		= (String, Result FunctionInfo, Result PackageInfo, [(String, Int)], [(String, Int)])
 
 type Template 			= XmlTree
+
 
 -- ----------------------------------------------------------------------------

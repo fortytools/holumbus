@@ -40,8 +40,8 @@ renderEmptyJson 	= encodeStrict $
                           , ("packages", JSArray []) 
                           ]
 
-renderJson 		:: StatusResultFct -> String
-renderJson (msg, res, mods, pkgs)
+renderJson 		:: StatusResult -> String
+renderJson (msg, res, _, mods, pkgs)
     			= encodeStrict $
                           jo
                           [ ("message",      js msg)

@@ -20,6 +20,7 @@
 
 module Hayoo.Search.Application
     ( hayooApplication
+    , hayooInit
     , Core (..)
     ) where
 
@@ -50,11 +51,17 @@ import Holumbus.Query.Fuzzy
 import Holumbus.Utility
 
 import Hack
+import Hack.Contrib.Middleware.File
+import Hack.Contrib.Middleware.URLMap
 import Hack.Contrib.Request (params, path, host)
+import Hack.Contrib.Utils (empty_app)
+
+import System.IO (stdout)
 
 import System.Time
 
 import System.Log.Logger
+import System.Log.Handler.Simple
 
 import Control.Concurrent  -- For the global MVar
 
@@ -62,17 +69,16 @@ import Hayoo.IndexTypes
 import Hayoo.Search.Common
 import Hayoo.Search.JSON
 import Hayoo.Search.HTML
-
-import Hayoo.Parser
+import Hayoo.Search.Parser
 
 data Core 		= Core
   			  { index 	:: !  CompactInverted
-                          , documents 	:: ! (SmallDocuments FunctionInfo)
-                          , pkgIndex 	:: !  CompactInverted
-                          , pkgDocs 	:: ! (SmallDocuments PackageInfo)
-                          , template 	:: !  Template
-			  , packRank	:: !  RankTable
-                          }
+          , documents 	:: ! (SmallDocuments FunctionInfo)
+          , pkgIndex 	:: !  CompactInverted
+          , pkgDocs 	:: ! (SmallDocuments PackageInfo)
+          , template 	:: !  Template
+			    , packRank	:: !  RankTable
+          }
 
 -- | Weights for context weighted ranking.
 contextWeights 		:: [(Context, Score)]
@@ -85,6 +91,108 @@ contextWeights 		= [ ("name", 0.9)
                           , ("description", 0.2)
                           , ("normalized", 0.1)
                           ]
+
+-- | Just an alias with explicit type.
+
+loadIndex 	:: FilePath -> IO CompactInverted
+loadIndex 	= loadFromFile
+
+-- | Just an alias with explicit type.
+
+loadDocuments 	:: FilePath -> IO (SmallDocuments FunctionInfo)
+loadDocuments 	= loadFromFile
+
+-- | Just an alias with explicit type.
+
+loadPkgDocs 	:: FilePath -> IO (SmallDocuments PackageInfo)
+loadPkgDocs 	= loadFromFile
+
+-- | Load the template.
+
+loadTemplate 	:: Int -> Int -> FilePath -> IO XmlTree
+loadTemplate fcnt pcnt f
+	 	= do
+                  tpl <- runX
+                         ( readDocument [ (a_parse_html,v_1)
+                                        , (a_indent,v_1)
+                                        , (a_trace,v_0)
+                                        ] f
+                           >>>
+                           processTopDownUntil				-- insert # of functions and # of packages into start page
+                           ( ( hasAttrValue "id" (== "no-of-functions")
+                               `guards`
+                               txt (showCnt fcnt)
+                             )
+                             `orElse`
+                             ( hasAttrValue "id" (== "no-of-packages")
+                               `guards`
+                               txt (showCnt pcnt)
+                             )
+                           )
+                         )
+                  if L.null tpl
+                    then error "Unable to read template"
+                    else return $ head tpl
+
+showCnt		:: Int -> String
+showCnt		= show >>> fmtCnt
+    where
+    fmtCnt	= reverse >>> insDot >>> reverse
+    insDot s
+        | L.null y	= s
+        | otherwise	= x ++ "." ++ insDot y
+        where
+        (x , y) = splitAt 3 s
+
+-- | Init Hayoo!
+hayooInit :: FilePath -> FilePath -> IO Application
+hayooInit ixBase wwwBase = do
+                  fdl  <- fileHandler "hayoo.log" INFO
+                  sdl  <- streamHandler stdout INFO
+
+                  updateGlobalLogger rootLoggerName (setHandlers [fdl, sdl])
+                  updateGlobalLogger rootLoggerName (setLevel INFO)
+
+                  idx  <- loadIndex     hayooIndex
+                  infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
+
+                  doc  <- loadDocuments hayooDocs
+                  infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
+                  infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs doc) ++ " functions and types")
+
+                  pidx <- loadIndex     hackageIndex
+                  infoM "Hayoo.Main" ("Hackage index loaded from file " ++ show hackageIndex)
+
+                  pdoc <- loadPkgDocs   hackageDocs
+                  infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
+                  infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
+
+                  prnk <- return $ buildRankTable pdoc
+                  infoM "Hayoo.Main" ("Hackage package rank table computed")
+
+                  tpl  <- loadTemplate (sizeDocs doc) (sizeDocs pdoc) templ
+                  infoM "Hayoo.Main" ("Template loaded from file "      ++ show templ)
+
+                  midct <- newMVar $
+                           Core
+                           { index 	= idx
+                           , documents 	= doc
+                           , pkgIndex	= pidx
+                           , pkgDocs	= pdoc
+                           , template 	= tpl
+                           , packRank   = prnk
+                           }
+
+                  return $
+                         url_map [ ("/hayoo.html", hayooApplication midct)
+                                 , ("/hayoo.json", hayooApplication midct)
+                                 ] (file Nothing empty_app)
+  where
+  hayooIndex	= ixBase ++ "/ix.bin.idx"
+  hayooDocs     = ixBase ++ "/ix.bin.doc"
+  hackageIndex	= ixBase ++ "/pkg.bin.idx"
+  hackageDocs   = ixBase ++ "/pkg.bin.doc"
+  templ 	= wwwBase ++ "/hayoo.html"
 
 -- | Generate the actual response
 hayooApplication :: MVar Core -> Env -> IO Response
@@ -164,7 +272,7 @@ hayooApplication midct env	= let p = params env in
     isJson f 			= extension f == "json"
 
     -- Default HTML render options
-    htmlOptions 		= [(a_output_encoding, utf8), (a_indent,v_1), (a_output_html, v_1)]
+    htmlOptions 		= [(a_output_encoding, utf8), (a_indent,v_1), (a_output_xhtml, v_1)]
 
 -- Read or use default value
 readDef 			:: Read a => a -> String -> a
@@ -209,8 +317,8 @@ replaceElem :: Eq a => a -> a -> [a] -> [a]
 replaceElem x y = map (\z -> if z == x then y else z)
 
 -- | Perform some postprocessing on the status and the result.
-arrFilterStatusResult :: ArrowXml a => a (StatusResult i) (StatusResult i)
-arrFilterStatusResult = arr $ (\(s, r, m, p) -> (s, filterResult r, m, p))
+arrFilterStatusResult :: ArrowXml a => a StatusResult StatusResult
+arrFilterStatusResult = arr $ (\(s, r, h, m, p) -> (s, filterResult r, h, m, p))
   where
   filterResult (Result dh wh) = Result dh (M.filterWithKey (\w _ -> not ("->" `L.isInfixOf` w)) wh)
 
@@ -246,14 +354,17 @@ logRequest env = do
                          start
                         )
 
--- | Customized Hayoo! ranking function. Preferres exact matches and matches in Prelude and base.
-hayooRanking 		:: RankTable -> [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
-hayooRanking rt ws ts _ di dch
+hayooPkgRanking :: RankTable -> DocId -> DocInfo PackageInfo -> DocContextHits -> Score
+hayooPkgRanking rt _ di _ = maybe 1.0 (flip lookupRankTable rt . p_name) (custom $ document di)
+
+-- | Customized Hayoo! ranking function for functions. Preferres exact matches and matches in Prelude and base.
+hayooFctRanking 		:: RankTable -> [(Context, Score)] -> [String] -> DocId -> DocInfo FunctionInfo -> DocContextHits -> Score
+hayooFctRanking rt ws ts _ di dch
 			= baseScore
-                          * factModule
+        * factModule
 			  * factPackage
 			  * factPrelude
-                          * factExactMatch
+        * factExactMatch
   where
   fctInfo		= custom $ document di
 
@@ -322,39 +433,40 @@ genResult = ifP (\(q, _) -> checkWith isEnough q)
 -}
 
 -- | This is the core arrow where the request is finally processed.
-genResult		:: ArrowXml a => a (Query, Core) StatusResultFct
+genResult		:: ArrowXml a => a (Query, Core) StatusResult
 genResult		= arr $ uncurry genResult'
 
-genResult'		:: Query -> Core -> StatusResultFct
+genResult'		:: Query -> Core -> StatusResult
 genResult' q idc
     | checkWith isEnough q
-			= let res = curry makeQuery q idc in
-			  let cfg = RankConfig (hayooRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount in
-			  let rnk = rank cfg res in
-			  (msgSuccess rnk, rnk, genModules rnk, genPackages rnk)	-- Include a success message in the status
+			= let (fctRes, pkgRes) = curry makeQuery q idc in
+			  let (fctCfg, pkgCfg) = (RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount, RankConfig (hayooPkgRanking (packRank idc)) wordRankByCount) in
+			  let (fctRnk, pkgRnk) = (rank fctCfg fctRes, rank pkgCfg pkgRes) in
+			  (msgSuccess fctRnk pkgRnk, fctRnk, pkgRnk, genModules fctRnk, genPackages fctRnk)	-- Include a success message in the status
 
-    | otherwise		= ("Please enter some more characters.", emptyResult, [], [])
+    | otherwise		= ("Please enter some more characters.", emptyResult, emptyResult, [], [])
 
 isEnough 		:: String -> Bool
 isEnough (c:[]) 	= not (isAlpha c)
 isEnough _ 		= True
 
 -- | Generate a success status response from a query result.
-msgSuccess 		:: Result FunctionInfo -> String
-msgSuccess r 		= if sd == 0
+msgSuccess 		:: Result FunctionInfo -> Result PackageInfo -> String
+msgSuccess fr pr = if sd + sp == 0
                           then "Nothing found yet."
-                          else "Found " ++ (show sd) ++ " " ++ ds ++ " and " ++ (show sw) ++ " " ++ cs ++ "."
+                          else "Found " ++ (show sd) ++ " " ++ ds ++ ", " ++ (show sp) ++ " " ++ ps ++ " and " ++ (show sw) ++ " " ++ cs ++ "."
     where
-    sd 			= sizeDocHits r
-    sw 			= sizeWordHits r
-    ds 			= if sd == 1 then "result" else "results"
+    sd 			= sizeDocHits fr
+    sp      = sizeDocHits pr
+    sw 			= sizeWordHits fr + sizeWordHits pr
+    ds 			= if sd == 1 then "function" else "functions"
+    ps 			= if sp == 1 then "package" else "packages"
     cs 			= if sw == 1 then "completion" else "completions"
 
 -- | This is where the magic happens! This helper function really calls the
 -- processing function which executes the query.
-
-makeQuery 		:: (Query, Core) -> Result FunctionInfo
-makeQuery (q, c) 	= processQuery cfg (index c) (documents c) q
+makeQuery 		:: (Query, Core) -> (Result FunctionInfo, Result PackageInfo)
+makeQuery (q, c) 	= (processQuery cfg (index c) (documents c) q, processQuery cfg (pkgIndex c) (pkgDocs c) q)
     where
     cfg 		= ProcessConfig (FuzzyConfig False True 1.0 []) True 50
 
@@ -380,8 +492,8 @@ genPackages r 		= reverse $
                           custom d
 
 -- | Generate an error message in case the query could not be parsed.
-genError 		:: ArrowXml a => a (String, Core) (StatusResult i)
+genError 		:: ArrowXml a => a (String, Core) StatusResult
 genError 		= arr $
-                          \ (msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult, [], [])
+                          \ (msg, _) -> (tail $ dropWhile ((/=) ':') msg, emptyResult, emptyResult, [], [])
 
 

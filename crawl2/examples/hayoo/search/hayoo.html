@@ -40,6 +40,9 @@
           <input id="querytext" type="text" onkeyup="tryProcessQuery()" name="query" autocomplete="off" value=""/>
           <input id="querybutton" type="submit" value="Search"/>
           <img id="throbber" src="hayoo/loader.gif" alt="Throbber" style="display:none;"/>
+          <div class="stats">
+            Concurrently search <span id="no-of-packages">more than 2000</span> packages and <span id="no-of-functions">more than 150.00</span> functions!
+          </div>
         </div>
       </form>
     </div>
@@ -49,8 +52,7 @@
       <div id="words">&nbsp;</div>
       <div id="documents">
         <div id="examples">
-          Hayoo! will search all packages (currently <span id="no-of-packages">more than 2000</span> packages) from <a href="http://hackage.haskell.org">Hackage</a>,
-          currently <span id="no-of-functions">more than 150.00</span> function and type definitions. Here are some example queries:
+          Hayoo! will search all packages from <a href="http://hackage.haskell.org">Hackage</a>, including all function and type definitions. Here are some example queries:
           <div class="example">
             <p>
               <a onclick="replaceInQuery('','map'); return false;" href="hayoo.html?query=map&start=0">map</a>
@@ -100,8 +102,7 @@
     <div id="credits">
       <div id="powered">
         <div id="libs">Powered by <a class="credits" href="http://www.haskell.org">Haskell</a>, 
-          <a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
-          <a class="credits" href="http://darcs2.fh-wedel.de/repos/janus/">Janus</a> and
+          <a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a> and
         </div>
         <a href="http://holumbus.fh-wedel.de"><img class="logo" src="hayoo/holumbus.png" alt="Holumbus logo"/></a>
       </div>
@@ -111,7 +112,7 @@
           Please send any feedback to <a href="mailto:hayoo@holumbus.org">hayoo@holumbus.org</a>
         </div>
         <div id="copyright">
-          Hayoo! beta 0.7 © 2010 <span class="author">Timo B. Hübel</span> &amp; <span class="author">Sebastian M. Gauck</span>
+          Hayoo! beta 2.0 © 2010 <span class="author">Timo B. Hübel</span>, <span class="author">Sebastian M. Gauck</span>  &amp; <span class="author">Uwe Schmidt</span>
         </div>
       </div>
     </div>

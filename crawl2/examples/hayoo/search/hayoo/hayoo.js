@@ -115,10 +115,8 @@ function toggleFold(node) {
 
   if ($(node).parentNode.hasClassName('unfold')) {
     $(node).parentNode.removeClassName('unfold');
-    $(node).update('+');
   } else {
     $(node).parentNode.addClassName('unfold');
-    $(node).update('-');
   }
 
   return false;

@@ -10,7 +10,7 @@
   Portability: portable
   Version    : 0.1
 
-  Main program to use as standalone webserver for serving Hayoo!
+  Main program to use as FastCGI app for serving Hayoo!
 
 -}
 
@@ -20,9 +20,13 @@ module Main where
 
 import Hayoo.Search.Application
 
-import Hack.Handler.SimpleServer
+import Hack.Handler.FastCGI
 
 -- ----------------------------------------------------------------------------
+
+-- | Number of threads to use for serving requests
+numThreads 	:: Int
+numThreads 	= 4
 
 -- | Maybe read these from the command line ... somewhen
 ixBase, wwwBase	:: FilePath
@@ -33,6 +37,7 @@ wwwBase		= "."
 main 		:: IO ()
 main 		= do
                   apl <- hayooInit ixBase wwwBase
-                  run 4242 $ apl
+                  runFastCGIConcurrent numThreads apl
 
 -- ----------------------------------------------------------------------------
+

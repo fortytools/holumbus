@@ -9,12 +9,12 @@ import           Control.DeepSeq
 
 import qualified Data.Binary			as B
 import           Data.Char
-import		 Data.Function.Selector		( update, getS )
+import		       Data.Function.Selector ( update, getS )
 import           Data.Maybe
 
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
-import		 Hayoo.IndexConfig
+import		       Hayoo.IndexConfig
 import           Hayoo.IndexTypes
 import           Hayoo.PackageArchive
 import           Hayoo.URIConfig

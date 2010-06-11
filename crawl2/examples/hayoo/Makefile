@@ -20,9 +20,9 @@ pxn	= new-$(px)
 
 src	= $(wildcard Hayoo/*.hs)
 
-progs	= ./hayooIndexer search/hayooSearch
+progs	= ./hayooIndexer search/hayooSearch search/hayooFastCGI
 
-GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source:../../../searchengine/examples/hayoo/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
+GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
 
 N       = 1
 H       = 3000
@@ -34,6 +34,9 @@ all	: $(progs)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
 search/hayooSearch	: HayooSearch.hs $(src)
+	ghc  $(GHCOPTS) -o $@ --make $<
+
+search/hayooFastCGI	: HayooFastCGI.hs $(src)
 	ghc  $(GHCOPTS) -o $@ --make $<
 
 force	:

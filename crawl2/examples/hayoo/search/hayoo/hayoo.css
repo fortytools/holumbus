@@ -5,15 +5,19 @@ html {
 body {
 	font-family:Tahoma,Verdana,sans-serif;
 	margin:0px;
-	font-size:12px;
+	font-size:11px;
 	height:100%;
 }
 
 table, tr, td {
 	font-family:Tahoma,Verdana,sans-serif;
-	font-size:12px;
+	font-size:11px;
   margin:0;
   padding:0;
+}
+
+p {
+  margin:0;
 }
 
 a {
@@ -40,11 +44,15 @@ span.query {
 	font-style: italic;
 }
 
+div.clear {
+  clear:both !important;
+}
+
 #throbber { 
 	vertical-align:text-bottom;
 }
 
-.author {
+#copyright .author {
 	font-weight: bold;
 }
 
@@ -193,6 +201,55 @@ div.headline {
 	padding:10px;
 }
 
+#hackage {
+  float:left;
+  margin:20px;
+	background-color:#F4F4F4;
+	border:1px solid silver;
+  width:400px;
+  padding:10px;
+}
+
+#hackage a {
+  font-weight:normal
+}
+
+#hackage a:hover {
+  text-decoration:underline;
+}
+
+#hackage div.package {
+  margin-bottom:10px;
+}
+
+#hackage a.category {
+  color:#DD0000;
+}
+
+#hackage a.name {
+  font-weight:bold;
+  color:#0700C3;
+}
+  
+#hackage div.author {
+  color:#25CA00;
+  font-weight:bold;
+  font-size:9px; 
+}
+
+#hackage span.synopsis {
+  color:gray;
+}
+
+#hackage div.description {
+  font-size:9px;
+  color:gray;
+}
+
+#words {
+  margin-top:20px;
+}
+
 a.rootModuleName {
 	color:#DD0000;
   font-weight:normal;
@@ -224,9 +281,8 @@ td.module {
 	vertical-align: top;
 }
 
-td.description div {
-  max-width:80%;
-  max-height:1.2em;
+td.description > div {
+  max-height:1.4em;
   overflow:hidden;
   color: gray;
   text-align: left;
@@ -234,8 +290,18 @@ td.description div {
   margin-left:5px;
 }
 
-td.description div.unfold {
+td.description > div.unfold {
 	max-height:none;
+}
+
+td.description div.description {
+  overflow-x:auto;
+  float:left;
+  max-width:80%;
+}
+
+td.description pre {
+  white-space:pre-wrap;
 }
 
 td.signature {
@@ -252,11 +318,6 @@ td.package {
 td.name {
   vertical-align:top;
   width:auto;
-}
-
-span.description {
-  float:left;
-  max-width:90%;
 }
 
 span.source {
@@ -302,12 +363,18 @@ a.source:hover {
 
 .unfold a.toggleFold {
   background-position:-10px;
+  background:url(minus.png);
 }
 
 a.toggleFold {
 	float:left;
-	margin-right:2px;
+	margin-right:3px;
 	cursor:pointer;
+  display:block;
+  width:10px;
+  height:10px;
+  background:url(plus.png);
+  margin-top:2px;
 }
 
 #queryinterface {
@@ -400,4 +467,14 @@ div.cloud {
 .context { font-weight:bold; }
 .uri { color:green; }
 .declaration { font-style: italic; }
+
+div.stats {
+  font-size:80%;
+  font-style:italic;
+}
+
+.example p {
+  margin:10px 0px;
+}
+
 
