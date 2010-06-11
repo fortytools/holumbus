@@ -758,6 +758,52 @@ keys	   			= foldWithKey (\ k _v r -> k : r) []
 
 -- ----------------------------------------
 
+-- | returns all key-value pairs in breadth first order (short words first)
+-- this enables prefix search with upper bounds on the size of the result set
+-- e.g. @ search ... >>> toListBF >>> take 1000 @ will give the 1000 shortest words
+-- found in the result set and will ignore all long words
+--
+-- toList is derived from the following code found in the net when searching haskell breadth first search
+--
+-- Haskell Standard Libraray Implementation
+--
+-- > br :: Tree a -> [a]
+-- > br t = map rootLabel $
+-- >        concat $
+-- >        takeWhile (not . null) $                
+-- >        iterate (concatMap subForest) [t]
+
+toListBF			:: PrefixTree v -> [(Key, v)]
+toListBF			= (\ t0 -> [(id, t0)])
+                                  >>>
+                                  iterate (concatMap (second norm >>> uncurry subForest))
+                                  >>>
+                                  takeWhile (not . L.null)
+                                  >>>
+                                  concat
+                                  >>>
+                                  concatMap (second norm >>> uncurry rootLabel)
+
+rootLabel			:: (Key -> Key) -> PrefixTree v -> [(Key, v)]
+rootLabel kf (Val v _)		= [(kf [], v)]
+rootLabel _  _			= []
+
+subForest			:: (Key -> Key) -> PrefixTree v -> [(Key -> Key, PrefixTree v)]
+subForest kf (Branch c s n)	= (kf . (c:), s) : subForest kf (norm n)
+subForest _  Empty          	= []
+subForest kf (Val _ t)		= subForest kf (norm t)
+subForest _  _			= error "PrefixTree.Core.subForest: Pattern match failure"
+ 
+-- ----------------------------------------
+
+-- | /O(max(L,R))/ Find all values where the string is a prefix of the key and include the keys 
+-- in the result. The result list contains short words first
+
+prefixFindWithKeyBF 		:: Key -> PrefixTree a -> [(Key, a)]
+prefixFindWithKeyBF k		= fmap (first (k ++)) . toListBF . lookupPx' k
+
+-- ----------------------------------------
+
 instance Functor PrefixTree where
   fmap = map
 

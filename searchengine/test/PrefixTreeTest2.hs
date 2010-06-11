@@ -145,7 +145,8 @@ test5           = testSize  ["a","b","c","aa","ac","cccc","cccd","","xxx", "xxyy
 
 test6a          = testBinary ws
 test6b          = testBinary ["a","b","c","aa","ac","cccc","cccd","","xxx", "xxyyy"]
-
+{-
+test7		:: PrefixTree a -> Test
 test7 t         = TestLabel "words" $
                   TestList $
                   [ TestCase $ assertEqual "size" 1 (size t)
@@ -153,5 +154,5 @@ test7 t         = TestLabel "words" $
                   , TestCase $ assertEqual "norm"  1 (space $ deepNorm t)
                   , TestCase $ assertEqual "stat" [] (toList . stat $ t)
                   ]
-
+-}
 -- ----------------------------------------

@@ -44,6 +44,20 @@ lookupNoCase k			= toList . cutAllPx' (noCaseKeys k)
 
 -- ----------------------------------------
 
+-- | /O(max(L,R))/ Find all values where the string is a prefix of the key.
+-- Breadth first variant, short words first in the result list
+
+prefixFindCaseWithKeyBF		:: Key -> PrefixTree a -> [(Key, a)] 
+prefixFindCaseWithKeyBF k	= toListBF . cutPx' (singlePS k) 
+
+prefixFindNoCaseWithKeyBF	:: Key -> PrefixTree a -> [(Key, a)] 
+prefixFindNoCaseWithKeyBF k	= toListBF . cutPx' (noCaseKeys k) 
+
+lookupNoCaseBF			:: Key -> PrefixTree a -> [(Key, a)]
+lookupNoCaseBF k		= toListBF . cutAllPx' (noCaseKeys k)
+
+-- ----------------------------------------
+
 noCaseKeys		:: Key -> PrefixSet
 noCaseKeys		= noCasePS . singlePS
 

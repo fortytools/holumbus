@@ -53,7 +53,6 @@ import           Data.Binary
 import qualified Data.List 	as L
 import qualified Data.Map 	as M
 import           Data.Maybe
--- import           Data.Word
 
 data PrefixTree v	= Empty
                         | Val	 { value' ::   v
@@ -742,7 +741,7 @@ toMap 				= foldWithKey M.insert M.empty
 fromMap 			:: M.Map Key a -> PrefixTree a
 fromMap 			= M.foldWithKey insert empty
 
--- | /O(n)/ Returns all elements as list of key value pairs,
+-- | /O(n)/ Returns all elements as list of key value pairs, in ascending order
 
 toList 				:: PrefixTree a -> [(Key, a)]
 toList 				= foldWithKey (\k v r -> (k, v) : r) []
@@ -759,9 +758,33 @@ size 				= fold (const (+1)) 0
 elems 				:: PrefixTree a -> [a]
 elems   			= fold (:) []
 
--- | /O(n)/ Returns all values.
+-- | /O(n)/ Returns all Keys.
 keys 				:: PrefixTree a -> [Key]
 keys	   			= foldWithKey (\ k _v r -> k : r) []
+
+-- ----------------------------------------
+
+-- | returns all key-value pairs in breadth first order (short words first)
+
+toListBF			:: PrefixTree v -> [(Key, v)]
+toListBF			= (\ t0 -> [(id, t0)])
+                                  >>>
+                                  iterate (concatMap (second norm >>> uncurry subForest))
+                                  >>>
+                                  takeWhile (not . L.null)
+                                  >>>
+                                  concat
+                                  >>>
+                                  concatMap (second norm >>> uncurry rootLabel)
+
+rootLabel			:: (Key -> Key) -> PrefixTree v' -> [(Key, v')]
+rootLabel kf (Val v _)		= [(kf [], v)]
+rootLabel _  _			= []
+
+subForest			:: (Key -> Key) -> PrefixTree v -> [(Key -> Key, PrefixTree v)]
+subForest kf (Branch c s n)	= (kf . (c:), s) : subForest kf (norm n)
+subForest kf (Val _ t)		= (kf, t) : []
+subForest _  Empty          	= []
 
 -- ----------------------------------------
 

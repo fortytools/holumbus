@@ -30,6 +30,7 @@ module Holumbus.Data.PrefixTree
     , findWithDefault  
     , prefixFind
     , prefixFindWithKey
+    , prefixFindWithKeyBF
     , empty
     , singleton
     , insert
@@ -54,15 +55,20 @@ module Holumbus.Data.PrefixTree
     , elems
     , toList
     , fromList
+    , toListBF
     , toMap
     , fromMap
     , space
     , keyChars
 
-    , prefixFindCaseWithKey
+    , prefixFindCaseWithKey	-- fuzzy search
     , prefixFindNoCaseWithKey
     , prefixFindNoCase
     , lookupNoCase
+
+    , prefixFindCaseWithKeyBF
+    , prefixFindNoCaseWithKeyBF
+    , lookupNoCaseBF
     )
 where
 
