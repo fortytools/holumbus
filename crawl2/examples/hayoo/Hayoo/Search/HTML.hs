@@ -51,7 +51,7 @@ pageLimit 			:: Int
 pageLimit 			= 10
 
 maxWordHits :: Int
-maxWordHits = 50
+maxWordHits = 75
 
 staticRoot 		:: String
 staticRoot 		= "hayoo.html"
@@ -86,7 +86,7 @@ xpPackageInfo :: PickleState -> PU PackageInfo
 xpPackageInfo _ = xpElemClass "div" "package" $ xpWrap (undefined, extractComponents) $ xp4Tuple xpCategory xpNameSynopsis xpDescription xpAuthor
   where
   extractComponents p = (p_category p, (p_name p, p_synopsis p), p_description p, p_author p)
-  xpCategory = xpElemClass "div" "category" $ xpElemClass "a" "category" $ xpDuplicate $ xpPair xpCategoryLink xpText0
+  xpCategory = xpElemClass "div" "category" $ xpWrap (undefined, split " , ") $ xpList $ xpElemClass "a" "category" $ xpDuplicate $ xpPair xpCategoryLink xpText0
   xpNameSynopsis = xpElemClass "div" "name" $ xpPair (xpElemClass "a" "name" $ xpDuplicate $ xpPair xpHackageLink xpText0) (xpElemClass "span" "synopsis" $ xpPrepend ": " xpText0)
   xpDescription = xpElemClass "div" "description" xpText0
   xpAuthor = xpElemClass "div" "author" xpText0
