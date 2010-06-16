@@ -18,12 +18,19 @@
 
 module Hayoo.Search.Parser where
 
-import qualified Data.Map as M
-import Data.Char
+-- import qualified Data.Map as M
+-- import Data.Char
 
-import Holumbus.Utility
+import Hayoo.Signature
+
+-- import Holumbus.Utility
 import Holumbus.Query.Language.Grammar
+
 import Text.ParserCombinators.Parsec
+
+-- ------------------------------------------------------------
+
+{- Uwe: done 
 
 -- TODO TH This normalize and strip have to be shared by indexer and search!
 
@@ -46,6 +53,9 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
   sep s = join s . map strip . split s
   lsep s = join s . map stripl . split s
   rsep s = join s . map stripr . split s
+-}
+
+-- ------------------------------------------------------------
 
 -- | Parse a query using the special Hayoo! syntax.
 parseQuery :: String -> Either String Query

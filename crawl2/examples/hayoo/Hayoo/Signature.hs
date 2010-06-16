@@ -4,47 +4,65 @@
 
 module Hayoo.Signature
 where
- 
-import		 Data.Char
-import		 Data.List
-import qualified Data.Map		as M
 
-import           Holumbus.Utility
+import           Control.Arrow
+
+import		 Data.List
+
+import           Holumbus.Crawler.Util	( tokenize
+					, match
+					, split
+					)
 
 -- ------------------------------------------------------------
 
--- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
--- @a->b->b@. All whitespace will be removed from the resulting string.
-
-normalizeSignature 		:: String -> String
-normalizeSignature 		= join "->" . (replaceTypes M.empty ['a'..'z']) . split "->" . filter (not . isSpace)
-  where
-  replaceTypes _ _ [] 		= []
-  replaceTypes v t (x:xs) 	= let
-                                  (nv, ut, rx) = replace'
-                                  in
-                                  rx:(replaceTypes nv ut xs)
-    where
-    replace' 			= let
-                                  ut = [head t]
-                                  in
-                                  maybe (M.insert r ut v, tail t, ut) (\n -> (v, t, n)) (M.lookup r v)
-        where r 		= stripWith (\c -> (c == '(') || (c == ')')) x
-
-
 getSignature 			:: String -> String
-getSignature s 			= stripWith (==' ') $ 
-                                  if "=>" `isInfixOf` s
-                                  then stripSignature $ drop 3 $ dropWhile ((/=) '=') s
-                                  else stripSignature $ drop 3 $ dropWhile ((/=) ':') s
+getSignature			= split ".*(=>|::)" >>> snd
 
 -- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
 -- to @String->Map k a->Int@.
 
 stripSignature 			:: String -> String
-stripSignature 			= sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
-    where
-    sep s 			= join s . map strip  . split s
-    lsep s 			= join s . map stripl . split s
-    rsep s 			= join s . map stripr . split s
+stripSignature 			= tokenizeSignature >>> joinSignatureTokens
 
+-- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
+-- @a->b->b@. All whitespace will be removed from the resulting string.
+
+normalizeSignature 		:: String -> String
+normalizeSignature		= tokenizeSignature >>> normSignatureIds >>> joinSignatureTokens
+
+-- | Tokenize a signature string
+
+tokenizeSignature		:: String -> [String]
+tokenizeSignature		= tokenize sigToken
+    where
+    sigToken			= "[\\]\\[(,)]|->|=>|" ++ sigIdent
+
+sigIdent			:: String
+sigIdent			= "[\\p{L}#][\\p{L}\\{N}'_.]*"
+
+joinSignatureTokens		:: [String] -> String
+joinSignatureTokens		= mapAccumL insBlank False >>> snd >>> concat
+    where
+    insBlank isId x		= (isId'
+				  , if isId && isId'
+				    then ' ' : x
+				    else       x
+				  )
+	where
+	isId'			= match sigIdent x
+
+normSignatureIds		:: [String] -> [String]
+normSignatureIds		= mapAccumL renId ([], ['a'..]) >>> snd
+    where
+    renId ac@(env, ids) x
+	| isId x		= case lookup x env of
+				  Nothing	-> ( ((x, head ids) : env, tail ids)
+						   , [head ids]
+						   )
+				  Just c	-> (ac, [c])
+	| otherwise		= (ac, x)
+	where
+	isId			= match sigIdent
+
+-- ------------------------------------------------------------

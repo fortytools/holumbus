@@ -5,10 +5,9 @@
 module Hayoo.IndexConfig
 where
 
-import           Data.Maybe
-
 import           Hayoo.Haddock
 import           Hayoo.HackagePackage
+import           Hayoo.Signature
 
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
@@ -68,7 +67,7 @@ hayooIndexContextConfig		= [ ixModule
                                   }
     ixNormalizedSig		= ixSignature
 				  { ixc_name          	= "normalized"
-				  , ixc_textToWords	= normSignature >>> return
+				  , ixc_textToWords	= normalizeSignature >>> return
                                   }
     ixDescription              	= ixDefault
                                   { ixc_name          	= "description"
@@ -140,32 +139,6 @@ deCamel				= deCamel' False
 	| otherwise		= x : deCamel' (isCap x) xs
 	where
 	isCap			= (`elem` ['A'..'Z'])
-
--- -----------------------------------------------------------------------------    
-
-stripSignature'			:: ([String] -> [String]) -> String -> String
-stripSignature' nf		= tokenize "[()\\[\\],.]|::|=>|->|[A-Za-z0-9_#'.xdg]+|[^()\\[\\],. A-Za-z0-9_#']+"
-				  >>>
-                                  nf
-                                  >>>
-				  unwords
-				  >>>
-				  sed init  "([,()\\[\\]]|->)[ ]"
-				  >>>
-				  sed (drop 1) "[ ]([\\[\\](),]|->)"
-
-stripSignature			:: String -> String
-stripSignature			= stripSignature' id
-
-normSignature			:: String -> String
-normSignature			= stripSignature' normIds
-
-normIds				:: [String] -> [String]
-normIds	ts			= map renId ts
-    where
-    ids				= flip zip (map (:[]) ['a' ..]) . filter isId $ ts
-    isId			= (`elem` (['A'..'Z'] ++ ['a'..'z'] ++ "#_")) . head
-    renId t			= fromMaybe t . lookup t $ ids
 
 -- -----------------------------------------------------------------------------    
 

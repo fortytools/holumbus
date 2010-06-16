@@ -59,6 +59,9 @@ match re			= maybe True (const False) . RE.matchWithRE (parseRE re)
 sed				:: (String -> String) -> String -> String -> String
 sed edit re			= parseRE re `seq` RE.sed edit re
 
+split				:: String -> String -> (String, String)
+split re                        = parseRE re `seq` RE.split re
+
 tokenize			:: String -> String -> [String]
 tokenize re			= parseRE re `seq` RE.tokenize re
 
