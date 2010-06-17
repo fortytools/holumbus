@@ -63,7 +63,7 @@ hayooIndexContextConfig		= [ ixModule
 				  { ixc_name          	= "signature"
                                   , ixc_collectText   	= getAttrValue "signature"
 				  , ixc_textToWords	= stripSignature >>> return
-				  , ixc_boringWord	= null
+				  , ixc_boringWord	= not . isSignature
                                   }
     ixNormalizedSig		= ixSignature
 				  { ixc_name          	= "normalized"

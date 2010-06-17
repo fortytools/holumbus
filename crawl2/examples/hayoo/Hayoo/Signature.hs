@@ -41,6 +41,9 @@ tokenizeSignature		= tokenize sigToken
 sigIdent			:: String
 sigIdent			= "[\\p{L}#][\\p{L}\\{N}'_.]*"
 
+varIdent			:: String
+varIdent			= "[\\p{Ll}][\\p{L}\\{N}'_.]*"
+
 joinSignatureTokens		:: [String] -> String
 joinSignatureTokens		= mapAccumL insBlank False >>> snd >>> concat
     where
@@ -63,6 +66,13 @@ normSignatureIds		= mapAccumL renId ([], ['a'..]) >>> snd
 				  Just c	-> (ac, [c])
 	| otherwise		= (ac, x)
 	where
-	isId			= match sigIdent
+	isId			= match varIdent
+
+isSignature			:: String -> Bool
+isSignature			= match $ anyWord ++ "(->|" ++ tupleType ++ "|" ++ listType ++ ")" ++ anyWord
+    where
+    anyWord			= "(.|\\n|\\r)*"
+    listType			= "\\[" ++ anyWord ++ "\\]"
+    tupleType			= "\\((" ++ anyWord ++ "," ++ anyWord ++ ")?\\)"
 
 -- ------------------------------------------------------------

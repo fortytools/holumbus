@@ -257,26 +257,57 @@ processBin And r1 r2 = I.intersection r1 r2
 processBin Or r1 r2  = I.union r1 r2
 processBin But r1 r2 = I.difference r1 r2
 
--- | Limit a 'RawResult' to a fixed amount of the best words. A simple heuristic is used to 
+
+-- | Limit a 'RawResult' to a fixed amount of the best words.
+--
+-- First heuristic applied is limiting the number of documents in the result,
+-- assuming the short words come first in the result list
+-- So the length of the result list depends on the number of documents found.
+--
+-- TODO: This is fixed to 2000, should be part of the config part of the state
+--
+-- A 2. simple heuristic is used to 
 -- determine the quality of a word: The total number of occurrences divided by the number of 
--- documents in which the word appears. 
-limitWords :: HolIndex i => ProcessState i -> RawResult -> RawResult
-limitWords s r = if cut then map snd $ take limit $ L.sortBy (compare `on` fst) $ map calcScore r else r
+-- documents in which the word appears.
+--
+-- This could be unneccessary, if the result list is sorted by length first (breadths first order)
+
+limitWords 		:: ProcessState i -> RawResult -> RawResult
+limitWords s r		= cutW . cutD $ r
   where
-  limit = wordLimit $ config s
-  cut = limit > 0 && length r > limit
-  calcScore :: (Word, Occurrences) -> (Double, (Word, Occurrences))
-  calcScore w@(_, o) = (log (fromIntegral (total s) / fromIntegral (IM.size o)), w)
+  limitD		= 1000
+  -- limitD		= docLimit $ config s
+  cutD
+      | limitD > 0	= limitDocs limitD
+      | otherwise	= id
+
+  limitW 		= wordLimit $ config s
+  cutW
+      | limitW > 0
+        &&
+        length r > limitW
+			= map snd . take limitW . L.sortBy (compare `on` fst) . map calcScore
+      | otherwise	= id
+
+  calcScore 		:: (Word, Occurrences) -> (Double, (Word, Occurrences))
+  calcScore w@(_, o) 	= (log (fromIntegral (total s) / fromIntegral (IM.size o)), w)
+
+-- ----------------------------------------------------------------------------
+
+-- | Limit the number of docs in a raw result
+
+limitDocs		:: Int -> RawResult -> RawResult
+limitDocs _     []	= []
+limitDocs limit _
+    | limit <= 0	= []
+limitDocs limit (x:xs)	= x : limitDocs (limit - IM.size (snd x)) xs
+
+-- ----------------------------------------------------------------------------
 
 -- | Monadic version of 'limitWords'.
-limitWordsM :: HolIndexM m i => ProcessState i -> RawResult -> m RawResult
-limitWordsM s r = return $ if cut then map snd $ take limit $ L.sortBy (compare `on` fst) $ map calcScore r else r
-  where
-  limit = wordLimit $ config s
-  cut = limit > 0 && length r > limit
-  calcScore :: (Word, Occurrences) -> (Double, (Word, Occurrences))
-  calcScore w@(_, o) = (log (fromIntegral (total s) / fromIntegral (IM.size o)), w)
+limitWordsM 		:: (Monad m) => ProcessState i -> RawResult -> m RawResult
+limitWordsM s r 	= return $ limitWords s r
 
 -- | Merge occurrences
-mergeOccurrencesList :: [Occurrences] -> Occurrences
-mergeOccurrencesList = IM.unionsWith IS.union
+mergeOccurrencesList 	:: [Occurrences] -> Occurrences
+mergeOccurrencesList 	= IM.unionsWith IS.union

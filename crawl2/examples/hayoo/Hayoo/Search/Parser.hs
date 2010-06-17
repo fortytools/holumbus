@@ -59,14 +59,21 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
 
 -- | Parse a query using the special Hayoo! syntax.
 parseQuery :: String -> Either String Query
-parseQuery = result . (parse query "")
+parseQuery s
+    | isSignature s	= Right sigQuery
+    | otherwise		= result . (parse query "") $ s
   where
-  result (Left err) = Left (show err)
-  result (Right q)  = Right q
+  sigQuery		= BinQuery Or
+                          (Specifier ["signature"]  (Word $ stripSignature     s))
+                          (Specifier ["normalized"] (Word $ normalizeSignature s))
+
+  result (Left _e)      = Right (FuzzyWord s)
+  result (Right q)      = Right q
 
 -- | A query may always be surrounded by whitespace
 query :: Parser Query
-query = spaces >> ((try sigQuery) <|> (andQuery))
+query = spaces >> andQuery
+-- query = spaces >> ((try sigQuery) <|> (andQuery))
 
 -- | Parse an and query.
 andQuery :: Parser Query
@@ -122,7 +129,7 @@ phraseQuery = do p <- phrase
 wordQuery :: Parser Query
 wordQuery = do w <- word
                return (FuzzyWord w)
-
+{-
 -- | Parse a signature.
 sigQuery :: Parser Query
 sigQuery = do
@@ -130,7 +137,7 @@ sigQuery = do
            s <- return (stripSignature r)
            n <- return (normalizeSignature r)
            return $ BinQuery Or (Specifier ["signature"] (Word s)) (Specifier ["normalized"] (Word n))
-
+-}
 contains :: String -> Parser String
 contains s = do
              pr <- many1 (noneOf s)

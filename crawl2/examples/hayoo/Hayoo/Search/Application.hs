@@ -19,10 +19,13 @@
 {-# LANGUAGE Arrows #-}
 
 module Hayoo.Search.Application
+{-
     ( hayooApplication
     , hayooInit
     , Core (..)
-    ) where
+    )
+-}
+where
 
 import Data.Function
 import Data.Maybe
@@ -414,23 +417,6 @@ hayooFctRanking rt ws ts _ di dch
                             then Just (snd x)
                             else Nothing
                           else lookupWeight xs
-
-{- old stuff
-
-
--- | This is the core arrow where the request is finally processed.
-genResult :: ArrowXml a => a (Query, Core) StatusResultFct
-genResult = ifP (\(q, _) -> checkWith isEnough q)
-              (proc (q, idc) -> do
-                res <- (arr $ makeQuery)           -< (q, idc) -- Execute the query
-                cfg <- (arr $ (\q' -> RankConfig (hayooRanking undefined contextWeights (extractTerms q')) wordRankByCount)) -< q
-                rnk <- (arr $ rank cfg)            -<< res -- Rank the results
-                (arr $ (\r -> (msgSuccess r, r, genModules r, genPackages r))) -< rnk -- Include a success message in the status
-              )
-              -- Tell the user to enter more characters if the search terms are too short.
-              (arr $ (\(_, _) -> ("Please enter some more characters.", emptyResult, [], [])))
-
--}
 
 -- | This is the core arrow where the request is finally processed.
 genResult		:: ArrowXml a => a (Query, Core) StatusResult

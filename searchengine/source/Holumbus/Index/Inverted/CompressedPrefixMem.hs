@@ -281,11 +281,11 @@ instance (B.Binary occ, ComprOccurrences occ) => HolIndex (Inverted occ) where
   sizeWords 			= M.fold ((+) . PT.size) 0 . unInverted
   contexts 			= fmap fst . M.toList . unInverted
 
-  allWords     i c		= fmap (second  toOccurrences) . PT.toList                    . getPart c $ i
-  prefixCase   i c q 		= fmap (second  toOccurrences) . PT.prefixFindWithKey       q . getPart c $ i
-  prefixNoCase i c q 		= fmap (second  toOccurrences) . PT.prefixFindNoCaseWithKey q . getPart c $ i
-  lookupCase   i c q 		= fmap ((,) q . toOccurrences) . maybeToList . PT.lookup    q . getPart c $ i
-  lookupNoCase i c q 		= fmap (second  toOccurrences) . PT.lookupNoCase            q . getPart c $ i
+  allWords     i c		= fmap (second  toOccurrences) . PT.toList                      . getPart c $ i
+  prefixCase   i c q 		= fmap (second  toOccurrences) . PT.prefixFindWithKeyBF       q . getPart c $ i
+  prefixNoCase i c q 		= fmap (second  toOccurrences) . PT.prefixFindNoCaseWithKeyBF q . getPart c $ i
+  lookupCase   i c q 		= fmap ((,) q . toOccurrences) . maybeToList . PT.lookup      q . getPart c $ i
+  lookupNoCase i c q 		= fmap (second  toOccurrences) . PT.lookupNoCase              q . getPart c $ i
 
   mergeIndexes	 		= zipInverted $ M.unionWith      $ PT.unionWith (zipOcc mergeOccurrences)
   substractIndexes              = zipInverted $ M.differenceWith $ substractPart
