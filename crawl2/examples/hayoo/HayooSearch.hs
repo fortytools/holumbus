@@ -33,6 +33,6 @@ wwwBase		= "."
 main 		:: IO ()
 main 		= do
                   apl <- hayooInit ixBase wwwBase
-                  run 4242 $ apl
+                  run 4243 $ apl
 
 -- ----------------------------------------------------------------------------

@@ -31,6 +31,7 @@ module Holumbus.Query.Processor
   , processPartial
   , processQueryM
   , processPartialM
+  -- , limitDocs
   )
 where
 
@@ -275,7 +276,7 @@ processBin But r1 r2 = I.difference r1 r2
 limitWords 		:: ProcessState i -> RawResult -> RawResult
 limitWords s r		= cutW . cutD $ r
   where
-  limitD		= 1000
+  limitD		= 500
   -- limitD		= docLimit $ config s
   cutD
       | limitD > 0	= limitDocs limitD

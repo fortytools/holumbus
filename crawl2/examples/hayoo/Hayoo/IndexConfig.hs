@@ -38,6 +38,7 @@ hayooIndexContextConfig		= [ ixModule
                                   { ixc_name          	= "module"
                                   , ixc_collectText   	= getAttrValue "module"
 				  , ixc_textToWords	= return
+                                  , ixc_boringWord     	= null
                                   }
     ixHierachy			= ixModule
                                   { ixc_name          	= "hierarchy"
@@ -57,7 +58,8 @@ hayooIndexContextConfig		= [ ixModule
                                   }
     ixPartial			= ixName
                                   { ixc_name          	= "partial"
-				  , ixc_textToWords	= deCamel >>> tokenize "[A-Za-z][A-Za-z0-9_]*"
+				  , ixc_textToWords	= deCamel >>> tokenize typeIdent
+                                  , ixc_boringWord      = boringWord
                                   }
     ixSignature			= ixDefault
 				  { ixc_name          	= "signature"
@@ -72,8 +74,7 @@ hayooIndexContextConfig		= [ ixModule
     ixDescription              	= ixDefault
                                   { ixc_name          	= "description"
                                   , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "doc"))
-				  , ixc_textToWords	= tokenize "[A-Za-z][-A-Za-z0-9.@]*[A-Za-z0-9]"		-- please: "-" as 1. char in set !!!
-														-- words start with a letter, ends with a letter or digit and may contain -, . and @ and digits
+				  , ixc_textToWords	= tokenize descrWord
                                   }
 
 -- -----------------------------------------------------------------------------    
@@ -111,7 +112,7 @@ hayooPkgIndexContextConfig	= [ ixCategory
     ixDescription              	= ixDefault
                                   { ixc_name          	= "pkgdescr"
                                   , ixc_collectText   	= fromLA $ getPkgDescr
-				  , ixc_textToWords	= tokenize "[A-Za-z][-A-Za-z0-9.@]*[A-Za-z0-9]"		-- "-" as 1. char in set !!!
+				  , ixc_textToWords	= tokenize descrWord
                                   }
     ixSynopsis              	= ixDescription
                                   { ixc_name          	= "synopsis"
@@ -122,6 +123,14 @@ hayooPkgIndexContextConfig	= [ ixCategory
                                   , ixc_collectText   	= fromLA $
                                                           listA (getPkgAuthor <+> getPkgMaintainer) >>^ unwords
                                   }
+
+-- -----------------------------------------------------------------------------    
+
+-- please: "-" as 1. char in set !!!
+-- words start with a letter, end with a letter or digit and may contain -, . and @ and digits
+
+descrWord			:: String
+descrWord			= "[A-Za-z][-A-Za-z0-9.@]*[A-Za-z0-9]"
 
 -- -----------------------------------------------------------------------------    
 

@@ -36,13 +36,31 @@ normalizeSignature		= tokenizeSignature >>> normSignatureIds >>> joinSignatureTo
 tokenizeSignature		:: String -> [String]
 tokenizeSignature		= tokenize sigToken
     where
-    sigToken			= "[\\]\\[(,)]|->|=>|" ++ sigIdent
+    sigToken			= "[\\]\\[(,)]|->|=>|\\*|" ++ sigIdent
+
+ascSym				:: String
+ascSym				= "[-!#$%&*+./<=>?@\\\\^|~]"
+
+uniSym				:: String
+uniSym				= "[\\p{S}\\p{P}-[(),;\\[\\]`{}_:'\"]]"
+
+uniSymNoColon			:: String
+uniSymNoColon			= "[\\p{S}\\p{P}-[(),;\\[\\]`{}_:'\"]]"
+
+conSym				:: String
+conSym				= ":(" ++ uniSymNoColon ++ "|" ++ uniSym ++ "{2,})"	-- somewhat tricky tricky (::) isn't a conSym
 
 sigIdent			:: String
 sigIdent			= "[\\p{L}#][\\p{L}\\{N}'_.]*"
 
+haskIdent			:: String
+haskIdent			= "[\\p{L}][\\p{L}\\{N}'_.]*"
+
 varIdent			:: String
 varIdent			= "[\\p{Ll}][\\p{L}\\{N}'_.]*"
+
+typeIdent			:: String
+typeIdent			= "[\\p{Lu}#][\\p{L}\\{N}'_.]*"	-- "|" ++ conSym	-- but this requires latest hxt-8.5.3, beacuse of a parser error in uniSym expression
 
 joinSignatureTokens		:: [String] -> String
 joinSignatureTokens		= mapAccumL insBlank False >>> snd >>> concat
