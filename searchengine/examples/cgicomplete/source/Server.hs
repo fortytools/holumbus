@@ -129,7 +129,7 @@ dispatchRequest i d hdl =
 
 -- | Create the configuration for the query processor.
 processCfg :: ProcessConfig
-processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
+processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100 500
 
 -- | Perform a query on a local index.
 localQuery :: (HolIndex i, HolDocuments d a) => i -> d a -> Query -> IO (Result a)

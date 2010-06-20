@@ -142,7 +142,7 @@ startupDistributed _ _ _ _ = usage ["Internal error!\n"]
 
 -- | Create the configuration for the query processor.
 processCfg :: ProcessConfig
-processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100
+processCfg = ProcessConfig (FuzzyConfig True True 1.0 germanReplacements) True 100 500
 
 -- | Perform a query on a local index.
 localQuery :: (HolIndex i, HolDocuments d c) => i -> d c -> Query -> IO (Result c)

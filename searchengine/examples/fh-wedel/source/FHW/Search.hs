@@ -242,7 +242,7 @@ msgSuccess r = if sd == 0 then "Leider nichts gefunden."
 makeQuery :: (Query, Core) -> Result CustomInfo
 makeQuery (q, Core i d _) = processQuery cfg i d q
                            where
-                           cfg = ProcessConfig (FuzzyConfig False True 1.0 []) True 50
+                           cfg = ProcessConfig (FuzzyConfig False True 1.0 []) True 50 500
 
 -- | Generate an error message in case the query could not be parsed.
 genError :: ArrowXml a => a (String, Core) (String, Result CustomInfo)

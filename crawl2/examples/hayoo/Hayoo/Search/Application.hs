@@ -65,6 +65,7 @@ import System.Log.Handler.Simple
 import Control.Concurrent  -- For the global MVar
 
 import Hayoo.IndexTypes
+import Hayoo.Signature
 import Hayoo.Search.Common
 import Hayoo.Search.JSON
 import Hayoo.Search.HTML
@@ -72,11 +73,11 @@ import Hayoo.Search.Parser
 
 data Core               = Core
                           { index       :: !  CompactInverted
-          , documents   :: ! (SmallDocuments FunctionInfo)
-          , pkgIndex    :: !  CompactInverted
-          , pkgDocs     :: ! (SmallDocuments PackageInfo)
-          , template    :: !  Template
-                            , packRank  :: !  RankTable
+                          , documents   :: ! (SmallDocuments FunctionInfo)
+                          , pkgIndex    :: !  CompactInverted
+                          , pkgDocs     :: ! (SmallDocuments PackageInfo)
+                          , template    :: !  Template
+                          , packRank    :: !  RankTable
           }
 
 -- | Weights for context weighted ranking.
@@ -251,7 +252,7 @@ hayooApplication midct env      = let p = params env in
                                   )
                                   $ q
       where
-      writeHtml ps              = filterStatusResult
+      writeHtml ps              = filterStatusResult q
                                   >>>
                                   runLA
                                   ( xpickleVal (xpStatusResult ps)
@@ -310,27 +311,30 @@ staticSubstitutions ps          = processTopDown setQuery
                                   )
 
 -- | Enable handling of parse errors from 'read'.
-readM :: (Read a, Monad m) => String -> m a
-readM s = case reads s of
-            [(x, "")] -> return x
-            _         -> fail "No parse"
+readM 				:: (Read a, Monad m) => String -> m a
+readM s 			= case reads s of
+                                  [(x, "")] -> return x
+                                  _         -> fail "No parse"
 
 -- | Proper URL decoding including substitution of "the annoying +" (tm)
-urlDecode :: String -> String
-urlDecode = unEscapeString . replaceElem '+' ' '
-
-replaceElem :: Eq a => a -> a -> [a] -> [a]
-replaceElem x y = map (\z -> if z == x then y else z)
-
--- | Perform some postprocessing on the status and the result.
-filterStatusResult :: StatusResult -> StatusResult
-filterStatusResult (s, r, h, m, p) = (s, filterResult r, h, m, p)
-  where
-  filterResult = id          -- (Result dh wh) = Result dh (M.filterWithKey (\w _ -> not ("->" `L.isInfixOf` w)) wh)
+urlDecode 			:: String -> String
+urlDecode 			= unEscapeString . replaceElem '+' ' '
 
 -- | Decode any URI encoded entities and transform to unicode.
-decode :: String -> String
-decode = fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
+decode 				:: String -> String
+decode 				= fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
+
+replaceElem 			:: Eq a => a -> a -> [a] -> [a]
+replaceElem x y 		= map (\z -> if z == x then y else z)
+
+-- | Perform some postprocessing on the status and the result.
+filterStatusResult :: String -> StatusResult -> StatusResult
+filterStatusResult q (s, r@(Result dh wh), h, m, p)
+				= (s, filteredResult, h, m, p)
+  where
+  filteredResult
+      | isSignature q		= r
+      | otherwise		= Result dh (M.filterWithKey (\x _y -> not . isSignature $ x) wh)
 
 -- | Log a request to stdout.
 logRequest :: Env -> IO ()
@@ -450,7 +454,12 @@ msgSuccess fr pr        = if sd + sp == 0
 makeQuery               :: (Query, Core) -> (Result FunctionInfo, Result PackageInfo)
 makeQuery (q, c)        = (processQuery cfg (index c) (documents c) q, processQuery cfg (pkgIndex c) (pkgDocs c) q)
     where
-    cfg                 = ProcessConfig (FuzzyConfig False True 1.0 []) True 50
+    cfg                 = ProcessConfig
+                          { fuzzyConfig   = FuzzyConfig False True 1.0 []
+                          , optimizeQuery = True
+                          , wordLimit     = 50
+                          , docLimit      = 500
+                          }
 
 -- | Generate a list of modules from a result
 genModules              :: Result FunctionInfo -> [(String, Int)]

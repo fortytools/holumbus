@@ -31,7 +31,6 @@ module Holumbus.Query.Processor
   , processPartial
   , processQueryM
   , processPartialM
-  -- , limitDocs
   )
 where
 
@@ -60,24 +59,29 @@ import Holumbus.Query.Result (Result)
 import Holumbus.Query.Intermediate (Intermediate)
 import qualified Holumbus.Query.Intermediate as I
 
+-- ----------------------------------------------------------------------------
+
 -- | The configuration for the query processor.
-data ProcessConfig  = ProcessConfig 
-  { fuzzyConfig   :: !FuzzyConfig -- ^ The configuration for fuzzy queries.
-  , optimizeQuery :: !Bool        -- ^ Optimize the query before processing.
-  , wordLimit     :: !Int         -- ^ The maximum number of words used from a prefix. Zero switches off limiting.
-  }
+data ProcessConfig  	= ProcessConfig 
+                          { fuzzyConfig   :: ! FuzzyConfig -- ^ The configuration for fuzzy queries.
+                          , optimizeQuery :: ! Bool        -- ^ Optimize the query before processing.
+                          , wordLimit     :: ! Int         -- ^ The maximum number of words used from a prefix. Zero switches off limiting.
+                          , docLimit      :: ! Int	     -- ^ The maximum number of documents taken into account. Zero switches off limiting.
+                          }
 
 instance Binary ProcessConfig where
-  put (ProcessConfig fc o l) = put fc >> put o >> put l
-  get = liftM3 ProcessConfig get get get
+  put (ProcessConfig fc o l d) = put fc >> put o >> put l >> put d
+  get = liftM4 ProcessConfig get get get get
 
 -- | The internal state of the query processor.
-data ProcessState i = ProcessState 
-  { config   :: !ProcessConfig   -- ^ The configuration for the query processor.
-  , contexts :: ![Context]       -- ^ The current list of contexts.
-  , index    :: !i               -- ^ The index to search.
-  , total    :: !Int             -- ^ The number of documents in the index.
-  }
+data ProcessState i 	= ProcessState 
+                          { config   :: ! ProcessConfig   -- ^ The configuration for the query processor.
+                          , contexts :: ! [Context]       -- ^ The current list of contexts.
+                          , index    :: ! i               -- ^ The index to search.
+                          , total    :: ! Int             -- ^ The number of documents in the index.
+                          }
+
+-- ----------------------------------------------------------------------------
 
 -- | Get the fuzzy config out of the process state.
 getFuzzyConfig :: HolIndex i => ProcessState i -> FuzzyConfig
@@ -271,13 +275,14 @@ processBin But r1 r2 = I.difference r1 r2
 -- determine the quality of a word: The total number of occurrences divided by the number of 
 -- documents in which the word appears.
 --
--- This could be unneccessary, if the result list is sorted by length first (breadths first order)
+-- The second heuristic isn't that expensive any more when the resul list is cut of by the heuristic
+--
+-- The limit 500 should be part of a configuration
 
 limitWords 		:: ProcessState i -> RawResult -> RawResult
 limitWords s r		= cutW . cutD $ r
   where
-  limitD		= 500
-  -- limitD		= docLimit $ config s
+  limitD		= docLimit $ config s
   cutD
       | limitD > 0	= limitDocs limitD
       | otherwise	= id
