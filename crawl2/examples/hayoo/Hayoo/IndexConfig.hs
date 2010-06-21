@@ -102,7 +102,7 @@ hayooPkgIndexContextConfig	= [ ixCategory
     ixPkgName              	= ixDefault
                                   { ixc_name          	= "pkgname"
                                   , ixc_collectText   	= fromLA $ getPkgName
-				  , ixc_textToWords	= return
+				  , ixc_textToWords	= splitDash
                                   }
     ixDepends              	= ixDefault
                                   { ixc_name          	= "dependencies"
@@ -171,5 +171,16 @@ deleteNotAllowedChars   	= map notAllowedToSpace
     notAllowedToSpace c
         | isAllowedWordChar c   = c
         | otherwise             = ' '
+
+splitDash			:: String -> [String]
+splitDash s			= ( s : (map (\ x -> if x == '-' then ' ' else x)
+					 >>>
+					 words
+					 >>>
+					 drop 1
+					 $
+					  s
+					)
+				  )
 
 -- -----------------------------------------------------------------------------    
