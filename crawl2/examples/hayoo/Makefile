@@ -26,7 +26,8 @@ GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source -ignore
 
 N       = 1
 H       = 3000
-RUNOPTS = +RTS -N$(N) -s -K50M -H$(H)M -RTS
+A       = 6
+RUNOPTS = +RTS -N$(N) -s -K50M -H$(H)M -A$(A)M -RTS
 
 all	: $(progs)
 
