@@ -69,7 +69,7 @@ import           Holumbus.MapReduce.MapReduce
 
 import           Examples.MapReduce.Crawler.Config
 
--- import Control.Parallel.Strategies
+-- import Control.DeepSeq
 
 type MD5Hash = String
 

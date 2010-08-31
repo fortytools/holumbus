@@ -8,7 +8,7 @@ where
 import Holumbus.Distribution.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Sum
 import System.Environment
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import Holumbus.Common.FileHandling
 
 main :: IO ()

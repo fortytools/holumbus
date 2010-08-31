@@ -127,7 +127,7 @@ import           Holumbus.Common.FileHandling
 import           Holumbus.Common.Utils
 import qualified Holumbus.Data.KeyMap as KMap
 import qualified Holumbus.FileSystem.FileSystem as FS
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 localLogger :: String
 localLogger = "Holumbus.MapReduce.Types"

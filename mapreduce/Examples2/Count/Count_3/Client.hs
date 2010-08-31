@@ -8,7 +8,7 @@ where
 import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Count.DCount 
 import System.Environment
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 
 main :: IO ()

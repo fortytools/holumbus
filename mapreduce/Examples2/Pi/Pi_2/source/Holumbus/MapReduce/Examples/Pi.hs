@@ -7,7 +7,7 @@ import Holumbus.MapReduce.Examples.SimpleDMapReduceIO
 import Holumbus.MapReduce.Types
 import System.Random.Mersenne
 import Data.Maybe
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import Control.Parallel
 
 calcSample :: Double -> Double -> Bool

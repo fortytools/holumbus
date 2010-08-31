@@ -8,7 +8,7 @@ where
 import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Count.DCount
 import System.Log
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import qualified Data.ByteString.Lazy.Char8 as C
 
 instance NFData C.ByteString where

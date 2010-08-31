@@ -4,7 +4,7 @@ import System.Environment
 import System.Random.Mersenne
 import qualified Data.List as L
 import Control.Parallel
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import GHC.Int
 
 main :: IO ()

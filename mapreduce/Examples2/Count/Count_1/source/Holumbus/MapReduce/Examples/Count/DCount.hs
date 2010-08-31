@@ -8,7 +8,7 @@ module Holumbus.MapReduce.Examples.Count.DCount
 where
 
 import Holumbus.Distribution.SimpleDMapReduceIO
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import Holumbus.MapReduce.Types
 
 type Options = [String]

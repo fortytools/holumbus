@@ -9,7 +9,7 @@ import Holumbus.MapReduce.Examples.Count.SimpleDMapReduceIO
 import Holumbus.MapReduce.Examples.Count.DCount 
 import Holumbus.MapReduce.Examples.Count.BinSplit
 import System.Environment
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import qualified Data.ByteString.Lazy.Char8 as C
 import GHC.Int
 import Data.Time.Clock.POSIX

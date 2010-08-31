@@ -8,7 +8,7 @@ where
 import Holumbus.MapReduce.Examples.MandelbrotSet.SimpleDMapReduceIO 
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageTypes
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageMandel
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 {- 
 

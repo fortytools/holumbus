@@ -38,7 +38,7 @@ import           Data.Binary
 --import           Holumbus.Common.MRBinary
 import           Data.Maybe
 import qualified Data.ByteString.Lazy as B
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 import qualified Holumbus.Distribution.DMapReduce               as MR
 import qualified Holumbus.FileSystem.FileSystem                 as FS
 import qualified Holumbus.MapReduce.DaemonInterface             as DI

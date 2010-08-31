@@ -74,7 +74,7 @@ import           System.IO hiding (utf8)
 import           System.IO.Unsafe
 
 import           Text.XML.HXT.Arrow
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 -- ----------------------------------------------------------------------------
 -- xml files

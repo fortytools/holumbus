@@ -16,13 +16,13 @@ import Holumbus.MapReduce.Examples.MandelbrotSet.ImageTypes hiding (Image)
 import Holumbus.MapReduce.Examples.MandelbrotSet.ImageMandel
 
 -- System import
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import Data.Binary
 import Data.List
-import Control.Parallel.Strategies
+import Control.DeepSeq
 import System.Log.Logger
 import Control.Exception
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 {- ------------------------------------------------------------------------------------------------------------- -}
 

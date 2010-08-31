@@ -1,5 +1,5 @@
 name:          Holumbus-Distribution
-version:       0.1.0
+version:       0.1.1
 license:       OtherLicense
 license-file:  LICENSE
 author:        Stefan Schmidt, Uwe Schmidt
@@ -67,9 +67,9 @@ library
                 , unix       >= 2.3
                 , random     >= 1.0
                 , stm        >= 2.1.1.2
-                , parallel   >= 1.1.0.0
+                , deepseq    >= 1.1 && < 2
                 , array      >= 0.2.0.0
-                , readline   >= 1.0
+                , readline   >= 1 && < 2
 
   hs-source-dirs: 
                   source

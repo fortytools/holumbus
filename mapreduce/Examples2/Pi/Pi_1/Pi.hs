@@ -3,7 +3,7 @@ module Main where
 import System.Environment
 import System.Random.Mersenne
 import Data.Maybe
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 main :: IO ()
 main = do

@@ -46,7 +46,7 @@ import           Data.Maybe
 
 -- import           Control.Exception
 import           Control.Monad
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 import           Holumbus.Build.Config
 -- import           Holumbus.Control.MapReduce.ParallelWithClass 
