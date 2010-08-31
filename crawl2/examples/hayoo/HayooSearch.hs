@@ -25,14 +25,13 @@ import Hack.Handler.SimpleServer
 -- ----------------------------------------------------------------------------
 
 -- | Maybe read these from the command line ... somewhen
-ixBase, wwwBase	:: FilePath
+ixBase :: FilePath
 ixBase		= "."
-wwwBase		= "."
 
 -- | The main application, fire up the server here!
-main 		:: IO ()
-main 		= do
-                  apl <- hayooInit ixBase wwwBase
-                  run 4242 $ apl
+main :: IO ()
+main = do
+       apl <- hayooInit ixBase
+       run 4242 $ apl
 
 -- ----------------------------------------------------------------------------

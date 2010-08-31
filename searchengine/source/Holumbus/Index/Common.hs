@@ -68,7 +68,7 @@ module Holumbus.Index.Common
 where
 
 import           Control.Monad  (liftM3, foldM)
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 import           Data.Binary (Binary (..))
 import qualified Data.Binary    as B

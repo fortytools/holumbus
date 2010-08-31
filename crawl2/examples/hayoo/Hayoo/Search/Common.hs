@@ -23,14 +23,8 @@ import Holumbus.Query.Result	( Result )
 
 import Hayoo.IndexTypes		( FunctionInfo, PackageInfo )
 
-import Text.XML.HXT.Arrow	( XmlTree )
-
-
 -- Status information of query processing (status message, result, top modules, top packages).
 
 type StatusResult 		= (String, Result FunctionInfo, Result PackageInfo, [(String, Int)], [(String, Int)])
-
-type Template 			= XmlTree
-
 
 -- ----------------------------------------------------------------------------

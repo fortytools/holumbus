@@ -247,7 +247,12 @@ div.headline {
 }
 
 #words {
-  margin-top:20px;
+	padding-left: 10px;
+	padding-right: 10px;
+	margin-top: 25px;
+	margin-bottom: 5px;
+	text-align:center;
+	word-spacing: 1.5em;
 }
 
 a.rootModuleName {
@@ -403,6 +408,8 @@ a.toggleFold {
 	border-width:1px;
 	border-style:solid;
 	background-color:#F4F4F4;
+	margin-left:5px;
+	margin-right:5px;
 }
 
 #pager {
@@ -436,15 +443,6 @@ a.previous {
 
 a.cloud {
 	font-weight:normal;
-}
-
-div.cloud {
-	padding-left: 10px;
-	padding-right: 10px;
-	margin-top: 5px;
-	margin-bottom: 5px;
-	text-align:center;
-	word-spacing: 1.5em;
 }
 
 .cloud1 { font-size:10px; }

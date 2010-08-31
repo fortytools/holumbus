@@ -29,15 +29,14 @@ numThreads 	:: Int
 numThreads 	= 4
 
 -- | Maybe read these from the command line ... somewhen
-ixBase, wwwBase	:: FilePath
+ixBase :: FilePath
 ixBase		= "."
-wwwBase		= "."
 
 -- | The main application, fire up the server here!
-main 		:: IO ()
-main 		= do
-                  apl <- hayooInit ixBase wwwBase
-                  runFastCGIConcurrent numThreads apl
+main :: IO ()
+main = do
+       apl <- hayooInit ixBase
+       runFastCGIConcurrent numThreads apl
 
 -- ----------------------------------------------------------------------------
 

@@ -25,19 +25,24 @@ where
 
 import Data.Function
 import Data.Maybe
--- import Data.Char
+import Data.Char
 
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.IntMap as IM
 import qualified Data.IntSet as IS
 
-import Data.ByteString.Lazy.Char8 (pack)
+import qualified Data.Text.Encoding as T
+
+import Data.ByteString.Lazy.Char8 (ByteString, pack, fromChunks)
 
 import Network.URI (unEscapeString)
 
 import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
+
+import Text.XHtmlCombinators (render)
+import Text.XHtmlCombinators.Render (renderPretty)
 
 import Holumbus.Index.Common
 
@@ -66,18 +71,22 @@ import Control.Concurrent  -- For the global MVar
 
 import Hayoo.IndexTypes
 import Hayoo.Signature
+
 import Hayoo.Search.Common
 import Hayoo.Search.JSON
 import Hayoo.Search.HTML
 import Hayoo.Search.Parser
 
-data Core               = Core
-                          { index       :: !  CompactInverted
-                          , documents   :: ! (SmallDocuments FunctionInfo)
-                          , pkgIndex    :: !  CompactInverted
-                          , pkgDocs     :: ! (SmallDocuments PackageInfo)
-                          , template    :: !  Template
-                          , packRank    :: !  RankTable
+import Hayoo.Search.Pages.Template
+import Hayoo.Search.Pages.Static
+
+data Core = Core
+          { index     :: !  CompactInverted
+          , documents :: ! (SmallDocuments FunctionInfo)
+          , pkgIndex  :: !  CompactInverted
+          , pkgDocs   :: ! (SmallDocuments PackageInfo)
+          , template  :: !  Template
+          , packRank  :: !  RankTable
           }
 
 -- | Weights for context weighted ranking.
@@ -93,136 +102,105 @@ contextWeights          = [ ("name", 0.9)
                           ]
 
 -- | Just an alias with explicit type.
-
 loadIndex       :: FilePath -> IO CompactInverted
 loadIndex       = loadFromFile
 
 -- | Just an alias with explicit type.
-
 loadDocuments   :: FilePath -> IO (SmallDocuments FunctionInfo)
 loadDocuments   = loadFromFile
 
 -- | Just an alias with explicit type.
-
 loadPkgDocs     :: FilePath -> IO (SmallDocuments PackageInfo)
 loadPkgDocs     = loadFromFile
 
--- | Load the template.
-
-loadTemplate    :: Int -> Int -> FilePath -> IO XmlTree
-loadTemplate fcnt pcnt f
-                = do
-                  tpl <- runX
-                         ( readDocument [ (a_parse_html,v_1)
-                                        , (a_indent,v_1)
-                                        , (a_trace,v_0)
-                                        ] f
-                           >>>
-                           processTopDownUntil                          -- insert # of functions and # of packages into start page
-                           ( ( hasAttrValue "id" (== "no-of-functions")
-                               `guards`
-                               txt (showCnt fcnt)
-                             )
-                             `orElse`
-                             ( hasAttrValue "id" (== "no-of-packages")
-                               `guards`
-                               txt (showCnt pcnt)
-                             )
-                           )
-                         )
-                  if L.null tpl
-                    then error "Unable to read template"
-                    else return $ head tpl
-
-showCnt         :: Int -> String
-showCnt         = show >>> fmtCnt
-    where
-    fmtCnt      = reverse >>> insDot >>> reverse
-    insDot s
-        | L.null y      = s
-        | otherwise     = x ++ "." ++ insDot y
-        where
-        (x , y) = splitAt 3 s
-
 -- | Init Hayoo!
-hayooInit :: FilePath -> FilePath -> IO Application
-hayooInit ixBase wwwBase = do
-                  fdl  <- fileHandler "hayoo.log" INFO
-                  sdl  <- streamHandler stdout INFO
+hayooInit :: FilePath -> IO Application
+hayooInit ixBase = do
+    fdl  <- fileHandler "hayoo.log" INFO
+    sdl  <- streamHandler stdout INFO
 
-                  updateGlobalLogger rootLoggerName (setHandlers [fdl, sdl])
-                  updateGlobalLogger rootLoggerName (setLevel INFO)
+    updateGlobalLogger rootLoggerName (setHandlers [fdl, sdl])
+    updateGlobalLogger rootLoggerName (setLevel INFO)
 
-                  idx  <- loadIndex     hayooIndex
-                  infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
+    idx  <- loadIndex     hayooIndex
+    infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
 
-                  doc  <- loadDocuments hayooDocs
-                  infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
-                  infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs doc) ++ " functions and types")
+    doc  <- loadDocuments hayooDocs
+    infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
+    infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs doc) ++ " functions and types")
 
-                  pidx <- loadIndex     hackageIndex
-                  infoM "Hayoo.Main" ("Hackage index loaded from file " ++ show hackageIndex)
+    pidx <- loadIndex     hackageIndex
+    infoM "Hayoo.Main" ("Hackage index loaded from file " ++ show hackageIndex)
 
-                  pdoc <- loadPkgDocs   hackageDocs
-                  infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
-                  infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
+    pdoc <- loadPkgDocs   hackageDocs
+    infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
+    infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
 
-                  prnk <- return $ buildRankTable pdoc
-                  infoM "Hayoo.Main" ("Hackage package rank table computed")
+    prnk <- return $ buildRankTable pdoc
+    infoM "Hayoo.Main" ("Hackage package rank table computed")
 
-                  tpl  <- loadTemplate (sizeDocs doc) (sizeDocs pdoc) templ
-                  infoM "Hayoo.Main" ("Template loaded from file "      ++ show templ)
+    tpl  <- return $ makeTemplate (sizeDocs pdoc) (sizeDocs doc)
 
-                  midct <- newMVar $
-                           Core
-                           { index      = idx
-                           , documents  = doc
-                           , pkgIndex   = pidx
-                           , pkgDocs    = pdoc
-                           , template   = tpl
-                           , packRank   = prnk
-                           }
+    midct <- newMVar $
+             Core
+             { index      = idx
+             , documents  = doc
+             , pkgIndex   = pidx
+             , pkgDocs    = pdoc
+             , template   = tpl
+             , packRank   = prnk
+             }
 
-                  return $
-                         url_map [ ("/hayoo.html", hayooApplication midct)
-                                 , ("/hayoo.json", hayooApplication midct)
-                                 ] (file Nothing empty_app)
+    return $
+           url_map [ ("/hayoo.html", hayooApplication midct)
+                   , ("/hayoo.json", hayooApplication midct)
+                   , ("/help.html", serveStatic $ tpl help)
+                   , ("/about.html", serveStatic $ tpl about)
+                   , ("/api.html", serveStatic $ tpl api)
+                   ] (file Nothing empty_app)
   where
-  hayooIndex    = ixBase ++ "/ix.bin.idx"
-  hayooDocs     = ixBase ++ "/ix.bin.doc"
-  hackageIndex  = ixBase ++ "/pkg.bin.idx"
-  hackageDocs   = ixBase ++ "/pkg.bin.doc"
-  templ         = wwwBase ++ "/hayoo.html"
+  hayooIndex      = ixBase ++ "/ix.bin.idx"
+  hayooDocs       = ixBase ++ "/ix.bin.doc"
+  hackageIndex    = ixBase ++ "/pkg.bin.idx"
+  hackageDocs     = ixBase ++ "/pkg.bin.doc"
+  serveStatic c _ = return $ Response 
+                    { status = 200
+                    , headers = [ ("Content-Type", "text/html") ]
+                    , body = fromChunks [T.encodeUtf8 $ render c]
+                    }
 
 -- | Generate the actual response
 hayooApplication :: MVar Core -> Env -> IO Response
-hayooApplication midct env      = let p = params env in
-                                  do
-                                  request <- return $               getValDef p "query"  ""
-                                  start   <- return $ readDef 0    (getValDef p "start"  "")
-                                  static  <- return $ readDef True (getValDef p "static" "")
-                                  json    <- return $ isJson (path env)
+hayooApplication midct env      = let p = params env in do
+          request <- return $               getValDef p "query"  ""
+          start   <- return $ readDef 0    (getValDef p "start"  "")
+          static  <- return $ readDef True (getValDef p "static" "")
+          json    <- return $ isJson (path env)
 
-                                  -- Output some information about the request.
-                                  logRequest env
+          -- Output some information about the request.
+          logRequest env
 
-                                  -- Because index access is read only, the MVar's are just read to make them avaliable again.
-                                  idct    <- readMVar midct
+          -- Because index access is read only, the MVar's are just read 
+          -- to make them avaliable again.
+          idct    <- readMVar midct
 
-                                  -- Put all information relevant for rendering into a container
-                                  state   <- return $ (request, start, static, (template idct))
+          -- Put all information relevant for rendering into a container
+          state   <- return $ (request, start, static, (template idct))
 
-                                  -- If the query is empty, just render an empty page
-                                  resp    <- return $
-                                             if L.null request
-                                             then renderEmpty json idct
-                                             else renderResult state json idct request
+          -- If the query is empty, just render an empty page
+          resp    <- return $
+                     if L.null request
+                     then renderEmpty json idct
+                     else renderResult state json idct
 
-                                  -- Determine the mime type of the response
-                                  mime    <- return $ if json then "application/json" else "text/html"
+          -- Determine the mime type of the response
+          mime    <- return $ 
+                     if json 
+                     then "application/json" 
+                     else "text/html"
 
-                                  -- Return the actual response
-                                  return $ Response { status = 200, headers = [ ("Content-Type", mime) ], body = pack resp }
+          -- Return the actual response
+          return $ Response { status = 200, headers = [ ("Content-Type", mime) ], body = resp }
     where
 
     -- Just render an empty page/JSON answer
@@ -230,11 +208,13 @@ hayooApplication midct env      = let p = params env in
                                   then writeJson
                                   else writeHtml
       where
-      writeJson                 = renderEmptyJson
-      writeHtml                 = head $ runLA (writeDocumentToString htmlOptions) (template idct)
+      writeJson                 = pack $ renderEmptyJson
+      writeHtml                 = fromChunks [T.encodeUtf8 $ render $ (template idct) examples]
+--      writeHtml     = head $ runLA (writeDocumentToString htmlOptions) (template idct)
 
     -- Parse the query and generate a result or an error depending on the parse result.
-    renderResult (r, s, i, t) j idct q
+    renderResult :: (String, Int, Bool, Template) -> Bool -> Core  -> ByteString
+    renderResult (r, s, i, t) j idct
                                 = decode
                                   >>>
                                   parseQuery
@@ -247,14 +227,16 @@ hayooApplication midct env      = let p = params env in
                                     (genResult idct)
                                   >>>
                                   ( if j
-                                    then renderJson
-                                    else writeHtml (PickleState r s i t)
+                                    then pack . renderJson
+                                    else writeHtml (RenderState r s i)
                                   )
-                                  $ q
+                                  $ r
       where
-      writeHtml ps              = filterStatusResult q
+      writeHtml rs              = filterStatusResult r
                                   >>>
-                                  runLA
+                                  arr (applyTemplate rs)
+{-
+																	runLA
                                   ( xpickleVal (xpStatusResult ps)
                                     >>>
                                     applyTemplate ps
@@ -263,11 +245,17 @@ hayooApplication midct env      = let p = params env in
                                       (a_no_xml_pi, if psStatic ps then v_0 else v_1) : htmlOptions
                                     )
                                   )
+																	
                                   >>>
                                   head
+-}
+      applyTemplate rs sr       = fromChunks [T.encodeUtf8 markup]
+                                  where
+                                  markup = let rr = result rs sr in 
+                                           if rsStatic rs then render $ t rr else render $ rr
 
-    -- Apply the template if necessary
-    applyTemplate ps            = if psStatic ps
+{-
+		applyTemplate rs            = if rsStatic rs
                                   then ( insertTreeTemplate (constA $ psTemplate ps) [ hasAttrValue "id" (== "result") :-> this ]
                                          >>>
                                          staticSubstitutions ps
@@ -275,13 +263,13 @@ hayooApplication midct env      = let p = params env in
                                          addXHtmlDoctypeStrict
                                        )
                                   else arr id
-
+-}
     -- Check requested path for JSON
     isJson f                    = extension f == "json"
-
+{-
     -- Default HTML render options
     htmlOptions                 = [(a_output_encoding, utf8), (a_indent,v_1), (a_output_xhtml, v_1)]
-
+-}
 -- Read or use default value
 readDef                         :: Read a => a -> String -> a
 readDef d                       = fromMaybe d . readM
@@ -297,6 +285,7 @@ extension fn                    = go (reverse fn) ""
 getValDef                       :: [(String,String)] -> String -> String -> String
 getValDef l k d                 = fromMaybe d (lookup k l)
 
+{-
 staticSubstitutions             :: ArrowXml a => PickleState -> a XmlTree XmlTree
 staticSubstitutions ps          = processTopDown setQuery
   where
@@ -309,32 +298,32 @@ staticSubstitutions ps          = processTopDown setQuery
                                     >>>
                                     hasAttrValue "id" (== "querytext")
                                   )
-
+-}
 -- | Enable handling of parse errors from 'read'.
-readM 				:: (Read a, Monad m) => String -> m a
-readM s 			= case reads s of
+readM   :: (Read a, Monad m) => String -> m a
+readM s = case reads s of
                                   [(x, "")] -> return x
                                   _         -> fail "No parse"
-
+{-
 -- | Proper URL decoding including substitution of "the annoying +" (tm)
-urlDecode 			:: String -> String
-urlDecode 			= unEscapeString . replaceElem '+' ' '
-
+urlDecode :: String -> String
+urlDecode = unEscapeString . replaceElem '+' ' '
+-}
 -- | Decode any URI encoded entities and transform to unicode.
-decode 				:: String -> String
-decode 				= fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
-
-replaceElem 			:: Eq a => a -> a -> [a] -> [a]
-replaceElem x y 		= map (\z -> if z == x then y else z)
-
+decode :: String -> String
+decode = fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
+{-
+replaceElem     :: Eq a => a -> a -> [a] -> [a]
+replaceElem x y = map (\z -> if z == x then y else z)
+-}
 -- | Perform some postprocessing on the status and the result.
 filterStatusResult :: String -> StatusResult -> StatusResult
 filterStatusResult q (s, r@(Result dh wh), h, m, p)
-				= (s, filteredResult, h, m, p)
+    = (s, filteredResult, h, m, p)
   where
   filteredResult
-      | isSignature q		= r
-      | otherwise		= Result dh (M.filterWithKey (\x _y -> not . isSignature $ x) wh)
+      | isSignature q = r
+      | otherwise     = Result dh (M.filterWithKey (\x _y -> not . isSignature $ x) wh)
 
 -- | Log a request to stdout.
 logRequest :: Env -> IO ()
@@ -419,22 +408,19 @@ hayooFctRanking rt ws ts _ di dch
                             else Nothing
                           else lookupWeight xs
 
-genResult               :: Core -> Query -> StatusResult
+genResult ::  Core -> Query -> StatusResult
 genResult idc q
-    | otherwise
-      -- checkWith isEnough q
-                        = let (fctRes, pkgRes) = curry makeQuery q idc in
-                          let (fctCfg, pkgCfg) = (RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount, RankConfig (hayooPkgRanking (packRank idc)) wordRankByCount) in
-                          let (fctRnk, pkgRnk) = (rank fctCfg fctRes, rank pkgCfg pkgRes) in
-                          (msgSuccess fctRnk pkgRnk, fctRnk, pkgRnk, genModules fctRnk, genPackages fctRnk)     -- Include a success message in the status
+    | checkWith isEnough q
+      = let (fctRes, pkgRes) = curry makeQuery q idc in
+        let (fctCfg, pkgCfg) = (RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount, RankConfig (hayooPkgRanking (packRank idc)) wordRankByCount) in
+        let (fctRnk, pkgRnk) = (rank fctCfg fctRes, rank pkgCfg pkgRes) in
+        (msgSuccess fctRnk pkgRnk, fctRnk, pkgRnk, genModules fctRnk, genPackages fctRnk) -- Include a success message in the status
 
-    | otherwise         = ("Please enter some longer word prefixes.", emptyResult, emptyResult, [], [])
+    | otherwise = ("Please enter some more characters.", emptyResult, emptyResult, [], [])
 
-{-
-isEnough                :: String -> Bool
-isEnough (c:[])         = not (isAlpha c)
-isEnough _              = True
--}
+isEnough        :: String -> Bool
+isEnough (c:[]) = not (isAlpha c)
+isEnough _      = True
 
 -- | Generate a success status response from a query result.
 msgSuccess              :: Result FunctionInfo -> Result PackageInfo -> String

@@ -17,22 +17,27 @@
 
 -- ----------------------------------------------------------------------------
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Hayoo.Search.HTML 
-    ( PickleState (..)
-    , xpStatusResult
+    ( RenderState (..)
+    , result
     )
 where
 
-import           Char (toLower)
+import           Data.Text (Text, pack)
+import           Data.Char (toLower, isSpace)
 import           Data.Maybe
 import           Data.Function
-import qualified Data.IntMap 		as IM
-import qualified Data.List 		as L
-import qualified Data.Map 		as M
+import qualified Data.IntMap  as IM
+import qualified Data.List    as L
+import qualified Data.Map     as M
 
-import           Text.XML.HXT.Arrow
+import           Text.XHtmlCombinators
+import qualified Text.XHtmlCombinators.Attributes as A
 
-import           Holumbus.Utility
+
+import           Holumbus.Utility hiding (escape)
 import           Holumbus.Index.Common
 
 import           Holumbus.Query.Result
@@ -40,394 +45,199 @@ import           Holumbus.Query.Result
 import           Hayoo.IndexTypes
 import           Hayoo.Search.Common
 
-data PickleState 	= PickleState
-    			                { psQuery    :: String
-                          , psStart    :: Int
-                          , psStatic   :: Bool
-                          , psTemplate :: Template
-                          }
+data RenderState = RenderState
+                 { rsQuery    :: String
+                 , rsStart    :: Int
+                 , rsStatic   :: Bool
+                 }
 
-pageLimit 			:: Int
-pageLimit 			= 10
+pageLimit :: Int
+pageLimit = 10
 
 maxWordHits :: Int
 maxWordHits = 75
 
-staticRoot 		:: String
-staticRoot 		= "hayoo.html"
+staticRoot :: String
+staticRoot = "hayoo.html"
 
-wrapMaybe :: [a] -> Maybe [a]
-wrapMaybe [] = Nothing
-wrapMaybe xs = Just xs
+text' :: (Functor t, Monad t, CData c) => String -> XHtmlT t c
+text' = text . pack
 
-wrapMaybePair :: ([a], [b]) -> Maybe ([a], [b])
-wrapMaybePair ([], []) = Nothing
-wrapMaybePair p = Just p
+onclick :: Text -> Attr
+onclick = A.attr "onclick"
 
--- | The combined pickler for the status response and the result.
-xpStatusResult 		:: PickleState -> PU StatusResult
-xpStatusResult ps 	= xpDivId "result" $
-                          xpWrap (undefined, \(s, r, h, m, p) -> (s, h, (m, p), r, "", total r h)) $
-                          xp6Tuple xpStatus (xpHackage ps) xpAggregation (xpResultHtml ps) xpClear (xpPager ps (psStart ps))
+-- | Render the whole Hayoo! search result.
+result :: RenderState -> StatusResult -> XHtml FlowContent
+result rs (sm, rf, rp, tm, tp) = div' [A.id_ "result"] $ do
+  div' [A.id_ "status"] $ text' sm  
+  packageResults rs rp
+  topLists rs tm tp
+  functionResults rs rf
+  div' [A.class_ "clear"] $ empty
+  pager rs $ max (sizeDocHits rf) (sizeDocHits rp)
 
+-- | The aggregation lists.
+topLists :: RenderState -> [(String, Int)] -> [(String, Int)] -> XHtml FlowContent
+topLists _ [] [] = empty
+topLists rs tm tp = div' [A.id_ "aggregation"] $ do
+  moduleList rs tm
+  packageList rs tp
+
+-- | The aggregated module list.
+moduleList :: RenderState -> [(String, Int)] -> XHtml FlowContent
+moduleList _ [] = empty
+moduleList rs tm = div' [A.id_ "modules"] $ do
+  div' [A.class_ "headline"] $ text "Top 15 Modules"
+  mapM_ topModule (take 15 tm)
   where
-  total r h       = max (sizeDocHits r) (sizeDocHits h)
-  xpAggregation 	= xpWrap (undefined, wrapMaybePair) $ xpOption $ xpDivId "aggregation" $ xpPair (xpModules ps) (xpPackages ps)
-  xpClear         = xpElemClass "div" "clear" xpText0 
-
--- | The Hackage hits (i.e. packages)
-xpHackage :: PickleState -> PU (Result PackageInfo)
-xpHackage ps = xpWrap (undefined, extractPackages) $ xpOption $ xpDivId "hackage" $ xpList $ xpPackageInfo ps
-  where
-  extractPackages = wrapMaybe . take pageLimit . drop (psStart ps) . (mapMaybe (\(_, (di, _)) -> custom $ document di)) . 
-                    reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList . docHits
-
-xpPackageInfo :: PickleState -> PU PackageInfo
-xpPackageInfo _ = xpElemClass "div" "package" $ xpWrap (undefined, extractComponents) $ xp4Tuple xpCategory xpNameSynopsis xpDescription xpAuthor
-  where
-  extractComponents p = (p_category p, (p_name p, p_synopsis p), p_description p, p_author p)
-  xpCategory = xpElemClass "div" "category" $ xpWrap (undefined, split " , ") $ xpList $ xpElemClass "a" "category" $ xpDuplicate $ xpPair xpCategoryLink xpText0
-  xpNameSynopsis = xpElemClass "div" "name" $ xpPair (xpElemClass "a" "name" $ xpDuplicate $ xpPair xpHackageLink xpText0) (xpElemClass "span" "synopsis" $ xpPrepend ": " xpText0)
-  xpDescription = xpElemClass "div" "description" xpText0
-  xpAuthor = xpElemClass "div" "author" xpText0
-  xpHackageLink = xpAttr "href" $ xpPrepend "http://hackage.haskell.org/package/" xpText0
-  xpCategoryLink = xpAttr "href" $ xpWrap (undefined, \c -> "http://hackage.haskell.org/packages/archive/pkg-list.html#cat:" ++ map toLower c) xpText0
-
--- xpElemClass "a" "category" $ xpDuplicate $ xpPair (xpPrepend "http://hackage.haskell.org/packages/archive/pkg-list.html#cat:" xpText)
-
--- | The aggregated modules list.
-xpModules 		:: PickleState -> PU [(String, Int)]
-xpModules ps 		= xpDivId "modules" $
-                          xpWrap (undefined, \l -> ("Top 15 Modules", take 15 l)) $
-                          xpPair (xpElemClass "div" "headline" $ xpText)
-                                 (xpList xpRootModule)
-  where
-  xpRootModule 		= xpElemClass "div" "rootModule" $
-                          xpPair (xpRootModuleLink $ psQuery ps)
-                                 (xpElemClass "span" "rootModuleCount" $ xpPrim)
-
-xpRootModuleLink 	:: String -> PU String
-xpRootModuleLink q 	= xpElemClass "a" "rootModuleName" $
-                          xpDuplicate $
-                          xpPair (xpDuplicate $ xpPair xpStaticLink xpReplace)
-                                 xpText
-  where
-  xpReplace 		= xpAttr "onclick" $
-                          xpPrepend "addToQuery('module:" $ xpAppend "'); return false;" $
-                          xpEscape
-  xpStaticLink 		= xpAttr "href" $
-                          xpWrap (undefined, makeQueryString) $
-                          xpText
-  makeQueryString s 	= staticRoot ++ "?query=" ++ q ++ "%20module%3A" ++ s
+  topModule (m, c) = div' [A.class_ "rootModule"] $ do
+    a' [A.class_ "rootModuleName", A.href staticLink, onclick dynamicLink] $ text' m
+    text " "
+    span' [A.class_ "rootModuleCount"] $ text' $ show c
+      where
+      staticLink = pack $ staticRoot ++ "?query=" ++ (rsQuery rs) ++ "%20module%3A" ++ m
+      dynamicLink = pack $ "addToQuery('module:" ++ m ++ "'); return false;"
 
 -- | The aggregated package list.
-xpPackages 		:: PickleState -> PU [(String, Int)]
-xpPackages ps 		= xpDivId "packages" $
-                          xpWrap (undefined, \l -> ("Top 15 Packages", take 15 l)) $
-                          xpPair (xpElemClass "div" "headline" $ xpText)
-                                 (xpList xpPackage)
+packageList :: RenderState -> [(String, Int)] -> XHtml FlowContent
+packageList _ [] = empty
+packageList rs tp = div' [A.id_ "packages"] $ do
+  div' [A.class_ "headline"] $ text "Top 15 Packages"
+  mapM_ topPackage (take 15 tp)
   where
-  xpPackage 		= xpElemClass "div" "package" $
-                          xpPair (xpPackageLink $ psQuery ps)
-                                 (xpElemClass "span" "packageCount" $ xpPrim)
- 
-xpPackageLink 		:: String -> PU String
-xpPackageLink q 	= xpElemClass "a" "packageLink" $
-                          xpDuplicate $
-                          xpPair (xpDuplicate $ xpPair xpStaticLink xpReplace)
-                                 xpText
-  where
-  xpReplace 		= xpAttr "onclick" $
-                          xpPrepend "addToQuery('package:" $ xpAppend "'); return false;" $
-                          xpEscape
-  xpStaticLink 		= xpAttr "href" $
-                          xpWrap (undefined, makeQueryString) $
-                          xpText
-  makeQueryString s 	= staticRoot ++ "?query=" ++ q ++ "%20package%3A" ++ s
-
-
--- | Enclose the status message in a <div> tag.
-xpStatus 		:: PU String
-xpStatus 		= xpDivId "status" xpText
-
--- | The HTML Result pickler. Extracts the maximum word score for proper scaling in the cloud.
-xpResultHtml 		:: PickleState -> PU (Result FunctionInfo)
-xpResultHtml s 		= xpWrap ( undefined , \ r -> ((maxScoreWordHits r, wordHits r), docHits r) ) $
-                          xpPair (xpWordHitsHtml s)
-                                 (xpDocHitsHtml s)
-
--- | Wrapping something in a <div> element with id attribute.
-xpDivId 		:: String -> PU a -> PU a
-xpDivId i p 		= xpElem "div" $
-                          xpAddFixedAttr "id" i p
-
--- | Wrapping something in a <div> element with class attribute.
-xpElemClass 		:: String -> String -> PU a -> PU a
-xpElemClass e c p 	= xpElem e $
-                          xpAddFixedAttr "class" c p
-
--- | Set the class of the surrounding element.
-xpClass 		:: String -> PU a -> PU a
-xpClass 		= xpAddFixedAttr "class"
-
--- | Append some text after pickling something else.
-xpAppend 		:: String -> PU a -> PU a
-xpAppend t p 		= xpWrap (\(v, _) -> v, \v -> (v, t)) $
-                          xpPair p xpText
-
--- | Prepend some text before pickling something else.
-xpPrepend 		:: String -> PU a -> PU a
-xpPrepend t p 		= xpWrap (\(_, v) -> v, \v -> (t, v)) $
-                          xpPair xpText p
-
--- | The HTML pickler for the document hits. Will be sorted by score. Also generates the navigation.
-xpDocHitsHtml 		:: PickleState -> PU (DocHits FunctionInfo)
-xpDocHitsHtml s 	= xpDivId "documents" $
-                          xpElem "table" $
-                          xpWrap (IM.fromList, toListSorted) $
-                          xpList $ 
-                          xpDocInfoHtml
-  where
-  toListSorted 		= take pageLimit . drop (psStart s) . reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList -- Sort by score
-
-xpPager 		:: PickleState -> Int -> PU Int
-xpPager ps s 		= xpWrap wrapper $
-                          xpOption $
-                          xpDivId "pager" $
-                          xpWrap (\_ -> 0, makePager s pageLimit) $
-                          xpOption $
-                          xpQueryPager ps
-  where
-  wrapper 		= (undefined, \v -> if v > 0 then Just v else Nothing)
-
-xpDocInfoHtml 		:: PU (DocId, (DocInfo FunctionInfo, DocContextHits))
-xpDocInfoHtml	 	= xpWrap (undefined, docToHtml) $
-                          xpPair xpQualified
-                                 xpAdditional
-  where
-  docToHtml (_, (DocInfo (Document _ _ Nothing) _, _))
-      			= error "Expecting custom information for document"
-  docToHtml (_, (DocInfo (Document t u (Just fi)) r, _))
-                        = ( ( (modLink u, moduleName fi)
-                            , (u, "Score: " ++ show r, t)
-                            , signature fi
-                            )
-                          , ( ( pkgLink $ package fi
-                              , package fi
-                              )
-                            , ( let f = fctDescr fi in
-                                if L.null f then Nothing else Just f
-                              , let u' = sourceURI fi in
-                                if L.null u' then Nothing else Just u'
-                              )
-                            )
-                          )
+  topPackage (k, c) = div' [A.class_ "package"] $ do
+    a' [A.class_ "packageLink", A.href staticLink, onclick dynamicLink] $ text' k
+    text " "
+    span' [A.class_ "packageCount"] $ text' $ show c
       where
-      modLink 		= takeWhile ((/=) '#')
+      staticLink = pack $ staticRoot ++ "?query=" ++ (rsQuery rs) ++ "%20package%3A" ++ k
+      dynamicLink = pack $ "addToQuery('package:" ++ k ++ "'); return false;"
 
-      -- pkgLink "gtk2hs" 	= "http://www.haskell.org/gtk2hs"
-      pkgLink p' 		= "http://hackage.haskell.org/package/" ++ p'
+-- | The Hackage hits (i.e. packages)
+packageResults :: RenderState -> (Result PackageInfo) -> XHtml FlowContent
+packageResults rs rp = let pl = extractPackages rp in 
+  if L.null pl then empty else div' [A.id_ "hackage"] $ do 
+    mapM_ packageInfo pl
+  where
+  packageInfo k = div' [A.class_ "package"] $ do
+    div' [A.class_ "category"] $ mapM_ packageCategory (split "," $ p_category k)
+    div' [A.class_ "name"] $ do
+      a' [A.class_ "name", A.href $ pack $ "http://hackage.haskell.org/package/" ++ (p_name k)] $ 
+				text' (p_name k)
+      span' [A.class_ "synopsis"] $ text' (" " ++ (p_synopsis k))
+    div' [A.class_ "description"] $ text' (p_description k)
+    div' [A.class_ "author"] $ text' (p_author k)
+  packageCategory c = a' [A.class_ "category", A.href $ pack $ "http://hackage.haskell.org/packages/archive/pkg-list.html#cat:" ++ map toLower c] $ text' c
+  extractPackages = take pageLimit . drop (rsStart rs) . 
+                    (mapMaybe (\(_, (di, _)) -> custom $ document di)) . 
+                    reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList . docHits
 
-  xpQualified 			= xpElemClass "tr" "function" $
-                        	  xpTriple xpModule
-                        	           xpFunction
-                        	           xpSignature
+-- | The function hits.
+functionResults :: RenderState -> (Result FunctionInfo) -> XHtml FlowContent
+functionResults rs rf = do
+  div' [A.id_ "words"] $ mapM_ (wordInfo rs $ maxScoreWordHits rf) (toListSortedWords $ wordHits rf)
+  div' [A.id_ "documents"] $ table $ mapM_ functionInfo (toListSortedDocs $ docHits rf)
     where
-    xpModule 			= xpCell "module" $
-                        	  xpLink "module" xpText (xpAppend "." $ xpText)
-    xpFunction 			= xpCell "name" $
-                        	  xpElemClass "a" "function" $
-                        	  xpTriple (xpAttr "href" xpText)
-                        	           (xpAttr "title" xpText)
-                        	           xpText
-    xpSignature 		= xpCell "signature" $
-                        	  xpPrepend ":: " xpSigDecl
-  xpAdditional 			= xpElemClass "tr" "details" $
-                        	  xpPair xpPackage
-                        	         xpDescSrc
-    where
-    xpPackage 			= xpCell "package" $
-                        	  xpLink "package" xpText xpText
-    xpDescSrc 			= xpCell "description" $
-                        	  xpAddFixedAttr "colspan" "2" $
-                        	  xpElem "div" $
-                        	  xpPair xpDescription
-                        	         xpSource
-    xpDescription 		= xpWrap (undefined, limitDescription) $
-                        	  xpPair xpUnfoldLink
-                        	         (xpWrap (undefined, runLA xread) $
-					  xpElemClass "div" "description"$
-					  xpTrees
-					 )
-    xpUnfoldLink 		= xpElemClass "a" "toggleFold" $
-                        	  xpAddFixedAttr "onclick" "toggleFold(this);" $
-                        	  xpText
-    xpSource 			= xpOption $
-                        	  xpElemClass "span" "source" $
-                        	  xpElemClass "a" "source" $
-                        	  xpAppend "Source" $
-                        	  xpAttr "href" $
-                        	  xpText
-    limitDescription 		= maybe (" ", "No description. ") (\d -> (" ", d))
+		notSignature (_, (_, wch)) = M.keys wch /= ["signature"]
+		toListSortedDocs = take pageLimit . drop (rsStart rs) . reverse . 
+			L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList
+		toListSortedWords = L.sortBy (compare `on` fst) . take maxWordHits . 
+			L.sortBy (compare `on` (wordScore .fst . snd)) . filter notSignature . M.toList
 
-xpLink 				:: String -> PU String -> PU String -> PU (String, String)
-xpLink c pa pb 			= xpElemClass "a" c $
-                        	  xpPair (xpAttr "href" pa) pb
+-- | Render the information about a function (module w/ link, function name, signature, ...)
+functionInfo :: (DocId, (DocInfo FunctionInfo, DocContextHits)) -> XHtml Table1Content
+functionInfo (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom document info"
+functionInfo (_, (DocInfo (Document t u (Just fi)) r, _)) = tbody $ do
+	tr' [A.class_ "function"] $ do
+		td' [A.class_ "module"] $ do
+			a' [A.class_ "module", A.href $ pack (modLink u)] $ text' (moduleName fi ++ ".")
+		td' [A.class_ "name"] $ do
+			a' [A.class_ "function", A.href $ pack u, A.title $ pack ("Score: " ++ show r)] $ text' t
+		td' [A.class_ "signature"] $ do
+			sigDecl (signature fi)
+	tr' [A.class_ "details"] $ do
+		td' [A.class_ "package"] $ do
+			a' [A.class_ "package", A.href $ pack (pkgLink $ package fi)] $ text' (package fi)
+		td' [A.class_ "description", A.colspan 2] $ div_ $ do
+			a' [A.class_ "toggleFold", onclick "toggleFold(this);"] $ empty
+			div' [A.class_ "description"] $ let f = fctDescr fi in
+				if L.null f then text "No description." else text' f
+			let c = sourceURI fi in if L.null c then empty else span' [A.class_ "source"] $ do
+				a' [A.class_ "source", A.href $ pack c] $ text "Source"
+	where
+	modLink = takeWhile ((/=) '#')
+	pkgLink = (++) "http://hackage.haskell.org/package/"
+	sigDecl s'
+		| s' `elem` ["data", "type", "newtype", "class"] = span' [A.class_ "declaration"] $ text' s
+		| otherwise = text' $ replace "->" " -> " s
+		where
+		s = ":: " ++ stringTrim s'
 
-data Signature 			= Signature String
-                        	| Declaration String
+-- | Render a word in the cloud of suggestions
+wordInfo :: RenderState -> Score -> (Word, (WordInfo, WordContextHits)) -> XHtml FlowContent
+wordInfo rs m (w, (WordInfo ts s, c)) = do
+	a' [A.class_ "cloud", A.href staticLink, onclick dynamicLink, A.title $ pack origin] $ do
+		span' [A.class_ $ pack $ "cloud" ++ (show ((round $ weightScore 1 9 m s)::Int))] $ text' w
+	text " "
+	where
+	origin = join ", " $ M.keys c
+	dynamicLink = pack $ "replaceInfQuery('" ++ escape t ++ "','" ++ escape w ++ "'); return false;"
+	staticLink = pack $  staticRoot ++ "?query=" ++ (replace t w qu) ++ "&start=" ++ (show st)
+	weightScore mi ma to v  = ma - ((to - v) / to) * (ma - mi)
+	escape []      = []
+	escape (x:xs)  = if x == '\'' then "\\'" ++ escape xs else x : (escape xs)
+	t = head ts
+	qu = rsQuery rs
+	st = rsStart rs
 
-xpSigDecl 			:: PU String
-xpSigDecl 			= xpWrap (undefined, makeSignature) $
-                        	  xpAlt tag [xpSig, xpDecl]
-  where
-  xpSig 			= xpWrap (Signature, \ (Signature s) -> s) $
-                        	  xpText
-  xpDecl 			= xpWrap (Declaration, \ (Declaration s) -> s) $
-                        	  xpElemClass "span" "declaration" $
-                        	  xpText
-  tag (Signature _) 		= 0
-  tag (Declaration _) 		= 1
-  makeSignature s'
-      | s `elem` ["data", "type", "newtype", "class"]	= Declaration s
-      | otherwise					= Signature (replace "->" " -> " s)
-      where
-      s				= stringTrim s'
+pager :: RenderState -> Int -> XHtml FlowContent
+pager rs m = if m <= 0 || m < pageLimit then empty else div'[A.id_ "pager"] $ do
+		nav "previous" "<" (_prevPage pg)
+		mapM_ page (_predPages pg)
+		span' [A.class_ "current"] $ text' $ show $  _currPage pg
+		mapM_ page (_succPages pg)
+		nav "next" ">" (_nextPage pg)
+	where
+	pg = makePager (rsStart rs) pageLimit m
+	nav :: Text -> String -> Maybe Int -> XHtml FlowContent
+	nav _ _ Nothing = empty
+	nav c t (Just v) = a' [A.class_ c, A.href $ statLink v, onclick $ dynLink v] $ text' t
+	page (v, t)  = a' [A.class_ "page", A.href $ statLink v, onclick $ dynLink v] $ text' $ show t
+	dynLink v = pack $ "showPage(" ++ show v ++ "); return false;"
+	statLink v = pack $ staticRoot ++ "?query=" ++ (rsQuery rs) ++ "&start=" ++ show v
 
-xpCell 				:: String -> PU a -> PU a
-xpCell c p 			= xpElem "td" $
-                        	  xpClass c $ p
-
-xpWordHitsHtml 			:: PickleState -> PU (Score, WordHits)
-xpWordHitsHtml ps 		= xpDivId "words" $
-                        	  xpElemClass "div" "cloud" $
-                        	  xpWrap (fromListSorted, toListSorted) $
-                        	  xpList xpWordHitHtml
-  where
-  fromListSorted _ 		= (0.0, M.empty)
-  toListSorted (s, wh) 		= map (\a -> (s, a)) $
-                        	  L.sortBy (compare `on` fst) $
-                            take maxWordHits $ 
-                            L.sortBy (compare `on` (wordScore . fst . snd) ) $
-                        	  M.toList wh -- Sort by word
-  xpWordHitHtml 		= xpWrap (wordFromHtml, wordToHtml) (xpWordHtml)
-    where
-    wordToHtml (m, (w, (WordInfo ts s, _))) 
-				= ((head ts, w), ((s, m), w))
-    wordFromHtml ((t, _), ((s, m), w))
-				= (m, (w, (WordInfo [t] s, M.empty)))
-    xpWordHtml 			= xpAppend " " $
-                                  xpElemClass "a" "cloud" $
-                                              xpPair ( xpCloudLink (psQuery ps)
-                                                                   (psStart ps)
-                                                     )
-                                                     xpScore
-
-xpCloudLink 			:: String -> Int -> PU (String, Word)
-xpCloudLink q s 		= xpDuplicate $ xpPair xpStaticLink xpReplace
-  where
-  xpReplace 			= xpAttr "onclick" $
-                                  xpPair (xpPrepend "replaceInQuery('" $ xpAppend "','" xpEscape)
-                                         (xpAppend "'); return false;" $ xpEscape)
-  xpStaticLink 			= xpAttr "href" $
-                                  xpWrap (\v -> (v, v), makeQueryString) $
-                                  xpText
-  makeQueryString (needle, subst)
-				= staticRoot ++ "?query=" ++ (replace needle subst q) ++ "&start=" ++ (show s)
-
-xpEscape 			:: PU String
-xpEscape 			= xpWrap (unescape', escape') $
-                                  xpText
-  where
-  unescape' 			= filter ((/=) '\\')
-  escape' [] 			= []
-  escape' (x:xs) 		= if x == '\''
-                                  then "\\'" ++ escape' xs
-                                  else x : (escape' xs)
-
-xpScore 			:: PU ((Score, Score), Word)
-xpScore 			= xpElem "span" $
-                                  xpPair ( xpAttr "class" $
-                                           xpWrap (scoreFromHtml, scoreToHtml) $
-                                           xpText
-                                         )
-                                         xpText
-  where
-  scoreToHtml (v, top) 		= "cloud" ++ (show $ ((round (weightScore 1 9 top v))::Int))
-  scoreFromHtml _ 		= (0.0, 0.0)
-  weightScore mi ma to v 	= ma - ((to - v) / to) * (ma - mi)
-
-data Pager 			= Pager 
-                                  { _prevPage  :: Maybe Int -- == last predPages
-                                  , _predPages :: [(Int, Int)]
-                                  , _currPage  :: Int
-                                  , _succPages :: [(Int, Int)]
-                                  , _nextPage  :: Maybe Int -- == head succPages
-                                  }
-
-xpQueryPager 			:: PickleState -> PU Pager
-xpQueryPager ps 		= xpWrap convert $
-                                  xp5Tuple (xpNav "previous" "<")
-                                           xpPages
-                                           xpCurrPage
-                                           xpPages
-                                           (xpNav "next" ">")
-    where
-    convert 			= ( \ (pv, pd, c, sc, nt) -> Pager pv pd c sc nt
-                                  , \ (Pager pv pd c sc nt) -> (pv, pd, c, sc, nt)
-                                  )
-    xpNav c s 			= xpOption $
-                                  xpDuplicate $
-                                  xpElem "a" $
-                                  xpClass c $
-                                  xpAppend s $
-                                  xpPair xpShowPage
-                                         xpStaticLink
-    xpCurrPage 			= xpElem "span" $
-                                  xpClass "current" $
-                                  xpPrim
-    xpPages 			= xpList $
-                                  xpElem "a" $
-                                  xpClass "page" $
-                                  xpPair ( xpDuplicate $
-                                           xpPair xpShowPage
-                                                  xpStaticLink
-                                         )
-                                         xpPrim
-    xpShowPage 			= xpAttr "onclick" $
-                                  xpPrepend "showPage(" $
-                                  xpAppend "); return false;" $
-                                  xpPrim
-    xpStaticLink 		= xpAttr "href" $
-                                  xpPrepend (staticRoot ++ "?query=" ++ (psQuery ps) ++ "&start=") $
-                                  xpPrim
+data Pager  = Pager 
+              { _prevPage  :: Maybe Int -- == last predPages
+              , _predPages :: [(Int, Int)]
+              , _currPage  :: Int
+              , _succPages :: [(Int, Int)]
+              , _nextPage  :: Maybe Int -- == head succPages
+              }
 
 -- Start element (counting from zero), elements per page, total number of elements.
-makePager 			:: Int -> Int -> Int -> Maybe Pager
-makePager s p n 		= if n > p
-                                  then Just $
-                                       Pager pv (drop (length pd - 10) pd) (length pd + 1) (take 10 sc) nt
-                                  else Nothing
+makePager :: Int -> Int -> Int -> Pager
+makePager s pg n = Pager pv (drop (length pd - 10) pd) (length pd + 1) (take 10 sc) nt
   where
-  pv 				= if s < p then Nothing else Just (s - p)
-  nt 				= if s + p >= n then Nothing else Just (s + p)
-  pd 				= map (\x -> (x, x `div` p + 1)) $ genPred s []
+  pv = if s < pg then Nothing else Just (s - pg)
+  nt = if s + pg >= n then Nothing else Just (s + pg)
+  pd = map (\x -> (x, x `div` pg + 1)) $ genPred s []
     where
-    genPred rp tp 		= let np = rp - p in
+    genPred rp tp = let np = rp - pg in
                                   if np < 0
                                   then tp
                                   else genPred np (np:tp)
-  sc 				= map (\x -> (x, x `div` p + 1)) $ genSucc s []
+  sc = map (\x -> (x, x `div` pg + 1)) $ genSucc s []
     where
-    genSucc rs ts 		= let ns = rs + p in
+    genSucc rs ts = let ns = rs + pg in
                                   if ns >= n
                                   then ts
                                   else genSucc ns (ts ++ [ns])
 
-xpDuplicate 			:: PU (a, a) -> PU a
-xpDuplicate 			= xpWrap (\(v, _) -> v, \v -> (v, v))
-
 -- | Replace a given list with another list in a list.
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
 replace old new l = L.intercalate new . split old $ l
+
+-- | Remove leading and trailing whitespace using isSpace.
+stringTrim :: String -> String
+stringTrim = reverse . dropWhile isSpace . reverse . dropWhile isSpace
 

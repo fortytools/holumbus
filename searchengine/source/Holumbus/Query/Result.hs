@@ -70,7 +70,7 @@ import qualified Data.IntMap as IM
 
 import qualified Data.List as L
 
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 import Text.XML.HXT.Arrow
 
