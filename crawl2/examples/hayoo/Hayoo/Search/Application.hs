@@ -25,7 +25,6 @@ where
 
 import Data.Function
 import Data.Maybe
-import Data.Char
 
 import qualified Data.List as L
 import qualified Data.Map as M
@@ -42,7 +41,6 @@ import Text.XML.HXT.Arrow
 import Text.XML.HXT.DOM.Unicode
 
 import Text.XHtmlCombinators (render)
-import Text.XHtmlCombinators.Render (renderPretty)
 
 import Holumbus.Index.Common
 
@@ -410,17 +408,10 @@ hayooFctRanking rt ws ts _ di dch
 
 genResult ::  Core -> Query -> StatusResult
 genResult idc q
-    | checkWith isEnough q
       = let (fctRes, pkgRes) = curry makeQuery q idc in
         let (fctCfg, pkgCfg) = (RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount, RankConfig (hayooPkgRanking (packRank idc)) wordRankByCount) in
         let (fctRnk, pkgRnk) = (rank fctCfg fctRes, rank pkgCfg pkgRes) in
         (msgSuccess fctRnk pkgRnk, fctRnk, pkgRnk, genModules fctRnk, genPackages fctRnk) -- Include a success message in the status
-
-    | otherwise = ("Please enter some more characters.", emptyResult, emptyResult, [], [])
-
-isEnough        :: String -> Bool
-isEnough (c:[]) = not (isAlpha c)
-isEnough _      = True
 
 -- | Generate a success status response from a query result.
 msgSuccess              :: Result FunctionInfo -> Result PackageInfo -> String

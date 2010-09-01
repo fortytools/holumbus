@@ -19,7 +19,10 @@
 
 module Hayoo.Search.Pages.Template (Template, makeTemplate) where
 
+import qualified Data.List as L
 import qualified Data.Text as T
+
+import Control.Category
 
 import Text.XHtmlCombinators
 import qualified Text.XHtmlCombinators.Attributes as A
@@ -80,7 +83,7 @@ makeQuery np nf = div' [A.id_ "query"] $ do
     input' [A.id_ "querybutton", A.type_ "submit", A.value "Search"]
     img' "" "" [A.src "hayoo/loader.gif", A.alt "Throbber", A.id_ "throbber", A.style "display:none;"]
     div' [A.class_ "stats"] $ do
-      text $ T.concat ["Concurrently search more than ", T.pack $ show np, " packages and more than ", T.pack $ show nf, " functions!"]
+      text $ T.concat ["Concurrently search more than ", T.pack $ showCnt np, " packages and more than ", T.pack $ showCnt nf, " functions!"]
 
 makeCredits :: XHtml FlowContent
 makeCredits = div' [A.id_ "credits"] $ do
@@ -98,7 +101,7 @@ makeCredits = div' [A.id_ "credits"] $ do
       text "Please send any feedback to "
       a' [A.href "mailto:hayoo@holumbus.org"] $ text "hayoo@holumbus.org"
     div' [A.id_ "copyright"] $ do
-      text "Hayoo! beta 2.0 © 2010 "
+      text "Hayoo! beta 2.1 © 2010 "
       span' [A.class_ "author"] $ text "Timo B. Hübel"
       text ", "
       span' [A.class_ "author"] $ text "Sebastian M. Gauck"
@@ -119,4 +122,15 @@ makeTracking =
   noscript $ do
     p $ do
       img' "" "" [A.src "http://piwik.hayoo.info/piwik.php?idsite=3", A.alt "", A.style "border:0"]
+
+showCnt         :: Int -> String
+showCnt         = show >>> fmtCnt
+    where
+    fmtCnt      = reverse >>> insDot >>> reverse
+    insDot s
+        | L.null y      = s
+        | otherwise     = x ++ "." ++ insDot y
+        where
+        (x , y) = splitAt 3 s
+
 
