@@ -14,6 +14,12 @@ prevInput = "";
 lastLocation = window.location.hash;
 refreshRequired = false;
 
+Event.observe(window, 'load', focusQuery);
+
+function focusQuery() {
+  $("querytext").focus();
+}
+
 /*
 Event.observe(window, 'load', checkForInitialQuery);
 
