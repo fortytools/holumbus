@@ -30,7 +30,7 @@ import qualified Data.IntMap 		as IM
 import qualified Data.List 		as L
 import qualified Data.Map 		as M
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 import           Holumbus.Utility
 import           Holumbus.Index.Common

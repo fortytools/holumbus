@@ -12,7 +12,7 @@ import qualified Data.Map       		as M
 
 import           Holumbus.Crawler.URIs
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 {-
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch

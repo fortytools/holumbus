@@ -35,7 +35,8 @@ import           Holumbus.Crawler
 
 import           Holumbus.Index.Common          hiding ( URI )
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
+import           Text.XML.HXT.Curl
 
 -- ------------------------------------------------------------
 
@@ -124,7 +125,7 @@ stdIndexer config resumeLoc startUris eis
 -- general HolIndexM IO i version, for old specialized version see code at end of this file
 
 indexCrawlerConfig              :: (HolIndexM IO i, HolDocuments d c, NFData i, NFData c, NFData (d c)) =>
-                                   Attributes                                   -- ^ document read options
+                                   SysConfig                                    -- ^ document read options
                                 -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
                                 -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
                                 -> Maybe (IOSArrow XmlTree XmlTree)             -- ^ the pre document filter, default is the this arrow
@@ -134,9 +135,7 @@ indexCrawlerConfig              :: (HolIndexM IO i, HolDocuments d c, NFData i, 
                                 -> IndexCrawlerConfig i d c                     -- ^ result is a crawler config
 
 indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
-                                = addReadAttributes defaultOpts                 -- install the default read options
-                                  >>>
-                                  addReadAttributes opts                        -- overwrite and add specific read options
+                                = addSysConfig (defaultOpts >>> opts)           -- install the default read options
                                   >>>
                                   ( setS theFollowRef followRef )
                                   >>>
@@ -185,16 +184,24 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   >>>
                                   filter (fst >>> ixc_boringWord ixc >>> not)
 
-    defaultOpts                 = [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
-                                  , (curl_location,             v_1)            -- automatically follow redirects
-                                  , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
-                                  , (a_accept_mimetypes,        "text/html text/xhtml")
-                                  , (a_encoding,                isoLatin1)
-                                  , (a_ignore_encoding_errors,  v_1)            -- encoding errors and parser warnings are boring
-                                  , (a_validate,                v_0)
-                                  , (a_parse_html,              v_1)
-                                  , (a_issue_warnings,  	v_0)
-                                  ]
+    defaultOpts                 = withCurl [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
+                                           , (curl_location,             v_1)            -- automatically follow redirects
+                                           , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
+                                           ]
+                                  >>>
+                                  withRedirect yes
+                                  >>>
+                                  withAcceptedMimeTypes ["text/html", "text/xhtml"]
+                                  >>>
+                                  withInputEncoding isoLatin1
+                                  >>>
+                                  withEncodingErrors no                                  -- encoding errors and parser warnings are boring
+                                  >>>
+                                  withValidate no
+                                  >>>
+                                  withParseHTML yes
+                                  >>>
+                                  withWarnings no
 
 -- ------------------------------------------------------------
 

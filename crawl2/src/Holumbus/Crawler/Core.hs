@@ -29,12 +29,10 @@ import           Holumbus.Crawler.Types
 import           Holumbus.Crawler.Util		( mkTmpFile )
 import           Holumbus.Crawler.XmlArrows
 
-import		 Text.XML.HXT.Arrow		hiding
+import		 Text.XML.HXT.Core		hiding
                                                 ( when
 						, getState
-						, readDocument
 						)
-import           Text.XML.HXT.Arrow.XmlCache	( readDocument )
 
 -- ------------------------------------------------------------
 
@@ -287,7 +285,7 @@ processDocArrow		:: CrawlerConfig c r -> URI -> IOSArrow a (URI, ([URI], [(URI, 
 
 processDocArrow c uri	= ( hxtSetTraceAndErrorLogger (getS theTraceLevelHxt c)
 			    >>>
-			    readDocument (getS theReadAttributes c) uri
+			    readDocument [getS theSysConfig c] uri
 			    >>>
 			    perform ( ( getAttrValue transferStatus
 					&&&

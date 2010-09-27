@@ -17,10 +17,14 @@ import           Data.Function.Selector
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.URIs
 import           Holumbus.Crawler.RobotTypes
-import           Holumbus.Crawler.XmlArrows	( checkDocumentStatus )
+import           Holumbus.Crawler.XmlArrows			( checkDocumentStatus )
 
-import		 Text.XML.HXT.Arrow
-import           System.Log.Logger		( Priority(..) )
+import		 Text.XML.HXT.Core
+import		 Text.XML.HXT.Curl
+import qualified Text.XML.HXT.Arrow.XmlState.RunIOStateArrow	as HXT ( theSysConfigComp )
+import qualified Text.XML.HXT.Arrow.XmlState.TypeDefs    	as HXT ( theInputOptions )
+
+import           System.Log.Logger				( Priority(..) )
 
 -- ------------------------------------------------------------
 
@@ -40,7 +44,7 @@ type ProcessDocument	 a	= IOSArrow XmlTree a
 -- | The crawler configuration record
 
 data CrawlerConfig a r		= CrawlerConfig
-                                  { cc_readAttributes	:: ! Attributes
+                                  { cc_sysConfig	:: SysConfig
 				  , cc_preRefsFilter	:: IOSArrow XmlTree XmlTree
 				  , cc_processRefs	:: IOSArrow XmlTree URI
 				  , cc_preDocFilter     :: IOSArrow XmlTree XmlTree
@@ -137,8 +141,8 @@ theResultInit		= S cs_resultInit	(\ x s -> s {cs_resultInit = x})
 
 -- | selector functions for CrawlerConfig
 
-theReadAttributes	:: Selector (CrawlerConfig a r) Attributes
-theReadAttributes	= S cc_readAttributes	(\ x s -> s {cc_readAttributes = x})
+theSysConfig	        :: Selector (CrawlerConfig a r) SysConfig
+theSysConfig	        = S cc_sysConfig	(\ x s -> s {cc_sysConfig = x})
 
 theTraceLevel		:: Selector (CrawlerConfig a r) Priority
 theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
@@ -192,10 +196,11 @@ theProcessDoc		= S cc_processDoc	(\ x s -> s {cc_processDoc = x})
 defaultCrawlerConfig	:: AccumulateDocResult a r -> MergeDocResults r -> CrawlerConfig a r
 defaultCrawlerConfig op	op2
 			= CrawlerConfig
-			  { cc_readAttributes	= [ (curl_user_agent,		defaultCrawlerName)
-						  , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 milli seconds, 
-						  , (curl_connect_timeout,	show $ (10::Int))	 	-- connection must be established within 10 seconds
-						  ]
+			  { cc_sysConfig	= ( withCurl [ (curl_user_agent,		defaultCrawlerName)
+						             , (curl_max_time,		show $ (60 * 1000::Int))	-- whole transaction for reading a document must complete within 60,000 milli seconds, 
+						             , (curl_connect_timeout,	show $ (10::Int))	 	-- connection must be established within 10 seconds
+                                                             ]
+                                                  )
 			  , cc_preRefsFilter	= this						-- no preprocessing for refs extraction
 			  , cc_processRefs	= none						-- don't extract refs
 			  , cc_preDocFilter     = checkDocumentStatus				-- default: in case of errors throw away any contents
@@ -213,22 +218,27 @@ defaultCrawlerConfig op	op2
 			  , cc_traceLevelHxt	= WARNING					-- traceLevel for hxt
 			  }
 
+theInputOptions		:: Selector (CrawlerConfig a r) Attributes
+theInputOptions		= theSysConfig
+			  >>>
+			  HXT.theSysConfigComp HXT.theInputOptions
+
 theCrawlerName		:: Selector (CrawlerConfig a r) String
-theCrawlerName		= theReadAttributes
+theCrawlerName		= theInputOptions
 			  >>>
 			  S { getS = lookupDef defaultCrawlerName curl_user_agent
 			    , setS = addEntry curl_user_agent
 			    }
 
 theMaxTime		:: Selector (CrawlerConfig a r) Int
-theMaxTime		= theReadAttributes
+theMaxTime		= theInputOptions
 			  >>>
 			  S { getS = read . lookupDef "0" curl_max_time
 			    , setS = addEntry curl_max_time . show . (`max` 1)
 			    }
 
 theConnectTimeout	:: Selector (CrawlerConfig a r) Int
-theConnectTimeout	= theReadAttributes
+theConnectTimeout	= theInputOptions
 			  >>>
 			  S { getS = read . lookupDef "0" curl_connect_timeout
 			    , setS = addEntry curl_connect_timeout . show . (`max` 1)
@@ -239,18 +249,18 @@ theConnectTimeout	= theReadAttributes
 
 -- | Add attributes for accessing documents
 
-addReadAttributes	:: Attributes -> CrawlerConfig a r -> CrawlerConfig a r
-addReadAttributes al	= update theReadAttributes (addEntries al)
+addSysConfig	        :: SysConfig -> CrawlerConfig a r -> CrawlerConfig a r
+addSysConfig cf	        = chgS theSysConfig ( >>> cf )
 
 -- | Insert a robots no follow filter before thePreRefsFilter
 
 addRobotsNoFollow	:: CrawlerConfig a r -> CrawlerConfig a r
-addRobotsNoFollow	= update thePreRefsFilter ( robotsNoFollow >>> )
+addRobotsNoFollow	= chgS thePreRefsFilter ( robotsNoFollow >>> )
 
 -- | Insert a robots no follow filter before thePreRefsFilter
 
 addRobotsNoIndex	:: CrawlerConfig a r -> CrawlerConfig a r
-addRobotsNoIndex	= update thePreDocFilter ( robotsNoIndex >>> )
+addRobotsNoIndex	= chgS thePreDocFilter ( robotsNoIndex >>> )
 
 
 -- | Set the log level

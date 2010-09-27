@@ -36,8 +36,8 @@ import Data.ByteString.Lazy.Char8 (pack)
 
 import Network.URI (unEscapeString)
 
-import Text.XML.HXT.Arrow
-import Text.XML.HXT.DOM.Unicode
+import Text.XML.HXT.Core
+-- import Text.XML.HXT.DOM.Unicode
 
 import Holumbus.Index.Common
 

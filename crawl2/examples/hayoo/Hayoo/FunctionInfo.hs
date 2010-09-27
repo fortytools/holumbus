@@ -17,7 +17,7 @@ import qualified Data.Binary                    as B
 -- import qualified Data.ByteString.UTF8           as S
 -- import qualified Data.ByteString                as S ( empty )
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 

@@ -37,7 +37,7 @@ import           Numeric
 
 import           System.IO
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 

@@ -72,7 +72,7 @@ import qualified Data.List as L
 
 import Control.Parallel.Strategies
 
-import Text.XML.HXT.Arrow
+import Text.XML.HXT.Core
 
 import Holumbus.Utility
 import Holumbus.Index.Common
