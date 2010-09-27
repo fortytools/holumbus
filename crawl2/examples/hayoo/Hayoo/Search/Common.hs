@@ -1,7 +1,7 @@
 -- ----------------------------------------------------------------------------
 
 {- |
-  Module     : Hayoo.Search.Common.hs
+  Module     : Hayoo.Search.Common
   Copyright  : Copyright (C) 2008 Timo B. Huebel
   License    : MIT
 
@@ -22,6 +22,8 @@ module Hayoo.Search.Common where
 import Holumbus.Query.Result	( Result )
 
 import Hayoo.IndexTypes		( FunctionInfo, PackageInfo )
+
+import Text.XML.HXT.Core	( XmlTree )
 
 -- Status information of query processing (status message, result, top modules, top packages).
 

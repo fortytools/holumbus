@@ -28,8 +28,7 @@ import		 Data.List
 
 import		 Holumbus.Crawler
 
-import		 Text.XML.HXT.Arrow		hiding ( readDocument )
-import           Text.XML.HXT.Arrow.XmlCache
+import		 Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
@@ -130,7 +129,7 @@ editLatestPackage		= sed (const "/latest/") "/[0-9.]+/"
 
 -- ------------------------------------------------------------
 
-hayooPackageNames		:: [(String, String)] -> IOSArrow b String
+hayooPackageNames		:: SysConfigList -> IOSArrow b String
 hayooPackageNames crawlPars	= ( ( readDocument crawlPars hackageStartPage
 				      >>>
 				      getHtmlReferences

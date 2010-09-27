@@ -5,6 +5,8 @@
 module Hayoo.IndexConfig
 where
 
+import           Data.Char.Properties.XMLCharProps
+
 import           Hayoo.Haddock
 import           Hayoo.HackagePackage
 import           Hayoo.Signature
@@ -12,8 +14,7 @@ import           Hayoo.Signature
 import		 Holumbus.Crawler
 import		 Holumbus.Crawler.IndexerCore
 
-import		 Text.XML.HXT.Arrow
-import		 Text.XML.HXT.DOM.Unicode
+import		 Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 

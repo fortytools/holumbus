@@ -15,7 +15,7 @@ import		 Holumbus.Crawler.URIs
 
 import		 System.FilePath
 
-import		 Text.XML.HXT.Arrow		hiding ( when
+import		 Text.XML.HXT.Core		hiding ( when
 						       , getState
 						       )
 -- import qualified Text.XML.HXT.Arrow		as X
@@ -25,12 +25,16 @@ import		 Text.XML.HXT.Arrow		hiding ( when
 -- ------------------------------------------------------------
 
 defaultHtmlCrawlerConfig	:: AccumulateDocResult a r -> MergeDocResults r -> CrawlerConfig a r
-defaultHtmlCrawlerConfig op op2	= ( addReadAttributes [ (a_validate,   		 v_0)
-						      , (a_parse_html,		 v_1)
-						      , (a_encoding,		 isoLatin1)
-						      , (a_issue_warnings, 	 v_0)
-						      , (a_ignore_none_xml_contents, v_1)
-						      ]
+defaultHtmlCrawlerConfig op op2	= ( setS theSysConfig ( withValidate no
+                                                        >>>
+                                                        withParseHTML yes
+						        >>>
+                                                        withInputEncoding isoLatin1
+                                                        >>>
+						        withWarnings no
+                                                        >>>
+						        withIgnoreNoneXmlContents yes
+						      )
 				    >>>
 				    setS thePreRefsFilter this
 				    >>>

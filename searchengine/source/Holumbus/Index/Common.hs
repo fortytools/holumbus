@@ -81,7 +81,7 @@ import           Data.Map       (Map)
 import qualified Data.Map       as M
 import           Data.Maybe
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
@@ -461,7 +461,7 @@ loadFromXmlFile f = do
                     r <- runX (xunpickleDocument xpickle options f)
                     return $! head r
                     where
-                    options = [ (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]     
+                    options = [ withRemoveWS yes, withInputEncoding utf8, withValidate no ]     
 
 -- | Write to XML file.
 writeToXmlFile :: XmlPickler a => FilePath -> a -> IO ()
@@ -469,7 +469,7 @@ writeToXmlFile f i = do
                      runX (constA i >>> xpickleDocument xpickle options f)
                       >> return ()
                      where
-                     options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]     
+                     options = [ withIndent yes, withOutputEncoding utf8 ]
 
 -- | Load from a binary file.
 loadFromBinFile :: Binary a => FilePath -> IO a

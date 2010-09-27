@@ -11,7 +11,6 @@ import           Data.List
 import qualified Data.Map       		as M
 import		 Data.Maybe
 
-import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.URIs
 import		 Holumbus.Crawler.RobotTypes
 import		 Holumbus.Crawler.Types
@@ -19,7 +18,7 @@ import           Holumbus.Crawler.Logger
 
 import qualified Network.URI			as N
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 {-
 import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
@@ -105,9 +104,7 @@ robotsGetSpec conf uri
 			  rnf s `seq` return (host, s)
     where
     host 		= getHost uri
-    agent		= fromMaybe defaultCrawlerName .
-                          lookup curl_user_agent .
-                          getS theReadAttributes $ conf
+    agent		= getS theCrawlerName $ conf
 
 -- ------------------------------------------------------------
 
@@ -119,14 +116,16 @@ getRobotsTxt c uri	= runX processRobotsTxt >>= (return . concat)
     where
     processRobotsTxt	=  hxtSetTraceAndErrorLogger (getS theTraceLevelHxt c)
 			   >>>
-			   readDocument ( addEntries [ (a_parse_by_mimetype,        v_1)	-- these 3 options are important for reading none XML/HTML documents
-						     , (a_parse_html,               v_0)
-						     , (a_ignore_none_xml_contents, v_0)
-						     , (a_accept_mimetypes, text_plain)		-- robots.txt is plain text
-						     , (curl_location,              v_1)	-- follow redirects for robots.txt
-						     ]
-						     (getS theReadAttributes c)
-					) (getHost uri ++ "/robots.txt")
+			   readDocument [ getS theSysConfig c
+                                          >>>
+                                          withParseByMimeType       yes		-- these 3 options are important for reading none XML/HTML documents
+                                          >>>
+					  withIgnoreNoneXmlContents no
+                                          >>>
+					  withAcceptedMimeTypes    [text_plain]	-- robots.txt is plain text
+                                          >>>
+					  withRedirect              yes		-- follow redirects for robots.txt
+					] (getHost uri ++ "/robots.txt")
 			   >>>
 			   documentStatusOk
 			   >>>

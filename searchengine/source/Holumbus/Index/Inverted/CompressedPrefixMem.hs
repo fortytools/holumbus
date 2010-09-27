@@ -57,7 +57,7 @@ import           Holumbus.Index.Compression
 
 import qualified Holumbus.Data.PrefixTree       as PT
 
-import 		 Text.XML.HXT.Arrow
+import 		 Text.XML.HXT.Core
 
 -- ----------------------------------------------------------------------------
 

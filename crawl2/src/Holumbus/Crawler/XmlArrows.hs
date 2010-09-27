@@ -5,7 +5,7 @@
 module Holumbus.Crawler.XmlArrows
 where
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 

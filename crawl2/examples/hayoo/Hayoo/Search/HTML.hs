@@ -36,6 +36,7 @@ import qualified Data.Map     as M
 import           Text.XHtmlCombinators
 import qualified Text.XHtmlCombinators.Attributes as A
 
+import           Text.XML.HXT.Core
 
 import           Holumbus.Utility hiding (escape)
 import           Holumbus.Index.Common

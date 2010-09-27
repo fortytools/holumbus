@@ -35,9 +35,9 @@ putState			:: Selector (CrawlerState r) v -> v -> CrawlerAction a r ()
 putState sel			= modify . setS sel
 
 modifyState			:: Selector (CrawlerState r) v -> (v -> v) -> CrawlerAction a r ()
-modifyState sel			= modify . update sel
+modifyState sel			= modify . chgS sel
 
 modifyStateIO			:: Selector (CrawlerState r) v -> (v -> IO v) -> CrawlerAction a r ()
-modifyStateIO sel		= modifyIO . updateM sel
+modifyStateIO sel		= modifyIO . chgM sel
 
 -- ------------------------------------------------------------

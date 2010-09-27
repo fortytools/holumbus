@@ -1,21 +1,23 @@
 module Hayoo.Haddock
 where
 
-import		 Data.List
-import		 Data.Maybe
+import Data.List
+import Data.Maybe
 
-import           Hayoo.URIConfig
-import           Hayoo.FunctionInfo
-import		 Hayoo.Signature
+import Hayoo.URIConfig
+import Hayoo.FunctionInfo
+import Hayoo.Signature
 
-import           Holumbus.Crawler.Html
-import           Holumbus.Utility
+import Holumbus.Crawler.Html
+import Holumbus.Utility
 
-import           Network.URI		( unEscapeString )
+import Network.URI		( unEscapeString )
 
-import           Text.XML.HXT.Arrow     
-import           Text.XML.HXT.Arrow.XmlRegex
-import           Text.XML.HXT.XPath
+import Text.Regex.XMLSchema.String	( match )
+
+import Text.XML.HXT.Core     
+import Text.XML.HXT.Arrow.XmlRegex
+import Text.XML.HXT.XPath
 
 -- ------------------------------------------------------------
 
@@ -54,9 +56,34 @@ editDescrMarkup			= processTopDown
 -- ------------------------------------------------------------
 
 prepareHaddock			:: IOSArrow XmlTree XmlTree
-prepareHaddock			= process
+prepareHaddock                  = prepareHaddock28
+                                  `orElse`
+                                  prepareHaddock26
+
+prepareHaddock28		:: IOSArrow XmlTree XmlTree
+prepareHaddock28		= process
                                   [ this
-                                  , isHaddock
+                                  , ( isHaddock28 `guards` this )
+                                  , addPackageAttr
+                                  , addModuleAttr
+                                  , processClasses				-- .4
+                                  , topdeclToDecl 				-- .5
+                                  , removeDataDocumentation			-- .6
+                                  , processDataTypeAndNewtypeDeclarations	-- .7
+                                  , processCrazySignatures
+                                  , splitHaddock    -- TODO this one fails
+                                  ]
+    where
+    process			= seqA . zipWith phase [(0::Int)..]
+    phase i f			= fromLA f
+                                  >>>
+                                  traceDoc ("prepare haddock-2.8: step " ++ show i)
+
+
+prepareHaddock26		:: IOSArrow XmlTree XmlTree
+prepareHaddock26		= process
+                                  [ this
+                                  , ( isHaddock26 `guards` this )
                                   , addPackageAttr
                                   , addModuleAttr
                                   , processClasses				-- .4
@@ -68,18 +95,11 @@ prepareHaddock			= process
                                   ]
     where
     process			= seqA . zipWith phase [(0::Int)..]
-    phase _i f			= fromLA f
-                                  -- >>>
-                                  -- traceDoc ("prepare haddock: step " ++ show i)
+    phase i f			= fromLA f
+                                  >>>
+                                  traceDoc ("prepare haddock-2.6: step " ++ show i)
 
 -- ------------------------------------------------------------
-
-isHaddock			:: LA XmlTree XmlTree
-isHaddock			= ( getPath "html/body/table/tr"
-                                    /> isElemWithAttr "td" "class" (== "botbar")
-                                    />  hasName "a"
-                                    />  hasText (== "Haddock")
-                                  ) `guards` this
 
 getTitle			:: LA XmlTree String
 getTitle			= xshow
@@ -97,6 +117,28 @@ addPackageAttr			= this += (attr "package" $ getPackage >>> mkText)
 
 addModuleAttr			:: LA XmlTree XmlTree
 addModuleAttr			= this += ( attr "module" $ getTitle   >>> mkText)
+
+-- ------------------------------------------------------------
+
+isHaddock28			:: LA XmlTree XmlTree
+isHaddock28			= getPath "html/body/div/p"
+                                  >>>
+                                  ( hasAElemWithHaddock
+                                    `guards`
+                                    hasVersionGE28
+                                  )
+    where
+    hasAElemWithHaddock		= this
+                                  /> hasName "a"
+                                  /> hasText (== "Haddock")
+    hasVersionGE28              = this
+                                  /> hasText (match ".* [2-9][.]([1-9][0-9]+|[8-9])([.][0-9]+)*")
+
+isHaddock26			:: LA XmlTree XmlTree
+isHaddock26			= getPath "html/body/table/tr"
+                                  /> isElemWithAttr "td" "class" (== "botbar")
+                                  /> hasName "a"
+                                  /> hasText (== "Haddock")
 
 -- ------------------------------------------------------------
 

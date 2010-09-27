@@ -38,7 +38,7 @@ import           Holumbus.Crawler.CrawlerAction
 
 import           System.Log.Logger
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Core
 
 crawlLoggerName			:: String
 crawlLoggerName			= "crawl2"

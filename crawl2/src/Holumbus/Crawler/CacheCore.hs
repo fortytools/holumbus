@@ -16,7 +16,8 @@ import           Data.Function.Selector
 
 import		 Holumbus.Crawler
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Core
+import		 Text.XML.HXT.Curl
 
 -- ------------------------------------------------------------
 
@@ -58,15 +59,13 @@ insertCacheM _ _		= return emptyCacheState
 
 -- the cache crawler configureation
 
-cacheCrawlerConfig              :: Attributes                                   -- ^ document read options
+cacheCrawlerConfig              :: SysConfig                                    -- ^ document read options
                                 -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
                                 -> CacheCrawlerConfig                           -- ^ result is a crawler config
 
 cacheCrawlerConfig opts followRef
-                                = addReadAttributes defaultOpts                 -- install the default read options
-                                  >>>
-                                  addReadAttributes opts                        -- overwrite and add specific read options
-                                  >>>
+                                = addSysConfig (defaultOpts >>> opts)           -- install the default read options and
+                                  >>>                                           -- overwrite and add specific read options
                                   ( setS theFollowRef followRef )
                                   >>>
                                   ( setS theProcessRefs getHtmlReferences )
@@ -85,23 +84,31 @@ cacheCrawlerConfig opts followRef
 									        -- take the default crawler config
                                                                                 -- and set the result combining functions
     where
-    defaultOpts                 = [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
-                                  , (curl_location,             v_1)            -- automatically follow redirects
-                                  , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
-                                  , (a_accept_mimetypes,        "text/html text/xhtml text/plain text/pdf")
-                                  , (a_encoding,                isoLatin1)
-                                  , (a_ignore_encoding_errors,  v_1)            -- encoding errors and parser warnings are boring
-                                  , (a_validate,                v_0)
-                                  , (a_parse_html,              v_1)
-                                  , (a_issue_warnings,  	v_0)
-                                  ]
+    defaultOpts                 = withCurl [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
+                                           , (curl_location,             v_1)            -- automatically follow redirects
+                                           , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
+                                           ]
+                                  >>>
+                                  withRedirect yes
+                                  >>>
+                                  withAcceptedMimeTypes ["text/html", "text/xhtml", "text/plain", "text/pdf"]
+                                  >>>
+                                  withInputEncoding isoLatin1
+                                  >>>
+                                  withEncodingErrors no                                  -- encoding errors and parser warnings are boring
+                                  >>>
+                                  withValidate no
+                                  >>>
+                                  withParseHTML yes
+                                  >>>
+                                  withWarnings no
 
 -- ------------------------------------------------------------
 
 stdCacher			:: (Int, Int, Int)				-- ^ the parameters for parallel crawling 
                                 -> (Int, String)				-- ^ the save intervall and file path
                                 -> (Priority, Priority)				-- ^ the log levels for the crawler and hxt
-                                -> Attributes					-- ^ the read attributes
+                                -> SysConfig					-- ^ the read attributes
                                 -> (CacheCrawlerConfig -> CacheCrawlerConfig)	-- ^ further configuration settings
                                 -> Maybe String                                 -- ^ resume from interrupted index run with state stored in file
                                 -> [URI]                                        -- ^ start caching with this set of uris

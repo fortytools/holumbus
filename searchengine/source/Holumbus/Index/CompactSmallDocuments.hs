@@ -42,7 +42,7 @@ import qualified Data.IntMap as IM
 import           Holumbus.Index.Common
 import qualified Holumbus.Index.CompactDocuments	as CD
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 -- ----------------------------------------------------------------------------
 

@@ -8,8 +8,9 @@ import           Hayoo.PackageInfo
 
 import           Holumbus.Crawler.Html
 
-import           Text.XML.HXT.Arrow     
-import		 Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
+import           Text.XML.HXT.Core
+  
+import		 Text.Regex.XMLSchema.String
 
 -- ------------------------------------------------------------
 

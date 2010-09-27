@@ -12,7 +12,7 @@ import qualified Data.Binary                    as B
 
 import           Holumbus.Query.Result		( Score )
 
-import		 Text.XML.HXT.Arrow
+import		 Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
