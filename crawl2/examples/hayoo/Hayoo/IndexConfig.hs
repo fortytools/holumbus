@@ -53,9 +53,9 @@ hayooIndexContextConfig		= [ ixModule
                                   }
     ixName			= ixDefault
 				  { ixc_name          	= "name"
-                                  , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "decl"))
-				  , ixc_textToWords	= tokenize "[^ ():]+" >>> take 1
-				  , ixc_boringWord	= (`elem` ["type", "class", "data"])
+                                  , ixc_collectText   	= getAttrValue "title"          -- is simpler than: fromLA $ getAllText (deep $ trtdWithClass (== "decl")) -- TODO 2.8 version
+				  , ixc_textToWords	= return                        --                  tokenize "[^ ():]+" >>> take 1
+				  , ixc_boringWord	= const False                   -- (`elem` ["type", "class", "data", "module"])
                                   }
     ixPartial			= ixName
                                   { ixc_name          	= "partial"
@@ -74,7 +74,7 @@ hayooIndexContextConfig		= [ ixModule
                                   }
     ixDescription              	= ixDefault
                                   { ixc_name          	= "description"
-                                  , ixc_collectText   	= fromLA $ getAllText (deep $ hasTDClass (== "doc"))
+                                  , ixc_collectText   	= fromLA $ getAllText hayooGetDescr
 				  , ixc_textToWords	= tokenize descrWord
                                   }
 

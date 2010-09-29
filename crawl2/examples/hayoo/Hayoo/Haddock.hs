@@ -1,4 +1,13 @@
+{-# OPTIONS #-}
+
+-- ------------------------------------------------------------
+
 module Hayoo.Haddock
+    ( hayooGetFctInfo
+    , hayooGetTitle
+    , hayooGetDescr
+    , prepareHaddock
+    )
 where
 
 import Data.List
@@ -11,9 +20,11 @@ import Hayoo.Signature
 import Holumbus.Crawler.Html
 import Holumbus.Utility
 
-import Network.URI		( unEscapeString )
+import Network.URI                      ( unEscapeString )
 
-import Text.Regex.XMLSchema.String	( match )
+import Text.Regex.XMLSchema.String      ( match
+                                        , tokenize
+                                        )
 
 import Text.XML.HXT.Core     
 import Text.XML.HXT.Arrow.XmlRegex
@@ -21,132 +32,366 @@ import Text.XML.HXT.XPath
 
 -- ------------------------------------------------------------
 
-hayooGetFctInfo			:: IOSArrow XmlTree FunctionInfo
-hayooGetFctInfo			= ( getAttrValue "module"
-				    &&&
-				    getAttrValue "signature"
-				    &&&
-				    getAttrValue "package"
-				    &&&
-				    getAttrValue "source"
-				    &&&
-				    ( fromLA $
-				      xshow (deep (hasTDClass (== "doc")
-						   >>>
-						   getChildren
-						   >>>
-						   editDescrMarkup
-						  )
-					    )
-				    )
-				  )
-				  >>^
-				  (\ (m, (s, (p, (r, d)))) -> mkFunctionInfo m s p r d)
+hayooGetFctInfo                 :: IOSArrow XmlTree FunctionInfo
+hayooGetFctInfo                 = fromLA $
+                                  ( getAttrValue "module"
+                                    &&&
+                                    getAttrValue "signature"
+                                    &&&
+                                    getAttrValue "package"
+                                    &&&
+                                    getAttrValue "source"
+                                    &&&
+                                    xshow
+                                    ( hayooGetDescr
+                                      >>>
+                                      getChildren
+                                      >>>
+                                      editDescrMarkup
+                                    )
+                                  )
+                                  >>^
+                                  (\ (m, (s, (p, (r, d)))) -> mkFunctionInfo m s p r d)
 
-hayooGetTitle			:: IOSArrow XmlTree String
-hayooGetTitle			= fromLA $
-				  getAttrValue "title"
+hayooGetTitle                   :: IOSArrow XmlTree String
+hayooGetTitle                   = fromLA $
+                                  getAttrValue "title"
 
-editDescrMarkup			:: LA XmlTree XmlTree
-editDescrMarkup			= processTopDown
-				  ( remHref `when` hasName "a" )
+hayooGetDescr                   :: LA XmlTree XmlTree
+hayooGetDescr                   = ifA version28
+                                  ( getChildren                                 -- 2.8
+                                    >>>
+                                    divWithClass (== "top")
+                                    >>>
+                                    firstChildWithClass "div" "doc"
+                                  )
+                                  ( deep (trtdWithClass (== "doc")) )           -- 2.6
+
+editDescrMarkup                 :: LA XmlTree XmlTree
+editDescrMarkup                 = processTopDown
+                                  ( remHref `when` hasName "a" )
     where
-    remHref			= processAttrl (none `when` hasName "href")
+    remHref                     = processAttrl (none `when` hasName "href")
+
+version28                       :: LA XmlTree XmlTree
+version28                       = hasAttrValue "version" (== "2.8")
 
 -- ------------------------------------------------------------
 
-prepareHaddock			:: IOSArrow XmlTree XmlTree
+prepareHaddock                  :: IOSArrow XmlTree XmlTree
 prepareHaddock                  = prepareHaddock28
                                   `orElse`
                                   prepareHaddock26
 
-prepareHaddock28		:: IOSArrow XmlTree XmlTree
-prepareHaddock28		= process
-                                  [ this
-                                  , ( isHaddock28 `guards` this )
-                                  , addPackageAttr
-                                  , addModuleAttr
-                                  , processClasses				-- .4
-                                  , topdeclToDecl 				-- .5
-                                  , removeDataDocumentation			-- .6
-                                  , processDataTypeAndNewtypeDeclarations	-- .7
-                                  , processCrazySignatures
-                                  , splitHaddock    -- TODO this one fails
-                                  ]
-    where
-    process			= seqA . zipWith phase [(0::Int)..]
-    phase i f			= fromLA f
-                                  >>>
-                                  traceDoc ("prepare haddock-2.8: step " ++ show i)
-
-
-prepareHaddock26		:: IOSArrow XmlTree XmlTree
-prepareHaddock26		= process
-                                  [ this
-                                  , ( isHaddock26 `guards` this )
-                                  , addPackageAttr
-                                  , addModuleAttr
-                                  , processClasses				-- .4
-                                  , topdeclToDecl 				-- .5
-                                  , removeDataDocumentation			-- .6
-                                  , processDataTypeAndNewtypeDeclarations	-- .7
-                                  , processCrazySignatures
-                                  , splitHaddock
-                                  ]
-    where
-    process			= seqA . zipWith phase [(0::Int)..]
-    phase i f			= fromLA f
-                                  >>>
-                                  traceDoc ("prepare haddock-2.6: step " ++ show i)
-
 -- ------------------------------------------------------------
 
-getTitle			:: LA XmlTree String
-getTitle			= xshow
-                                  ( getPath "html/head/title"
-                                    >>> deep isText
-                                  )
-
-getPackage			:: LA XmlTree String
-getPackage			= getAttrValue transferURI
-                  	          >>^	
-                                  hayooGetPackage
-
-addPackageAttr			:: LA XmlTree XmlTree
-addPackageAttr			= this += (attr "package" $ getPackage >>> mkText)
-
-addModuleAttr			:: LA XmlTree XmlTree
-addModuleAttr			= this += ( attr "module" $ getTitle   >>> mkText)
-
--- ------------------------------------------------------------
-
-isHaddock28			:: LA XmlTree XmlTree
-isHaddock28			= getPath "html/body/div/p"
+isHaddock28                     :: LA XmlTree XmlTree
+isHaddock28                     = getPath "html/body/div/p"
                                   >>>
                                   ( hasAElemWithHaddock
                                     `guards`
                                     hasVersionGE28
                                   )
     where
-    hasAElemWithHaddock		= this
+    hasAElemWithHaddock         = this
                                   /> hasName "a"
                                   /> hasText (== "Haddock")
     hasVersionGE28              = this
                                   /> hasText (match ".* [2-9][.]([1-9][0-9]+|[8-9])([.][0-9]+)*")
 
-isHaddock26			:: LA XmlTree XmlTree
-isHaddock26			= getPath "html/body/table/tr"
-                                  /> isElemWithAttr "td" "class" (== "botbar")
+prepareHaddock28                :: IOSArrow XmlTree XmlTree
+prepareHaddock28                = process
+                                  [ this
+                                  , ( isHaddock28 `guards` this )
+                                  , addPackageAttr
+                                  , addModuleAttr
+                                  , splitHaddock28
+                                  ]
+                                  -- >>> withTraceLevel 4 (traceDoc "result of splitHaddock28") -- just for dev.
+    where
+    process                     = seqA . zipWith phase [(0::Int)..]
+    phase _i f                  = fromLA f
+                                  -- >>>
+                                  -- traceDoc ("prepare haddock-2.8: step " ++ show i)
+
+splitHaddock28                  :: LA XmlTree XmlTree
+splitHaddock28                  = mkVirtualDoc28 $< this
+
+mkVirtualDoc28                  :: XmlTree -> LA XmlTree XmlTree
+mkVirtualDoc28 rt               = (getModule <+> getDecls)
+                                  >>>
+                                  mkDoc
+    where
+    mkDoc                       = ( root [] []
+                                    += attr "title"     (theTitle     >>> mkText)
+                                    += attr "module"    (theModule    >>> mkText)
+                                    += attr "package"   (thePackage   >>> mkText)
+                                    += attr "signature" (theSignature >>> mkText)
+                                    += attr "source"    (theSourceURI >>> mkText)
+                                    += sattr "version"  "2.8"
+                                    += attr transferURI ( ( (theURI &&& theLinkPrefix &&& theTitle)
+                                                            >>^
+                                                            (\ (u, (h, t)) -> u ++ h ++ t)
+                                                          )
+                                                          >>>
+                                                          mkText
+                                                        )
+                                    += removeSourceLinks
+                                  )
+
+    getModule                   =  mkModuleDecl
+                                   ( ( eelem "a"
+                                       += sattr "class" "def"
+                                       += theModuleName
+                                     )
+                                     <+>
+                                     theSourceLink
+                                   )
+                                   theModuleDoc
+        where
+        theModuleName           = xshow
+                                  ( getById "module-header"                     -- single (deep (isElemWithAttr "div" "id" (== "module-header")))
+                                    /> pWithClass (== "caption")
+                                    /> isText
+                                  )
+                                  >>>
+                                  arr (tokenize "[^.]+" >>> last)                -- A will be the name of module C.B.A
+                                  >>>
+                                  mkText
+
+        theSourceLink           = getById "package-header"                      -- single (deep (isElemWithAttr "div" "id" (== "package-header")))
+                                  /> getById "page-menu"                        -- isElemWithAttr "ul" "id" (== "page-menu")
+                                  /> hasName "li"
                                   /> hasName "a"
-                                  /> hasText (== "Haddock")
+                                  >>> ( (getChildren >>> hasText (== "Source"))
+                                        `guards`
+                                        ( this += sattr "class" "link" )
+                                      )
+
+        theModuleDoc            = getById "description"                         -- single (deep (isElemWithAttr "div" "id" (== "description")))
+                                  />
+                                  divWithClass (== "doc")
+
+    getDecls                    = getById "interface"                           -- this //> isElemWithAttr "div" "id" (== "interface")
+                                  />  divWithClass (== "top")
+                                  >>> choiceA
+                                      [ isDataTypeNewtypeDecl
+                                                       :-> ( processTypeDecl
+                                                             <+>
+                                                             ( processConstructors $< getSrcLnk ) -- the data sourrce link is propagated
+                                                           )                                      -- to the constructors and fields
+                                      , isClassDecl    :-> ( processClassDecl
+                                                             <+>
+                                                             processMethods
+                                                           )
+                                      , isFunctionDecl :-> processFunctionDecl
+                                      , this           :-> none
+                                      ]
+
+    getSrcLnk                   = ( first_p_src
+                                    >>>
+                                    firstChildWithClass "a" "link"
+                                  )
+                                  `orElse`
+                                  txt ""
+
+    isFunctionDecl              = first_p_src
+                                  >>>
+                                  firstChild (aWithClass (== "def")
+                                              >>>
+                                              hasAttr "name"
+                                             )
+
+    isClassDecl                 = isTDecl (== "class")
+
+    isDataTypeNewtypeDecl       = isTDecl (`elem` ["data", "type", "newtype"])
+
+    isTDecl p                   = first_p_src                                   -- check the first p element found
+                                  >>>
+                                  firstChildWithClass "span" "keyword"                          -- check the first keyword found
+                                  />
+                                  hasText p
+
+    processFunctionDecl         = this += sattr "type" "function"
+
+    processTypeDecl             = this +=  attr "type" theType
+
+    processConstructors srcLnk  = this
+                                  />  divWithClass (words >>> ("constructors" `elem`))
+                                  />  hasName "table"
+                                  />  hasName "tr"
+                                  >>> ( (isConstrRow `guards` theConstructors srcLnk)
+                                        <+>
+                                        processConstrFields srcLnk
+                                      )
+    isConstrRow                 = matchRegexA ( mkSeq
+                                                (mkPrimA $ tdWithClass (== "src"))
+                                                (mkPrimA $ tdWithClass (words >>> ("doc" `elem`)))
+                                              )
+                                  getChildren
+                                  >>>
+                                  unlistA
+
+    processConstrFields srcLnk  = getChildren
+                                  >>>
+                                  hasName "td"
+                                  />
+                                  divWithClass (words >>> ("fields" `elem`))
+                                  />
+                                  hasName "dl"
+                                  >>>
+                                  scanRegexA 
+                                      ( mkSeq (mkPrimA $ hasName "dt") (mkPrimA $ hasName "dd"))
+                                      getChildren
+                                  >>>
+                                  theConstrFields srcLnk
+
+    processClassDecl            = ( this += sattr "type" "class" )
+                                  >>>
+                                  processChildren ( pWithClass   (== "src")
+                                                    <+>
+                                                    divWithClass (== "doc")
+                                                  )
+
+    processMethods              = getChildren
+                                  >>>
+                                  divWithClass (words >>> ("methods" `elem`))
+                                  >>>
+                                  scanRegexA
+                                    ( mkSeq
+                                      (mkPrimA $ hasName "p")
+                                      (mkPrimA $ hasName "div")
+                                    )
+                                    ( getChildren
+                                      >>>
+                                      ( pWithClass   (== "src")
+                                        <+>
+                                        divWithClass (words >>> ("doc" `elem`))
+                                      )
+                                    )
+                                  >>>
+                                  theMethods
+
+    theType                     = single (getPath "p/span" /> isText)
+
+    theTitle                    = xshow ( first_p_src
+                                          >>>
+                                          firstChildWithClass "a" "def"
+                                          />
+                                          isText
+                                        )
+                                  >>^
+                                  unEscapeString
+
+    theConstructors srcLnk      = mkFctDecl
+                                  ( ( getChildren
+                                      >>>
+                                      tdWithClass (== "src")
+                                      >>>
+                                      getChildren
+                                    )
+                                    <+>
+                                    constA srcLnk
+                                  )
+                                  ( getChildren
+                                    >>>
+                                    tdWithClass (== "doc")
+                                    >>>
+                                    getChildren
+                                  )
+
+    theConstrFields srcLnk      = mkFctDecl
+                                  ( (unlistA >>> hasName "dt" >>> getChildren)
+                                    <+>
+                                    constA srcLnk
+                                  )
+                                  ( unlistA >>> hasName "dd" >>> getChildren )
+
+    theMethods                  = mkDecl0 "function" ( this >>> unlistA )
+
+    theLinkPrefix               = ( first_p_src
+                                    >>>
+                                    firstChildWithClass "a" "def"
+                                    >>>
+                                    getAttrValue "name"
+                                    >>^
+                                    (take 2 >>> ('#' :))
+                                  )
+                                  `withDefault` "#v:"
+
+    theSignature                = ( ifA
+                                    ( hasAttrValue "type" (`elem` ["function"]) )
+                                    ( xshow ( ( single ( this /> pWithClass (== "src") )
+                                                <+>
+                                                theSubArguments         -- fancy arguments
+                                              )
+                                              >>>
+                                              removeSourceLinks
+                                              >>>
+                                              deep isText
+                                            )
+                                    )
+                                    ( getAttrValue "type" )
+                                  )
+                                  >>^
+                                  getSignature
+
+    theSubArguments             = getChildren
+                                  >>>
+                                  divWithClass (words >>> ("arguments" `elem`))
+                                  />
+                                  hasName "table"
+                                  />
+                                  hasName "tr"
+                                  />
+                                  tdWithClass (== "src")
+                                  >>>
+                                  getChildren
+                                  
+    theSourceURI                = ( first_p_src
+                                    >>>
+                                    firstChildWithClass "a" "link"
+                                    >>>
+                                    getAttrValue       "href"
+                                  )
+                                  `withDefault` ""
+
+    theModule                   = constA rt >>> getAttrValue "module"
+    thePackage                  = constA rt >>> getAttrValue "package"
+    theURI                      = constA rt >>> getAttrValue transferURI
 
 -- ------------------------------------------------------------
 
-splitHaddock			:: LA XmlTree XmlTree
-splitHaddock			= mkVirtualDoc $< this
+isHaddock26                     :: LA XmlTree XmlTree
+isHaddock26                     = getPath "html/body/table/tr"
+                                  /> tdWithClass (== "botbar")
+                                  /> hasName "a"
+                                  /> hasText (== "Haddock")
 
-mkVirtualDoc 			:: XmlTree -> LA XmlTree XmlTree
-mkVirtualDoc rt			= getDecls
+prepareHaddock26                :: IOSArrow XmlTree XmlTree
+prepareHaddock26                = process
+                                  [ this
+                                  , ( isHaddock26 `guards` this )
+                                  , addPackageAttr
+                                  , addModuleAttr
+                                  , processClasses                              -- .4
+                                  , topdeclToDecl                               -- .5
+                                  , removeDataDocumentation                     -- .6
+                                  , processDataTypeAndNewtypeDeclarations       -- .7
+                                  , processCrazySignatures
+                                  , splitHaddock26
+                                  ]
+    where
+    process                     = seqA . zipWith phase [(0::Int)..]
+    phase i f                   = fromLA f
+                                  >>>
+                                  traceDoc ("prepare haddock-2.6: step " ++ show i)
+
+splitHaddock26                  :: LA XmlTree XmlTree
+splitHaddock26                  = mkVirtualDoc26 $< this
+
+mkVirtualDoc26                  :: XmlTree -> LA XmlTree XmlTree
+mkVirtualDoc26 rt               = getDecls
                                   >>>
                                   ( root [] []
                                     += attr "title"     (theTitle     >>> mkText)
@@ -154,6 +399,7 @@ mkVirtualDoc rt			= getDecls
                                     += attr "package"   (thePackage   >>> mkText)
                                     += attr "signature" (theSignature >>> mkText)
                                     += attr "source"    (theSourceURI >>> mkText)
+                                    += sattr "version"  "2.6"
                                     += attr transferURI ( ( (theURI &&& theLinkPrefix &&& theTitle)
                                                             >>^
                                                             (\ (u, (h, t)) -> u ++ h ++ t)
@@ -164,28 +410,38 @@ mkVirtualDoc rt			= getDecls
                                     += removeSourceLinks
                                   )
     where
-    getDecls			= deep ( isDecl' >>> hasAttr "id" )
-    isDecl'			= isElemWithAttr "tr" "class" (== "decl")
-    theTitle			= ( listA (isDecl' >>> getAttrValue "id") >>. concat )
+    getDecls                    = deep ( isDecl' >>> hasAttr "id" )
+
+    isDecl'                     = trWithClass (== "decl")
+
+    theTitle                    = ( listA (isDecl' >>> getAttrValue "id") >>. concat )
                                   >>^
                                   unEscapeString
 
-    theSignature		= xshow ( removeSourceLinks
+    theSignature                = xshow ( removeSourceLinks
                                           >>>
-                                          deep (isElemWithAttr "td" "class" (== "decl"))
+                                          deep (tdWithClass (== "decl"))
                                           >>>
                                           deep isText
                                         )
                                   >>^
                                   getSignature
 
-    theLinkPrefix		= theSignature
-                                  >>^ (\ s -> if s `elem` ["data", "type", "newtype"]
-                                              then "#t:"
-                                              else "#v:"
-                                      )
-    theSourceURI		= ( single
-                                    ( ( deep ( ( isElemWithAttr "a" "href" ("src/" `isPrefixOf`)
+    theLinkPrefix               = theSignature
+                                  >>^
+                                  ( words
+                                    >>>
+                                    take 1
+                                    >>>
+                                    concat
+                                    >>>
+                                    (\ s -> if s `elem` ["data", "type", "newtype"]
+                                            then "#t:"
+                                            else "#v:"
+                                    )
+                                  )
+    theSourceURI                = ( single
+                                    ( ( deep ( ( aWithHref ("src/" `isPrefixOf`)
                                                  />
                                                  hasText (== "Source")
                                                )
@@ -201,16 +457,16 @@ mkVirtualDoc rt			= getDecls
                                   )
                                   `withDefault` ""
 
-    theModule			= constA rt >>> getAttrValue "module"
-    thePackage			= constA rt >>> getAttrValue "package"
-    theURI			= constA rt >>> getAttrValue transferURI
+    theModule                   = constA rt >>> getAttrValue "module"
+    thePackage                  = constA rt >>> getAttrValue "package"
+    theURI                      = constA rt >>> getAttrValue transferURI
 
 -- ------------------------------------------------------------
  
 -- | Transform classes so that the methods are wrapped into the same html as normal functions
 
-processClasses 			:: LA XmlTree XmlTree
-processClasses 			= processTopDown
+processClasses                  :: LA XmlTree XmlTree
+processClasses                  = processTopDown
                                   ( processClassMethods
                                     `when`
                                     ( getClassPart "section4"
@@ -218,7 +474,7 @@ processClasses 			= processTopDown
                                     )
                                   )
     where   
-    processClassMethods 	= getClassPart "body"
+    processClassMethods         = getClassPart "body"
                                   /> hasName "table"
                                   /> hasName "tr"
                                 -- getXPathTrees "/tr/td[@class='body']/table/tr/td[@class='body']/table/tr" 
@@ -231,11 +487,11 @@ processClasses 			= processTopDown
 --   are constructed so empty href attributes are also searched and removed if the text of the "a"
 --   node is "Source"
 
-removeSourceLinks 		:: LA XmlTree XmlTree
-removeSourceLinks 		= processTopDown
+removeSourceLinks               :: LA XmlTree XmlTree
+removeSourceLinks               = processTopDown
                                   ( none
                                     `when` 
-                                    ( isElemWithAttr "a" "href" (\a -> null a || "src/" `isPrefixOf` a)
+                                    ( aWithHref (\a -> null a || "src/" `isPrefixOf` a)
                                       />
                                       hasText (== "Source")
                                     )
@@ -248,23 +504,23 @@ removeSourceLinks 		= processTopDown
 --   table datas with source links are transformed to look like those without (they differ 
 --   in the css class of the table data and the ones with the source links contain another table).
 
-topdeclToDecl 			:: LA XmlTree XmlTree
-topdeclToDecl  			= processTopDownUntil
+topdeclToDecl                   :: LA XmlTree XmlTree
+topdeclToDecl                   = processTopDownUntil
                                   ( isElemWithAttr "table" "class" (== "declbar")
                                    `guards`
                                    ( getChildren >>> getChildren >>> getChildren )
                                   )
                                   >>>
                                   processTopDownUntil
-                                  ( isElemWithAttr "td" "class" (== "topdecl")
+                                  ( tdWithClass (== "topdecl")
                                     `guards`
                                     mkelem "td" [ sattr "class" "decl"] [ getChildren ]
                                   ) 
 
 -- ------------------------------------------------------------
 
-removeDataDocumentation		:: LA XmlTree XmlTree
-removeDataDocumentation 	= processTopDown 
+removeDataDocumentation         :: LA XmlTree XmlTree
+removeDataDocumentation         = processTopDown 
                                   ( none
                                     `when`
                                     ( getClassPart "section4"
@@ -278,9 +534,9 @@ removeDataDocumentation 	= processTopDown
 
 processDataTypeAndNewtypeDeclarations :: LA XmlTree XmlTree
 processDataTypeAndNewtypeDeclarations 
-  				= processTopDownUntil
-                                  ( (    isElemWithAttr "td"   "class" (=="decl")
-                                      /> isElemWithAttr "span" "class" (=="keyword")
+                                = processTopDownUntil
+                                  ( (    tdWithClass   (=="decl")
+                                      /> spanWithClass (=="keyword")
                                       /> hasText (`elem` ["data", "type", "newtype", "class"]) 
                                     )
                                     `guards`
@@ -292,26 +548,26 @@ processDataTypeAndNewtypeDeclarations
                                     ) 
                                   )
     where
-    getTheName 			= xshow $
+    getTheName                  = xshow $
                                   deep (hasName "b") /> isText
 
-    getTheRef  			= ( single $
+    getTheRef                   = ( single $
                                     deep (hasName "a" >>> getAttrValue0 "name")
                                   )
                                   `withDefault` ""
 
-    getTheType 			= xshow $
+    getTheType                  = xshow $
                                   single $
-                                  deep (isElemWithAttr "span" "class" (== "keyword")) /> isText
+                                  deep (spanWithClass (== "keyword")) /> isText
 
-    getTheSrc			= ( single $
-                                    deep (isElemWithAttr "a" "href" ("src/" `isPrefixOf`))
+    getTheSrc                   = ( single $
+                                    deep (aWithHref ("src/" `isPrefixOf`))
                                     >>>
                                     getAttrValue0 "href"
                                   )
                                   `withDefault` ""
 
-    mkTheElem n t r s 		= eelem "td"
+    mkTheElem n t r s           = eelem "td"
                                   +=   sattr "class" "decl"
                                   += ( eelem "a"
                                        +=   sattr "name" r
@@ -324,8 +580,8 @@ processDataTypeAndNewtypeDeclarations
 
 -- ------------------------------------------------------------
 
-processCrazySignatures 		:: LA XmlTree XmlTree
-processCrazySignatures		= processTopDown
+processCrazySignatures          :: LA XmlTree XmlTree
+processCrazySignatures          = processTopDown
                                   ( preProcessCrazySignature
                                     `when`
                                     getClassPart "rdoc"
@@ -334,10 +590,10 @@ processCrazySignatures		= processTopDown
                                   processChildren
                                   ( processDocumentRootElement groupDeclSig declAndDocAndSignatureChildren )
 
-preProcessCrazySignature	:: LA XmlTree XmlTree
-preProcessCrazySignature	= ( selem "tr" 
+preProcessCrazySignature        :: LA XmlTree XmlTree
+preProcessCrazySignature        = ( selem "tr" 
                                     [ mkelem "td" [ sattr "class" "signature" ]
-                                                  [ deep (isElemWithAttr "td" "class" (== "arg"))
+                                                  [ deep (tdWithClass (== "arg"))
                                                     >>>
                                                     getChildren
                                                   ]  
@@ -345,7 +601,7 @@ preProcessCrazySignature	= ( selem "tr"
                                     &&&   
                                     selem "tr" 
                                     [ mkelem "td" [ sattr "class" "doc" ]
-                                                  [ deep (isElemWithAttr "td" "class" (== "rdoc"))
+                                                  [ deep (tdWithClass (== "rdoc"))
                                                     >>>
                                                     getChildren
                                                   ]
@@ -353,11 +609,11 @@ preProcessCrazySignature	= ( selem "tr"
                                   )
                                   >>> mergeA (<+>)
          
-processDocumentRootElement 	:: (LA XmlTree XmlTree -> LA XmlTree XmlTree)
+processDocumentRootElement      :: (LA XmlTree XmlTree -> LA XmlTree XmlTree)
                                 ->  LA XmlTree XmlTree
                                 ->  LA XmlTree XmlTree
 processDocumentRootElement theGrouper interestingChildren
-    				= processTopDownUntil
+                                = processTopDownUntil
                                   ( hasName "table"
                                     `guards`
                                     ( replaceChildren
@@ -365,58 +621,49 @@ processDocumentRootElement theGrouper interestingChildren
                                     )
                                   )
            
-declAndDocChildren  		:: LA XmlTree XmlTree
-declAndDocChildren  		= (isDecl <+> isDoc) `guards` this
-
 declAndDocAndSignatureChildren :: LA XmlTree XmlTree
 declAndDocAndSignatureChildren = (isDecl <+> isSig <+> isDoc) `guards` this
 
-isDecl      			:: LA XmlTree XmlTree
-isDecl				= hasTDClass (== "decl")
+isDecl                          :: LA XmlTree XmlTree
+isDecl                          = trtdWithClass (== "decl")
                                   />
                                   isElemWithAttr "a" "name" (const True)
 
-isDoc     			:: LA XmlTree XmlTree
-isDoc				= hasTDClass (== "doc")
+isDoc                           :: LA XmlTree XmlTree
+isDoc                           = trtdWithClass (== "doc")
       
-isSig    			:: LA XmlTree XmlTree
-isSig				= hasTDClass (== "signature")
+isSig                           :: LA XmlTree XmlTree
+isSig                           = trtdWithClass (== "signature")
 
-isArg 				:: LA XmlTree XmlTree
-isArg 				= hasTDClass (== "arg")
+getDeclName                     :: LA XmlTree String
+getDeclName                     = (xshow $ single $ getXPathTrees "//tr/td/a/@name/text()") >>^ drop 2
 
-getDeclName     		:: LA XmlTree String
-getDeclName			= (xshow $ single $ getXPathTrees "//tr/td/a/@name/text()") >>^ drop 2
-
-processTableRows      		:: (LA XmlTree XmlTree -> LA XmlTree XmlTree)
+processTableRows                :: (LA XmlTree XmlTree -> LA XmlTree XmlTree)
                                 ->  LA XmlTree XmlTree
                                 ->  LA XmlTree XmlTree
-processTableRows theGrouping ts	= theGrouping (remLeadingDocElems ts) {- >>> prune 3 -}
+processTableRows theGrouping ts = theGrouping (remLeadingDocElems ts) {- >>> prune 3 -}
 
 -- regex for a leading class="doc" row
 
-leadingDoc    			:: XmlRegex
-leadingDoc    			= mkStar (mkPrimA isDoc)
+leadingDoc                      :: XmlRegex
+leadingDoc                      = mkStar (mkPrimA isDoc)
 
 -- regex for a class="decl" class="doc" sequence
 
-declDoc     			:: XmlRegex
-declDoc     			= mkSeq (mkPrimA isDecl) leadingDoc
-
-declSig     			:: XmlRegex
-declSig     			= mkSeq (mkPrimA isDecl) (mkSeq (mkStar (mkPrimA isSig)) leadingDoc)
+declSig                         :: XmlRegex
+declSig                         = mkSeq (mkPrimA isDecl) (mkSeq (mkStar (mkPrimA isSig)) leadingDoc)
 
 -- remove a leading class="doc" row this does not form a declaration
 -- split the list of trees and throw away the first part
 
-remLeadingDocElems  		:: LA XmlTree XmlTree -> LA XmlTree XmlTree
-remLeadingDocElems ts   	= (splitRegexA leadingDoc ts >>^ snd) >>> unlistA
+remLeadingDocElems              :: LA XmlTree XmlTree -> LA XmlTree XmlTree
+remLeadingDocElems ts           = (splitRegexA leadingDoc ts >>^ snd) >>> unlistA
 
 -- group the "tr" trees for a declaration together, build a "tr class="decl"" element and
 -- throw the old "tr" s away
 
-groupDeclSig    		:: LA XmlTree XmlTree -> LA XmlTree XmlTree
-groupDeclSig ts 		= scanRegexA declSig ts 
+groupDeclSig                    :: LA XmlTree XmlTree -> LA XmlTree XmlTree
+groupDeclSig ts                 = scanRegexA declSig ts 
                                   >>>
                                   mkelem  "tr"
                                   [ sattr "class" "decl"
@@ -434,28 +681,104 @@ groupDeclSig ts 		= scanRegexA declSig ts
                                                 ] 
                                   ]
 
+-- ------------------------------------------------------------
 
-removeSpacers 			:: LA XmlTree XmlTree
-removeSpacers 			= processTopDown
-                                  ( none
-                                    `when`
-                                    hasTDClass (`elem` ["s15", "s8"])
+getTitle                        :: LA XmlTree String
+getTitle                        = xshow
+                                  ( getPath "html/head/title"
+                                    >>> deep isText
                                   )
 
+getPackage                      :: LA XmlTree String
+getPackage                      = getAttrValue transferURI
+                                  >>^   
+                                  hayooGetPackage
+
+addPackageAttr                  :: LA XmlTree XmlTree
+addPackageAttr                  = this += (attr "package" $ getPackage >>> mkText)
+
+addModuleAttr                   :: LA XmlTree XmlTree
+addModuleAttr                   = this += ( attr "module" $ getTitle   >>> mkText)
+
 -- ------------------------------------------------------------
 
-getPath				:: String -> LA XmlTree XmlTree
-getPath				= foldl (/>) this . map hasName . split "/"
+getPath                         :: String -> LA XmlTree XmlTree
+getPath                         = foldl (/>) this . map hasName . split "/"
 
-hasTDClass			:: (String -> Bool) -> LA XmlTree XmlTree
-hasTDClass av			= hasName "tr"
+trtdWithClass                   :: (String -> Bool) -> LA XmlTree XmlTree
+trtdWithClass av                = hasName "tr"
                                   />
-                                  isElemWithAttr "td" "class" av
+                                  tdWithClass av
 
-getClassPart			:: String -> LA XmlTree XmlTree
-getClassPart c			= hasTDClass (== "body")
+getClassPart                    :: String -> LA XmlTree XmlTree
+getClassPart c                  = trtdWithClass (== "body")
                                   /> hasName "table"
-                                  /> hasTDClass (== c)
+                                  /> trtdWithClass (== c)
 
 -- ------------------------------------------------------------
 
+-- mother's little helpers
+
+firstChild                      :: LA XmlTree XmlTree -> LA XmlTree XmlTree
+firstChild sel                  = single (getChildren >>> sel)
+
+
+getById                         :: String -> LA XmlTree XmlTree
+getById id'                     = single (deep (hasAttrValue "id" (== id')))
+
+firstChildWithClass             :: String -> String -> LA XmlTree XmlTree
+firstChildWithClass e c         = firstChild (isElemWithAttr e "class" (== c))
+
+first_p_src                     :: LA XmlTree XmlTree
+first_p_src                     = firstChildWithClass "p" "src"
+ 
+divWithClass                    :: (String -> Bool) -> LA XmlTree XmlTree
+divWithClass                    = isElemWithAttr "div" "class"
+
+spanWithClass                   :: (String -> Bool) -> LA XmlTree XmlTree
+spanWithClass                   = isElemWithAttr "span" "class"
+
+pWithClass                      :: (String -> Bool) -> LA XmlTree XmlTree
+pWithClass                      = isElemWithAttr "p" "class"
+
+aWithClass                      :: (String -> Bool) -> LA XmlTree XmlTree
+aWithClass                      = isElemWithAttr "a" "class"
+
+trWithClass                     :: (String -> Bool) -> LA XmlTree XmlTree
+trWithClass                     = isElemWithAttr "tr" "class"
+
+tdWithClass                     :: (String -> Bool) -> LA XmlTree XmlTree
+tdWithClass                     = isElemWithAttr "td" "class"
+
+aWithHref                       :: (String -> Bool) -> LA XmlTree XmlTree
+aWithHref                       = isElemWithAttr "a" "href"
+
+-- ------------------------------------------------------------
+
+mkDecl0                         :: String -> LA b XmlTree -> LA b XmlTree
+mkDecl0 typ body                = ( eelem "div"
+                                    += sattr "class" "top"
+                                    += sattr "type"  typ
+                                    += body
+                                  )
+
+mkDecl1                         :: String -> LA b XmlTree -> LA b XmlTree -> LA b XmlTree
+mkDecl1 typ src doc             = mkDecl0 typ
+                                  ( ( eelem "p"
+                                      += sattr "class" "src"
+                                      += src
+                                    )
+                                    <+>
+                                    ( eelem "div"
+                                      += sattr "class" "doc"
+                                      += doc
+                                    )
+                                  )
+
+mkFctDecl                       :: LA b XmlTree -> LA b XmlTree -> LA b XmlTree
+mkFctDecl                       = mkDecl1 "function"
+
+mkModuleDecl                    :: LA b XmlTree -> LA b XmlTree -> LA b XmlTree
+mkModuleDecl                    = mkDecl1 "module"
+
+-- ------------------------------------------------------------

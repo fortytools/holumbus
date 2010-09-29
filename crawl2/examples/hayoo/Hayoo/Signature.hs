@@ -17,9 +17,9 @@ import           Holumbus.Crawler.Util	( tokenize
 -- ------------------------------------------------------------
 
 getSignature 			:: String -> String
-getSignature			= split ".*(=>|::)" >>> snd
+getSignature			= split "(.*(=>|::))?(\\s)*" >>> snd
 
--- | Strip unneeded whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
+-- | Strip redundant whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
 -- to @String->Map k a->Int@.
 
 stripSignature 			:: String -> String
