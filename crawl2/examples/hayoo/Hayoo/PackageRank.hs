@@ -1,32 +1,36 @@
+{-# OPTIONS #-}
+
+-- ------------------------------------------------------------
+
 module Hayoo.PackageRank
 where
 
 import           Control.Arrow
 
-import           Data.Map 	( Map )
-import qualified Data.Map 	as M
+import           Data.Map       ( Map )
+import qualified Data.Map       as M
 import           Data.Maybe
 import           Data.Set       ( Set )
-import qualified Data.Set 	as S
+import qualified Data.Set       as S
 
 -- import           Debug.Trace
 
 -- ------------------------------------------------------------
 
-type DAG a			= Map a (Set a)
+type DAG a                      = Map a (Set a)
 
-type Ranking a			= Map a Double
+type Ranking a                  = Map a Double
 
 -- ------------------------------------------------------------
 
-{- construct a directed graph form a list of nodes and successors
-   This version does not check cycles, so it only works for DAGs,
-   when this is checked before
+-- | construct a directed graph form a list of nodes and successors.
+--
+--  This version does not check cycles, so it only works savely,
+--  when this is checked before.
 
-dagFromList			:: (Ord a, Show a) => [(a, [a])] -> DAG a
-dagFromList l			= traceShow l $
+unsaveDagFromList               :: (Ord a, Show a) => [(a, [a])] -> DAG a
+unsaveDagFromList l             = -- traceShow l $
                                   map (second S.fromList) >>> M.fromList $ l
--}
 
 -- | Construct a directed graph (DAG) form a list of nodes and successors.
 --
@@ -34,8 +38,8 @@ dagFromList l			= traceShow l $
 -- edges. So if there are cycles in the input list, the result depends on the
 -- sequence of the pairs in the input list
 
-dagFromList			:: (Ord a, Show a) => [(a, [a])] -> DAG a
-dagFromList l			= -- traceShow l $
+dagFromList                     :: (Ord a, Show a) => [(a, [a])] -> DAG a
+dagFromList l                   = -- traceShow l $
                                   map (second S.fromList)
                                   >>>
                                   foldl (flip insEdges) M.empty $ l
@@ -72,7 +76,6 @@ allPaths                        :: (Ord a) => DAG a -> a -> a -> [[a]]
 allPaths g                      = allPaths'
     where
     allPaths' x y
-        | x == y                = [[x,y]]
         | y `S.member` succs    = [[x,y]]
         | otherwise             = map (x:) . concatMap (flip allPaths' y) . S.toList $ succs
         where
@@ -82,34 +85,34 @@ allPaths g                      = allPaths'
 
 -- | Inverse to dagFromList
 
-dagToList			:: DAG a -> [(a, [a])]
-dagToList			= M.toList >>> map (second S.toList)
+dagToList                       :: DAG a -> [(a, [a])]
+dagToList                       = M.toList >>> map (second S.toList)
 
 -- ------------------------------------------------------------
 
 -- | Switch the direction in the DAG
 
-dagInvert			:: (Ord a) => DAG a -> DAG a
-dagInvert			= M.foldWithKey invVs M.empty
+dagInvert                       :: (Ord a) => DAG a -> DAG a
+dagInvert                       = M.foldWithKey invVs M.empty
     where
-    invVs k ks acc		= S.fold invV acc1 $ ks
+    invVs k ks acc              = S.fold invV acc1 $ ks
         where
-        acc1			= M.insertWith S.union k  S.empty         $ acc		-- don't forget the roots
-        invV k' acc'		= M.insertWith S.union k' (S.singleton k) $ acc'
+        acc1                    = M.insertWith S.union k  S.empty         $ acc         -- don't forget the roots
+        invV k' acc'            = M.insertWith S.union k' (S.singleton k) $ acc'
 
 -- ------------------------------------------------------------
 
-ranking				:: (Ord a, Show a) => Double -> DAG a -> Ranking a
-ranking w g			= -- traceShow r
+ranking                         :: (Ord a, Show a) => Double -> DAG a -> Ranking a
+ranking w g                     = -- traceShow r
                                   r
     where
-    g'				= dagInvert g
-    r				= foldl insertRank M.empty $ M.keys g
+    g'                          = dagInvert g
+    r                           = foldl insertRank M.empty $ M.keys g
         where
-        insertRank r' k		= M.insert k (w * (S.fold accRank (1/w) usedBy)) r'
+        insertRank r' k         = M.insert k (w * (S.fold accRank (1/w) usedBy)) r'
             where
-            usedBy		= fromMaybe S.empty . M.lookup k $ g'
-            accRank k' acc'	= ( fromJust . M.lookup k' $ r ) + acc'
+            usedBy              = fromMaybe S.empty . M.lookup k $ g'
+            accRank k' acc'     = ( fromJust . M.lookup k' $ r ) + acc'
 
 -- ------------------------------------------------------------
 {- minimal test case
