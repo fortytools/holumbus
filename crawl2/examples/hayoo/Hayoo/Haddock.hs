@@ -79,9 +79,17 @@ version28                       = hasAttrValue "version" (== "2.8")
 -- ------------------------------------------------------------
 
 prepareHaddock                  :: IOSArrow XmlTree XmlTree
-prepareHaddock                  = prepareHaddock28
+prepareHaddock                  = ( traceMsg 1 "prepareHaddock: try version 2.8"
+                                    >>>
+                                    prepareHaddock28
+                                  )
                                   `orElse`
-                                  prepareHaddock26
+                                  ( traceMsg 1 "prepareHaddock: try version 2.6"
+                                    >>>
+                                    prepareHaddock26
+                                  )
+                                  `orElse`
+                                  ( traceMsg 1 "prepareHaddock: no haddock" )
 
 -- ------------------------------------------------------------
 
@@ -100,7 +108,8 @@ isHaddock28                     = getPath "html/body/div/p"
                                   /> hasText (match ".* [2-9][.]([1-9][0-9]+|[8-9])([.][0-9]+)*")
 
 prepareHaddock28                :: IOSArrow XmlTree XmlTree
-prepareHaddock28                = process
+prepareHaddock28                = fromLA $
+                                  seqA
                                   [ this
                                   , ( isHaddock28 `guards` this )
                                   , addPackageAttr
@@ -108,11 +117,6 @@ prepareHaddock28                = process
                                   , splitHaddock28
                                   ]
                                   -- >>> withTraceLevel 4 (traceDoc "result of splitHaddock28") -- just for dev.
-    where
-    process                     = seqA . zipWith phase [(0::Int)..]
-    phase _i f                  = fromLA f
-                                  -- >>>
-                                  -- traceDoc ("prepare haddock-2.8: step " ++ show i)
 
 splitHaddock28                  :: LA XmlTree XmlTree
 splitHaddock28                  = mkVirtualDoc28 $< this
@@ -383,9 +387,9 @@ prepareHaddock26                = process
                                   ]
     where
     process                     = seqA . zipWith phase [(0::Int)..]
-    phase i f                   = fromLA f
-                                  >>>
-                                  traceDoc ("prepare haddock-2.6: step " ++ show i)
+    phase _i f                  = fromLA f
+                                  -- >>>
+                                  -- traceDoc ("prepare haddock-2.6: step " ++ show i)
 
 splitHaddock26                  :: LA XmlTree XmlTree
 splitHaddock26                  = mkVirtualDoc26 $< this

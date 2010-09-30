@@ -37,7 +37,7 @@ import Data.ByteString.Lazy.Char8 (pack)
 import Network.URI (unEscapeString)
 
 import Text.XML.HXT.Core
--- import Text.XML.HXT.DOM.Unicode
+import Data.String.Unicode
 
 import Holumbus.Index.Common
 
@@ -113,9 +113,8 @@ loadTemplate    :: Int -> Int -> FilePath -> IO XmlTree
 loadTemplate fcnt pcnt f
                 = do
                   tpl <- runX
-                         ( readDocument [ (a_parse_html,v_1)
-                                        , (a_indent,v_1)
-                                        , (a_trace,v_0)
+                         ( readDocument [ withParseHTML yes
+                                        , withTrace 0
                                         ] f
                            >>>
                            processTopDownUntil                          -- insert # of functions and # of packages into start page
@@ -260,7 +259,11 @@ hayooApplication midct env      = let p = params env in
                                     applyTemplate ps
                                     >>>
                                     ( writeDocumentToString $
-                                      (a_no_xml_pi, if psStatic ps then v_0 else v_1) : htmlOptions
+                                      ( withXmlPi ( if psStatic ps
+                                                    then no
+                                                    else yes
+                                                  )
+                                      ) : htmlOptions
                                     )
                                   )
                                   >>>
@@ -280,7 +283,10 @@ hayooApplication midct env      = let p = params env in
     isJson f                    = extension f == "json"
 
     -- Default HTML render options
-    htmlOptions                 = [(a_output_encoding, utf8), (a_indent,v_1), (a_output_xhtml, v_1)]
+    htmlOptions                 = [ withOutputEncoding utf8
+                                  , withIndent yes
+                                  , withOutputXHTML
+                                  ]
 
 -- Read or use default value
 readDef                         :: Read a => a -> String -> a
