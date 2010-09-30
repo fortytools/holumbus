@@ -89,14 +89,14 @@ data Core = Core
 
 -- | Weights for context weighted ranking.
 contextWeights          :: [(Context, Score)]
-contextWeights          = [ ("name", 0.9)
-                          , ("partial", 0.8)
-                          , ("module", 0.7)
-                          , ("hierarchy", 0.6)
-                          , ("package", 0.5)
-                          , ("signature", 0.4)
+contextWeights          = [ ("name",        0.9)
+                          , ("partial",     0.8)
+                          , ("module",      0.7)
+                          , ("hierarchy",   0.6)
+                          , ("package",     0.5)
+                          , ("signature",   0.4)
                           , ("description", 0.2)
-                          , ("normalized", 0.1)
+                          , ("normalized",  0.1)
                           ]
 
 -- | Just an alias with explicit type.
@@ -257,33 +257,34 @@ getValDef                       :: [(String,String)] -> String -> String -> Stri
 getValDef l k d                 = fromMaybe d (lookup k l)
 
 -- | Enable handling of parse errors from 'read'.
-readM   :: (Read a, Monad m) => String -> m a
-readM s = case reads s of
+readM                           :: (Read a, Monad m) => String -> m a
+readM s                         = case reads s of
                                   [(x, "")] -> return x
                                   _         -> fail "No parse"
+
 {-
 -- | Proper URL decoding including substitution of "the annoying +" (tm)
-urlDecode :: String -> String
-urlDecode = unEscapeString . replaceElem '+' ' '
+urlDecode                       :: String -> String
+urlDecode                       = unEscapeString . replaceElem '+' ' '
 -}
 
 -- | Decode any URI encoded entities and transform to unicode.
-decode :: String -> String
-decode = fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
+decode                          :: String -> String
+decode                          = fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
 
 {-
-replaceElem     :: Eq a => a -> a -> [a] -> [a]
-replaceElem x y = map (\z -> if z == x then y else z)
+replaceElem                     :: Eq a => a -> a -> [a] -> [a]
+replaceElem x y                 = map (\z -> if z == x then y else z)
 -}
 
 -- | Perform some postprocessing on the status and the result.
 filterStatusResult :: String -> StatusResult -> StatusResult
 filterStatusResult q (s, r@(Result dh wh), h, m, p)
-    = (s, filteredResult, h, m, p)
+                                = (s, filteredResult, h, m, p)
   where
   filteredResult
-      | isSignature q = r
-      | otherwise     = Result dh (M.filterWithKey (\x _y -> not . isSignature $ x) wh)
+      | isSignature q           = r
+      | otherwise               = Result dh (M.filterWithKey (\x _y -> not . isSignature $ x) wh)
 
 -- | Log a request to stdout.
 logRequest :: Env -> IO ()

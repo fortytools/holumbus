@@ -36,8 +36,6 @@ import qualified Data.Map     as M
 import           Text.XHtmlCombinators
 import qualified Text.XHtmlCombinators.Attributes as A
 
-import           Text.XML.HXT.Core
-
 import           Holumbus.Utility hiding (escape)
 import           Holumbus.Index.Common
 
@@ -169,7 +167,7 @@ functionInfo (_, (DocInfo (Document t u (Just fi)) r, _)) = tbody $ do
 	modLink = takeWhile ((/=) '#')
 	pkgLink = (++) "http://hackage.haskell.org/package/"
 	sigDecl s'
-		| s' `elem` ["data", "type", "newtype", "class"] = span' [A.class_ "declaration"] $ text' s
+		| s' `elem` ["data", "type", "newtype", "class", "module"] = span' [A.class_ "declaration"] $ text' s
 		| otherwise = text' $ replace "->" " -> " s
 		where
 		s = ":: " ++ stringTrim s'
