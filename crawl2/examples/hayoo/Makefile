@@ -24,9 +24,14 @@ progs	= ./hayooIndexer search/hayooSearch search/hayooFastCGI
 
 GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source -ignore-package crawl2 -ignore-package Holumbus-Searchengine
 
+# the -A option is important for garbage collection performance, a good value is about the size of the L2 cache of the cpu
+# the default is set to 8M
+
 N       = 1
-H       = 3000
-RUNOPTS = +RTS -N$(N) -s -K50M -H$(H)M -RTS
+H       = 1000
+A       = 8
+K       = 50
+RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 
 all	: $(progs)
 
@@ -61,13 +66,17 @@ whole-index	: ./hayooIndexer
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --valid=$(validix) --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
 
+# not yet needed, haddock has about 14500 pages
+#	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000010000 $(OPTS)
+#	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=20000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000015000 --new-search=$(ix) $(OPTS)
+
 whole-index1	: ./hayooIndexer
 	@echo "build an index of all haddock pages on hackage in a single run"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
 	@echo "the computation is done in 1 single run"
 	@echo "preparing and writing the compressed index requires most of the runtime"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=25000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
 
 whole-pkg	: ./hayooIndexer
 	@echo generate a new package index for all hackage packages inclusive ranking
