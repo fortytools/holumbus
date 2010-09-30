@@ -38,7 +38,7 @@ import Data.ByteString.Lazy.Char8 (ByteString, pack, fromChunks)
 import Network.URI (unEscapeString)
 
 import Text.XML.HXT.Core
--- import Text.XML.HXT.DOM.Unicode
+import Data.String.Unicode
 
 import Text.XHtmlCombinators (render)
 
@@ -208,7 +208,6 @@ hayooApplication midct env      = let p = params env in do
       where
       writeJson                 = pack $ renderEmptyJson
       writeHtml                 = fromChunks [T.encodeUtf8 $ render $ (template idct) examples]
---      writeHtml     = head $ runLA (writeDocumentToString htmlOptions) (template idct)
 
     -- Parse the query and generate a result or an error depending on the parse result.
     renderResult :: (String, Int, Bool, Template) -> Bool -> Core  -> ByteString
@@ -233,41 +232,15 @@ hayooApplication midct env      = let p = params env in do
       writeHtml rs              = filterStatusResult r
                                   >>>
                                   arr (applyTemplate rs)
-{-
-																	runLA
-                                  ( xpickleVal (xpStatusResult ps)
-                                    >>>
-                                    applyTemplate ps
-                                    >>>
-                                    ( writeDocumentToString $
-                                      (a_no_xml_pi, if psStatic ps then v_0 else v_1) : htmlOptions
-                                    )
-                                  )
-																	
-                                  >>>
-                                  head
--}
+
       applyTemplate rs sr       = fromChunks [T.encodeUtf8 markup]
                                   where
                                   markup = let rr = result rs sr in 
                                            if rsStatic rs then render $ t rr else render $ rr
 
-{-
-		applyTemplate rs            = if rsStatic rs
-                                  then ( insertTreeTemplate (constA $ psTemplate ps) [ hasAttrValue "id" (== "result") :-> this ]
-                                         >>>
-                                         staticSubstitutions ps
-                                         >>>
-                                         addXHtmlDoctypeStrict
-                                       )
-                                  else arr id
--}
     -- Check requested path for JSON
     isJson f                    = extension f == "json"
-{-
-    -- Default HTML render options
-    htmlOptions                 = [(a_output_encoding, utf8), (a_indent,v_1), (a_output_xhtml, v_1)]
--}
+
 -- Read or use default value
 readDef                         :: Read a => a -> String -> a
 readDef d                       = fromMaybe d . readM
@@ -283,20 +256,6 @@ extension fn                    = go (reverse fn) ""
 getValDef                       :: [(String,String)] -> String -> String -> String
 getValDef l k d                 = fromMaybe d (lookup k l)
 
-{-
-staticSubstitutions             :: ArrowXml a => PickleState -> a XmlTree XmlTree
-staticSubstitutions ps          = processTopDown setQuery
-  where
-  setQuery                      = processAttrl ( changeAttrValue (\_ -> urlDecode $ psQuery ps)
-                                                 `when`
-                                                 hasName "value"
-                                               )
-                                  `when`
-                                  ( isElem
-                                    >>>
-                                    hasAttrValue "id" (== "querytext")
-                                  )
--}
 -- | Enable handling of parse errors from 'read'.
 readM   :: (Read a, Monad m) => String -> m a
 readM s = case reads s of
@@ -307,13 +266,16 @@ readM s = case reads s of
 urlDecode :: String -> String
 urlDecode = unEscapeString . replaceElem '+' ' '
 -}
+
 -- | Decode any URI encoded entities and transform to unicode.
 decode :: String -> String
 decode = fst . utf8ToUnicode . unEscapeString   -- with urlDecode the + disapears
+
 {-
 replaceElem     :: Eq a => a -> a -> [a] -> [a]
 replaceElem x y = map (\z -> if z == x then y else z)
 -}
+
 -- | Perform some postprocessing on the status and the result.
 filterStatusResult :: String -> StatusResult -> StatusResult
 filterStatusResult q (s, r@(Result dh wh), h, m, p)
