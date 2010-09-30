@@ -60,7 +60,8 @@ data PrefixTree v	= Empty
                         | Val	 { value' ::   v
                                  , tree   :: ! (PrefixTree v)
                                  }
-                        | Branch { sym    :: ! Sym
+                        | Branch { sym    :: {-# UNPACK #-}
+                                             ! Sym
                                  , child  :: ! (PrefixTree v)
                                  , next   :: ! (PrefixTree v)
                                  }
@@ -71,31 +72,69 @@ data PrefixTree v	= Empty
 
                         | Leaf   { value' ::   v		-- a value at a leaf of the tree
                                  }
-                        | Last   { sym    :: ! Sym		-- the last entry in a branch list
+                        | Last   { sym    :: {-# UNPACK #-}
+                                             ! Sym		-- the last entry in a branch list
                                  , child  :: ! (PrefixTree v)	-- or no branch but a single child
                                  }
-                        | LsSeq  { syms   :: ! Key		-- a sequence of single childs
-                                 , child  :: ! (PrefixTree v)	-- in a last node
+                        | LsSeq  { syms   :: {-# UNPACK #-}
+                                             ! Key1		-- a sequence of single childs
+                                 , child  :: {-# UNPACK #-}
+                                             ! (PrefixTree v)	-- in a last node
                                  } 
-                        | BrSeq  { syms   :: ! Key		-- a sequence of single childs
-                                 , child  :: ! (PrefixTree v)	-- in a branch node
-                                 , next   :: ! (PrefixTree v)
+                        | BrSeq  { syms   :: {-# UNPACK #-}
+                                             ! Key1		-- a sequence of single childs
+                                 , child  :: {-# UNPACK #-}
+                                             ! (PrefixTree v)	-- in a branch node
+                                 , next   :: {-# UNPACK #-}
+                                             ! (PrefixTree v)
                                  } 
-                        | LsSeL  { syms   :: ! Key		-- a sequence of single childs
+                        | LsSeL  { syms   :: {-# UNPACK #-}
+                                             ! Key1		-- a sequence of single childs
                                  , value' ::   v		-- with a leaf 
                                  } 
-                        | BrSeL  { syms   :: ! Key		-- a sequence of single childs
+                        | BrSeL  { syms   :: {-# UNPACK #-}
+                                             ! Key1		-- a sequence of single childs
                                  , value' ::   v 		-- with a leaf in a branch node
-                                 , next   :: ! (PrefixTree v)
+                                 , next   :: {-# UNPACK #-}
+                                             ! (PrefixTree v)
                                  } 
-                        | BrVal  { sym    :: ! Sym		-- a branch with a single char
+                        | BrVal  { sym    :: {-# UNPACK #-}
+                                             ! Sym		-- a branch with a single char
                                  , value' ::   v		-- and a value
-                                 , next   :: ! (PrefixTree v)
+                                 , next   :: {-# UNPACK #-}
+                                             ! (PrefixTree v)
                                  }
-                        | LsVal  { sym    :: ! Sym		-- a last node with a single char
+                        | LsVal  { sym    :: {-# UNPACK #-}
+                                             ! Sym		-- a last node with a single char
                                  , value' ::   v		-- and a value
                                  }
                           deriving (Show, Eq, Ord)
+
+-- | strict list of chars with unpacked fields
+--
+-- for internal use in prefix tree to optimize space efficiency
+
+data Key1               = Nil
+                        | Cons  {-# UNPACK #-}
+                                ! Sym
+                                {-# UNPACK #-}
+                                ! Key1            
+                          deriving (Show, Eq, Ord)
+
+(.++.)			:: Key1 -> Key1 -> Key1
+Nil         .++. k2     = k2
+(Cons k k1) .++. k2     = Cons k (k1 .++. k2)
+
+toKey                   :: Key1 -> Key
+toKey Nil               = []
+toKey (Cons c k1)       = c : toKey k1
+
+fromKey                 :: Key -> Key1
+fromKey []              = Nil
+fromKey (c:k1)          = Cons c (fromKey k1)
+
+length1                 :: Key1 -> Int
+length1                 = length . toKey
 
 -- ----------------------------------------
 
@@ -113,33 +152,37 @@ val v t				= Val v t
 {-# INLINE val #-}
 
 branch				:: Sym -> PrefixTree v -> PrefixTree v -> PrefixTree v
-branch _  Empty        n	= n
+branch !_k  Empty        n	= n
 
-branch k (Leaf   v   ) Empty    = LsVal  k     v
-branch k (LsVal  k1 v) Empty	= LsSeL [k,k1] v
-branch k (LsSeL  ks v) Empty	= LsSeL (k:ks) v
-branch k (Last   k1 c) Empty	= lsseq [k,k1] c
-branch k (LsSeq  ks c) Empty	= lsseq (k:ks) c
-branch k            c  Empty	= Last k c
+branch !k (Leaf   v   ) Empty    = LsVal  k     v
+branch !k (LsVal  k1 v) Empty	= LsSeL (Cons k (Cons k1 Nil)) v
+branch !k (LsSeL  ks v) Empty	= LsSeL (Cons k ks) v
+branch !k (Last   k1 c) Empty	= lsseq (Cons k (Cons k1 Nil)) c
+branch !k (LsSeq  ks c) Empty	= lsseq (Cons k ks) c
+branch !k            c  Empty	= Last k c
 
-branch k (Leaf   v   ) n        = BrVal  k     v n
-branch k (LsVal  k1 v) n	= BrSeL [k,k1] v n
-branch k (LsSeL  ks v) n	= BrSeL (k:ks) v n
-branch k (Last   k1 c) n	= brseq [k,k1] c n
-branch k (LsSeq  ks c) n	= brseq (k:ks) c n
-branch k            c  n	= Branch k c n
+branch !k (Leaf   v   ) n        = BrVal  k     v n
+branch !k (LsVal  k1 v) n	= BrSeL (Cons k (Cons k1 Nil)) v n
+branch !k (LsSeL  ks v) n	= BrSeL (Cons k ks) v n
+branch !k (Last   k1 c) n	= brseq (Cons k (Cons k1 Nil)) c n
+branch !k (LsSeq  ks c) n	= brseq (Cons k ks) c n
+branch !k            c  n	= Branch k c n
 
-lsseq				:: Key -> PrefixTree v -> PrefixTree v
-lsseq k (Leaf v)		= LsSeL k v
-lsseq k c			= LsSeq k c
+lsseq				:: Key1 -> PrefixTree v -> PrefixTree v
+lsseq !k (Leaf v)		= LsSeL k v
+lsseq !k c			= LsSeq k c
 
-brseq				:: Key -> PrefixTree v -> PrefixTree v -> PrefixTree v
-brseq k (Leaf v) n		= BrSeL k v n
-brseq k c        n              = BrSeq k c n
+{-# INLINE lsseq #-}
 
-siseq				:: Key -> PrefixTree v -> PrefixTree v
-siseq []   c    		= c
-siseq [k1] c			= Last  k1 c
+brseq				:: Key1 -> PrefixTree v -> PrefixTree v -> PrefixTree v
+brseq !k (Leaf v) n		= BrSeL k v n
+brseq !k c        n             = BrSeq k c n
+
+{-# INLINE brseq #-}
+
+siseq				:: Key1 -> PrefixTree v -> PrefixTree v
+siseq Nil   c    		= c
+siseq (Cons k1 Nil) c		= Last  k1 c
 siseq k    c    		= LsSeq k  c
 
 {-# INLINE siseq #-}
@@ -149,17 +192,15 @@ siseq k    c    		= LsSeq k  c
 norm				:: PrefixTree v -> PrefixTree v
 norm (Leaf v)			= Val v empty
 norm (Last k c)			= Branch k c empty
-norm (LsSeq [k] c)		= Branch k c empty
-norm (LsSeq (k:ks) c)   	= Branch k (siseq ks c) empty 
-norm (BrSeq [k]    c n)		= Branch k c n
-norm (BrSeq (k:ks) c n) 	= Branch k (siseq ks c) n 
+norm (LsSeq (Cons k Nil) c)	= Branch k c empty
+norm (LsSeq (Cons k ks ) c)   	= Branch k (siseq ks c) empty 
+norm (BrSeq (Cons k Nil) c n)	= Branch k c n
+norm (BrSeq (Cons k ks ) c n) 	= Branch k (siseq ks c) n 
 norm (LsSeL    ks  v)   	= norm (LsSeq ks  (val v empty))
 norm (BrSeL    ks  v n) 	= norm (BrSeq ks  (val v empty) n)
-norm (LsVal    k   v)   	= norm (LsSeq [k] (val v empty))
-norm (BrVal    k   v n) 	= norm (BrSeq [k] (val v empty) n)
+norm (LsVal    k   v)   	= norm (LsSeq (Cons k Nil) (val v empty))
+norm (BrVal    k   v n) 	= norm (BrSeq (Cons k Nil) (val v empty) n)
 norm t				= t
-
-{- INLINE norm -}
 
 -- ----------------------------------------
 
@@ -542,8 +583,8 @@ map' f k (Val v t)		= Val       (f (k []) v)             (map' f k t)
 map' f k (Branch c s n)         = Branch c  (map' f ((c :) . k)   s) (map' f k n)
 map' f k (Leaf v)		= Leaf      (f (k []) v)
 map' f k (Last c s)		= Last   c  (map' f ((c :)   . k) s)
-map' f k (LsSeq cs s)		= LsSeq  cs (map' f ((cs ++) . k) s)
-map' f k (BrSeq cs s n)         = BrSeq  cs (map' f ((cs ++) . k) s) (map' f k n)
+map' f k (LsSeq cs s)		= LsSeq  cs (map' f ((toKey cs ++) . k) s)
+map' f k (BrSeq cs s n)         = BrSeq  cs (map' f ((toKey cs ++) . k) s) (map' f k n)
 map' f k (LsSeL cs v)		= LsSeL  cs (f (k []) v)
 map' f k (BrSeL cs v n)         = BrSeL  cs (f (k []) v)             (map' f k n)
 map' f k (LsVal c  v)		= LsVal  c  (f (k []) v)
@@ -600,16 +641,16 @@ mapM'' f k			= mapn . norm
 
 data PrefixTreeVisitor a b	= PTV
     { v_empty		:: b
-    , v_val		:: a   -> b -> b
-    , v_branch		:: Sym -> b -> b -> b
-    , v_leaf		:: a   -> b
-    , v_last		:: Sym -> b -> b
-    , v_lsseq		:: Key -> b -> b
-    , v_brseq		:: Key -> b -> b -> b
-    , v_lssel		:: Key -> a -> b
-    , v_brsel		:: Key -> a -> b -> b
-    , v_lsval		:: Sym -> a -> b
-    , v_brval		:: Sym -> a -> b -> b
+    , v_val		:: a    -> b -> b
+    , v_branch		:: Sym  -> b -> b -> b
+    , v_leaf		:: a    -> b
+    , v_last		:: Sym  -> b -> b
+    , v_lsseq		:: Key1 -> b -> b
+    , v_brseq		:: Key1 -> b -> b -> b
+    , v_lssel		:: Key1 -> a -> b
+    , v_brsel		:: Key1 -> a -> b -> b
+    , v_lsval		:: Sym  -> a -> b
+    , v_brval		:: Sym  -> a -> b -> b
     }
 
 visit			:: PrefixTreeVisitor a b -> PrefixTree a -> b
@@ -644,10 +685,10 @@ space			= visit $
                           , v_branch		= const $ \ s n -> 4 + s + n
                           , v_leaf		= const 2
                           , v_last		= const (3+)
-                          , v_lsseq		= \ cs s   -> 3 + 2 * length cs + s
-                          , v_brseq		= \ cs s n -> 4 + 2 * length cs + s + n
-                          , v_lssel		= \ cs _   -> 3 + 2 * length cs
-                          , v_brsel		= \ cs _ n -> 4 + 2 * length cs     + n
+                          , v_lsseq		= \ cs s   -> 3 + 2 * length1 cs + s
+                          , v_brseq		= \ cs s n -> 4 + 2 * length1 cs + s + n
+                          , v_lssel		= \ cs _   -> 3 + 2 * length1 cs
+                          , v_brsel		= \ cs _ n -> 4 + 2 * length1 cs     + n
                           , v_lsval		= \ _  _   -> 3
                           , v_brval		= \ _  _ n -> 4                     + n
                           }
@@ -660,10 +701,10 @@ keyChars		= visit $
                           , v_branch		= \ _  s n -> 1 + s + n
                           , v_leaf		= \ _      -> 0
                           , v_last		= \ _  s   -> 1 + s
-                          , v_lsseq		= \ cs s   -> length cs + s
-                          , v_brseq		= \ cs s n -> length cs + s + n
-                          , v_lssel		= \ cs _   -> length cs
-                          , v_brsel		= \ cs _ n -> length cs     + n
+                          , v_lsseq		= \ cs s   -> length1 cs + s
+                          , v_brseq		= \ cs s n -> length1 cs + s + n
+                          , v_lssel		= \ cs _   -> length1 cs
+                          , v_brsel		= \ cs _ n -> length1 cs     + n
                           , v_lsval		= \ _  _   -> 1
                           , v_brval		= \ _  _ n -> 1             + n
                           }
@@ -680,10 +721,10 @@ stat			=  visit $
                           , v_branch		= \ _  s n -> singleton "branch" 1 `add` (s `add` n)
                           , v_leaf		= \ _      -> singleton "leaf"   1
                           , v_last		= \ _  s   -> singleton "last"   1 `add`  s
-                          , v_lsseq		= \ cs s   -> singleton ("lsseq-" ++ show (length cs)) 1 `add` s
-                          , v_brseq		= \ cs s n -> singleton ("brseq-" ++ show (length cs)) 1 `add` (s `add` n)
-                          , v_lssel		= \ cs _   -> singleton ("lssel-" ++ show (length cs)) 1
-                          , v_brsel		= \ cs _ n -> singleton ("brseq-" ++ show (length cs)) 1 `add`          n
+                          , v_lsseq		= \ cs s   -> singleton ("lsseq-" ++ show (length1 cs)) 1 `add` s
+                          , v_brseq		= \ cs s n -> singleton ("brseq-" ++ show (length1 cs)) 1 `add` (s `add` n)
+                          , v_lssel		= \ cs _   -> singleton ("lssel-" ++ show (length1 cs)) 1
+                          , v_brsel		= \ cs _ n -> singleton ("brseq-" ++ show (length1 cs)) 1 `add`          n
                           , v_lsval		= \ _  _   -> singleton "lsval" 1
                           , v_brval		= \ _  _ n -> singleton "brval" 1                       `add`          n
                           }
@@ -835,12 +876,12 @@ instance NFData a => NFData (PrefixTree a) where
     rnf (Branch _c s n)	= rnf s `seq` rnf n
     rnf (Leaf v)	= rnf v
     rnf (Last _c s)	= rnf s
-    rnf (LsSeq ks s)	= rnf ks `seq` rnf s
-    rnf (BrSeq ks s n)	= rnf ks `seq` rnf s `seq` rnf n
-    rnf (LsSeL ks v)	= rnf ks `seq` rnf v
-    rnf (BrSeL ks v n)	= rnf ks `seq` rnf v `seq` rnf n
-    rnf (LsVal k  v)	= rnf k  `seq` rnf v
-    rnf (BrVal k  v n)	= rnf k  `seq` rnf v `seq` rnf n
+    rnf (LsSeq _ks s)	= rnf s
+    rnf (BrSeq _ks s n)	= rnf s `seq` rnf n
+    rnf (LsSeL _ks v)	= rnf v
+    rnf (BrSeL _ks v n)	= rnf v `seq` rnf n
+    rnf (LsVal k  v)	= rnf k `seq` rnf v
+    rnf (BrVal k  v n)	= rnf k `seq` rnf v `seq` rnf n
 
 -- ----------------------------------------
 --
@@ -852,10 +893,10 @@ instance (Binary a) => Binary (PrefixTree a) where
     put (Branch c s n)  = put (2::Word8)  >> put c >> put s >> put n
     put (Leaf v)	= put (3::Word8)  >> put v
     put (Last c s)	= put (4::Word8)  >> put c >> put s
-    put (LsSeq k s)	= put (5::Word8)  >> put k >> put s
-    put (BrSeq k s n) 	= put (6::Word8)  >> put k >> put s >> put n
-    put (LsSeL k v)	= put (7::Word8)  >> put k >> put v
-    put (BrSeL k v n) 	= put (8::Word8)  >> put k >> put v >> put n
+    put (LsSeq k s)	= put (5::Word8)  >> put (toKey k) >> put s
+    put (BrSeq k s n) 	= put (6::Word8)  >> put (toKey k) >> put s >> put n
+    put (LsSeL k v)	= put (7::Word8)  >> put (toKey k) >> put v
+    put (BrSeL k v n) 	= put (8::Word8)  >> put (toKey k) >> put v >> put n
     put (LsVal k v)	= put (9::Word8)  >> put k >> put v
     put (BrVal k v n) 	= put (10::Word8) >> put k >> put v >> put n
 
@@ -882,21 +923,21 @@ instance (Binary a) => Binary (PrefixTree a) where
 		   5 -> do
 			!k <- get
 			!s <- get
-			return $! LsSeq k s
+			return $! LsSeq (fromKey k) s
 		   6 -> do
 			!k <- get
 			!s <- get
 			!n <- get
-			return $! BrSeq k s n
+			return $! BrSeq (fromKey k) s n
 		   7 -> do
 			!k <- get
 			!v <- get
-			return $! LsSeL k v
+			return $! LsSeL (fromKey k) v
 		   8 -> do
 			!k <- get
 			!v <- get
 			!n <- get
-			return $! BrSeL k v n
+			return $! BrSeL (fromKey k) v n
 		   9 -> do
 			!k <- get
 			!v <- get
