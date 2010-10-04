@@ -102,7 +102,7 @@ makeCredits = div' [A.id_ "credits"] $ do
       a' [A.href "mailto:hayoo@holumbus.org"] $ text "hayoo@holumbus.org"
     div' [A.id_ "copyright"] $ do
       text "Hayoo! beta 2.2 © 2010 "
-      span' [A.class_ "author"] $ a' [A.href "http://tbh.github.com"] $ text "Timo B. Hübel"
+      span' [A.class_ "author"] $ text "Timo B. Hübel"
       text ", "
       span' [A.class_ "author"] $ text "Sebastian M. Gauck"
       text " & "
