@@ -116,12 +116,23 @@ div.clear {
 	position:relative;
 }
 
+#sponsors {
+	margin-top:20px;
+	width: 100%;
+	text-align:center;
+}
+
 #fhw {
-	float:right;
+	display: inline;
 }
 
 #hol {
-	float:left;
+	display: inline;
+}
+
+#ft {
+	margin: 0px 50px;
+	display: inline;
 }
 
 #result {

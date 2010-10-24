@@ -160,7 +160,11 @@ about = div' [A.id_ "result"] $ do
       text "Currently, Hayoo! is still in beta stage. This means, it can become unavailable unexpectedly, as \
         \we do some maintenance or add new features. Therefore you should not yet rely on Hayoo! as primary \
         \ search engine for Haskell documentation."
- 
+    p $ do
+      text "Hardware infrastracture for daily index updates is generously sponsored by "
+      a' [A.href "http://www.fortytools.com"] $ text "fortytools gmbh"
+      text ", your friendly Haskell web development company."
+
     h2 $ text "Technical Information"
     p $ do
       text "Hayoo! is written entirely in Haskell and consists of two main parts: The indexer, which regularly \
@@ -172,11 +176,13 @@ about = div' [A.id_ "result"] $ do
       text "We would like to know what you think about Hayoo!, therefore you can reach us at "
       a' [A.href "mailto:hayoo@holumbus.org"] $ text "hayoo@holumbus.org"
       text " and tell us about bugs, suggestions or anything else related to Hayoo!."
- 
-    div' [A.id_ "hol"] $ do
-      a' [A.href "http://holumbus.fh-wedel.de"] $ img' "" "" [A.src "hayoo/hol.png", A.alt "Holumbus logo", A.class_ "logo"] -- Change here when img bug in xhtml-combinators is fixed
-    div' [A.id_ "fhw"] $ do
-      a' [A.href "http://www.fh-wedel.de"] $ img' "" "" [A.src "hayoo/fhw.gif", A.alt "FH-Wedel logo", A.class_ "logo"]
+    div' [A.id_ "sponsors"] $ do
+      div' [A.id_ "hol"] $ do
+        a' [A.href "http://holumbus.fh-wedel.de"] $ img' "" "" [A.src "hayoo/hol.png", A.alt "Holumbus logo", A.class_ "logo"] -- Change here when img bug in xhtml-combinators is fixed
+      div' [A.id_ "ft"] $ do
+        a' [A.href "http://www.fortytools.com"] $ img' "" "" [A.src "hayoo/ft.png", A.alt "fortytools logo", A.class_ "logo"]
+      div' [A.id_ "fhw"] $ do
+        a' [A.href "http://www.fh-wedel.de"] $ img' "" "" [A.src "hayoo/fhw.gif", A.alt "FH-Wedel logo", A.class_ "logo"]
       
 api :: XHtml FlowContent
 api = div' [A.id_ "result"] $ do
