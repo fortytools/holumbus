@@ -161,7 +161,7 @@ about = div' [A.id_ "result"] $ do
         \we do some maintenance or add new features. Therefore you should not yet rely on Hayoo! as primary \
         \ search engine for Haskell documentation."
     p $ do
-      text "Hardware infrastracture for daily index updates is generously sponsored by "
+      text "Hardware infrastructure for daily index updates is generously sponsored by "
       a' [A.href "http://www.fortytools.com"] $ text "fortytools gmbh"
       text ", your friendly Haskell web development company."
 
