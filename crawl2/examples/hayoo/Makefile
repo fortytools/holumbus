@@ -60,15 +60,15 @@ whole-index	: ./hayooIndexer
 	@echo "build an index of all haddock pages on hackage"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
-	@echo "the computation is done in 3 steps to prevent use of too much main memory"
+	@echo "the computation is done in 4 steps to prevent use of too much main memory"
 	@echo "preparing and writing the compressed index requires most of the runtime"
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --valid=$(validix) --new-index=$(ix)-05000 $(OPTS)
 	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --valid=$(validix) --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)-15000 --resume=tmp/ix-0000010000 $(OPTS)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=20000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000015000 --new-search=$(ix) $(OPTS)
 
-# not yet needed, haddock has about 14500 pages
-#	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000010000 $(OPTS)
-#	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=20000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000015000 --new-search=$(ix) $(OPTS)
+# old, haddock has more than 15000 pages
+#	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000010000 --new-search=$(ix) $(OPTS)
 
 whole-index1	: ./hayooIndexer
 	@echo "build an index of all haddock pages on hackage in a single run"

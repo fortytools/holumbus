@@ -85,12 +85,28 @@ getPkgHomepage	 		:: LA XmlTree String
 getPkgHomepage			= getAllText $ getProperty "Home page"
 
 getPkgSynopsis	 		:: LA XmlTree String
-getPkgSynopsis			= ( getAllText $ getByPath ["html","body", "div", "h2"] >>. take 1 )
+getPkgSynopsis			= -- old: ( getAllText $ getByPath ["html","body", "div", "h2"] >>. take 1 )
+                                  ( getAllText
+                                    ( getByPath ["html","body"]
+                                      />
+                                      isElemWithAttr "div" "id" (== "package-header")
+                                      />
+                                      isElemWithAttr "p" "class" (== "caption")
+                                    )
+                                  )
                                   >>^
                                   ( dropWhile (/= ':') >>> drop 1 >>> dropWhile (== ' '))	-- remove package name
 
 getPkgDescr	 		:: LA XmlTree String
-getPkgDescr			= getAllText $ getByPath ["html","body", "div", "p" ] >>. take 1
+getPkgDescr			= -- old: getAllText $ getByPath ["html","body", "div", "p" ] >>. take 1
+                                  getAllText
+                                  ( single ( getByPath ["html","body"]
+                                             />
+                                             isElemWithAttr "div" "id" (== "content")
+                                             />
+                                             hasName "p"
+                                           )
+                                  )
 
 -- ------------------------------------------------------------
 
@@ -104,7 +120,9 @@ isHackagePackage		= hasAttrValue transferURI (match $ hackagePackages ++ fileNam
 -- ------------------------------------------------------------
 
 getProperties		:: LA XmlTree XmlTree
-getProperties		= deep ( isElemWithAttr "table" "class" (== "properties") )
+getProperties		= single (deep (hasName "table"))		-- there should be only a single table
+                                                                        -- old package layout:
+                                                                        -- deep ( isElemWithAttr "table" "class" (== "properties") )
                           />
                           hasName "tr"
 
