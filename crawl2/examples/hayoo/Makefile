@@ -102,7 +102,7 @@ update-cache	: ./hayooIndexer
 update-index	: ./hayooIndexer
 	@echo update an existing hayoo index with all packages uploaded to hackage within the last $(latest)
 	@echo existing index is "$(ix)", result index is "$(ixn)"
-	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=15000 --latest=$(latest) --defragment --index=$(ix) --new-index=$(ixn)  --new-search=$(ixn)
+	./$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=20000 --latest=$(latest) --defragment --index=$(ix) --new-index=$(ixn)  --new-search=$(ixn)
 
 update-pkg	: ./hayooIndexer
 	@echo updating a package index is not neccessary, the complete index is ready within a minute
