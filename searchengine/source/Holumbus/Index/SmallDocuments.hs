@@ -35,7 +35,7 @@ where
 
 import Control.Monad
 
-import Text.XML.HXT.Arrow
+import Text.XML.HXT.Core
 
 import Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as B

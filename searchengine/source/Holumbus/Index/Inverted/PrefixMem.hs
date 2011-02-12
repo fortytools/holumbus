@@ -36,7 +36,7 @@ module Holumbus.Index.Inverted.PrefixMem
     )
 where
 
-import 		 Control.Parallel.Strategies
+import 		 Control.DeepSeq
 
 import 		 Data.Binary 			hiding (Word)
 import 		 Data.Function
@@ -52,7 +52,7 @@ import qualified Holumbus.Data.PrefixTree	as PT
 import 		 Holumbus.Index.Common
 import 		 Holumbus.Index.Compression
 
-import 		 Text.XML.HXT.Arrow
+import 		 Text.XML.HXT.Core
 
 -- ----------------------------------------------------------------------------
 

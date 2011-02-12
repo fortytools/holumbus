@@ -61,7 +61,7 @@ import           System.CPUTime
 import           System.Directory
 import           System.Time
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 import           Text.XML.HXT.XPath
 
 -- ------------------------------------------------------------
@@ -204,7 +204,7 @@ processCrawlResults oldCs _ l =
 --   testing) and the crawlDoc'-arrow is run
 crawlDoc :: (Binary a, Show a) => 
             Int 
-         -> Attributes
+         -> SysConfigList
          -> Maybe String
          -> IOSArrow XmlTree [URI]
          -> Custom a
@@ -237,7 +237,7 @@ crawlDoc traceLevel attrs tmpPath getRefs getCustom docId theUri
 
 crawlDoc' :: (Binary a) =>
              Int
-          -> Attributes                 -- ^ options for readDocument
+          -> SysConfigList                 -- ^ options for readDocument
           -> Maybe String               -- ^ path for serialized tempfiles
           -> IOSArrow XmlTree [URI]
           --  -> [String]

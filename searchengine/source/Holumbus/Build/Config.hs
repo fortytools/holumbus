@@ -68,8 +68,10 @@ import           Holumbus.Utility
 
 import           Text.Regex
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 import           Text.XML.HXT.XPath
+import           Text.XML.HXT.TagSoup
+import           Text.XML.HXT.Curl
 
 {-
 import qualified Debug.Trace as D
@@ -94,7 +96,7 @@ data IndexerConfig
     , ic_indexPath      :: String
     , ic_contextConfigs :: [ContextConfig]
     , ic_fCrawlFilter   :: URI -> Bool     -- will be passed to crawler, not needed for indexing
-    , ic_readAttributes :: Attributes
+    , ic_readAttributes :: SysConfigList
     , ic_indexerTimeOut :: Int
     } 
    
@@ -125,7 +127,7 @@ data CrawlerState d a
       , cs_wereProcessed    :: S.Set URI
       , cs_docHashes        :: Maybe (M.Map MD5Hash URI)
       , cs_nextDocId        :: DocId  
-      , cs_readAttributes   :: Attributes     -- passed to readDocument
+      , cs_readAttributes   :: SysConfigList     -- passed to readDocument
       , cs_tempPath         :: Maybe String     
       , cs_crawlerTimeOut   :: Int
       , cs_fPreFilter       :: ArrowXml a' => a' XmlTree XmlTree  -- applied before link extraction
@@ -318,40 +320,39 @@ isWordChar c = isAlphaNum c || c `elem` ".-_'@"
      
 -- | some standard options for the readDocument function
 
-standardReadDocumentAttributes :: [(String, String)]
+standardReadDocumentAttributes :: SysConfigList
 standardReadDocumentAttributes
-    = [ (a_parse_html,               v_1)
-      , (a_encoding,                 isoLatin1)
-      , (a_issue_warnings,           v_0)
-      , (a_remove_whitespace,        v_1)
-      , (a_tagsoup,                  v_1)
-      , (a_parse_by_mimetype,        v_1)
-      , (a_ignore_none_xml_contents, v_1)
-      , (a_use_curl,                 v_1)       -- obsolete since hxt-8.1, 
-      , ("curl--user-agent",         "HolumBot/0.1@http://holumbus.fh-wedel.de --location")
+    = [ withParseHTML True
+      , withInputEncoding isoLatin1
+      , withWarnings False
+      , withRemoveWS True
+      , withTagSoup
+      , withParseByMimeType True
+      , withIgnoreNoneXmlContents True
+      , withCurl [("curl--user-agent",         "HolumBot/0.1@http://holumbus.fh-wedel.de --location")]
       ]
 
 -- | options for writing the tmp files
 
-standardWriteTmpDocumentAttributes :: [(String, String)]
+standardWriteTmpDocumentAttributes :: SysConfigList
 standardWriteTmpDocumentAttributes
-    = [ (a_indent,                      v_1)    -- for testing only, should be v_0 for efficiency
-      , (a_remove_whitespace,           v_0)
-      , (a_output_encoding,             utf8)
+    = [ withIndent True    -- for testing only, should be v_0 for efficiency
+      , withRemoveWS False
+      , withOutputEncoding utf8
       ]
 
 -- | options for reading the tmp files
 
-standardReadTmpDocumentAttributes :: [(String, String)]
+standardReadTmpDocumentAttributes :: SysConfigList
 standardReadTmpDocumentAttributes
-    = [ (a_indent,                      v_0)
-      , (a_remove_whitespace,           v_0)
-      , (a_encoding,                    utf8)
-      , (a_parse_html,                  v_0)    -- force XML parsing
-      , (a_parse_by_mimetype,           v_0)
-      , (a_validate,                    v_0)
-      , (a_canonicalize,                v_0)
-      , (a_encoding,                    utf8)   -- must correspond to defaultTmpWriteDocumentAttributes
+    = [ withIndent False 
+      , withRemoveWS False
+      , withInputEncoding utf8
+      , withParseHTML False    -- force XML parsing
+      , withParseByMimeType False
+      , withValidate False
+      , withCanonicalize False
+      , withInputEncoding utf8   -- must correspond to defaultTmpWriteDocumentAttributes
       ]
 
 -- ------------------------------------------------------------

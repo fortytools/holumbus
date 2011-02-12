@@ -44,7 +44,7 @@ import qualified Holumbus.Data.StrMap as SM
 import Holumbus.Index.Common
 import Holumbus.Control.MapReduce.MapReducible
 
-import Text.XML.HXT.Arrow                       -- Import stuff for pickling
+import Text.XML.HXT.Core                       -- Import stuff for pickling
 
 newtype Hybrid = Hybrid { indexParts :: Parts } deriving (Show, Eq)
 
@@ -107,7 +107,7 @@ loadFromXmlFile f       = do
                           r <- runX (xunpickleDocument xpHybrid options f)
                           return $ head r
     where
-    options             = [ (a_remove_whitespace, v_1), (a_validate, v_0) ]
+    options             = [ withRemoveWS True, withValidate False ]
 
 -- | Create an empty part.
 emptyPart               :: Part

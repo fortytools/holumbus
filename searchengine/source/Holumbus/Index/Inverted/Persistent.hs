@@ -34,7 +34,7 @@ import System.IO.Unsafe
 import Control.Exception()
 -- import Control.Monad
 
-import Control.Parallel.Strategies
+import Control.DeepSeq
 
 import Data.List
 import Data.Maybe

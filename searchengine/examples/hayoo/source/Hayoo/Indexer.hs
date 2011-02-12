@@ -61,7 +61,7 @@ import           System.Directory
 import           System.Environment
 import	         System.Exit
 
-import           Text.XML.HXT.Arrow     
+import           Text.XML.HXT.Core
 import           Text.Regex
 
 main :: IO ()

@@ -30,7 +30,7 @@ where
 
 import           Control.Exception
 import           Control.Monad
-import           Control.Parallel.Strategies
+import           Control.DeepSeq
 
 import           Data.Binary            hiding (Word)
 import qualified Data.ByteString.Lazy   as B

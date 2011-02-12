@@ -51,7 +51,7 @@ import           Holumbus.Utility
 
 import           System.Time
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 -- -----------------------------------------------------------------------------
 
@@ -119,7 +119,7 @@ buildIndexM workerThreads traceLevel docs idxConfig emptyIndex cache
 --   context configurations are extracted.
 
 computeOccurrences :: HolCache c =>
-               Int -> Bool -> [ContextConfig] -> Attributes -> Maybe c  
+               Int -> Bool -> [ContextConfig] -> SysConfigList -> Maybe c  
             -> DocId -> String -> IO [((Context, Word), Occurrences)]
 computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
     = do
@@ -135,7 +135,7 @@ computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
              )
       return $ buildPositions res 
     where
-    attrs' = if fromTmp then addEntries standardReadTmpDocumentAttributes attrs else attrs
+    attrs' = if fromTmp then attrs ++ standardReadTmpDocumentAttributes else attrs
     buildPositions :: [(Context, Word, DocId, Position)] -> [((Context, Word),  Occurrences)]
     buildPositions l = M.foldWithKey (\(c,w,d) ps acc -> ((c,w),IM.singleton d ps) : acc) [] $
       foldl (\m (c,w,d,p) -> M.insertWith IS.union (c,w,d) (IS.singleton p) m) M.empty l 
@@ -147,7 +147,7 @@ computeOccurrences traceLevel fromTmp contextConfigs attrs cache docId theUri
 --   different contexts of the index
 processDocument :: HolCache c =>  
      Int
-  -> Attributes
+  -> SysConfigList
   -> [ContextConfig]
   -> Maybe c
   -> DocId 
