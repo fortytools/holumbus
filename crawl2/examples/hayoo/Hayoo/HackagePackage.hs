@@ -85,8 +85,7 @@ getPkgHomepage	 		:: LA XmlTree String
 getPkgHomepage			= getAllText $ getProperty "Home page"
 
 getPkgSynopsis	 		:: LA XmlTree String
-getPkgSynopsis			= -- old: ( getAllText $ getByPath ["html","body", "div", "h2"] >>. take 1 )
-                                  ( getAllText
+getPkgSynopsis			= ( getAllText
                                     ( getByPath ["html","body"]
                                       />
                                       isElemWithAttr "div" "id" (== "package-header")
@@ -98,14 +97,21 @@ getPkgSynopsis			= -- old: ( getAllText $ getByPath ["html","body", "div", "h2"]
                                   ( dropWhile (/= ':') >>> drop 1 >>> dropWhile (== ' '))	-- remove package name
 
 getPkgDescr	 		:: LA XmlTree String
-getPkgDescr			= -- old: getAllText $ getByPath ["html","body", "div", "p" ] >>. take 1
-                                  getAllText
-                                  ( single ( getByPath ["html","body"]
-                                             />
-                                             isElemWithAttr "div" "id" (== "content")
-                                             />
-                                             hasName "p"
-                                           )
+getPkgDescr			= getAllText                    -- take all stuff between "h1" and next "h2" element in content
+                                  ( ( getByPath ["html","body"]
+                                      />
+                                      isElemWithAttr "div" "id" (== "content")
+                                    )
+                                    >>>
+                                    listA getChildren
+                                    >>>
+                                    spanA (neg $ hasName "h2")
+                                    >>>
+                                    arr fst
+                                    >>>
+                                    unlistA
+                                    >>>
+                                    (none `when` hasName "h1")
                                   )
 
 -- ------------------------------------------------------------

@@ -28,8 +28,8 @@ GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source -ignore
 # the default is set to 8M
 
 N       = 1
-H       = 1000
-A       = 8
+H       = 500
+A       = 4
 K       = 50
 RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 

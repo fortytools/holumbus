@@ -36,7 +36,10 @@ import           Holumbus.Crawler
 import           Holumbus.Index.Common          hiding ( URI )
 
 import           Text.XML.HXT.Core
-import           Text.XML.HXT.Curl
+{-
+import           Text.XML.HXT.Curl              HTTP access must be configured in the application
+import           Text.XML.HXT.HTTP
+-}
 
 -- ------------------------------------------------------------
 
@@ -184,12 +187,7 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   >>>
                                   filter (fst >>> ixc_boringWord ixc >>> not)
 
-    defaultOpts                 = withCurl [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
-                                           , (curl_location,             v_1)            -- automatically follow redirects
-                                           , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
-                                           ]
-                                  >>>
-                                  withRedirect yes
+    defaultOpts                 = withRedirect yes
                                   >>>
                                   withAcceptedMimeTypes ["text/html", "text/xhtml"]
                                   >>>

@@ -32,6 +32,10 @@ import           System.IO
 
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Cache
+import           Text.XML.HXT.HTTP
+{-
+import           Text.XML.HXT.Curl
+-}
 
 -- ------------------------------------------------------------
 
@@ -191,13 +195,25 @@ initAppOpts                     = AO
                                   , ao_crawlLog = (DEBUG, NOTICE)                                       -- log cache and hxt
                                   , ao_crawlPar = withCache' (60 * 60 * 24 * 30)                        -- set cache dir, cache remains valid 1 month, 404 pages are cached
                                                   >>>
-                                                  withCompression (compress, decompress)
+                                                  withCompression (compress, decompress)                -- compress cache files
+                                                  >>>
+                                                  withStrictDeserialize yes                             -- strict input of cache files
                                                   >>>
                                                   withAcceptedMimeTypes [ text_html
                                                                         , application_xhtml
                                                                         ]
                                                   >>>
-                                                  
+                                                  {-
+                                                  withCurl [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
+                                                           , (curl_location,             v_1)            -- automatically follow redirects
+                                                           , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
+                                                           ]
+                                                  >>>
+                                                  -}
+                                                  withHTTP [ (curl_max_redirects,        "3") ]          -- try HTTP web access instead of curl, no document size limit
+                                                  >>>
+                                                  withRedirect yes
+                                                  >>>
                                                   withInputOption curl_max_filesize "500000"            -- this limit excludes automtically generated pages, sometimes > 2Mb
                                                   >>>
                                                   withParseHTML no
