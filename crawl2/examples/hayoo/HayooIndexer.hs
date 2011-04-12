@@ -32,10 +32,8 @@ import           System.IO
 
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Cache
-import           Text.XML.HXT.HTTP
-{-
+import           Text.XML.HXT.HTTP()
 import           Text.XML.HXT.Curl
--}
 
 -- ------------------------------------------------------------
 
@@ -203,15 +201,13 @@ initAppOpts                     = AO
                                                                         , application_xhtml
                                                                         ]
                                                   >>>
-                                                  {-
-                                                  withCurl [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
+                                                  withCurl [ (curl_max_filesize,         "2500000")      -- limit document size to 1 Mbyte
                                                            , (curl_location,             v_1)            -- automatically follow redirects
                                                            , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
                                                            ]
                                                   >>>
-                                                  -}
-                                                  withHTTP [ (curl_max_redirects,        "3") ]          -- try HTTP web access instead of curl, no document size limit
-                                                  >>>
+                                                  -- withHTTP [ (curl_max_redirects,        "3") ]          -- try HTTP web access instead of curl, no document size limit
+                                                  -- >>>
                                                   withRedirect yes
                                                   >>>
                                                   withInputOption curl_max_filesize "500000"            -- this limit excludes automtically generated pages, sometimes > 2Mb

@@ -29,7 +29,7 @@ GHCOPTS	= -Wall -O2 -threaded -i.:../../src:../../../searchengine/source -ignore
 
 N       = 1
 H       = 500
-A       = 4
+A       = 8
 K       = 50
 RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 
