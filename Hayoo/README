@@ -1,0 +1,19 @@
+The Hayoo! Search Engine
+========================
+
+The system is build with the familiar 3 steps
+
+cabal configure
+cabal build
+cabal install
+
+There are 3 executables: hayooIndexer, hayooSearch and hayooFastCGI,
+which will be installed under "~/.cabal/bin".
+
+The applications require besides various hackage packages
+the Holumbus-Searchengine package. The sources for this package
+are located in the repository "../Holumbus-Searchengine".
+
+All sources are located in subdir "src", the applications
+can be executed in subdir "index". There is a Makefile to
+build the hackage index and to start the Hayoo seach server.

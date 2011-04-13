@@ -1,0 +1,89 @@
+name:          Holumbus-Searchengine
+version:       1.0.0
+license:       MIT
+license-file:  LICENSE
+author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
+copyright:     Copyright (c) 2007 - 2011 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Huebel
+maintainer:    Timo B. Huebel <tbh@holumbus.org>
+stability:     experimental
+category:      Text, Data
+synopsis:      A search and indexing engine.
+homepage:      http://holumbus.fh-wedel.de
+description:   The Holumbus-Searchengine library provides a document indexer
+               and crawler to build indexes over document collections
+               as well as a sophisticated query interface for these indexes.
+cabal-version: >=1.6
+build-type:    Simple
+-- tested-with:   ghc-6.12.1
+
+extra-source-files:
+    README
+
+library
+  build-depends: base                   >= 4   && < 5
+               , binary                 >= 0.5 && < 1
+               , bytestring             >= 0.9 && < 1
+               , bzlib                  >= 0.4 && < 1
+               , containers             >= 0.2 && < 1
+               , deepseq                >= 1.1 && < 2
+               , directory              >= 1   && < 2
+               , filepath               >= 1   && < 2
+               , haskell98              >= 1   && < 2
+               , hslogger               >= 1   && < 2
+               , hxt                    >= 9.1 && < 10
+               , hxt-cache              >= 9   && < 10
+               , hxt-curl               >= 9   && < 10
+               , hxt-regex-xmlschema    >= 9   && < 10
+               , hxt-unicode            >= 9   && < 10
+               , mtl                    >= 1.1 && < 3
+               , network                >= 2.1 && < 3
+               , parallel               >= 3.1 && < 4
+               , parsec                 >= 2.1 && < 4
+               , process                >= 1   && < 2
+               , unix                   >= 2.3 && < 3
+
+  exposed-modules:
+    Control.Concurrent.MapFold
+    Control.Monad.ReaderStateIO
+    Control.Sequential.MapFoldBinary
+    Holumbus.Crawler.CacheCore
+    Holumbus.Crawler.Constants
+    Holumbus.Crawler.Core
+    Holumbus.Crawler.CrawlerAction
+    Holumbus.Crawler
+    Holumbus.Crawler.Html
+    Holumbus.Crawler.IndexerCore
+    Holumbus.Crawler.Logger
+    Holumbus.Crawler.PdfToText
+    Holumbus.Crawler.Robots
+    Holumbus.Crawler.RobotTypes
+    Holumbus.Crawler.Types
+    Holumbus.Crawler.URIs
+    Holumbus.Crawler.Util
+    Holumbus.Crawler.XmlArrows
+    Holumbus.Data.Crunch
+    Holumbus.Data.DiffList
+    Holumbus.Data.PrefixTree.Core
+    Holumbus.Data.PrefixTree.FuzzySearch
+    Holumbus.Data.PrefixTree
+    Holumbus.Data.PrefixTree.PrefixSet
+    Holumbus.Data.PrefixTree.Types
+    Holumbus.Index.Common
+    Holumbus.Index.CompactDocuments
+    Holumbus.Index.CompactSmallDocuments
+    Holumbus.Index.Compression
+    Holumbus.Index.Inverted.CompressedPrefixMem
+    Holumbus.Index.Inverted.PrefixMem
+    Holumbus.Query.Fuzzy
+    Holumbus.Query.Intermediate
+    Holumbus.Query.Language.Grammar
+    Holumbus.Query.Processor
+    Holumbus.Query.Ranking
+    Holumbus.Query.Result
+    Holumbus.Utility
+
+  hs-source-dirs: src
+
+  ghc-options: -Wall -funbox-strict-fields
+
+  extensions:

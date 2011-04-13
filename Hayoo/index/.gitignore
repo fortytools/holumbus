@@ -1,0 +1,5 @@
+cache
+tmp
+cache.xml
+ix.bin-*
+pkg.bin*
