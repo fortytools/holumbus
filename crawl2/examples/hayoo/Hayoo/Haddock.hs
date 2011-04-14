@@ -263,8 +263,8 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   >>>
                                   scanRegexA
                                     ( mkSeq
-                                      (mkPrimA $ hasName "p")
-                                      (mkPrimA $ hasName "div")
+                                      (        mkPrimA $ hasName "p")
+                                      (mkOpt $ mkPrimA $ hasName "div")
                                     )
                                     ( getChildren
                                       >>>
