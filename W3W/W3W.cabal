@@ -1,0 +1,95 @@
+name:          W3W
+version:       0.0.0
+license:       MIT
+license-file:  LICENSE
+author:        Torben Gülck, Mathias Leonhardt, Tobias Lüders, Uwe Schmidt
+copyright:     Copyright (c) 2011 Torben Gülck, Mathias Leonhardt, Tobias Lüders, Uwe Schmidt
+maintainer:    Uwe Schmidt <uwe@fh-wedel.de>
+stability:     experimental
+category:      Text, Data
+synopsis:      W3W: Was Wann Wo in Wedel: Termine und mehr an der FH Wedel
+homepage:      http://w3w.fh-wedel.de/
+description:   W3W: Was Wann Wo in Wedel: Termine und mehr an der FH Wedel
+               Die Suchmaschine für Termine, Veranstaltungen und mehr an der FH Wedel
+cabal-version: >=1.6
+build-type:    Simple
+-- tested-with:   ghc-6.12.1
+
+extra-source-files:
+
+-- ------------------------------------------------------------
+
+executable w3wIndexer
+  main-is:      W3WIndexer.hs
+
+  other-modules:  W3W.IndexTypes
+                , W3W.IndexConfig
+                , W3W.Extract
+                , W3W.PageInfo
+                , W3W.URIConfig
+
+  build-depends: base                   >= 4   && < 5
+               , Holumbus-Searchengine  >= 1   && < 2
+               , binary                 >= 0.5 && < 1
+               , bytestring             >= 0.9 && < 1
+               , bzlib                  >= 0.4 && < 1
+               , containers             >= 0.2 && < 1
+               , deepseq                >= 1.1 && < 2
+               , filepath               >= 1   && < 2
+               , haskell98              >= 1   && < 2
+               , hxt                    >= 9.1 && < 10
+               , hxt-cache              >= 9   && < 10
+               , hxt-charproperties     >= 9   && < 10
+               , hxt-curl               >= 9   && < 10
+               , hxt-http               >= 9   && < 10
+               , hxt-regex-xmlschema    >= 9   && < 10
+               , hxt-xpath              >= 9.1 && < 10
+               , network                >= 2.1 && < 3
+               , old-time               >= 1   && < 2
+               , parsec                 >= 2.1 && < 4
+               , process                >= 1   && < 2
+               , tar                    >= 0.3 && < 1
+               , zlib                   >= 0.5 && < 1 
+
+  hs-source-dirs: src
+
+  ghc-options: -threaded -Wall -funbox-strict-fields
+
+  extensions:
+
+-- ------------------------------------------------------------
+-- 
+-- executable w3wSearch
+--   main-is:      W3WSearch.hs
+-- 
+--   other-modules:  W3W.FunctionInfo
+--                 , W3W.IndexTypes
+--                 , W3W.PackageInfo
+--                 , W3W.PackageRank
+--                 , W3W.Search.Application
+--                 , W3W.Search.Common
+--                 , W3W.Search.HTML
+--                 , W3W.Search.JSON
+--                 , W3W.Search.Pages.Static
+--                 , W3W.Search.Pages.Template
+--                 , W3W.Search.Parser
+--                 , W3W.Signature
+-- 
+--   build-depends: base                      >= 4   && < 5
+--                , Holumbus-Searchengine     >= 1   && < 2
+--                , hack                      >= 2009.10.30
+--                , hack-contrib              >= 2010.9.28
+--                , hack-handler-simpleserver >= 0.2 && < 1
+--                , hslogger                  >= 1   && < 2
+--                , hxt-unicode               >= 9   && < 10
+--                , json                      >= 0.4 && < 1
+--                , text                      >= 0.7 && < 1
+--                , xhtml-combinators         >= 0.2 && < 1
+-- 
+--   hs-source-dirs: src
+-- 
+--   ghc-options: -threaded -Wall -funbox-strict-fields
+-- 
+--   extensions:
+-- 
+-- ------------------------------------------------------------

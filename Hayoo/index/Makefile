@@ -62,7 +62,7 @@ whole-index	: $(indexer)
 	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=10000 --valid=$(validix) --new-index=$(ix)-10000 --resume=tmp/ix-0000005000 $(OPTS)
 	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=12500 --valid=$(validix) --new-index=$(ix)-12500 --resume=tmp/ix-0000010000 $(OPTS)
 	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)-15000 --resume=tmp/ix-0000012500 $(OPTS)
-	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=17500 --valid=$(validix) --new-index=$(ix)-17500 --resume=tmp/ix-0000015000 --new-search=$(ix) $(OPTS)
+	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=17500 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000015000 --new-search=$(ix) $(OPTS)
 	@echo not yet needed: $< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=20000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000017500 --new-search=$(ix) $(OPTS)
 
 whole-index1	: $(indexer)

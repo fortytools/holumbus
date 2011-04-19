@@ -30,7 +30,7 @@ simpleFollowRef isAllowed isDenied
                                   where
                                   (.&&.) = liftA2 (&&)
 
--- | A convenient function, that takes two lists strings in regexp syntax,
+-- | A convenient function, that takes two lists of strings in regexp syntax,
 -- The first list are the patterns for the allowed strings,
 -- the second one for the patterns to deny the string.
 -- Two regular expressions are build from these lists of strings,
