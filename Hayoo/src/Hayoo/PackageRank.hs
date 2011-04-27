@@ -93,7 +93,7 @@ dagToList                       = M.toList >>> map (second S.toList)
 -- | Switch the direction in the DAG
 
 dagInvert                       :: (Ord a) => DAG a -> DAG a
-dagInvert                       = M.foldWithKey invVs M.empty
+dagInvert                       = M.foldrWithKey invVs M.empty
     where
     invVs k ks acc              = S.fold invV acc1 $ ks
         where

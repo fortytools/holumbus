@@ -23,7 +23,7 @@ import           WWWCheck.URIChecker
 type ReverseRefs        = M.Map URI URIs
 
 revRefs                 :: DocMap -> ReverseRefs
-revRefs                 = M.foldWithKey insRefs M.empty
+revRefs                 = M.foldrWithKey insRefs M.empty
     where
     insRefs uri dd rm   = foldURIs insRef rm $ dd_uris dd
         where

@@ -7,7 +7,7 @@ where
 
 import           Control.DeepSeq
 
-import		 Control.Monad.State
+-- import		 Control.Monad.State
 
 import           Data.Binary			( Binary )
 import qualified Data.Binary			as B			-- else naming conflict with put and get from Monad.State

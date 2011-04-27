@@ -165,12 +165,12 @@ crawlNextDocs mapf      = do
                                conf     <- ask
                                let mergeOp = getS theFoldOp conf
 
-                               state <- get
+                               state' <- get
                                ( ! urisMoved,
                                  ! urisNew,
                                  ! results
                                  )      <- liftIO $
-                                           mapf (processCmd conf state) (combineDocResults' mergeOp) $
+                                           mapf (processCmd conf state') (combineDocResults' mergeOp) $
                                            urisAllowed
 
                                noticeC "crawlNextDocs" [show . cardURIs $ urisNew, "hrefs found, accumulating results"]

@@ -1,5 +1,5 @@
 name:          Hayoo
-version:       1.0.0
+version:       1.0.1
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
@@ -14,7 +14,7 @@ description:   The Hayoo! search engine based no the Holumbus framework provides
                as well as a query interface for these indexes.
 cabal-version: >=1.6
 build-type:    Simple
--- tested-with:   ghc-6.12.1
+-- tested-with:   ghc-6.12.1 and ghc-7.0.3
 
 extra-source-files:
     README
@@ -71,7 +71,10 @@ executable hayooIndexer
 
   hs-source-dirs: src
 
-  ghc-options: -threaded -Wall -funbox-strict-fields
+  if impl( ghc >= 7 )
+    ghc-options: -threaded -Wall -funbox-strict-fields -rtsopts
+  else
+    ghc-options: -threaded -Wall -funbox-strict-fields
 
   extensions:
 
@@ -86,6 +89,7 @@ executable hayooSearch
                 , Hayoo.PackageRank
                 , Hayoo.Search.Application
                 , Hayoo.Search.Common
+                , Hayoo.Search.EvalSearch
                 , Hayoo.Search.HTML
                 , Hayoo.Search.JSON
                 , Hayoo.Search.Pages.Static
@@ -97,22 +101,32 @@ executable hayooSearch
                , Holumbus-Searchengine     >= 1   && < 2
                , hack                      >= 2009.10.30
                , hack-contrib              >= 2010.9.28
-               , hack-handler-simpleserver >= 0.2 && < 1
                , hslogger                  >= 1   && < 2
                , hxt-unicode               >= 9   && < 10
                , json                      >= 0.4 && < 1
                , text                      >= 0.7 && < 1
                , xhtml-combinators         >= 0.2 && < 1
 
+  if impl( ghc >= 7.0.3 )
+    build-depends: hack-handler-simpleserver >= 0.2.0.2 && < 1
+  else
+    build-depends: hack-handler-simpleserver == 0.2.0.1
+
   hs-source-dirs: src
 
-  ghc-options: -threaded -Wall -funbox-strict-fields
+  if impl( ghc >= 7 )
+    ghc-options: -threaded -Wall -funbox-strict-fields -rtsopts
+  else
+    ghc-options: -threaded -Wall -funbox-strict-fields
 
   extensions:
 
 -- ------------------------------------------------------------
 
 executable hayooFastGCI
+ if impl( ghc >= 7.0.3)
+  main-is:      Dummy.hs
+ else
   main-is:      HayooFastCGI.hs
 
   other-modules:  Hayoo.FunctionInfo
@@ -121,6 +135,7 @@ executable hayooFastGCI
                 , Hayoo.PackageRank
                 , Hayoo.Search.Application
                 , Hayoo.Search.Common
+                , Hayoo.Search.EvalSearch
                 , Hayoo.Search.HTML
                 , Hayoo.Search.JSON
                 , Hayoo.Search.Pages.Static
@@ -139,10 +154,68 @@ executable hayooFastGCI
                , text                      >= 0.7 && < 1
                , xhtml-combinators         >= 0.2 && < 1
 
-  hs-source-dirs: src
+ hs-source-dirs: src
 
-  ghc-options: -threaded -Wall -funbox-strict-fields
+ if impl( ghc >= 7 )
+   ghc-options: -threaded -Wall -funbox-strict-fields -rtsopts
+ else
+   ghc-options: -threaded -Wall -funbox-strict-fields
 
-  extensions:
+ extensions:
+
+-- ------------------------------------------------------------
+
+executable hayooSnap
+ if impl( ghc < 7.0.3)
+  main-is:      Dummy.hs
+ else
+  main-is:      HayooSnap.hs
+
+  other-modules:  Hayoo.FunctionInfo
+                , Hayoo.IndexTypes
+                , Hayoo.PackageInfo
+                , Hayoo.PackageRank
+                , Hayoo.Search.Common
+                , Hayoo.Search.EvalSearch
+                , Hayoo.Search.HTML
+                , Hayoo.Search.JSON
+                , Hayoo.Search.Pages.Static
+                , Hayoo.Search.Pages.Template
+                , Hayoo.Search.Parser
+                , Hayoo.Signature
+                , Hayoo.Snap.Application
+                , Hayoo.Snap.Extension.Timer
+                , Hayoo.Snap.Extension.Timer.Impl
+                , Hayoo.Snap.Site
+
+  build-depends: base                      >= 4   && < 5
+               , Holumbus-Searchengine     >= 1   && < 2
+               , hslogger                  >= 1   && < 2
+               , hxt-unicode               >= 9   && < 10
+               , json                      >= 0.4 && < 1
+               , text                      >= 0.7 && < 1
+               , xhtml-combinators         >= 0.2 && < 1
+
+               -- snap stuff
+               , bytestring                >= 0.9.1 && < 0.10
+               , heist                     >= 0.5   && < 0.6
+               , MonadCatchIO-transformers >= 0.2.1 && < 0.3
+               , mtl                       >= 2 && < 3
+               , snap                      == 0.4.*
+               , snap-core                 == 0.4.*
+               , snap-server               == 0.4.*
+               , text                      >= 0.11 && < 0.12
+               , time                      >= 1.1 && < 1.3
+               , xmlhtml                   == 0.1.*
+
+
+
+
+ hs-source-dirs: src
+
+ ghc-options: -threaded -Wall -funbox-strict-fields -fwarn-tabs -rtsopts
+              -fno-warn-orphans -fno-warn-unused-do-bind
+
+ extensions: TypeSynonymInstances MultiParamTypeClasses
 
 -- ------------------------------------------------------------

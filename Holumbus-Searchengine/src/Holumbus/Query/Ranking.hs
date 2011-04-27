@@ -81,12 +81,12 @@ wordRankByCount _ _ h = fromIntegral $ M.fold (\h1 r1 -> IM.fold ((+) . IS.size)
 -- | Rank documents by context-weighted count. The weights will be normalized to a maximum of 1.0.
 -- Contexts with no weight (or a weight of zero) will be ignored.
 docRankWeightedByCount :: [(Context, Score)] -> DocId -> DocInfo a -> DocContextHits -> Score
-docRankWeightedByCount ws _ _ h =  M.foldWithKey (calcWeightedScore ws) 0.0 h
+docRankWeightedByCount ws _ _ h =  M.foldrWithKey (calcWeightedScore ws) 0.0 h
 
 -- | Rank words by context-weighted count. The weights will be normalized to a maximum of 1.0.
 -- Contexts with no weight (or a weight of zero) will be ignored.
 wordRankWeightedByCount :: [(Context, Score)] -> Word -> WordInfo -> WordContextHits -> Score
-wordRankWeightedByCount ws _ _ h = M.foldWithKey (calcWeightedScore ws) 0.0 h
+wordRankWeightedByCount ws _ _ h = M.foldrWithKey (calcWeightedScore ws) 0.0 h
 
 -- | Calculate the weighted score of occurrences of a word.
 calcWeightedScore :: (Foldable f) => [(Context, Score)] -> Context -> (f IS.IntSet) -> Score -> Score

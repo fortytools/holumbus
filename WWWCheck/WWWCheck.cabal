@@ -1,5 +1,5 @@
 Name:                WWWCheck
-Version:             0.1
+Version:             0.1.1
 Synopsis:            An URL checker based no the Holumbus framework
 Description:         An URL checker based no the Holumbus framework         
 License:             BSD3
@@ -37,4 +37,7 @@ Executable WWWCheck
 
   hs-source-dirs: src, examples
 
-  ghc-options: -Wall
+  if impl( ghc >= 7 )
+    ghc-options: -threaded -Wall -rtsopts
+  else
+    ghc-options: -threaded -Wall

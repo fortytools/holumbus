@@ -128,7 +128,7 @@ fuzz cfg s = M.delete s (fuzz' (fuzzLimit cfg 0.0 s))
   fuzz' fs = if M.null more then fs else M.unionWith min fs (fuzz' more)
     where
     -- The current score is doubled on every recursive call, because fuzziness increases exponentially.
-    more = M.foldWithKey (\sm sc res -> M.unionWith min res (fuzzLimit cfg (sc + sc) sm)) M.empty fs
+    more = M.foldrWithKey (\sm sc res -> M.unionWith min res (fuzzLimit cfg (sc + sc) sm)) M.empty fs
 
 -- | Fuzz a string and limit the allowed score to a given threshold.
 fuzzLimit :: FuzzyConfig -> FuzzyScore -> String -> FuzzySet

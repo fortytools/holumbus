@@ -76,33 +76,24 @@ data PrefixTree v       = Empty
                                              ! Sym              -- the last entry in a branch list
                                  , child  :: ! (PrefixTree v)   -- or no branch but a single child
                                  }
-                        | LsSeq  { syms   :: {-# UNPACK #-}
-                                             ! Key1             -- a sequence of single childs
-                                 , child  :: {-# UNPACK #-}
-                                             ! (PrefixTree v)   -- in a last node
+                        | LsSeq  { syms   :: ! Key1             -- a sequence of single childs
+                                 , child  :: ! (PrefixTree v)   -- in a last node
                                  } 
-                        | BrSeq  { syms   :: {-# UNPACK #-}
-                                             ! Key1             -- a sequence of single childs
-                                 , child  :: {-# UNPACK #-}
-                                             ! (PrefixTree v)   -- in a branch node
-                                 , next   :: {-# UNPACK #-}
-                                             ! (PrefixTree v)
+                        | BrSeq  { syms   :: ! Key1             -- a sequence of single childs
+                                 , child  :: ! (PrefixTree v)   -- in a branch node
+                                 , next   :: ! (PrefixTree v)
                                  } 
-                        | LsSeL  { syms   :: {-# UNPACK #-}
-                                             ! Key1             -- a sequence of single childs
+                        | LsSeL  { syms   :: ! Key1             -- a sequence of single childs
                                  , value' ::   v                -- with a leaf 
                                  } 
-                        | BrSeL  { syms   :: {-# UNPACK #-}
-                                             ! Key1             -- a sequence of single childs
+                        | BrSeL  { syms   :: ! Key1             -- a sequence of single childs
                                  , value' ::   v                -- with a leaf in a branch node
-                                 , next   :: {-# UNPACK #-}
-                                             ! (PrefixTree v)
+                                 , next   :: ! (PrefixTree v)
                                  } 
                         | BrVal  { sym    :: {-# UNPACK #-}
                                              ! Sym              -- a branch with a single char
                                  , value' ::   v                -- and a value
-                                 , next   :: {-# UNPACK #-}
-                                             ! (PrefixTree v)
+                                 , next   :: ! (PrefixTree v)
                                  }
                         | LsVal  { sym    :: {-# UNPACK #-}
                                              ! Sym              -- a last node with a single char
@@ -117,7 +108,6 @@ data PrefixTree v       = Empty
 data Key1               = Nil
                         | Cons  {-# UNPACK #-}
                                 ! Sym
-                                {-# UNPACK #-}
                                 ! Key1            
                           deriving (Show, Eq, Ord)
 
@@ -774,7 +764,7 @@ toMap                           = foldWithKey M.insert M.empty
 -- | /O(n)/ Convert an ordinary map into a Prefix tree
 
 fromMap                         :: M.Map Key a -> PrefixTree a
-fromMap                         = M.foldWithKey insert empty
+fromMap                         = M.foldrWithKey insert empty
 
 -- | /O(n)/ Returns all elements as list of key value pairs,
 

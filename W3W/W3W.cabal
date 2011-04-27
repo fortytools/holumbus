@@ -1,5 +1,5 @@
 name:          W3W
-version:       0.0.0
+version:       0.0.1
 license:       MIT
 license-file:  LICENSE
 author:        Torben Gülck, Mathias Leonhardt, Tobias Lüders, Uwe Schmidt
@@ -13,7 +13,7 @@ description:   W3W: Was Wann Wo in Wedel: Termine und mehr an der FH Wedel
                Die Suchmaschine für Termine, Veranstaltungen und mehr an der FH Wedel
 cabal-version: >=1.6
 build-type:    Simple
--- tested-with:   ghc-6.12.1
+-- tested-with:   ghc-6.12.1 and ghc-7.0.3
 
 extra-source-files:
 
@@ -53,7 +53,10 @@ executable w3wIndexer
 
   hs-source-dirs: src
 
-  ghc-options: -threaded -Wall -funbox-strict-fields
+  if impl( ghc >= 7 )
+    ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -rtsopts
+  else
+    ghc-options: -threaded -Wall -funbox-strict-fields
 
   extensions:
 

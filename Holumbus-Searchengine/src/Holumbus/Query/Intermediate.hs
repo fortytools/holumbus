@@ -16,7 +16,7 @@
 
 -- ----------------------------------------------------------------------------
 
-{-# OPTIONS -fglasgow-exts #-}
+{-# OPTIONS #-}
 
 module Holumbus.Query.Intermediate 
 (
@@ -117,9 +117,9 @@ createDocHits d im = IM.mapWithKey transformDocs im
 createWordHits :: Intermediate -> WordHits
 createWordHits im = IM.foldWithKey transformDoc M.empty im
   where
-  transformDoc d ic wh = M.foldWithKey transformContext wh ic
+  transformDoc d ic wh = M.foldrWithKey transformContext wh ic
     where
-    transformContext c iw wh' = M.foldWithKey insertWord wh' iw
+    transformContext c iw wh' = M.foldrWithKey insertWord wh' iw
       where
       insertWord w (wi, pos) wh'' = if terms wi == [""] then wh'' 
                                     else M.insertWith combineWordHits w (wi, M.singleton c (IM.singleton d pos)) wh''
