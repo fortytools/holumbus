@@ -184,6 +184,7 @@ executable hayooSnap
                 , Hayoo.Search.Parser
                 , Hayoo.Signature
                 , Hayoo.Snap.Application
+                , Hayoo.Snap.Extension.HayooState
                 , Hayoo.Snap.Extension.Timer
                 , Hayoo.Snap.Extension.Timer.Impl
                 , Hayoo.Snap.Site
@@ -206,6 +207,7 @@ executable hayooSnap
                , snap-server               == 0.4.*
                , text                      >= 0.11 && < 0.12
                , time                      >= 1.1 && < 1.3
+               , transformers              >= 0.2.2 && < 0.3
                , xmlhtml                   == 0.1.*
 
 

@@ -12,6 +12,7 @@ module Hayoo.Snap.Site
   ) where
 
 import           Control.Applicative
+import           Control.Monad.IO.Class
 
 import           Data.Maybe
 import qualified Data.Text.Encoding as T
@@ -24,6 +25,7 @@ import           Snap.Types
 import           Text.Templating.Heist
 
 import           Hayoo.Snap.Extension.Timer
+import           Hayoo.Snap.Extension.HayooState
 import           Hayoo.Snap.Application
 
 
@@ -55,11 +57,30 @@ echo = do
     decodedQuery   = getParams >>= return . show
 
 ------------------------------------------------------------------------------
+-- | Render test page
+
+testpage :: Application ()
+testpage = do
+    pars <- getParams
+    core <- hayooCore
+    res  <- liftIO (evalQuery pars core) 
+    putResponse myResponse
+    writeText (T.pack $ show $ res)
+  where
+  myResponse = setContentType "text/plain"
+	       . setResponseCode 200
+	       $ emptyResponse
+
+  evalQuery qm core
+      = return qm
+
+------------------------------------------------------------------------------
 -- | The main entry point handler.
 
 site :: Application ()
 site = route [ ("/",            index)
              , ("/echo/:stuff", echo)
+	     , ("/test",        testpage)
              ]
        <|> serveDirectory "hayoo"
        <|> serveDirectory "resources/static"

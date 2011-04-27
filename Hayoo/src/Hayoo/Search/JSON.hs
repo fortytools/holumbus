@@ -29,8 +29,8 @@ import Holumbus.Query.Result
 import Hayoo.IndexTypes
 import Hayoo.Search.Common
 
-renderEmptyJson 	:: String
-renderEmptyJson 	= encodeStrict $
+renderEmptyJson         :: String
+renderEmptyJson         = encodeStrict $
                           jo 
                           [ ("message", js "Please provide a query.")
                           , ("hits", showJSON (0 :: Int))
@@ -40,9 +40,9 @@ renderEmptyJson 	= encodeStrict $
                           , ("packages", JSArray []) 
                           ]
 
-renderJson 		:: StatusResult -> String
+renderJson              :: StatusResult -> String
 renderJson (msg, res, _, mods, pkgs)
-    			= encodeStrict $
+                        = encodeStrict $
                           jo
                           [ ("message",      js msg)
                           , ("hits",         showJSON      $ sizeDocHits res)
@@ -52,12 +52,12 @@ renderJson (msg, res, _, mods, pkgs)
                           , ("packages",     buildTopList    pkgs)
                           ]
 
-buildDocHits 		:: DocHits FunctionInfo -> JSValue
-buildDocHits dh 	= JSArray $ map buildDoc (IM.toList dh)
+buildDocHits            :: DocHits FunctionInfo -> JSValue
+buildDocHits dh         = JSArray $ map buildDoc (IM.toList dh)
 
-buildDoc 		:: (Int, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
+buildDoc                :: (Int, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
 buildDoc (_, (DocInfo (Document t u (Just fi)) _, _))
-    			= jo
+                        = jo
                           [ ("name",        js t)
                           , ("uri",         js u)
                           , ("module",      js $ moduleName fi)
@@ -65,29 +65,29 @@ buildDoc (_, (DocInfo (Document t u (Just fi)) _, _))
                           , ("package",     js $ package fi)
                           , ("description", js $ fctDescr fi)
                           ]
-buildDoc _		= error "Expected custom function info"
+buildDoc _              = error "Expected custom function info"
 
-buildWordHits 		:: WordHits -> JSValue
-buildWordHits wh 	= JSArray $ map buildWord (M.toList wh)
+buildWordHits           :: WordHits -> JSValue
+buildWordHits wh        = JSArray $ map buildWord (M.toList wh)
 
-buildWord 		:: (Word, (WordInfo, WordContextHits)) -> JSValue
+buildWord               :: (Word, (WordInfo, WordContextHits)) -> JSValue
 buildWord (w, (WordInfo _ s, _))
- 			= jo
+                        = jo
                           [ ("word", js w)
                           , ("count", showJSON s)
                           ]
 
-buildTopList 		:: [(String, Int)] -> JSValue
-buildTopList 		= showJSON . map buildTopElem
+buildTopList            :: [(String, Int)] -> JSValue
+buildTopList            = showJSON . map buildTopElem
   where
-  buildTopElem (n, c) 	= jo
+  buildTopElem (n, c)   = jo
                           [ ("name", js n)
                           , ("count", showJSON c)
                           ]
 
-js 			:: String -> JSValue
-js 			= JSString . toJSString
+js                      :: String -> JSValue
+js                      = JSString . toJSString
 
-jo 			:: [(String, JSValue)] -> JSValue
-jo 			= JSObject . toJSObject
+jo                      :: [(String, JSValue)] -> JSValue
+jo                      = JSObject . toJSObject
 

@@ -7,13 +7,15 @@ information it requires.
 
 module Hayoo.Snap.Application
   ( Application
+  , ApplicationState(..)
   , applicationInitializer
   ) where
 
 import           Snap.Extension
 import           Snap.Extension.Heist.Impl
-import           Hayoo.Snap.Extension.Timer.Impl
 
+import           Hayoo.Snap.Extension.Timer.Impl
+import           Hayoo.Snap.Extension.HayooState
 
 ------------------------------------------------------------------------------
 -- | 'Application' is our application's monad. It uses 'SnapExtend' from
@@ -27,22 +29,33 @@ type Application = SnapExtend ApplicationState
 -- extensions we're using.  We're using Heist so we can easily render Heist
 -- templates, and Timer simply to illustrate the config loading differences
 -- between development and production modes.
+
 data ApplicationState = ApplicationState
     { templateState :: HeistState Application
     , timerState    :: TimerState
+    , hayooState    :: HayooState
     }
 
 
 ------------------------------------------------------------------------------
+
 instance HasHeistState Application ApplicationState where
     getHeistState     = templateState
     setHeistState s a = a { templateState = s }
 
 
 ------------------------------------------------------------------------------
+
 instance HasTimerState ApplicationState where
     getTimerState     = timerState
     setTimerState s a = a { timerState = s }
+
+
+------------------------------------------------------------------------------
+
+instance HasHayooState ApplicationState where
+    getHayooState     = hayooState
+    setHayooState s a = a { hayooState = s }
 
 
 ------------------------------------------------------------------------------
@@ -51,8 +64,12 @@ instance HasTimerState ApplicationState where
 -- generate the 'ApplicationState' needed for our application and will
 -- automatically generate reload\/cleanup actions for us which we don't need
 -- to worry about.
+
 applicationInitializer :: Initializer ApplicationState
 applicationInitializer = do
     heist <- heistInitializer "resources/templates"
     timer <- timerInitializer
-    return $ ApplicationState heist timer
+    hayoo <- hayooInitializer
+    return $ ApplicationState heist timer hayoo
+
+------------------------------------------------------------------------------

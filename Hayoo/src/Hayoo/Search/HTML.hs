@@ -122,7 +122,7 @@ packageResults rs rp = let pl = extractPackages rp in
     div' [A.class_ "category"] $ mapM_ packageCategory (split "," $ p_category k)
     div' [A.class_ "name"] $ do
       a' [A.class_ "name", A.href $ pack $ "http://hackage.haskell.org/package/" ++ (p_name k)] $ 
-				text' (p_name k)
+                                text' (p_name k)
       span' [A.class_ "synopsis"] $ text' (" " ++ (p_synopsis k))
     div' [A.class_ "description"] $ text' (p_description k)
     div' [A.class_ "author"] $ text' (p_author k)
@@ -137,73 +137,73 @@ functionResults rs rf = do
   div' [A.id_ "words"] $ mapM_ (wordInfo rs $ maxScoreWordHits rf) (toListSortedWords $ wordHits rf)
   div' [A.id_ "documents"] $ table $ mapM_ functionInfo (toListSortedDocs $ docHits rf)
     where
-		notSignature (_, (_, wch)) = M.keys wch /= ["signature"]
-		toListSortedDocs = take pageLimit . drop (rsStart rs) . reverse . 
-			L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList
-		toListSortedWords = L.sortBy (compare `on` fst) . take maxWordHits . 
-			L.sortBy (compare `on` (wordScore .fst . snd)) . filter notSignature . M.toList
+                notSignature (_, (_, wch)) = M.keys wch /= ["signature"]
+                toListSortedDocs = take pageLimit . drop (rsStart rs) . reverse . 
+                        L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList
+                toListSortedWords = L.sortBy (compare `on` fst) . take maxWordHits . 
+                        L.sortBy (compare `on` (wordScore .fst . snd)) . filter notSignature . M.toList
 
 -- | Render the information about a function (module w/ link, function name, signature, ...)
 functionInfo :: (DocId, (DocInfo FunctionInfo, DocContextHits)) -> XHtml Table1Content
 functionInfo (_, (DocInfo (Document _ _ Nothing) _, _)) = error "Expecting custom document info"
 functionInfo (_, (DocInfo (Document t u (Just fi)) r, _)) = tbody $ do
-	tr' [A.class_ "function"] $ do
-		td' [A.class_ "module"] $ do
-			a' [A.class_ "module", A.href $ pack (modLink u)] $ text' (moduleName fi ++ ".")
-		td' [A.class_ "name"] $ do
-			a' [A.class_ "function", A.href $ pack u, A.title $ pack ("Score: " ++ show r)] $ text' t
-		td' [A.class_ "signature"] $ do
-			sigDecl (signature fi)
-	tr' [A.class_ "details"] $ do
-		td' [A.class_ "package"] $ do
-			a' [A.class_ "package", A.href $ pack (pkgLink $ package fi)] $ text' (package fi)
-		td' [A.class_ "description", A.colspan 2] $ div_ $ do
-			a' [A.class_ "toggleFold", onclick "toggleFold(this);"] $ empty
-			div' [A.class_ "description"] $ let f = fctDescr fi in
-				if L.null f then text "No description." else text' f
-			let c = sourceURI fi in if L.null c then empty else span' [A.class_ "source"] $ do
-				a' [A.class_ "source", A.href $ pack c] $ text "Source"
-	where
-	modLink = takeWhile ((/=) '#')
-	pkgLink = (++) "http://hackage.haskell.org/package/"
-	sigDecl s'
-		| s' `elem` ["data", "type", "newtype", "class", "module"] = span' [A.class_ "declaration"] $ text' s
-		| otherwise = text' $ replace "->" " -> " s
-		where
-		s = ":: " ++ stringTrim s'
+        tr' [A.class_ "function"] $ do
+                td' [A.class_ "module"] $ do
+                        a' [A.class_ "module", A.href $ pack (modLink u)] $ text' (moduleName fi ++ ".")
+                td' [A.class_ "name"] $ do
+                        a' [A.class_ "function", A.href $ pack u, A.title $ pack ("Score: " ++ show r)] $ text' t
+                td' [A.class_ "signature"] $ do
+                        sigDecl (signature fi)
+        tr' [A.class_ "details"] $ do
+                td' [A.class_ "package"] $ do
+                        a' [A.class_ "package", A.href $ pack (pkgLink $ package fi)] $ text' (package fi)
+                td' [A.class_ "description", A.colspan 2] $ div_ $ do
+                        a' [A.class_ "toggleFold", onclick "toggleFold(this);"] $ empty
+                        div' [A.class_ "description"] $ let f = fctDescr fi in
+                                if L.null f then text "No description." else text' f
+                        let c = sourceURI fi in if L.null c then empty else span' [A.class_ "source"] $ do
+                                a' [A.class_ "source", A.href $ pack c] $ text "Source"
+        where
+        modLink = takeWhile ((/=) '#')
+        pkgLink = (++) "http://hackage.haskell.org/package/"
+        sigDecl s'
+                | s' `elem` ["data", "type", "newtype", "class", "module"] = span' [A.class_ "declaration"] $ text' s
+                | otherwise = text' $ replace "->" " -> " s
+                where
+                s = ":: " ++ stringTrim s'
 
 -- | Render a word in the cloud of suggestions
 wordInfo :: RenderState -> Score -> (Word, (WordInfo, WordContextHits)) -> XHtml FlowContent
 wordInfo rs m (w, (WordInfo ts s, c)) = do
-	a' [A.class_ "cloud", A.href staticLink, onclick dynamicLink, A.title $ pack origin] $ do
-		span' [A.class_ $ pack $ "cloud" ++ (show ((round $ weightScore 1 9 m s)::Int))] $ text' w
-	text " "
-	where
-	origin = join ", " $ M.keys c
-	dynamicLink = pack $ "replaceInfQuery('" ++ escape t ++ "','" ++ escape w ++ "'); return false;"
-	staticLink = pack $  staticRoot ++ "?query=" ++ (replace t w qu) ++ "&start=" ++ (show st)
-	weightScore mi ma to v  = ma - ((to - v) / to) * (ma - mi)
-	escape []      = []
-	escape (x:xs)  = if x == '\'' then "\\'" ++ escape xs else x : (escape xs)
-	t = head ts
-	qu = rsQuery rs
-	st = rsStart rs
+        a' [A.class_ "cloud", A.href staticLink, onclick dynamicLink, A.title $ pack origin] $ do
+                span' [A.class_ $ pack $ "cloud" ++ (show ((round $ weightScore 1 9 m s)::Int))] $ text' w
+        text " "
+        where
+        origin = join ", " $ M.keys c
+        dynamicLink = pack $ "replaceInfQuery('" ++ escape t ++ "','" ++ escape w ++ "'); return false;"
+        staticLink = pack $  staticRoot ++ "?query=" ++ (replace t w qu) ++ "&start=" ++ (show st)
+        weightScore mi ma to v  = ma - ((to - v) / to) * (ma - mi)
+        escape []      = []
+        escape (x:xs)  = if x == '\'' then "\\'" ++ escape xs else x : (escape xs)
+        t = head ts
+        qu = rsQuery rs
+        st = rsStart rs
 
 pager :: RenderState -> Int -> XHtml FlowContent
 pager rs m = if m <= 0 || m < pageLimit then empty else div'[A.id_ "pager"] $ do
-		nav "previous" "<" (_prevPage pg)
-		mapM_ page (_predPages pg)
-		span' [A.class_ "current"] $ text' $ show $  _currPage pg
-		mapM_ page (_succPages pg)
-		nav "next" ">" (_nextPage pg)
-	where
-	pg = makePager (rsStart rs) pageLimit m
-	nav :: Text -> String -> Maybe Int -> XHtml FlowContent
-	nav _ _ Nothing = empty
-	nav c t (Just v) = a' [A.class_ c, A.href $ statLink v, onclick $ dynLink v] $ text' t
-	page (v, t)  = a' [A.class_ "page", A.href $ statLink v, onclick $ dynLink v] $ text' $ show t
-	dynLink v = pack $ "showPage(" ++ show v ++ "); return false;"
-	statLink v = pack $ staticRoot ++ "?query=" ++ (rsQuery rs) ++ "&start=" ++ show v
+                nav "previous" "<" (_prevPage pg)
+                mapM_ page (_predPages pg)
+                span' [A.class_ "current"] $ text' $ show $  _currPage pg
+                mapM_ page (_succPages pg)
+                nav "next" ">" (_nextPage pg)
+        where
+        pg = makePager (rsStart rs) pageLimit m
+        nav :: Text -> String -> Maybe Int -> XHtml FlowContent
+        nav _ _ Nothing = empty
+        nav c t (Just v) = a' [A.class_ c, A.href $ statLink v, onclick $ dynLink v] $ text' t
+        page (v, t)  = a' [A.class_ "page", A.href $ statLink v, onclick $ dynLink v] $ text' $ show t
+        dynLink v = pack $ "showPage(" ++ show v ++ "); return false;"
+        statLink v = pack $ staticRoot ++ "?query=" ++ (rsQuery rs) ++ "&start=" ++ show v
 
 data Pager  = Pager 
               { _prevPage  :: Maybe Int -- == last predPages
