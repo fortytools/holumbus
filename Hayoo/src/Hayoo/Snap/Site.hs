@@ -135,9 +135,6 @@ hayooHtml = do
     putResponse htmlResponse
     writeText $ evalHtmlQuery (toStringMap pars) core
   where
-  myResponse = setContentType "text/html; charset=utf-8"
-               . setResponseCode 200
-               $ emptyResponse
   toStringMap   = map (uncurry tos) . M.toList
       where
       tos k a   = (            T.unpack . T.decodeUtf8  $ k

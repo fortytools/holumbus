@@ -60,10 +60,10 @@ stripSignature = sep "->" . lsep "(" . rsep ")" . sep "." . sep "=>"
 -- | Parse a query using the special Hayoo! syntax.
 parseQuery :: String -> Either String Query
 parseQuery s
-    | isSignature s	= Right sigQuery
-    | otherwise		= result . (parse query "") $ s
+    | isSignature s     = Right sigQuery
+    | otherwise         = result . (parse query "") $ s
   where
-  sigQuery		= BinQuery Or
+  sigQuery              = BinQuery Or
                           (Specifier ["signature"]  (Word $ stripSignature     s))
                           (Specifier ["normalized"] (Word $ normalizeSignature s))
 
