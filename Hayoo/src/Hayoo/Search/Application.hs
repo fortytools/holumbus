@@ -49,7 +49,8 @@ import System.Time
 import System.Log.Logger
 import System.Log.Handler.Simple
 
-import Text.XHtmlCombinators            ( render )
+import qualified
+       Text.XHtmlCombinators            as X
 
 -- ------------------------------------------------------------
 
@@ -106,7 +107,7 @@ hayooInit ixBase = do
   serveStatic c _ = return $ Response 
                     { status = 200
                     , headers = [ ("Content-Type", "text/html") ]
-                    , body = fromChunks [T.encodeUtf8 $ render c]
+                    , body = fromChunks [T.encodeUtf8 $ X.render c]
                     }
 
 -- | Generate the actual response

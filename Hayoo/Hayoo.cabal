@@ -167,6 +167,8 @@ executable hayooFastGCI
 
 executable hayooSnap
  if impl( ghc < 7.0.3)
+  -- hayooSnap is currently only tested with ghc-7.0.3
+  -- so this is a dummy
   main-is:      Dummy.hs
  else
   main-is:      HayooSnap.hs
@@ -185,33 +187,22 @@ executable hayooSnap
                 , Hayoo.Signature
                 , Hayoo.Snap.Application
                 , Hayoo.Snap.Extension.HayooState
-                , Hayoo.Snap.Extension.Timer
-                , Hayoo.Snap.Extension.Timer.Impl
                 , Hayoo.Snap.Site
 
-  build-depends: base                      >= 4   && < 5
-               , Holumbus-Searchengine     >= 1   && < 2
-               , hslogger                  >= 1   && < 2
-               , hxt-unicode               >= 9   && < 10
-               , json                      >= 0.4 && < 1
-               , text                      >= 0.7 && < 1
-               , xhtml-combinators         >= 0.2 && < 1
-
-               -- snap stuff
+  build-depends: base                      >= 4     && < 5
                , bytestring                >= 0.9.1 && < 0.10
-               , heist                     >= 0.5   && < 0.6
+               , Holumbus-Searchengine     >= 1     && < 2
+               , hslogger                  >= 1     && < 2
+               , hxt-unicode               >= 9     && < 10
+               , json                      >= 0.4   && < 1
                , MonadCatchIO-transformers >= 0.2.1 && < 0.3
-               , mtl                       >= 2 && < 3
+               , mtl                       >= 2     && < 3
                , snap                      == 0.4.*
                , snap-core                 == 0.4.*
                , snap-server               == 0.4.*
-               , text                      >= 0.11 && < 0.12
-               , time                      >= 1.1 && < 1.3
+               , text                      >= 0.11  && < 1
                , transformers              >= 0.2.2 && < 0.3
-               , xmlhtml                   == 0.1.*
-
-
-
+               , xhtml-combinators         >= 0.2   && < 1
 
  hs-source-dirs: src
 

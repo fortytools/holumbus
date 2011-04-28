@@ -21,7 +21,7 @@ module Hayoo.Search.EvalSearch
 
     , parseQuery
     , genResult
-    , emptyResult
+    , emptyRes
 
     , renderEmpty
     , renderResult
@@ -29,6 +29,9 @@ module Hayoo.Search.EvalSearch
     , isJson
     , renderJson
     , renderEmptyJson
+
+    , examples
+    , filterStatusResult
 
     , decode
 
@@ -81,7 +84,8 @@ import Network.URI                      ( unEscapeString )
 
 import System.FilePath                  ( takeExtension )
 
-import Text.XHtmlCombinators            ( render )
+import qualified
+       Text.XHtmlCombinators            as X
 
 import Text.XML.HXT.Core
 
@@ -162,7 +166,7 @@ renderEmpty j idct
     | otherwise                 = writeHtml
     where
     writeJson                   = pack $ renderEmptyJson
-    writeHtml                   = fromChunks [T.encodeUtf8 $ render $ (template idct) examples]
+    writeHtml                   = fromChunks [T.encodeUtf8 $ X.render $ (template idct) examples]
 
 -- | Parse the query and generate a result or an error depending on the parse result.
 
@@ -172,12 +176,7 @@ renderResult (r, s, i, t) j idct
                           >>>
                           parseQuery
                           >>>
-                          either
-                          (\ msg -> ( tail . dropWhile ((/=) ':') $ msg
-                                    , emptyResult, emptyResult, [], []
-                                    )
-                          )
-                          ( genResult idct )
+                          either emptyRes (genResult idct)
                           >>>
                           ( if j
                             then pack . renderJson
@@ -193,8 +192,8 @@ renderResult (r, s, i, t) j idct
           where
           markup        = let rr = result rs sr in 
                           if rsStatic rs
-                          then render $ t rr
-                          else render $ rr
+                          then X.render $ t rr
+                          else X.render $ rr
 
 -- Check requested path for JSON
 isJson                  :: FilePath -> Bool
@@ -263,6 +262,14 @@ hayooFctRanking rt ws ts _ di dch
                             then Just (snd x)
                             else Nothing
                           else lookupWeight xs
+
+emptyRes                :: String -> StatusResult
+emptyRes msg            = ( tail . dropWhile ((/=) ':') $ msg
+                          , emptyResult
+                          , emptyResult
+                          , []
+                          , []
+                          )
 
 genResult ::  Core -> Query -> StatusResult
 genResult idc q

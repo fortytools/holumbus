@@ -12,9 +12,7 @@ module Hayoo.Snap.Application
   ) where
 
 import           Snap.Extension
-import           Snap.Extension.Heist.Impl
 
-import           Hayoo.Snap.Extension.Timer.Impl
 import           Hayoo.Snap.Extension.HayooState
 
 ------------------------------------------------------------------------------
@@ -31,25 +29,8 @@ type Application = SnapExtend ApplicationState
 -- between development and production modes.
 
 data ApplicationState = ApplicationState
-    { templateState :: HeistState Application
-    , timerState    :: TimerState
-    , hayooState    :: HayooState
+    { hayooState    :: HayooState
     }
-
-
-------------------------------------------------------------------------------
-
-instance HasHeistState Application ApplicationState where
-    getHeistState     = templateState
-    setHeistState s a = a { templateState = s }
-
-
-------------------------------------------------------------------------------
-
-instance HasTimerState ApplicationState where
-    getTimerState     = timerState
-    setTimerState s a = a { timerState = s }
-
 
 ------------------------------------------------------------------------------
 
@@ -67,9 +48,7 @@ instance HasHayooState ApplicationState where
 
 applicationInitializer :: Initializer ApplicationState
 applicationInitializer = do
-    heist <- heistInitializer "resources/templates"
-    timer <- timerInitializer
     hayoo <- hayooInitializer
-    return $ ApplicationState heist timer hayoo
+    return $ ApplicationState hayoo
 
 ------------------------------------------------------------------------------
