@@ -41,6 +41,7 @@ import           Hayoo.Search.EvalSearch        ( Core
 import           Hayoo.Search.HTML              ( RenderState(..)
                                                 , result
                                                 )
+import qualified Hayoo.Search.Pages.Static      as P
 
 import           Hayoo.Snap.Extension.HayooState
 import           Hayoo.Snap.Application
@@ -60,12 +61,15 @@ site :: Application ()
 site = route [ ("/",             ifTop hayooHtml)       -- map to /hayoo.html
              , ("/hayoo.html",   hayooHtml)
              , ("/hayoo.json",   hayooJson)
+             , ("/help.html",    serveStatic P.help)
+             , ("/about.html",   serveStatic P.about)
+             , ("/api.html",     serveStatic P.api)
              , ("/hayoo/:stuff", serveHayooStatic)
              ]
        <|> serveDirectory "hayoo"
 
 ------------------------------------------------------------------------------
--- | Renders the echo page.
+-- | Deliver Hayoo files
 
 serveHayooStatic :: Application ()
 serveHayooStatic = do
@@ -73,6 +77,16 @@ serveHayooStatic = do
     serveFile $ "hayoo" </> C.unpack relPath
   where
     decodedParam p = fromMaybe "" <$> getParam p
+
+------------------------------------------------------------------------------
+-- | Deliver static Hayoo pages
+
+serveStatic :: X.XHtml X.FlowContent -> Application ()
+serveStatic pg
+  = do
+    core <- hayooCore 
+    putResponse htmlResponse
+    writeText (X.render $ (template core) pg) 
 
 ------------------------------------------------------------------------------
 -- | Render JSON page
@@ -118,7 +132,7 @@ hayooHtml :: Application ()
 hayooHtml = do
     pars <- getParams
     core <- hayooCore
-    putResponse myResponse
+    putResponse htmlResponse
     writeText $ evalHtmlQuery (toStringMap pars) core
   where
   myResponse = setContentType "text/html; charset=utf-8"
@@ -129,6 +143,11 @@ hayooHtml = do
       tos k a   = (            T.unpack . T.decodeUtf8  $ k
                   , concatMap (T.unpack . T.decodeUtf8) $ a
                   )
+
+htmlResponse :: Response
+htmlResponse = setContentType "text/html; charset=utf-8"
+               . setResponseCode 200
+               $ emptyResponse
 
 evalHtmlQuery :: [(String, String)] -> Core -> T.Text
 evalHtmlQuery p idct
