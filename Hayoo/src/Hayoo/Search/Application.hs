@@ -26,7 +26,6 @@ where
 import Control.Concurrent               -- For the global MVar
 
 import Data.ByteString.Lazy.Char8       ( fromChunks )
-import Data.Maybe
 
 import qualified Data.List              as L
 import qualified Data.Text.Encoding     as T
@@ -53,18 +52,6 @@ import System.Log.Handler.Simple
 import Text.XHtmlCombinators            ( render )
 
 -- ------------------------------------------------------------
-
--- | Just an alias with explicit type.
-loadIndex       :: FilePath -> IO CompactInverted
-loadIndex       = loadFromFile
-
--- | Just an alias with explicit type.
-loadDocuments   :: FilePath -> IO (SmallDocuments FunctionInfo)
-loadDocuments   = loadFromFile
-
--- | Just an alias with explicit type.
-loadPkgDocs     :: FilePath -> IO (SmallDocuments PackageInfo)
-loadPkgDocs     = loadFromFile
 
 -- | Init Hayoo!
 hayooInit :: FilePath -> IO Application
@@ -155,19 +142,6 @@ hayooApplication midct env      = let p = params env in do
           -- Return the actual response
           return $ Response { status = 200, headers = [ ("Content-Type", mime) ], body = resp }
 
-
--- Read or use default value
-readDef                         :: Read a => a -> String -> a
-readDef d                       = fromMaybe d . readM
-
-getValDef                       :: [(String,String)] -> String -> String -> String
-getValDef l k d                 = fromMaybe d (lookup k l)
-
--- | Enable handling of parse errors from 'read'.
-readM                           :: (Read a, Monad m) => String -> m a
-readM s                         = case reads s of
-                                  [(x, "")] -> return x
-                                  _         -> fail "No parse"
 
 -- | Log a request to stdout.
 logRequest :: Env -> IO ()

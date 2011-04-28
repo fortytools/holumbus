@@ -18,10 +18,26 @@
 
 module Hayoo.Search.EvalSearch
     ( Core(..)
-    , isJson
+
+    , parseQuery
+    , genResult
+    , emptyResult
+
     , renderEmpty
     , renderResult
+
+    , isJson
+    , renderJson
+    , renderEmptyJson
+
     , decode
+
+    , readDef
+    , getValDef
+
+    , loadIndex
+    , loadDocuments
+    , loadPkgDocs
     )
 where
 
@@ -80,6 +96,8 @@ data Core = Core
           , packRank  :: !  RankTable
           }
 
+-- ------------------------------------------------------------
+
 -- | Weights for context weighted ranking.
 contextWeights          :: [(Context, Score)]
 contextWeights          = [ ("name",        0.9)
@@ -91,6 +109,35 @@ contextWeights          = [ ("name",        0.9)
                           , ("description", 0.2)
                           , ("normalized",  0.1)
                           ]
+
+-- ------------------------------------------------------------
+
+-- | Just an alias with explicit type.
+loadIndex       :: FilePath -> IO CompactInverted
+loadIndex       = loadFromFile
+
+-- | Just an alias with explicit type.
+loadDocuments   :: FilePath -> IO (SmallDocuments FunctionInfo)
+loadDocuments   = loadFromFile
+
+-- | Just an alias with explicit type.
+loadPkgDocs     :: FilePath -> IO (SmallDocuments PackageInfo)
+loadPkgDocs     = loadFromFile
+
+-- ------------------------------------------------------------
+
+-- Read or use default value
+readDef                         :: Read a => a -> String -> a
+readDef d                       = fromMaybe d . readM
+
+getValDef                       :: [(String,String)] -> String -> String -> String
+getValDef l k d                 = fromMaybe d (lookup k l)
+
+-- | Enable handling of parse errors from 'read'.
+readM                           :: (Read a, Monad m) => String -> m a
+readM s                         = case reads s of
+                                  [(x, "")] -> return x
+                                  _         -> fail "No parse"
 
 -- ------------------------------------------------------------
 
@@ -220,9 +267,18 @@ hayooFctRanking rt ws ts _ di dch
 genResult ::  Core -> Query -> StatusResult
 genResult idc q
       = let (fctRes, pkgRes) = curry makeQuery q idc in
-        let (fctCfg, pkgCfg) = (RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount, RankConfig (hayooPkgRanking (packRank idc)) wordRankByCount) in
-        let (fctRnk, pkgRnk) = (rank fctCfg fctRes, rank pkgCfg pkgRes) in
-        (msgSuccess fctRnk pkgRnk, fctRnk, pkgRnk, genModules fctRnk, genPackages fctRnk) -- Include a success message in the status
+        let (fctCfg, pkgCfg) = ( RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount
+                               , RankConfig (hayooPkgRanking (packRank idc))                                 wordRankByCount
+                               ) in
+        let (fctRnk, pkgRnk) = ( rank fctCfg fctRes
+                               , rank pkgCfg pkgRes
+                               ) in
+        ( msgSuccess fctRnk pkgRnk
+        , fctRnk
+        , pkgRnk
+        , genModules fctRnk
+        , genPackages fctRnk
+        ) -- Include a success message in the status
 
 -- | Generate a success status response from a query result.
 msgSuccess              :: Result FunctionInfo -> Result PackageInfo -> String

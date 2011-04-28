@@ -21,12 +21,20 @@ module Hayoo.Snap.Extension.HayooState
   , hayooInitializer
   ) where
 
-import           Control.Monad.Reader
+import Control.Monad.Reader
 
-import           Snap.Extension
-import           Snap.Types
+import Hayoo.IndexTypes                 ( buildRankTable )
+import Hayoo.Search.EvalSearch
+import Hayoo.Search.Pages.Template      ( makeTemplate )
 
-import           Hayoo.Search.Application
+import Holumbus.Index.Common
+
+import Snap.Extension
+import Snap.Types
+
+import System.IO                        ( stderr
+                                        , hPutStrLn
+                                        )
 
 ------------------------------------------------------------------------------
 -- | Your application's state must include a 'TimerState' in order for your
@@ -76,10 +84,48 @@ instance InitializerState HayooState where
 hayooInitializer :: Initializer HayooState
 hayooInitializer = liftIO getHayooInitialState >>= mkInitializer . HayooState
 
-getHayooInitialState	:: IO Core
+------------------------------------------------------------------------------
+
+ixBase          :: FilePath
+ixBase          = "./lib"
+
+getHayooInitialState    :: IO Core
 getHayooInitialState
-    = do
-      return $ Core undefined undefined undefined undefined undefined undefined
+  = do
+    idx  <- loadIndex     hayooIndex
+    infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
+
+    doc  <- loadDocuments hayooDocs
+    infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
+    infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs doc) ++ " functions and types")
+
+    pidx <- loadIndex     hackageIndex
+    infoM "Hayoo.Main" ("Hackage index loaded from file " ++ show hackageIndex)
+
+    pdoc <- loadPkgDocs   hackageDocs
+    infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
+    infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
+
+    prnk <- return $ buildRankTable pdoc
+    infoM "Hayoo.Main" ("Hackage package rank table computed")
+
+    tpl  <- return $ makeTemplate (sizeDocs pdoc) (sizeDocs doc)
+
+    return $ Core
+             { index      = idx
+             , documents  = doc
+             , pkgIndex   = pidx
+             , pkgDocs    = pdoc
+             , template   = tpl
+             , packRank   = prnk
+             }
+  where
+  hayooIndex      = ixBase ++ "/ix.bin.idx"
+  hayooDocs       = ixBase ++ "/ix.bin.doc"
+  hackageIndex    = ixBase ++ "/pkg.bin.idx"
+  hackageDocs     = ixBase ++ "/pkg.bin.doc"
+
+  infoM m msg     = hPutStrLn stderr $ m ++ ": " ++ msg
 
 ------------------------------------------------------------------------------
 

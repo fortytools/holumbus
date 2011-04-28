@@ -12,11 +12,12 @@ module Hayoo.Snap.Site
   ) where
 
 import           Control.Applicative
-import           Control.Monad.IO.Class
+-- import           Control.Monad.IO.Class
 
+import qualified Data.Map                       as M
 import           Data.Maybe
-import qualified Data.Text.Encoding as T
-import qualified Data.Text          as T
+import qualified Data.Text.Encoding             as T
+import qualified Data.Text                      as T
 
 import           Snap.Extension.Heist
 import           Snap.Util.FileServe
@@ -24,10 +25,33 @@ import           Snap.Types
 
 import           Text.Templating.Heist
 
+import           Hayoo.Search.EvalSearch        ( Core
+                                                -- , template
+                                                , getValDef
+                                                -- , readDef
+                                                , renderJson
+                                                , renderEmptyJson
+                                                , parseQuery
+                                                , genResult
+                                                , emptyResult
+                                                )
+
 import           Hayoo.Snap.Extension.Timer
 import           Hayoo.Snap.Extension.HayooState
 import           Hayoo.Snap.Application
 
+
+------------------------------------------------------------------------------
+-- | The main entry point handler.
+
+site :: Application ()
+site = route [ ("/",            index)
+             , ("/echo/:stuff", echo)
+             -- , ("/hayoo.html",  hayooHtml)
+             , ("/hayoo.json",  hayooJson)
+             ]
+       <|> serveDirectory "hayoo"
+       <|> serveDirectory "resources/static"
 
 ------------------------------------------------------------------------------
 -- | Renders the front page of the sample site.
@@ -59,29 +83,45 @@ echo = do
 ------------------------------------------------------------------------------
 -- | Render test page
 
-testpage :: Application ()
-testpage = do
+hayooJson :: Application ()
+hayooJson = do
     pars <- getParams
     core <- hayooCore
-    res  <- liftIO (evalQuery pars core) 
     putResponse myResponse
-    writeText (T.pack $ show $ res)
+    writeText (T.pack $ evalJsonQuery (toStringMap pars) core)
   where
-  myResponse = setContentType "text/plain"
-	       . setResponseCode 200
-	       $ emptyResponse
+  myResponse = setContentType "application/json; charset=utf-8"
+               . setResponseCode 200
+               $ emptyResponse
+  toStringMap   = map (uncurry tos) . M.toList
+      where
+      tos k a   = (            T.unpack . T.decodeUtf8  $ k
+                  , concatMap (T.unpack . T.decodeUtf8) $ a
+                  )
 
-  evalQuery qm core
-      = return qm
+evalJsonQuery :: [(String, String)] -> Core -> String
+evalJsonQuery p idct
+    | null request      = renderEmptyJson
+    | otherwise         = renderResult
+    where
+    request =               getValDef p "query"  ""
+
+    {- not used for json output
+    start   = readDef 0    (getValDef p "start"  "")
+    static  = readDef True (getValDef p "static" "")
+    tmpl    = template idct
+    -}
+
+    renderResult        = renderJson
+                          . either emptyRes (genResult idct)
+                          . parseQuery
+                          $ request
+        where
+        emptyRes msg    = ( tail . dropWhile ((/=) ':') $ msg
+                          , emptyResult
+                          , emptyResult
+                          , []
+                          , []
+                          )
 
 ------------------------------------------------------------------------------
--- | The main entry point handler.
-
-site :: Application ()
-site = route [ ("/",            index)
-             , ("/echo/:stuff", echo)
-	     , ("/test",        testpage)
-             ]
-       <|> serveDirectory "hayoo"
-       <|> serveDirectory "resources/static"
-
