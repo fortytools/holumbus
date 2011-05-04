@@ -29,7 +29,7 @@ executable w3wIndexer
                 , W3W.URIConfig
 
   build-depends: base                   >= 4   && < 5
-               , Holumbus-Searchengine  >= 1   && < 2
+               , Holumbus-Searchengine  >= 1.0.1 && < 2
                , binary                 >= 0.5 && < 1
                , bytestring             >= 0.9 && < 1
                , bzlib                  >= 0.4 && < 1
@@ -61,38 +61,25 @@ executable w3wIndexer
   extensions:
 
 -- ------------------------------------------------------------
--- 
--- executable w3wSearch
---   main-is:      W3WSearch.hs
--- 
---   other-modules:  W3W.FunctionInfo
---                 , W3W.IndexTypes
---                 , W3W.PackageInfo
---                 , W3W.PackageRank
---                 , W3W.Search.Application
---                 , W3W.Search.Common
---                 , W3W.Search.HTML
---                 , W3W.Search.JSON
---                 , W3W.Search.Pages.Static
---                 , W3W.Search.Pages.Template
---                 , W3W.Search.Parser
---                 , W3W.Signature
--- 
---   build-depends: base                      >= 4   && < 5
---                , Holumbus-Searchengine     >= 1   && < 2
---                , hack                      >= 2009.10.30
---                , hack-contrib              >= 2010.9.28
---                , hack-handler-simpleserver >= 0.2 && < 1
---                , hslogger                  >= 1   && < 2
---                , hxt-unicode               >= 9   && < 10
---                , json                      >= 0.4 && < 1
---                , text                      >= 0.7 && < 1
---                , xhtml-combinators         >= 0.2 && < 1
--- 
---   hs-source-dirs: src
--- 
---   ghc-options: -threaded -Wall -funbox-strict-fields
--- 
---   extensions:
--- 
+
+executable w3wSimpleSearch
+  main-is:      W3WSimpleSearch.hs
+
+  other-modules:  W3W.IndexTypes
+                , W3W.IndexConfig
+                , W3W.PageInfo
+                , W3W.URIConfig
+
+  build-depends: base                      >= 4   && < 5
+               , Holumbus-Searchengine     >= 1   && < 2
+               , editline                  >= 0.2 && < 1
+               , hxt-unicode               >= 9   && < 10
+               , text                      >= 0.7 && < 1
+
+  hs-source-dirs: src
+
+  ghc-options: -threaded -Wall -funbox-strict-fields
+
+  extensions:
+
 -- ------------------------------------------------------------

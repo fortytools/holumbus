@@ -1,9 +1,9 @@
 name:          Holumbus-Searchengine
-version:       1.0.0
+version:       1.0.1
 license:       MIT
 license-file:  LICENSE
-author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
-copyright:     Copyright (c) 2007 - 2011 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Huebel
+author:        Sebastian M. Gauck, Timo B. Huebel, Uwe Schmidt
+copyright:     Copyright (c) 2007 - 2011 Uwe Schmidt, Sebastian M. Gauck and Timo B. Huebel
 maintainer:    Timo B. Huebel <tbh@holumbus.org>
 stability:     experimental
 category:      Text, Data
@@ -77,6 +77,7 @@ library
     Holumbus.Query.Fuzzy
     Holumbus.Query.Intermediate
     Holumbus.Query.Language.Grammar
+    Holumbus.Query.Language.Parser
     Holumbus.Query.Processor
     Holumbus.Query.Ranking
     Holumbus.Query.Result

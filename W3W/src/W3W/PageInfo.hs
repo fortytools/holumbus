@@ -10,15 +10,15 @@ module W3W.PageInfo
     )
 where
 import           Control.DeepSeq
-import 		 Control.Monad			( liftM3 )
+import           Control.Monad                  ( liftM3 )
 
 import           Data.Binary                    ( Binary(..) )
 import qualified Data.Binary                    as B
 import           Data.List                      ( isPrefixOf )
 
-import		 Holumbus.Crawler
+import           Holumbus.Crawler
 
-import		 Text.XML.HXT.Core
+import           Text.XML.HXT.Core
 
 import           W3W.Extract
 
@@ -26,39 +26,39 @@ import           W3W.Extract
 
 -- | Additional information about a function.
 
-data PageInfo 		        = PageInfo 
-    				  { modified 	:: String      		-- ^ The last modified timestamp
-				  , author 	:: String       	-- ^ The author
+data PageInfo                   = PageInfo 
+                                  { modified    :: String               -- ^ The last modified timestamp
+                                  , author      :: String               -- ^ The author
                                   , content     :: String               -- ^ The first few lines of the page contents
-				  } 
-				  deriving (Show, Eq)
+                                  } 
+                                  deriving (Show, Eq)
 
-mkPageInfo 			:: String -> String -> String -> PageInfo
-mkPageInfo			= PageInfo
+mkPageInfo                      :: String -> String -> String -> PageInfo
+mkPageInfo                      = PageInfo
 
 instance XmlPickler PageInfo where
-    xpickle 			= xpWrap (fromTuple, toTuple) xpFunction
-	where
-	fromTuple (m, a, c)
-			 	= PageInfo m a c
-	toTuple (PageInfo m a c)
-				= (m, a, c)
+    xpickle                     = xpWrap (fromTuple, toTuple) xpFunction
+        where
+        fromTuple (m, a, c)
+                                = PageInfo m a c
+        toTuple (PageInfo m a c)
+                                = (m, a, c)
 
-	xpFunction		= xpTriple xpModified xpAuthor xpContent
-	    where 							-- We are inside a doc-element, and everything is stored as attribute.
-	    xpModified 		= xpAttr "modified" xpText0
-	    xpAuthor     	= xpAttr "author"   xpText0
-	    xpContent 		= xpAttr "content"  xpText0
+        xpFunction              = xpTriple xpModified xpAuthor xpContent
+            where                                                       -- We are inside a doc-element, and everything is stored as attribute.
+            xpModified          = xpAttr "modified" xpText0
+            xpAuthor            = xpAttr "author"   xpText0
+            xpContent           = xpAttr "content"  xpText0
 
 instance NFData PageInfo where
-    rnf (PageInfo m a c)	= rnf m `seq` rnf a `seq` rnf c `seq` ()
+    rnf (PageInfo m a c)        = rnf m `seq` rnf a `seq` rnf c `seq` ()
 
 instance B.Binary PageInfo where
     put (PageInfo m a c)
-			 	= put m >> put a >> put c
-    get 			= do
-				  r <- liftM3 PageInfo get get get
-				  rnf r `seq` return r
+                                = put m >> put a >> put c
+    get                         = do
+                                  r <- liftM3 PageInfo get get get
+                                  rnf r `seq` return r
 
 -- ------------------------------------------------------------
 --
@@ -68,7 +68,7 @@ instance B.Binary PageInfo where
 
 w3wGetTitle                     :: IOSArrow XmlTree String
 w3wGetTitle                     = fromLA $
-                                  ( getHtmlTitle		-- title contents
+                                  ( getHtmlTitle                -- title contents
                                     >>>
                                     isA (not . null)    -- if empty, take the URI as title
                                   )
@@ -86,7 +86,7 @@ w3wGetPageInfo                  = ( fromLA (getModified `withDefault` "")
                                   (\ (m, (a, c)) -> mkPageInfo m a c)
 
 getModified                     :: LA XmlTree String
-getModified                     = ( getAttrValue0 "http-last-modified"		-- HTTP header
+getModified                     = ( getAttrValue0 "http-last-modified"          -- HTTP header
                                     `orElse`
                                     ( getMetaAttr "date" >>> isA (not . null) ) -- meta tag date (typo3)
                                     `orElse`
@@ -100,7 +100,7 @@ getAuthor                       = getAuthorFromURI
                                   `orElse`
                                   getAuthorFromContent
     where
-    getAuthorFromURI		= single
+    getAuthorFromURI            = single
                                   ( getURI
                                     >>>
                                     arrL uri2Words
@@ -111,11 +111,11 @@ getAuthor                       = getAuthorFromURI
                                     >>>
                                     isA (not . null)
                                   )
-    getAuthorFromContent        = none		-- not yet implemented
+    getAuthorFromContent        = none          -- not yet implemented
 
 getPageCont                     :: IOSArrow XmlTree String
 getPageCont                     = getHtmlText
                                   >>^
-                                  (words >>> unwordsCont 100)	-- take the first 100 words from content
+                                  (words >>> unwordsCont 100)   -- take the first 100 words from content
 
 -- ------------------------------------------------------------
