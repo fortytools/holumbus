@@ -36,6 +36,7 @@ executable w3wIndexer
                , containers             >= 0.2 && < 1
                , deepseq                >= 1.1 && < 2
                , filepath               >= 1   && < 2
+               , haskeline              >= 0.6.4
                , haskell98              >= 1   && < 2
                , hxt                    >= 9.1 && < 10
                , hxt-cache              >= 9   && < 10

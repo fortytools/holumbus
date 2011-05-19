@@ -12,7 +12,9 @@
 
 module Main where
 
+import           Control.Exception
 import           Control.Monad          ( when )
+
 import           Data.Function
 import qualified Data.List              as L
 import qualified Data.Map               as M
@@ -33,7 +35,8 @@ import           Holumbus.Query.Fuzzy
 import           System.IO
 import           System.Environment
 import           System.Exit
-import           System.Console.Editline.Readline
+import           System.Console.Haskeline
+import           System.Console.Haskeline.IO
 import           System.Console.GetOpt
 import           System.CPUTime
 
@@ -129,7 +132,13 @@ startupLocal v (Index idxFile) (Documents docFile) =
   verb v $ putStrLn "Loading documents..."
   doc <- loadDocuments docFile
   verb v $ putStrLn ("Loaded " ++ show (sizeDocs doc) ++ " documents ")
-  answerQueries idx doc v $ localQuery idx doc
+  bracketOnError
+    (initializeInput defaultSettings)
+    cancelInput
+    (\hd -> (answerQueries hd idx doc v $ localQuery idx doc)
+            >>
+            closeInput hd
+    )
 
 startupLocal _ _ _ = usage ["Internal error!\n"]
 
@@ -184,16 +193,20 @@ options = [ Option "i" ["index"] (ReqArg Index "FILE") "Loads index from FILE"
 
 -- ------------------------------------------------------------
 
-answerQueries :: CompactInverted -> SmallDocuments PageInfo -> Bool -> (Query -> IO (Result a)) -> IO ()
-answerQueries idx doc verbose f =
+answerQueries                      :: InputState ->
+                                      CompactInverted ->
+                                      SmallDocuments PageInfo ->
+                                      Bool ->
+                                          (Query -> IO (Result a)) -> IO ()
+answerQueries hd idx doc verbose f = 
     do
-    q <- readline ("Enter query (type :? for help) > ")
-    if isNothing q
-      then answerMore
-      else let n = fst $ utf8ToUnicode (fromJust q) in
-           do
-           addHistory n
+    q <- queryInput hd (getInputLine "Enter query (type :? for help) > ")
+    when (isJust q)
+         (do
+           let n = fst $ utf8ToUnicode (fromJust q)
            answerThis n
+         )
+    answerMore
     where
     verb'
         = when verbose
@@ -214,14 +227,13 @@ answerQueries idx doc verbose f =
         = putStrLn $ "unknown command: :" ++ q
 
     answerMore
-        = answerQueries idx doc verbose f
+        = answerQueries hd idx doc verbose f
 
     answerThis ""
-        = answerMore
+        = return ()
     answerThis (':' : q)
         = do
           internal q
-          answerMore
     answerThis q
         = do
           verb' $ putStrLn ("query: \n" ++ (show pr) ++ "\n")

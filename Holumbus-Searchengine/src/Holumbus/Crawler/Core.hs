@@ -131,12 +131,16 @@ crawlerCheckSaveState   = do
 crawlerSaveState        :: Binary r => CrawlerAction a r ()
 crawlerSaveState        = do
                           n1 <- getState theNoOfDocs
-                          fn <- getConf theSavePathPrefix
-                          let fn' = mkTmpFile 10 fn n1
-                          noticeC "crawlerSaveState" [show n1, "documents into", show fn']
-                          putState theNoOfDocsSaved n1
-                          saveCrawlerState fn'
-                          noticeC "crawlerSaveState" ["saving state finished"]
+                          n0 <- getState theNoOfDocsSaved
+                          when (n1 > n0)           -- else state has already been saved, don't do it twice
+                               ( do
+                                 fn <- getConf theSavePathPrefix
+                                 let fn' = mkTmpFile 10 fn n1
+                                 noticeC "crawlerSaveState" [show n1, "documents into", show fn']
+                                 putState theNoOfDocsSaved n1
+                                 saveCrawlerState fn'
+                                 noticeC "crawlerSaveState" ["saving state finished"]
+                               )
 
 -- ------------------------------------------------------------
 
