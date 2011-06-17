@@ -127,6 +127,7 @@ htmlTextNode text = X.TextNode $ T.pack $ text
 
 ------------------------------------------------------------------------------
 -- | creates a HTML Info Node
+
 htmlLink :: String -> String -> String -> X.Node
 htmlLink cssClass href text = 
   X.Element (T.pack $ "a") 
@@ -134,6 +135,17 @@ htmlLink cssClass href text =
       (T.pack $ "class", T.pack $ cssClass)
     ]
     [htmlTextNode text]
+
+------------------------------------------------------------------------------
+-- | creates a HTML Info Node
+
+htmlLink' :: String -> String -> X.Node -> X.Node
+htmlLink' cssClass href xNode = 
+  X.Element (T.pack $ "a") 
+    [ (T.pack $ "href", T.pack $ href),
+      (T.pack $ "class", T.pack $ cssClass)
+    ]
+    [xNode]
 
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item containing a List with the link to the document found, the teasertext and the ranking-score
@@ -146,10 +158,11 @@ htmlLink cssClass href text =
 -- |   </ul>
 -- | </li>
 docHitToListItem :: SRDocHit -> X.Node
-docHitToListItem docHits = htmlListItem "searchResult_li" $ subList docHits -- TODO: This binding for `docHits' shadows the existing binding imported from Holumbus.Query.Result at src/Site.hs:37:1-28
+docHitToListItem docHits = htmlListItem "searchResult_li" $ 
+  htmlLink' "ul" (srUri docHits) $ subList docHits -- TODO: This binding for `docHits' shadows the existing binding imported from Holumbus.Query.Result at src/Site.hs:37:1-28
   where
   subList x = htmlList "searchResult_ul" $ subListItems x
-  subListItems x = [htmlListItem "link" $ htmlLink "link_a_href" (srUri x) (srTitle x)]
+  subListItems x = [htmlListItem "link" $ htmlTextNode (srTitle x)]
                 ++ [htmlListItem "author_modified" $ htmlTextNode $ (author $ srPageInfo x) ++ " (" ++(modified $ srPageInfo x) ++ ")"]
                 ++ [htmlListItem "content" $ htmlTextNode $ mkTeaserText $ srPageInfo x]
 --                ++ [htmlListItem "dates" $ htmlTextNode $ dates $ srPageInfo x]
