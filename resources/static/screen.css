@@ -1,0 +1,157 @@
+html {
+  background: #182E7A url(bg_blue.gif) repeat-x;
+}
+
+body {
+  margin-left: auto;
+  margin-right: auto;
+  width: 910px;
+  height: 720px;
+  background-color: #FFFFFF;
+  border: 1px solid #777777;
+  color: #3369AA;
+  font-family: Tahoma, sans-serif;
+}
+
+a {
+  text-decoration: none;
+  color: #3369AA;
+}
+
+input {
+  border-color: #3369AA;
+  border-style: groove;
+}
+
+#header {
+  width: 834px;
+  height: 90px;
+  background: #FFFFFF url(FH_Banner7.jpg) no-repeat top left;
+  border-right: 1px solid #1F2A6A;
+}
+
+#content {
+  width: 795px;
+  height: 585px;
+  float: left;
+}
+
+#content ul * {
+  list-style-type: none;
+}
+
+#content ul li ul {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+#content ul li ul:hover
+{
+  background-color: #DDDDDD;
+}
+
+#result {
+  height: 504px;
+}
+
+.suggest_link {
+  background-color: #FFFFFF;
+}
+
+.suggest_link_over {
+  background-color: #DDDDDD;
+}
+
+#suggestion div {
+  padding-left: 5px;
+  padding-right: 5px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.info {
+  padding-top: 5px;
+  padding-bottom: 10px;
+  font-size: 8pt;
+  color: black;  
+}
+
+.author_modified {
+  font-size: 8pt;
+  color: grey;  
+}
+
+.content {
+  font-size: 8pt;
+  color: black;  
+}
+
+.dates {
+  font-size: 8pt;
+  color: black;  
+}
+
+.link {
+  font-size: 10pt;
+}
+
+.score {
+  font-size: 8pt;
+  color: red;
+}
+
+.pager {
+  font-size: 10pt;
+}
+
+#form {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 20px;
+  width: 405px;
+}
+
+#query {
+  width: 300px;
+}
+
+#button {
+  width: 100px;
+}
+
+#suggestion
+{
+  position: absolute;
+  background-color: #FFFFFF;
+  width: 297px;
+  border: 1px solid #3369AA;
+  visibility: hidden;
+  font-size: 10pt;
+}
+
+#sider {
+  width: 75px;
+  height: 605px;
+  background: #FFFFFF url(rightgradient2.jpg) no-repeat top right;
+  float: right;
+}
+
+#pager {
+  text-align: center;
+}
+
+#footer {
+  background-color: #1E326F;
+  border-top: 1px solid #777777;
+  color: #FFFFFF;
+  font-size: 9pt;
+  padding-right: 10px;
+  text-align: right;
+  width: 900px;
+  height: 19px;
+  float: right;
+  padding-top: 5px;
+}
+
