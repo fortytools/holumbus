@@ -90,7 +90,12 @@ input {
 
 .dates {
   font-size: 8pt;
-  color: black;  
+  color: green;  
+}
+
+.date_info {
+  font-size: 8pt;
+  color: red;  
 }
 
 .link {

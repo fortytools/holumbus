@@ -27,6 +27,9 @@ import Control.Monad.Trans
 import W3WSimpleSearch
 import qualified  Text.XmlHtml as X
 import Prelude as P
+import Data.Map as M
+import Data.IntSet as IS
+import Text.Regex (splitRegex, mkRegex)
 import IndexTypes
 import Text.JSON hiding (Result)
 
@@ -158,16 +161,39 @@ htmlLink' cssClass href xNode =
 -- |   </ul>
 -- | </li>
 docHitToListItem :: SRDocHit -> X.Node
-docHitToListItem docHits = htmlListItem "searchResult_li" $ 
-  htmlLink' "ul" (srUri docHits) $ subList docHits -- TODO: This binding for `docHits' shadows the existing binding imported from Holumbus.Query.Result at src/Site.hs:37:1-28
+docHitToListItem docHit = htmlListItem "searchResult_li" $ 
+  htmlLink' "ul" (srUri docHit) $ subList
   where
-  subList x = htmlList "searchResult_ul" $ subListItems x
-  subListItems x = [htmlListItem "link" $ htmlTextNode (srTitle x)]
-                ++ [htmlListItem "author_modified" $ htmlTextNode $ (author $ srPageInfo x) ++ " (" ++(modified $ srPageInfo x) ++ ")"]
-                ++ [htmlListItem "content" $ htmlTextNode $ mkTeaserText $ srPageInfo x]
---                ++ [htmlListItem "dates" $ htmlTextNode $ dates $ srPageInfo x]
-                ++ [htmlListItem "score" $ htmlTextNode $ show $ srScore x]
-  mkTeaserText x = (++ "...") $ L.unwords $ L.take numTeaserWords $ L.words $ content $ x
+  subList = htmlList "searchResult_ul" subListItems
+  subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
+              ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit) 
+                ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
+              ++ [htmlListItem "content" $ htmlTextNode teaserText]
+              ++ dateContexts stringOfDateContexts listOfMatchedPositions
+              ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]  
+  teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
+  stringOfDateContexts = dates . srPageInfo $ docHit
+  listOfMatchedPositions = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty dateContextMap
+  dateContextMap = M.lookup "dates" $ srContextMap docHit
+  listOfMaps2listOfPositions [] = []
+  listOfMaps2listOfPositions l = IS.toList . snd . L.head $ l
+ 
+------------------------------------------------------------------------------
+-- | convert the contexts of a date to html-list-items
+-- | i.e. given a stringOfDateContexts = "...date1...///...date2...///...date3...///...date4..."
+-- | and a listOfMatchedPositions = [0,2]
+-- | the result will be 
+-- | <li class="dates">...date1...</li>
+-- | <li class="dates">...date3...</li>
+dateContexts :: String -> [Int] -> [X.Node]
+dateContexts _ [] = []
+dateContexts stringOfDateContexts listOfMatchedPositions = P.map str2htmlListItem listOfMatchedContexts
+  where
+  str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
+  listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
+  getDateContextAt position = listOfDateContexts !! position
+  listOfDateContexts = explodeStr stringOfDateContexts  
+  explodeStr = splitRegex (mkRegex "\\s*(///)+\\s*")
 
 ------------------------------------------------------------------------------
 -- | creates the HTML info text describing the search result (i.e. "Found 38 docs in 0.0 sec.")
@@ -253,6 +279,7 @@ processquery = do
 resultSplice :: Int -> Int -> SearchResultDocs -> Splice Application
 resultSplice takeHits dropHits searchResultDocs = do
   let items = P.map docHitToListItem (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
+--  liftIO $ P.putStrLn . show . (member "dates") . srContextMap . L.head . srDocHits $ searchResultDocs
   let infos = [docHitsMetaInfo searchResultDocs]
   return $ [htmlList "searchResultList" (infos ++ items)]
 

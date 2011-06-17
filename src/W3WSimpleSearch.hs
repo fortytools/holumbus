@@ -59,6 +59,8 @@ data SRDocHit = SRDocHit
   , srScore  :: Float
   , srPageInfo :: PageInfo
   , srUri    :: String
+  , srContextMap  :: M.Map Context DocWordHits -- Context: "title", "keywords", "content", "dates", ...
+                                               -- DocWordHits: Map Word Positions
   }
 
 data SRWordHit = SRWordHit
@@ -128,7 +130,7 @@ getDocSearchResults q f =
 			where
 			pr = parseQuery q
 			printError err = do 
-				return $ SearchResultDocs 0.0 0 [SRDocHit ("problem parsing query: " ++ err) 0.0 emptyPageInfo ""]
+				return $ SearchResultDocs 0.0 0 [SRDocHit ("problem parsing query: " ++ err) 0.0 emptyPageInfo "" M.empty]
 			makeQuery pq = do
 				t1 <- getCPUTime
 				r <- f pq -- This is where the magic happens!
@@ -163,8 +165,8 @@ getDocHits h = do
 		docData = (L.reverse $ L.sortBy (compare `on` (docScore . fst . snd)) $ IM.toList h)
 
 docInfoToSRDocHit :: (DocId, (DocInfo PageInfo, DocContextHits)) -> SRDocHit
-docInfoToSRDocHit (_, ((DocInfo (Document title uri Nothing) score), _)) = SRDocHit title score emptyPageInfo uri
-docInfoToSRDocHit (_, ((DocInfo (Document title uri (Just pageInfo)) score), _)) = SRDocHit title score pageInfo uri
+docInfoToSRDocHit (_, ((DocInfo (Document title uri Nothing) score), contextMap)) = SRDocHit title score emptyPageInfo uri contextMap
+docInfoToSRDocHit (_, ((DocInfo (Document title uri (Just pageInfo)) score), contextMap)) = SRDocHit title score pageInfo uri contextMap
 
 
 -- | convert Word-Completions to SearchResult
