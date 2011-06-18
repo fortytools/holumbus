@@ -57,13 +57,14 @@ fhwRefs                         = simpleFollowRef'
                                                      , "praktika/SoftwarePraktikum/index.html"
                                                      , "praktika/SoftwarePraktikum/20[1-9][0-9][sw]s/index.html"
                                                      , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
-                                                     ]
+                                                     ]                                    
                                             , "~eg/" ++ htmlPaths       -- Martin Egges pages
                                             ]
                                   , ptlHome ++
                                             alternatives
                                             [ ".*/news/" ++ htmlPaths   -- for test: the ptl news pages added
                                             ]
+
                                   ]
                                   ( [ ".*[?].*"                         -- no URIs with parameters
                                     ]

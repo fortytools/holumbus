@@ -51,6 +51,11 @@ hitsPerPage = 5
 -- | number of words contained in the teaser text
 numTeaserWords :: Int
 numTeaserWords = 30
+
+------------------------------------------------------------------------------
+-- | number of word completions send in response to the Ajax request
+numDisplayedCompletions :: Int
+numDisplayedCompletions = 20
 ------------------------------------------------------------------------------
 -- |
 -- | some little helpers
@@ -188,17 +193,23 @@ docHitToListItem docHit = htmlListItem "searchResult_li" $
 dateContexts :: String -> [Int] -> [X.Node]
 dateContexts _ [] = []
 dateContexts "" _ = []
-dateContexts stringOfDateContexts listOfMatchedPositions = P.map str2htmlListItem listOfMatchedContexts
-  where
-  str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
-  listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
-  getDateContextAt position = 
-    if (position) > ((L.length listOfDateContexts) - 1)
-    then "bad index: " ++ (show $ position) ++ " in: " ++ stringOfDateContexts
-    else listOfDateContexts !! (position)
---    else (show $ position-1) ++ " in: " ++ stringOfDateContexts --listOfDateContexts !! (position-1)
-  listOfDateContexts = explodeStr stringOfDateContexts  
-  explodeStr = splitRegex (mkRegex "\\s*(///)+\\s*")
+dateContexts stringOfDateContexts listOfMatchedPositions = 
+  (P.map str2htmlListItem listOfMatchedContexts) 
+--  ++ [htmlListOfDateContexts] -- TODO: einkommentieren zum Debuggen, damit alle date-Kontexte einer Seite angezigt werden
+--  ++ [htmlListItem "matched_positions" $ htmlTextNode $ L.unwords $ P.map show listOfMatchedPositions] -- TODO: einkommentieren, damit die Posiionen der Fundstellen angezeigt werden
+    where
+    str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
+    listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
+    getDateContextAt position = 
+      if (position') > ((L.length listOfDateContexts) - 1)
+      then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts
+      else "..." ++ (listOfDateContexts !! position') ++ "..."
+        where
+        position' = position - 1
+    listOfDateContexts = fromJson $ decodeStrict stringOfDateContexts
+    fromJson (Ok a) = a
+    fromJson (Error s) = [s]
+    htmlListOfDateContexts = htmlList "date_contexts" $ P.map str2htmlListItem listOfDateContexts
 
 ------------------------------------------------------------------------------
 -- | creates the HTML info text describing the search result (i.e. "Found 38 docs in 0.0 sec.")
@@ -317,7 +328,7 @@ completions = do
   queryFuncIdx <- queryFunctionIdx
   searchResultWords <- liftIO $ getWordSearchResults query $ queryFuncIdx
   putResponse myResponse
-  writeText (T.pack $ toJSONArray 20 $ srWordHits searchResultWords)
+  writeText (T.pack $ toJSONArray numDisplayedCompletions $ srWordHits searchResultWords)
   where
   myResponse = setContentType "text/plain; charset=utf-8" . setResponseCode 200 $ emptyResponse
 

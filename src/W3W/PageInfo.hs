@@ -19,6 +19,7 @@ import		 		    Text.XML.HXT.Core
 import           	W3W.Extract
 import	          W3W.Date as D
 import        		Text.Regex.XMLSchema.String (tokenizeExt)
+import        		Text.JSON
 
 
 -- ------------------------------------------------------------
@@ -82,8 +83,8 @@ w3wGetPageInfo                  = ( fromLA (getModified `withDefault` "")
                                     fromLA (getAuthor `withDefault` "")
                                     &&&
                                     getPageCont
-									&&& 
-									getTeaserTextDates
+									                  &&& 
+									                  getTeaserTextDates
                                   )
                                   >>^
                                   (\ (m, (a, (c, d))) -> mkPageInfo m a c d)
@@ -117,24 +118,32 @@ getAuthor                       = getAuthorFromURI
     getAuthorFromContent        = none		-- not yet implemented
 
 
-getPageCont                     :: IOSArrow XmlTree String
-getPageCont                     = getHtmlText
-                                  >>^
-                                  (words >>> unwordsCont 50)	-- take the first 50 words from content
+getPageCont :: IOSArrow XmlTree String
+getPageCont = getHtmlText
+              >>^
+              (words >>> unwordsCont 50)	-- take the first 50 words from content
 
+-- TODO: Problem: Wörter, die ein Datum umgeben können ebenfalls Datum sein. 
+-- Ein Datum, welches zu den umgebenden Wörtern eines anderen Datums gehört, 
+-- kann anschließend selbst nicht mehr als Datum gefunden werden.
 surroundByWords :: Int -> String -> String
-surroundByWords number expr = "([^ ]{0,20}( )?){0,"++(show number)++"}" 
+surroundByWords number expr = "([^0-9 ]{0,20}( )?){0,"++(show number)++"}" 
 								++ expr
-								++ "(( )?[^ ]{0,20}){0,"++(show number)++"}"
+								++ "(( )?[^0-9 ]{0,20}){0,"++(show number)++"}"
 
-tokenizeTeaserTextDates        :: String -> [String]
-tokenizeTeaserTextDates s      = tokenizeExt (surroundByWords 3 (D.datesRE s)) s
+tokenizeTeaserTextDates   :: String -> [String]
+tokenizeTeaserTextDates s = (tokenizeExt (surroundByWords 3 re) s) 
+--                          ++ [re]  -- TODO: Zum Debuggen einkommentieren, damit der Reguläre Ausdruck mit ausgegeben wird
+                            where
+                              re = D.datesRE s
 
 getTeaserTextDates :: IOSArrow XmlTree String
 getTeaserTextDates = getHtmlPlainText
-						                  >>^
-						                  (words >>> unwords >>> tokenizeTeaserTextDates >>> (foldl (\ x y -> x ++ "///" ++ y) "") )
+  	                 >>^
+	                   (words >>> unwords >>> tokenizeTeaserTextDates >>> toJSONArray)
 
+toJSONArray :: [String] -> String
+toJSONArray strings = encodeStrict $ showJSONs strings
 
 -- ------------------------------------------------------------
 

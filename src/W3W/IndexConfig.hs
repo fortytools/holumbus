@@ -16,11 +16,11 @@ import           W3W.Extract
 
 w3wIndexContextConfig           :: [IndexContextConfig]
 w3wIndexContextConfig           = [ 
-									ixHeadlines
-                                  , ixURI
-                                  , ixURIClass
-                                  ,	ixDates
-								  , ixContent
+--									                  ixHeadlines
+--                                  , ixURI
+--                                  , ixURIClass
+                                  	ixDates
+--                								  , ixContent
                                   ]
     where
     ixDefault                   = IndexContextConfig
@@ -29,6 +29,7 @@ w3wIndexContextConfig           = [
                                   , ixc_textToWords     = deleteNotAllowedChars >>> words
                                   , ixc_boringWord      = boringWord
                                   }
+{-
     ixHeadlines                 = ixDefault
                                   { ixc_name            = "headline"
                                   , ixc_collectText     = getHeadlines
@@ -45,17 +46,17 @@ w3wIndexContextConfig           = [
                                   , ixc_textToWords     = uri2Words >>> classifyURIword
                                   , ixc_boringWord      = null
                                   }
-
+-}
     ixDates                     = ixDefault
                                   { ixc_name            = "dates"
                                   , ixc_collectText     = getDates
                                   , ixc_textToWords     = tokenizeDates
                                   , ixc_boringWord      = null
                                   }
-
+{-
     ixContent                   = ixDefault
                                   { ixc_name            = "content"
                                   , ixc_collectText     = getContentText
                                   }
-
+-}
 -- -----------------------------------------------------------------------------    
