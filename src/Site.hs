@@ -187,11 +187,16 @@ docHitToListItem docHit = htmlListItem "searchResult_li" $
 -- | <li class="dates">...date3...</li>
 dateContexts :: String -> [Int] -> [X.Node]
 dateContexts _ [] = []
+dateContexts "" _ = []
 dateContexts stringOfDateContexts listOfMatchedPositions = P.map str2htmlListItem listOfMatchedContexts
   where
   str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
   listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
-  getDateContextAt position = listOfDateContexts !! position
+  getDateContextAt position = 
+    if (position) > ((L.length listOfDateContexts) - 1)
+    then "bad index: " ++ (show $ position) ++ " in: " ++ stringOfDateContexts
+    else listOfDateContexts !! (position)
+--    else (show $ position-1) ++ " in: " ++ stringOfDateContexts --listOfDateContexts !! (position-1)
   listOfDateContexts = explodeStr stringOfDateContexts  
   explodeStr = splitRegex (mkRegex "\\s*(///)+\\s*")
 

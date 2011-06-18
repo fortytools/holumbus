@@ -99,7 +99,7 @@ num            = "\\d+"
 
 -- the token types
 
-tokenRE         = foldr1 xor $
+tokenRE = foldr1 xor $
                  map (uncurry subex) $
                  [ ( "ddmmyyyy",    dayMonthYear )
                  , ( "ddMonthyyyy", dayD `s0` monthN `s0` (year `orr` year') )
@@ -116,7 +116,6 @@ tokenRE         = foldr1 xor $
                  , ( "word",        "[\\w\\d]+")
                  , ( "del",         "[^\\w\\d]+")
                  ]
-
 -- ------------------------------------------------------------
 
 type Token         = (String, String)
@@ -421,6 +420,7 @@ monthToM m
       monthAbr
 
 -- ------------------------------------------------------------
+
 {-
 
 t :: String
@@ -446,13 +446,14 @@ t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für d
 r = map _r . dateSearch' . tokenizeSubex tokenRE $ t
 d = map _d . dateSearch' . tokenizeSubex tokenRE $ t
 a =          dateSearch' . tokenizeSubex tokenRE $ t
-
 -}
 
 tt = tokenizeSubex tokenRE
 dd = map _d . dateSearch' . tt
 rr = map _r . dateSearch' . tt
 pp = map _p . dateSearch' . tt
+
+datesRE text = foldr (\ x y -> "("++x++")|("++y++")") "asdasdasd" $ filter (/="") $ map _r . dateSearch' . tokenizeSubex tokenRE $ text
 
 digits :: Int -> Int -> String
 digits numDigits number = if (number < 0) 

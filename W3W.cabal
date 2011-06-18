@@ -25,7 +25,6 @@ executable w3wIndexer
   other-modules:  W3W.IndexTypes
                 , W3W.IndexConfig
                 , W3W.Extract
-                , W3W.RegExpressions
                 , W3W.PageInfo
                 , W3W.URIConfig
 
@@ -91,7 +90,8 @@ executable webserver
     hxt-regex-xmlschema == 9.0.*,
     hxt-charproperties == 9.1.*,
     json >= 0.4 && < 1,
-    haskell98 == 1.1.0.*
+    haskell98 == 1.1.0.*,
+    regex-compat == 0.95.*
 
   extensions: TypeSynonymInstances MultiParamTypeClasses
 

@@ -10,14 +10,16 @@ module W3W.PageInfo
     )
 where
 import           	Control.DeepSeq
-import 		 		Control.Monad			( liftM4 )
+import 		 		    Control.Monad			( liftM4 )
 import           	Data.Binary                    ( Binary(..) )
 import qualified 	Data.Binary                    as B
 import           	Data.List                      ( isPrefixOf )
-import		 		Holumbus.Crawler
-import		 		Text.XML.HXT.Core
+import		 		    Holumbus.Crawler
+import		 		    Text.XML.HXT.Core
 import           	W3W.Extract
-import           	W3W.RegExpressions
+import	          W3W.Date as D
+import        		Text.Regex.XMLSchema.String (tokenizeExt)
+
 
 -- ------------------------------------------------------------
 
@@ -25,11 +27,11 @@ import           	W3W.RegExpressions
 
 data PageInfo = PageInfo 
     		  	{ modified 	:: String      		-- ^ The last modified timestamp
-				, author 	:: String       	-- ^ The author
-                , content   :: String           -- ^ The first few lines of the page contents
-                , dates     :: String           -- ^ The dates
-				} 
-				deriving (Show, Eq)
+			      	, author 	:: String       	-- ^ The author
+              , content   :: String           -- ^ The first few lines of the page contents
+              , dates     :: String           -- ^ The dates
+			      } 
+			      deriving (Show, Eq)
 
 mkPageInfo 			:: String -> String -> String -> String -> PageInfo
 mkPageInfo			= PageInfo
@@ -118,26 +120,18 @@ getAuthor                       = getAuthorFromURI
 getPageCont                     :: IOSArrow XmlTree String
 getPageCont                     = getHtmlText
                                   >>^
-                                  (words >>> unwordsCont 100)	-- take the first 100 words from content
+                                  (words >>> unwordsCont 50)	-- take the first 50 words from content
 
-{-
-getPageCont                     :: IOSArrow XmlTree String
-getPageCont                     = getHtmlText
-                                  >>^
-                                  (words >>> unwords 
-									>>> tokenize (surroundByWords 3 (deleteNotAllowedChars >>> words)) 
-									>>> (foldl (\ x y -> x ++ "///" ++ y) ""))
--}
 surroundByWords :: Int -> String -> String
 surroundByWords number expr = "([^ ]{0,20}( )?){0,"++(show number)++"}" 
 								++ expr
 								++ "(( )?[^ ]{0,20}){0,"++(show number)++"}"
 
 tokenizeTeaserTextDates        :: String -> [String]
-tokenizeTeaserTextDates         = tokenize $ surroundByWords 3 "20([0-9][0-9])"
+tokenizeTeaserTextDates s      = tokenizeExt (surroundByWords 3 (D.datesRE s)) s
 
-getTeaserTextDates                     :: IOSArrow XmlTree String
-getTeaserTextDates                     = getHtmlText
+getTeaserTextDates :: IOSArrow XmlTree String
+getTeaserTextDates = getHtmlPlainText
 						                  >>^
 						                  (words >>> unwords >>> tokenizeTeaserTextDates >>> (foldl (\ x y -> x ++ "///" ++ y) "") )
 

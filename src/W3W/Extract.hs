@@ -187,15 +187,6 @@ uri2Words			= tokenize "[^:/#?=.]+"
 tokenizeDates :: String -> [String]
 tokenizeDates = D.tokenizeDates
 
-{-
-tokenizeDates s = 	map transform $
-					normList $
-					map (matchSubex $ eval markableRE True) $
-					tokenize (eval markableRE False) s
-					where 
-						markableRE =  theDateExpression
--}
-
 
 -- ------------------------------------------------------------
 --
