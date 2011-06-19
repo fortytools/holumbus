@@ -5,7 +5,6 @@
 module W3W.URIConfig
     ( w3wStart
     , w3wRefs
-
     , fileName
     , htmlFiles
     )

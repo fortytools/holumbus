@@ -8,6 +8,7 @@ module W3W.PageInfo
     , w3wGetTitle
     , w3wGetPageInfo
     )
+
 where
 import           	Control.DeepSeq
 import 		 		    Control.Monad			( liftM4 )
@@ -28,9 +29,9 @@ import        		Text.JSON
 
 data PageInfo = PageInfo 
     		  	{ modified 	:: String      		-- ^ The last modified timestamp
-			      	, author 	:: String       	-- ^ The author
-              , content   :: String           -- ^ The first few lines of the page contents
-              , dates     :: String           -- ^ The dates
+			      , author 	:: String       	-- ^ The author
+            , content   :: String           -- ^ The first few lines of the page contents
+            , dates     :: String           -- ^ The dates
 			      } 
 			      deriving (Show, Eq)
 
@@ -50,7 +51,7 @@ instance XmlPickler PageInfo where
 	    xpModified 		= xpAttr "modified" xpText0
 	    xpAuthor     	= xpAttr "author"   xpText0
 	    xpContent 		= xpAttr "content"  xpText0
-	    xpDates 		= xpAttr "dates"    xpText0
+	    xpDates 	  	= xpAttr "dates"    xpText0
 
 instance NFData PageInfo where
     rnf (PageInfo m a c d)	= rnf m `seq` rnf a `seq` rnf c `seq` rnf d `seq` ()
@@ -77,14 +78,14 @@ w3wGetTitle                     = fromLA $
                                   `orElse`
                                   getURI
 
-w3wGetPageInfo                  :: IOSArrow XmlTree PageInfo
-w3wGetPageInfo                  = ( fromLA (getModified `withDefault` "")
+w3wGetPageInfo                  :: D.DateExtractorFunc -> IOSArrow XmlTree PageInfo
+w3wGetPageInfo dateExtractor   = ( fromLA (getModified `withDefault` "")
                                     &&&
                                     fromLA (getAuthor `withDefault` "")
                                     &&&
                                     getPageCont
 									                  &&& 
-									                  getTeaserTextDates
+									                  (getTeaserTextDates dateExtractor)
                                   )
                                   >>^
                                   (\ (m, (a, (c, d))) -> mkPageInfo m a c d)
@@ -123,24 +124,10 @@ getPageCont = getHtmlText
               >>^
               (words >>> unwordsCont 50)	-- take the first 50 words from content
 
--- TODO: Problem: Wörter, die ein Datum umgeben können ebenfalls Datum sein. 
--- Ein Datum, welches zu den umgebenden Wörtern eines anderen Datums gehört, 
--- kann anschließend selbst nicht mehr als Datum gefunden werden.
-surroundByWords :: Int -> String -> String
-surroundByWords number expr = "([^0-9 ]{0,20}( )?){0,"++(show number)++"}" 
-								++ expr
-								++ "(( )?[^0-9 ]{0,20}){0,"++(show number)++"}"
-
-tokenizeTeaserTextDates   :: String -> [String]
-tokenizeTeaserTextDates s = (tokenizeExt (surroundByWords 3 re) s) 
---                          ++ [re]  -- TODO: Zum Debuggen einkommentieren, damit der Reguläre Ausdruck mit ausgegeben wird
-                            where
-                              re = D.datesRE s
-
-getTeaserTextDates :: IOSArrow XmlTree String
-getTeaserTextDates = getHtmlPlainText
-  	                 >>^
-	                   (words >>> unwords >>> tokenizeTeaserTextDates >>> toJSONArray)
+getTeaserTextDates :: D.DateExtractorFunc -> IOSArrow XmlTree String
+getTeaserTextDates dateExtractor = getHtmlPlainText
+	                 >>^
+                   (words >>> unwords >>> (D.dateRep2DatesContext . dateExtractor) >>> toJSONArray)
 
 toJSONArray :: [String] -> String
 toJSONArray strings = encodeStrict $ showJSONs strings

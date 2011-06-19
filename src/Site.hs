@@ -173,9 +173,10 @@ docHitToListItem docHit = htmlListItem "searchResult_li" $
   subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
               ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit) 
                 ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
-              ++ [htmlListItem "content" $ htmlTextNode teaserText]
+              ++ contentContext
               ++ dateContexts stringOfDateContexts listOfMatchedPositions
               ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]  
+  contentContext = if (listOfMatchedPositions == []) then [htmlListItem "content" $ htmlTextNode teaserText] else []
   teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
   stringOfDateContexts = dates . srPageInfo $ docHit
   listOfMatchedPositions = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty dateContextMap
@@ -202,7 +203,7 @@ dateContexts stringOfDateContexts listOfMatchedPositions =
     listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
     getDateContextAt position = 
       if (position') > ((L.length listOfDateContexts) - 1)
-      then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts
+      then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
       else "..." ++ (listOfDateContexts !! position') ++ "..."
         where
         position' = position - 1

@@ -33,6 +33,7 @@ import           Text.XML.HXT.Cache
 import           Text.XML.HXT.HTTP()
 import           Text.XML.HXT.Curl
 
+import           W3W.Date as D
 -- ------------------------------------------------------------
 
 w3wIndexer                      :: AppOpts -> IO W3WIndexerCrawlerState
@@ -42,21 +43,22 @@ w3wIndexer o                    = stdIndexer
                                   w3wStart
                                   emptyW3WState
     where
-    config0                     = indexCrawlerConfig
+    config0 dateExtractor'        = indexCrawlerConfig
                                   (ao_crawlPar o)
                                   w3wRefs
                                   Nothing
                                   (Just $ checkDocumentStatus >>> checkTransferStatus)
                                   (Just $ w3wGetTitle)
-                                  (Just $ w3wGetPageInfo)
-                                  w3wIndexContextConfig
+                                  (Just $ w3wGetPageInfo dateExtractor')
+                                  (w3wIndexContextConfig dateExtractor')
 
-    config                      = ao_crawlFct o $
+    config                        = ao_crawlFct o $
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
-                                  setCrawlerMaxDocs md mp mt $
-                                  -- setCrawlerPreRefsFilter noHaddockPage $       -- old stuff: -- haddock pages don't need to be scanned for new URIs
-                                  config0
+                                  setCrawlerMaxDocs md mp mt $                                  
+                                  config0 dateExtractor
+
+    dateExtractor                 = D.extractDateRep
 
     (ct, ht)                    = ao_crawlLog o
     (si, sp)                    = ao_crawlSav o

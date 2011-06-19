@@ -421,8 +421,6 @@ monthToM m
 
 -- ------------------------------------------------------------
 
-{-
-
 t :: String
 t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für das Sommersemester 2000 statt. "
     ++ "Dieser wird allerdings auf Montag verschoben. Und zwar auf den ersten Montag im Wintersemester 11/12, 12:30. "
@@ -446,33 +444,52 @@ t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für d
 r = map _r . dateSearch' . tokenizeSubex tokenRE $ t
 d = map _d . dateSearch' . tokenizeSubex tokenRE $ t
 a =          dateSearch' . tokenizeSubex tokenRE $ t
--}
 
 tt = tokenizeSubex tokenRE
 dd = map _d . dateSearch' . tt
 rr = map _r . dateSearch' . tt
 pp = map _p . dateSearch' . tt
 
-datesRE text = foldr (\ x y -> "("++x++")|("++y++")") "asdasdasd" $ filter (/="") $ map _r . dateSearch' . tokenizeSubex tokenRE $ text
+--datesRE text = foldr (\ x y -> "("++x++")|("++y++")") "asdasdasd" $ filter (/="") $ map _r . dateSearch' . tokenizeSubex tokenRE $ text
 
 digits :: Int -> Int -> String
 digits numDigits number = if (number < 0) 
-							then (numDigits `times` "*")
-							else ((numDigits - (length numberAsString)) `times` "0") ++ numberAsString
-						where
-							numberAsString = show number
-							times n s = if (n > 0)
-											then (times (n-1) s) ++ s
-											else ""
+	                        then (numDigits `times` "*")
+	                        else ((numDigits - (length numberAsString)) `times` "0") ++ numberAsString
+	                        where
+		                        numberAsString = show number
+		                        times n s = if (n > 0)
+						                        then (times (n-1) s) ++ s
+						                        else ""
 
-tokenizeDates :: String -> [String]
-tokenizeDates = map printDate . dd
+type DateExtractorFunc = String -> [DateRep]
+
+extractDateRep :: DateExtractorFunc
+extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
+
+dateRep2NormalizedDates :: [DateRep] -> [String]
+dateRep2NormalizedDates dateRep = map (printDate . _d) $ filter (\ x -> (_r x) /= "") dateRep
 	where
 		printDate d = 	(digits 4 $ _year d) ++ "-" ++
 						(digits 2 $ _month d) ++ "-" ++
 						(digits 2 $ _day d) ++ "-" ++
 						(digits 2 $ _hour d) ++ "-" ++
 						(digits 2 $ _min d)
-	
-		
--- ------------------------------------------------------------
+
+
+dateRep2DebugInfo :: [DateRep] -> [String]
+dateRep2DebugInfo dateRep = map (\ x -> "START " ++ (_p x) ++ " -> " ++ (_r x) ++" END") $ filter (\ x -> (_r x) /= "") dateRep
+
+dateRep2DatesContext :: [DateRep] -> [String]
+dateRep2DatesContext [] = []
+dateRep2DatesContext (x:[]) = [(takeLastNWords 5 $ _p x) ++ " " ++ (_r x)]
+dateRep2DatesContext (x:y:xs) = 
+  [(takeLastNWords 5 $ _p x) ++ " " ++ (_r x) ++ " " ++ (takeFirstNWords 5 $ _p y)] ++ (dateRep2DatesContext (y:xs))
+
+takeFirstNWords :: Int -> String -> String
+takeFirstNWords n str = unwords . (take n) . words $ str
+
+takeLastNWords :: Int -> String -> String
+takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
+
+

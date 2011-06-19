@@ -72,8 +72,8 @@ getHtmlText                     = getAllText $
 getURI                          :: ArrowXml a => a XmlTree String
 getURI                          = fromLA $ getAttrValue transferURI
 
-getDates                        :: ArrowXml a => a XmlTree String
-getDates                        = getHtmlPlainText
+--getDates                        :: ArrowXml a => a XmlTree String
+--getDates                        = getHtmlPlainText
 -- ------------------------------------------------------------
 
 -- predicate arrows
@@ -184,9 +184,8 @@ uri2Words			:: String -> [String]
 uri2Words			= tokenize "[^:/#?=.]+"
 
 
-tokenizeDates :: String -> [String]
-tokenizeDates = D.tokenizeDates
-
+--tokenizeDatesWithDateExtractor :: D.DateExtractorFunc -> String -> [String]
+--tokenizeDatesWithDateExtractor dateExtractor = dateRep2NormalizedDates . dateExtractor
 
 -- ------------------------------------------------------------
 --
