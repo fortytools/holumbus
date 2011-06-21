@@ -103,7 +103,8 @@ tokenRE = foldr1 xor $
                  map (uncurry subex) $
                  [ ( "ddmmyyyy",    dayMonthYear )
                  , ( "ddMonthyyyy", dayD `s0` monthN `s0` (year `orr` year') )
-                 , ( "ddmm",        dayMonth) -- ! wieso xor, ist ddmm nicht subset von ddmmyyyy ?
+                 , ( "Monthyyyy",   monthN `s0` (year `orr` year') )
+                 , ( "ddmm",        dayMonth)
                  , ( "ddMonth",     dayD `s0` monthN )
                  , ( "yyyymmdd",    year ++ "[-/]" ++ month ++ "[-/]" ++ day )
                  , ( "yyyy",        year4 `orr` ("'" ++ year2) )
@@ -431,6 +432,7 @@ t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für d
     ++ "des Jahres 2011. Noch ein wichtiger Termin findet um 16:15 Uhr am Do., 1.2.03 statt. "
     ++ "Freitag, der 13. Juli ist kein Glückstag"
     ++ "und Freitag, der 13. Juli um 11:55 Uhr ist es zu spät."
+    ++ "Im Gegensatz zum gesamten Monat Juni 2011 - da ist es immer schön. Insbesondere am 3. Juni."
 
 -- tokenRE : 
 --   regulärer Ausdruck mit {label}

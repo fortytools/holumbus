@@ -169,21 +169,23 @@ docHitToListItem :: Bool -> SRDocHit -> X.Node
 docHitToListItem isDate docHit = htmlListItem "searchResult_li" $ 
   htmlLink' "ul" (srUri docHit) $ subList
   where
-  subList = htmlList "searchResult_ul" subListItems
-  subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
-              ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit) 
-                ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
-              ++  if (isDate) 
-                  then dateContexts stringOfDateContexts listOfMatchedPositions 
-                  else contentContext
-              ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]  
-  contentContext = if (listOfMatchedPositions == []) then [htmlListItem "content" $ htmlTextNode teaserText] else []
-  teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
-  stringOfDateContexts = dates . srPageInfo $ docHit
-  listOfMatchedPositions = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty dateContextMap
-  dateContextMap = M.lookup "dates" $ srContextMap docHit
-  listOfMaps2listOfPositions [] = []
-  listOfMaps2listOfPositions l = IS.toList . snd . L.head $ l
+    subList = htmlList "searchResult_ul" subListItems
+    subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
+                ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit) 
+                  ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
+                ++  if (isDate) 
+                    then dateContexts stringOfDateContexts listOfMatchedPositions 
+                    else contentContext
+--              ++ [htmlListItem "debug" $ htmlTextNode $ " <isDate: " ++ (show isDate) ++ "> "]
+--              ++ [htmlListItem "debug" $ htmlTextNode $ " <listOfMatchedPositions: " ++ (show listOfMatchedPositions) ++ "> "]
+                ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]  
+    contentContext =  [htmlListItem "content" $ htmlTextNode teaserText]
+    teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
+    stringOfDateContexts = dates . srPageInfo $ docHit
+    listOfMatchedPositions = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty dateContextMap
+    dateContextMap = M.lookup "dates" $ srContextMap docHit
+    listOfMaps2listOfPositions [] = []
+    listOfMaps2listOfPositions l = IS.toList . snd . L.head $ l
  
 ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
@@ -200,18 +202,18 @@ dateContexts stringOfDateContexts listOfMatchedPositions =
 --  ++ [htmlListOfDateContexts] -- TODO: einkommentieren zum Debuggen, damit alle date-Kontexte einer Seite angezigt werden
 --  ++ [htmlListItem "matched_positions" $ htmlTextNode $ L.unwords $ P.map show listOfMatchedPositions] -- TODO: einkommentieren, damit die Posiionen der Fundstellen angezeigt werden
     where
-    str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
-    listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
-    getDateContextAt position = 
-      if (position') > ((L.length listOfDateContexts) - 1)
-      then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
-      else "..." ++ (listOfDateContexts !! position') ++ "..."
-        where
-        position' = position - 1
-    listOfDateContexts = fromJson $ decodeStrict stringOfDateContexts
-    fromJson (Ok a) = a
-    fromJson (Error s) = [s]
-    htmlListOfDateContexts = htmlList "date_contexts" $ P.map str2htmlListItem listOfDateContexts
+      str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
+      listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
+      getDateContextAt position = 
+        if (position') > ((L.length listOfDateContexts) - 1)
+        then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
+        else "..." ++ (listOfDateContexts !! position') ++ "..."
+          where
+          position' = position - 1
+      listOfDateContexts = fromJson $ decodeStrict stringOfDateContexts
+      fromJson (Ok a) = a
+      fromJson (Error s) = [s]
+      htmlListOfDateContexts = htmlList "date_contexts" $ P.map str2htmlListItem listOfDateContexts
 
 ------------------------------------------------------------------------------
 -- | creates the HTML info text describing the search result (i.e. "Found 38 docs in 0.0 sec.")
