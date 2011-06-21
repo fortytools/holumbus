@@ -49,8 +49,8 @@ w3wIndexer o                    = stdIndexer
                                   Nothing
                                   (Just $ checkDocumentStatus >>> checkTransferStatus)
                                   (Just $ w3wGetTitle)
-                                  (Just $ w3wGetPageInfo dateExtractor dateProcessorIndex)
-                                  (w3wIndexContextConfig dateExtractor dateProcessorContext)
+                                  (Just $ w3wGetPageInfo dateExtractor dateProcessorContext)
+                                  (w3wIndexContextConfig dateExtractor dateProcessorIndex)
                                   where
                                     dateExtractor               = D.extractDateRep
                                     dateProcessorIndex          = D.dateRep2NormalizedDates
