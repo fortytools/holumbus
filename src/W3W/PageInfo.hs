@@ -78,14 +78,15 @@ w3wGetTitle                     = fromLA $
                                   `orElse`
                                   getURI
 
-w3wGetPageInfo                  :: D.DateExtractorFunc -> IOSArrow XmlTree PageInfo
-w3wGetPageInfo dateExtractor   = ( fromLA (getModified `withDefault` "")
+w3wGetPageInfo                  :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree PageInfo
+w3wGetPageInfo dateExtractor dateProcessor = 
+                                  ( fromLA (getModified `withDefault` "")
                                     &&&
                                     fromLA (getAuthor `withDefault` "")
                                     &&&
                                     getPageCont
 									                  &&& 
-									                  (getTeaserTextDates dateExtractor)
+									                  (getTeaserTextDates dateExtractor dateProcessor)
                                   )
                                   >>^
                                   (\ (m, (a, (c, d))) -> mkPageInfo m a c d)
@@ -124,10 +125,11 @@ getPageCont = getHtmlText
               >>^
               (words >>> unwordsCont 50)	-- take the first 50 words from content
 
-getTeaserTextDates :: D.DateExtractorFunc -> IOSArrow XmlTree String
-getTeaserTextDates dateExtractor = getHtmlPlainText
+getTeaserTextDates :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree String
+getTeaserTextDates dateExtractor dateProcessor = 
+                   getHtmlPlainText
 	                 >>^
-                   (words >>> unwords >>> (D.dateRep2DatesContext . dateExtractor) >>> toJSONArray)
+                   (words >>> unwords >>> (dateProcessor . dateExtractor) >>> toJSONArray)
 
 toJSONArray :: [String] -> String
 toJSONArray strings = encodeStrict $ showJSONs strings

@@ -463,6 +463,7 @@ digits numDigits number = if (number < 0)
 						                        else ""
 
 type DateExtractorFunc = String -> [DateRep]
+type DateProcessorFunc = [DateRep] -> [String]
 
 extractDateRep :: DateExtractorFunc
 extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s

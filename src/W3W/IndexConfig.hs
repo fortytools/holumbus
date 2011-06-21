@@ -12,8 +12,8 @@ import           W3W.Extract
 import        	 W3W.Date as D
 -- ------------------------------------------------------------
 
-w3wIndexContextConfig           :: D.DateExtractorFunc -> [IndexContextConfig]
-w3wIndexContextConfig dateExtractor
+w3wIndexContextConfig           :: D.DateExtractorFunc -> D.DateProcessorFunc -> [IndexContextConfig]
+w3wIndexContextConfig dateExtractor dateProcessor
                                 = [ 
 									                  ixHeadlines
                                   , ixURI
@@ -50,11 +50,10 @@ w3wIndexContextConfig dateExtractor
 
     ixDates                     = ixDefault
                                   { ixc_name            = "dates"
-                                  , ixc_collectText     = 
-                                                 getHtmlPlainText
-                                                 >>^
-                                                 (words >>> unwords)
-                                  , ixc_textToWords     = D.dateRep2NormalizedDates . dateExtractor
+                                  , ixc_collectText     = getHtmlPlainText
+                                                          >>^
+                                                          (words >>> unwords)
+                                  , ixc_textToWords     = dateProcessor . dateExtractor
                                   , ixc_boringWord      = null
                                   }
 

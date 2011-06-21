@@ -43,22 +43,24 @@ w3wIndexer o                    = stdIndexer
                                   w3wStart
                                   emptyW3WState
     where
-    config0 dateExtractor'        = indexCrawlerConfig
+    config0                     = indexCrawlerConfig
                                   (ao_crawlPar o)
                                   w3wRefs
                                   Nothing
                                   (Just $ checkDocumentStatus >>> checkTransferStatus)
                                   (Just $ w3wGetTitle)
-                                  (Just $ w3wGetPageInfo dateExtractor')
-                                  (w3wIndexContextConfig dateExtractor')
+                                  (Just $ w3wGetPageInfo dateExtractor dateProcessorIndex)
+                                  (w3wIndexContextConfig dateExtractor dateProcessorContext)
+                                  where
+                                    dateExtractor               = D.extractDateRep
+                                    dateProcessorIndex          = D.dateRep2NormalizedDates
+                                    dateProcessorContext        = D.dateRep2DatesContext
 
-    config                        = ao_crawlFct o $
+    config                      = ao_crawlFct o $
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
                                   setCrawlerMaxDocs md mp mt $                                  
-                                  config0 dateExtractor
-
-    dateExtractor                 = D.extractDateRep
+                                  config0
 
     (ct, ht)                    = ao_crawlLog o
     (si, sp)                    = ao_crawlSav o

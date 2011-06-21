@@ -32,7 +32,7 @@ import Data.IntSet as IS
 import Text.Regex (splitRegex, mkRegex)
 import IndexTypes
 import Text.JSON hiding (Result)
-
+import W3W.Date as D
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
 
@@ -165,16 +165,17 @@ htmlLink' cssClass href xNode =
 -- |     <li>rankingScoreOfDocumetFound</li>
 -- |   </ul>
 -- | </li>
-docHitToListItem :: SRDocHit -> X.Node
-docHitToListItem docHit = htmlListItem "searchResult_li" $ 
+docHitToListItem :: Bool -> SRDocHit -> X.Node
+docHitToListItem isDate docHit = htmlListItem "searchResult_li" $ 
   htmlLink' "ul" (srUri docHit) $ subList
   where
   subList = htmlList "searchResult_ul" subListItems
   subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
               ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit) 
                 ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
-              ++ contentContext
-              ++ dateContexts stringOfDateContexts listOfMatchedPositions
+              ++  if (isDate) 
+                  then dateContexts stringOfDateContexts listOfMatchedPositions 
+                  else contentContext
               ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]  
   contentContext = if (listOfMatchedPositions == []) then [htmlListItem "content" $ htmlTextNode teaserText] else []
   teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
@@ -279,23 +280,29 @@ frontpage = ifTop $ render "frontpage"
 processquery :: Application ()
 processquery = do
   query <- getQueryStringParam "query"
-  -- liftIO $ P.putStrLn query
+  let normalizedDates = D.dateRep2NormalizedDates . D.extractDateRep $ query
+  let isDate = not $ L.null normalizedDates
+  let normalizedDateOrQuery  = if not isDate
+                               then Left query
+                               else Right $ L.head normalizedDates
+  let query' = either id id normalizedDateOrQuery
+  liftIO $ either P.putStrLn P.putStrLn normalizedDateOrQuery
   queryFuncDoc <- queryFunctionDoc
-  searchResultDocs <- liftIO $ getDocSearchResults query queryFuncDoc
+  searchResultDocs <- liftIO $ getDocSearchResults query' queryFuncDoc
   strTakeHits <- getQueryStringParam "takeHits"
   strDropHits <- getQueryStringParam "dropHits"
   let intDropHits = strToInt 0 strDropHits
   let intTakeHits = strToInt hitsPerPage strTakeHits
-  let indexSplices = [ ("result", resultSplice intTakeHits intDropHits $ searchResultDocs)
+  let indexSplices = [ ("result", resultSplice isDate intTakeHits intDropHits searchResultDocs)
                                 , ("oldquery", oldQuerySplice)
                                 , ("pager", pagerSplice query searchResultDocs)
                      ]
   heistLocal (bindSplices indexSplices) $ render "frontpage"
 
 -- | generates the HTML node to be inserted into "<result />"
-resultSplice :: Int -> Int -> SearchResultDocs -> Splice Application
-resultSplice takeHits dropHits searchResultDocs = do
-  let items = P.map docHitToListItem (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
+resultSplice :: Bool -> Int -> Int -> SearchResultDocs -> Splice Application
+resultSplice isDate takeHits dropHits searchResultDocs = do
+  let items = P.map (docHitToListItem isDate) (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
 --  liftIO $ P.putStrLn . show . (member "dates") . srContextMap . L.head . srDocHits $ searchResultDocs
   let infos = [docHitsMetaInfo searchResultDocs]
   return $ [htmlList "searchResultList" (infos ++ items)]
