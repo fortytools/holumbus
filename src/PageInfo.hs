@@ -18,7 +18,6 @@ import           	Data.List         ( isPrefixOf )
 import		 		    Holumbus.Crawler
 import		 		    Text.XML.HXT.Core
 import           	Extract
---import           	W3W.RegExpressions
 
 -- ------------------------------------------------------------
 
@@ -124,14 +123,7 @@ getPageCont                     = getHtmlText
                                   >>^
                                   (words >>> unwordsCont 100)	-- take the first 100 words from content
 
-{-
-getPageCont                     :: IOSArrow XmlTree String
-getPageCont                     = getHtmlText
-                                  >>^
-                                  (words >>> unwords 
-									>>> tokenize (surroundByWords 3 (deleteNotAllowedChars >>> words)) 
-									>>> (foldl (\ x y -> x ++ "///" ++ y) ""))
--}
+
 surroundByWords :: Int -> String -> String
 surroundByWords number expr = "([^ ]{0,20}( )?){0,"++(show number)++"}" 
 								++ expr

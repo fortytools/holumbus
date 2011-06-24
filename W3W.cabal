@@ -90,8 +90,7 @@ executable webserver
     hxt-regex-xmlschema == 9.0.*,
     hxt-charproperties == 9.1.*,
     json >= 0.4 && < 1,
-    haskell98 == 1.1.0.*,
-    regex-compat == 0.95.*
+    haskell98 == 1.1.0.*
 
   extensions: TypeSynonymInstances MultiParamTypeClasses
 

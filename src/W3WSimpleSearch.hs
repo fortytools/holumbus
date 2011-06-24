@@ -21,7 +21,7 @@ import qualified Data.IntMap            as IM
 import           Data.String.Unicode    ( utf8ToUnicode )
 import           Holumbus.Index.Common
 import           Holumbus.Query.Language.Grammar
-import           Holumbus.Query.Language.Parser
+import           Parser
 import           Holumbus.Query.Processor
 import           Holumbus.Query.Result
 import           Holumbus.Query.Ranking
@@ -111,8 +111,8 @@ localQuery idx doc q    = return (processQuery processCfg idx doc q)
 -- | get all Search Results
 getAllSearchResults :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResult
 getAllSearchResults q f = do
-	docs <- getDocSearchResults q f
-	words <- getWordSearchResults q f
+	docs <- getIndexSearchResults q f
+	words <- getWordCompletions q f
 	return $ SearchResult docs words
 
 -- | insert time needed for request into SearchResultDocs data type
@@ -120,8 +120,8 @@ mkDocSearchResult :: Float -> SearchResultDocs -> SearchResultDocs
 mkDocSearchResult requestTime searchResultDocs = SearchResultDocs requestTime (srDocCount searchResultDocs) (srDocHits searchResultDocs)
 
 -- | get only Document Search Results (without Word-Completions)
-getDocSearchResults :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResultDocs
-getDocSearchResults q f =
+getIndexSearchResults :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResultDocs
+getIndexSearchResults q f =
 	answerThis q
 	where
 	answerThis q = do
@@ -141,8 +141,8 @@ getDocSearchResults q f =
 				return $ mkDocSearchResult d docsSearchResult
 					
 -- | get only Word-Completions (without Document Search Results)
-getWordSearchResults :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResultWords
-getWordSearchResults q f =
+getWordCompletions :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResultWords
+getWordCompletions q f =
 	answerThis q
 	where
 	answerThis q = do

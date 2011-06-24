@@ -452,8 +452,6 @@ dd = map _d . dateSearch' . tt
 rr = map _r . dateSearch' . tt
 pp = map _p . dateSearch' . tt
 
---datesRE text = foldr (\ x y -> "("++x++")|("++y++")") "asdasdasd" $ filter (/="") $ map _r . dateSearch' . tokenizeSubex tokenRE $ text
-
 digits :: Int -> Int -> String
 digits numDigits number = if (number < 0) 
 	                        then (numDigits `times` "*")

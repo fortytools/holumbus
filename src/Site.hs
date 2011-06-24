@@ -29,12 +29,14 @@ import qualified  Text.XmlHtml as X
 import Prelude as P
 import Data.Map as M
 import Data.IntSet as IS
-import Text.Regex (splitRegex, mkRegex)
+--import Text.Regex (splitRegex, mkRegex)
 import IndexTypes
 import Text.JSON hiding (Result)
 import W3W.Date as D
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
+import Data.Time.Clock
+import Data.Time.Calendar
 
 ------------------------------------------------------------------------------
 -- |
@@ -56,6 +58,7 @@ numTeaserWords = 30
 -- | number of word completions send in response to the Ajax request
 numDisplayedCompletions :: Int
 numDisplayedCompletions = 20
+
 ------------------------------------------------------------------------------
 -- |
 -- | some little helpers
@@ -87,19 +90,9 @@ getCoreDoc = do
   return $ EvalSearch.documents core
 
 ------------------------------------------------------------------------------
--- | the function that does the Doc-query
-queryFunctionDoc :: Application (Query -> IO (Result PageInfo))
-queryFunctionDoc = do
-  doc <- getCoreDoc
--- let idx = inverted2compactInverted emptyInverted -- TODO: funktioniert nicht.
-  idx <- getCoreIdx
-  return $ localQuery idx doc
-
-------------------------------------------------------------------------------
--- | the function that does the Idx-query
-queryFunctionIdx :: Application (Query -> IO (Result PageInfo))
-queryFunctionIdx = do
--- let doc = emptyDocuments -- TODO: ausprobieren. Siehe auch Verwendung in IndexTypes.hs.
+-- | the function that does the query
+queryFunction :: Application (Query -> IO (Result PageInfo))
+queryFunction = do
   doc <- getCoreDoc
   idx <- getCoreIdx
   return $ localQuery idx doc
@@ -189,7 +182,7 @@ docHitToListItem isDate docHit = htmlListItem "searchResult_li" $
  
 ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
--- | i.e. given a stringOfDateContexts = "...date1...///...date2...///...date3...///...date4..."
+-- | i.e. given a JSON-String of Date Contexts (date1,date2,date3,date4,...)
 -- | and a listOfMatchedPositions = [0,2]
 -- | the result will be 
 -- | <li class="dates">...date1...</li>
@@ -231,12 +224,50 @@ docHitsMetaInfo searchResultDocs =
 -- |   number: Number displayed in the Pager-Link (the text node of the link)
 -- |   takeHits: Number of Hits to be displayed per Site
 -- |   dropHits: Number of Hits to be dropped from the Result of all Document-Hits
--- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30">4</a>
+-- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30"> 4 </a>
 mkPagerLink :: String -> (Int, Int, Int) -> X.Node
 mkPagerLink query (number, takeHits, dropHits) = 
   htmlLink "pager"
     ("/querypage?query=" ++ query ++ "&takeHits=" ++ (show takeHits) ++ "&dropHits=" ++ (show dropHits))
     (" " ++ (show number) ++ " ")
+
+------------------------------------------------------------------------------
+-- | maybe transform the search-query into a normalized date string.
+-- | Result: (tranformedStringOrOriginalString, whetherOrNotTheStringIsADate)
+maybeNormalizeQuery :: String -> (String, Bool)
+maybeNormalizeQuery query = 
+  (either id id normalizedDateOrQuery, isDate)
+  where
+    normalizedDates = D.dateRep2NormalizedDates . D.extractDateRep $ query
+    isDate = not $ L.null normalizedDates
+    normalizedDateOrQuery  = if not isDate
+                             then Left query
+                             else Right $ L.head normalizedDates
+
+------------------------------------------------------------------------------
+-- | prepare a normalized Date-String (i.e. "****-**-03-12-**") for comparison with indexed normalized dates.
+-- | the leading "****-**-" will be replaced with the actual date.
+-- | since the comparison will be prefix-based the trailing "-**" can be truncated.
+prepareNormDateForCompare :: String -> IO String
+prepareNormDateForCompare normDate = do
+  s <- fillNormDate normDate
+  return $ truncNormDate s
+  where
+    truncNormDate = L.reverse . truncNormDate' . L.reverse
+    truncNormDate' normDate@(x:xs)
+      | (x == '*' || x == '-') = truncNormDate' xs
+      | otherwise = normDate
+    fillNormDate d = do
+      curr <- currentTimeStr
+      return $ fillNormDate' d curr
+    fillNormDate' _ [] = []
+    fillNormDate' normDate@(x:xs) (y:ys)
+      | (x == '*' || x == '-') = y:(fillNormDate' xs ys)
+      | otherwise = normDate
+    currentTimeStr = do
+      utcTime <- getCurrentTime
+      let day = utctDay utcTime
+      return (showGregorian day)
 
 ------------------------------------------------------------------------------
 -- |
@@ -282,22 +313,20 @@ frontpage = ifTop $ render "frontpage"
 processquery :: Application ()
 processquery = do
   query <- getQueryStringParam "query"
-  let normalizedDates = D.dateRep2NormalizedDates . D.extractDateRep $ query
-  let isDate = not $ L.null normalizedDates
-  let normalizedDateOrQuery  = if not isDate
-                               then Left query
-                               else Right $ L.head normalizedDates
-  let query' = either id id normalizedDateOrQuery
-  liftIO $ either P.putStrLn P.putStrLn normalizedDateOrQuery
-  queryFuncDoc <- queryFunctionDoc
-  searchResultDocs <- liftIO $ getDocSearchResults query' queryFuncDoc
+  let (query', isDate) = maybeNormalizeQuery query
+  query'' <-  if isDate
+              then liftIO $ prepareNormDateForCompare query'
+              else return query'
+  liftIO $ P.putStrLn query'' -- print debug info to console
+  queryFunc' <- queryFunction
+  searchResultDocs <- liftIO $ getIndexSearchResults query'' queryFunc'
   strTakeHits <- getQueryStringParam "takeHits"
   strDropHits <- getQueryStringParam "dropHits"
   let intDropHits = strToInt 0 strDropHits
   let intTakeHits = strToInt hitsPerPage strTakeHits
   let indexSplices = [ ("result", resultSplice isDate intTakeHits intDropHits searchResultDocs)
-                                , ("oldquery", oldQuerySplice)
-                                , ("pager", pagerSplice query searchResultDocs)
+                     , ("oldquery", oldQuerySplice)
+                     , ("pager", pagerSplice query searchResultDocs)
                      ]
   heistLocal (bindSplices indexSplices) $ render "frontpage"
 
@@ -335,8 +364,8 @@ pagerSplice query searchResultDocs = do
 completions :: Application ()
 completions = do
   query <- getQueryStringParam "query"
-  queryFuncIdx <- queryFunctionIdx
-  searchResultWords <- liftIO $ getWordSearchResults query $ queryFuncIdx
+  queryFunc' <- queryFunction
+  searchResultWords <- liftIO $ getWordCompletions query $ queryFunc'
   putResponse myResponse
   writeText (T.pack $ toJSONArray numDisplayedCompletions $ srWordHits searchResultWords)
   where
