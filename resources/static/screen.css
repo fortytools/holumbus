@@ -36,6 +36,11 @@ input {
   float: left;
 }
 
+#content ul {
+  max-height: 480px;
+  overflow: auto;
+}
+
 #content ul * {
   list-style-type: none;
 }
