@@ -120,22 +120,23 @@ input {
   margin-left: auto;
   margin-right: auto;
   margin-top: 20px;
-  width: 405px;
+  width: 30em;
 }
 
 #query {
-  width: 300px;
+  width: 20em;
+  font-size: 11pt;
 }
 
 #button {
-  width: 100px;
+  width: 10em;
 }
 
 #suggestion
 {
   position: absolute;
   background-color: #FFFFFF;
-  width: 297px;
+  width: 20em;
   border: 1px solid #3369AA;
   visibility: hidden;
   font-size: 10pt;
