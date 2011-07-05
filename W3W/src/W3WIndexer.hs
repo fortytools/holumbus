@@ -55,12 +55,14 @@ w3wIndexer o                    = stdIndexer
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
                                   setCrawlerMaxDocs md mp mt $
+                                  setCrawlerClickLevel ml    $
                                   -- setCrawlerPreRefsFilter noHaddockPage $       -- old stuff: -- haddock pages don't need to be scanned for new URIs
                                   config0
 
     (ct, ht)                    = ao_crawlLog o
     (si, sp)                    = ao_crawlSav o
     (md, mp, mt)                = ao_crawlDoc o
+    ml                          = ao_crawlLev o
     checkTransferStatus         = ( getAttrValue transferStatus
                                     >>>
                                     isA (== "200")
@@ -97,6 +99,7 @@ data AppOpts                    = AO
                                   , ao_msg      :: String
                                   , ao_crawlDoc :: (Int, Int, Int)
                                   , ao_crawlSav :: (Int, String)
+                                  , ao_crawlLev :: Int
                                   , ao_crawlLog :: (Priority, Priority)
                                   , ao_crawlPar :: SysConfig
                                   , ao_crawlFct :: W3WIndexerConfig    -> W3WIndexerConfig
@@ -123,6 +126,7 @@ initAppOpts                     = AO
                                   , ao_msg      = ""
                                   , ao_crawlDoc = (25000, 1024, 1)                                      -- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
                                   , ao_crawlSav = (1024, "./tmp/ix-")                                   -- save intervall and path
+                                  , ao_crawlLev = maxBound                                              -- max click level, default unlimited depth
                                   , ao_crawlLog = (DEBUG, NOTICE)                                       -- log cache and hxt
                                   , ao_crawlPar = withCache' (60 * 60 * 24 * 1)                         -- set cache dir, cache remains valid 1 day, 404 pages are cached
                                                   >>>
@@ -221,7 +225,9 @@ main1 pn args
                                                                                       }
                                                                           )
                                                                         )                                               "NUMBER")       "maximum # of docs to be processed"
-                                  , Option ""   ["maxthreads"]  (ReqArg ( setOption parseInt
+                                  , Option "" ["maxclicklevel"] (ReqArg ( setOption parseInt
+                                                                          (\ x i -> x { ao_crawlLev = i })
+                                                                        )                                               "NUMBER")       "maximum click depth, 0: no recursion, 1 root doc and all directly reachable docs, ..."                                               , Option ""   ["maxthreads"]  (ReqArg ( setOption parseInt
                                                                           (\ x i -> x { ao_crawlDoc = setMaxThreads i $
                                                                                                       ao_crawlDoc x
                                                                                       }

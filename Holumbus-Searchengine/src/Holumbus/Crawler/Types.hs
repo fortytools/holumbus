@@ -53,6 +53,7 @@ data CrawlerConfig a r		= CrawlerConfig
                                   , cc_fold		:: MergeDocResults r
 				  , cc_followRef	:: URI -> Bool
 				  , cc_addRobotsTxt	:: CrawlerConfig a r -> AddRobotsAction
+                                  , cc_clickLevel       :: ! Int
 				  , cc_maxNoOfDocs	:: ! Int
                                   , cc_maxParDocs       :: ! Int
 				  , cc_maxParThreads	:: ! Int
@@ -65,7 +66,7 @@ data CrawlerConfig a r		= CrawlerConfig
 -- | The crawler state record
 
 data CrawlerState r		= CrawlerState
-                                  { cs_toBeProcessed    :: ! URIs
+                                  { cs_toBeProcessed    :: ! URIsWithLevel
 				  , cs_alreadyProcessed :: ! URIs
 				  , cs_robots		:: ! Robots				-- is part of the state, it will grow during crawling
 				  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
@@ -98,7 +99,7 @@ instance (XmlPickler r) => XmlPickler (CrawlerState r) where
                                  )
                                  ( xp5Tuple
                                    ( xpElem "to-be-processed" $
-                                     xpURIs
+                                     xpURIsWithLevel
                                    )
                                    ( xpElem "already-processed" $
                                      xpURIs
@@ -113,12 +114,21 @@ instance (XmlPickler r) => XmlPickler (CrawlerState r) where
                           xpElem "doc" $
                           xpAttr "href" $
                           xpText
+      xpURIsWithLevel	= xpWrap ( fromListURIs', toListURIs' ) $
+                          xpList $
+                          xpElem "doc" $
+                          xpPair ( xpAttr "href" $
+                                   xpText
+                                 )
+                                 ( xpAttr "clicklevel"
+                                   xpInt
+                                 )
 
 -- ------------------------------------------------------------
 
 -- | selector functions for CrawlerState
 
-theToBeProcessed	:: Selector (CrawlerState r) URIs
+theToBeProcessed	:: Selector (CrawlerState r) URIsWithLevel
 theToBeProcessed	= S cs_toBeProcessed	(\ x s -> s {cs_toBeProcessed = x})
 
 theAlreadyProcessed	:: Selector (CrawlerState r) URIs
@@ -149,6 +159,9 @@ theTraceLevel		= S cc_traceLevel	(\ x s -> s {cc_traceLevel = x})
 
 theTraceLevelHxt	:: Selector (CrawlerConfig a r) Priority
 theTraceLevelHxt	= S cc_traceLevelHxt	(\ x s -> s {cc_traceLevelHxt = x})
+
+theClickLevel		:: Selector (CrawlerConfig a r) Int
+theClickLevel		= S cc_clickLevel	(\ x s -> s {cc_clickLevel = x})
 
 theMaxNoOfDocs		:: Selector (CrawlerConfig a r) Int
 theMaxNoOfDocs		= S cc_maxNoOfDocs	(\ x s -> s {cc_maxNoOfDocs = x})
@@ -211,6 +224,7 @@ defaultCrawlerConfig op	op2
 			  , cc_addRobotsTxt	= const $ const return				-- do not add robots.txt evaluation
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
+                          , cc_clickLevel       = maxBound                                      -- click level set to infinity
 			  , cc_maxNoOfDocs	= (-1)						-- maximum # of docs to be crawled, -1 means unlimited
                           , cc_maxParDocs	= 20						-- maximum # of doc crawled in parallel
 			  , cc_maxParThreads    = 5						-- maximum # of threads running in parallel
@@ -277,6 +291,12 @@ setCrawlerSaveConf	:: Int -> String -> CrawlerConfig a r -> CrawlerConfig a r
 setCrawlerSaveConf i f	= setS theSaveIntervall i
                           >>>
                           setS theSavePathPrefix f
+
+-- | Set max # of steps (clicks) to reach a document
+
+setCrawlerClickLevel	:: Int -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerClickLevel mcl
+			= setS theClickLevel mcl
 
 -- | Set max # of documents to be crawled
 -- and max # of documents crawled in parallel

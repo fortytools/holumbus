@@ -10,9 +10,9 @@ import           Data.Char                            ( toLower )
 import           Data.List                            ( isPrefixOf )
 import           Data.Maybe
 
-import		 Holumbus.Crawler
+import           Holumbus.Crawler
 
-import		 Text.XML.HXT.Core
+import           Text.XML.HXT.Core
 
 
 -- ------------------------------------------------------------
@@ -32,7 +32,7 @@ getHeadlines                    = fromLA     $
                                     )
                                   )
     where
-    isHname ('h':d:[])		= d `elem` "123456"
+    isHname ('h':d:[])          = d `elem` "123456"
     isHname _                   = False
 
 -- ------------------------------------------------------------
@@ -40,7 +40,7 @@ getHeadlines                    = fromLA     $
 getContentText                  :: IOSArrow XmlTree String
 getContentText                  =  choiceA
                                    [ isHtmlContents :-> getHtmlText
-                                   , isPdfContents  :-> none	-- not yet implemented
+                                   , isPdfContents  :-> none    -- not yet implemented
                                    , this           :-> none
                                    ]
 
@@ -73,7 +73,7 @@ getURI                          :: ArrowXml a => a XmlTree String
 getURI                          = fromLA $ getAttrValue transferURI
 
 getDates                        :: ArrowXml a => a XmlTree String
-getDates                        = none		-- not yet implemented
+getDates                        = none          -- not yet implemented
 
 -- ------------------------------------------------------------
 
@@ -81,7 +81,7 @@ getDates                        = none		-- not yet implemented
 
 isXxxLayout                     :: ArrowXml a => String -> a XmlTree XmlTree
 isXxxLayout xxx                 = fromLA $
-                                  getLink				-- hack
+                                  getLink                               -- hack
                                   >>>
                                   hasAttrValue "rel" (== "shortcut icon")
                                   >>>
@@ -103,7 +103,7 @@ isEgLayout                      = fromLA $
 
 isSiLayout                      :: ArrowXml a => a XmlTree XmlTree                                  
 isSiLayout                      = fromLA $
-                                  ( getMetaAttr "keywords"			-- hack: ther should be a meta elem for author 
+                                  ( getMetaAttr "keywords"                      -- hack: ther should be a meta elem for author 
                                     >>>
                                     isA ("Uwe Schmidt" `isPrefixOf`)
                                   )
@@ -113,15 +113,15 @@ isSiLayout                      = fromLA $
 --
 -- mothers little helpers
 
-hasNameWithId			:: ArrowXml a => String -> String -> a XmlTree XmlTree
-hasNameWithId ename eid		= isElem
+hasNameWithId                   :: ArrowXml a => String -> String -> a XmlTree XmlTree
+hasNameWithId ename eid         = isElem
                                   >>>
                                   hasName ename
                                   >>>
                                   hasAttrValue "id" (== eid)
 
-hasDivWithId			:: ArrowXml a => String -> a XmlTree XmlTree
-hasDivWithId			= hasNameWithId "div"
+hasDivWithId                    :: ArrowXml a => String -> a XmlTree XmlTree
+hasDivWithId                    = hasNameWithId "div"
 
 getMeta                         :: ArrowXml a => a XmlTree XmlTree
 getMeta                         = getByPath ["html", "head", "meta"]
@@ -144,12 +144,12 @@ getMetaAttr key                 = getMeta
 -- all strings with length < 2 are boring
 -- and all strings not starting with a letter
 
-boringWord              	:: String -> Bool
-boringWord w            	= null w
+boringWord                      :: String -> Bool
+boringWord w                    = null w
                                   ||
                                   (null . tail $ w)
-				  ||
-				  not (any isXmlLetter w)
+                                  ||
+                                  not (any isXmlLetter w)
 
 boringURIpart                   :: String -> Bool
 boringURIpart                   = ( `elem`
@@ -163,29 +163,29 @@ boringURIpart                   = ( `elem`
 --
 -- text preprocessing
 
-deleteNotAllowedChars  		:: String -> String
-deleteNotAllowedChars   	= map notAllowedToSpace
+deleteNotAllowedChars           :: String -> String
+deleteNotAllowedChars           = map notAllowedToSpace
     where
     notAllowedToSpace c
         | isAllowedWordChar c   = c
         | otherwise             = ' '
 
-isAllowedWordChar       	:: Char -> Bool
-isAllowedWordChar c     	= isXmlLetter c
-				  ||
-				  isXmlDigit c
-				  ||
-				  c `elem` "_-"
+isAllowedWordChar               :: Char -> Bool
+isAllowedWordChar c             = isXmlLetter c
+                                  ||
+                                  isXmlDigit c
+                                  ||
+                                  c `elem` "_-"
 
 -- ------------------------------------------------------------
 --
 -- tokenizing
 
-uri2Words			:: String -> [String]
-uri2Words			= tokenize "[^:/#?=.]+"
+uri2Words                       :: String -> [String]
+uri2Words                       = tokenize "[^:/#?=.]+"
 
 tokenizeDates                   :: String -> [String]
-tokenizeDates                   = const []	-- not yet implemented
+tokenizeDates                   = const []      -- not yet implemented
 
 -- ------------------------------------------------------------
 --
@@ -202,7 +202,7 @@ classifyURIword                 = concatMap classifyWord
                                   , ("ptl", ["ia", "ea", "pa", "iaw", "iam", "iat"])
                                   ]
 
-short2Name			:: String -> String
+short2Name                      :: String -> String
 short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
                                   [ ("rb", "Ulrich Raubach")
                                   , ("ur", "Sven Urbanski")
@@ -210,8 +210,8 @@ short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
                                   , ("si", "Uwe Schmidt")
                                   ]
 
-normalizeDateModified		:: String -> String
-normalizeDateModified           = id		-- not yet implemented
+normalizeDateModified           :: String -> String
+normalizeDateModified           = id            -- not yet implemented
 
 unwordsCont                     :: Int -> [String] -> String
 unwordsCont mx ws

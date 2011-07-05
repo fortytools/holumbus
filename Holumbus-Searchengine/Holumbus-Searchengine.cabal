@@ -1,5 +1,5 @@
 name:          Holumbus-Searchengine
-version:       1.0.1
+version:       1.0.2
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Huebel, Uwe Schmidt
@@ -14,7 +14,7 @@ description:   The Holumbus-Searchengine library provides a document indexer
                as well as a sophisticated query interface for these indexes.
 cabal-version: >=1.6
 build-type:    Simple
--- tested-with:   ghc-6.12.1
+-- tested-with:   ghc-7.0.3
 
 extra-source-files:
     README

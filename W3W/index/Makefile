@@ -1,9 +1,10 @@
 OPTS	=
 
-latest	= 7days
-valid	= 1hour
-validix	= 1month
-threads = 1
+latest	      = 7days
+valid	      = 1hour
+validix	      = 1month
+threads       = 1
+maxclicklevel = 1000
 
 # threads = 1 means no parallel indexing but merging of partial indexes as a binary merge
 
@@ -47,14 +48,14 @@ whole-cache	: $(indexer)
 	@echo 'the list of loaded pages is written into file "cache.xml"'
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	$< $(RUNOPTS) --build-cache --maxthreads=$(threads) --valid=$(valid) --xml-output=cache.xml
+	$< $(RUNOPTS) --build-cache --maxthreads=$(threads) --maxclicklevel=$(maxclicklevel) --valid=$(valid) --xml-output=cache.xml
 
 whole-index	: $(indexer)
 	@echo "build an index of all fhw and ptl pages"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
 	@echo 'the result as xml is "$(ix).xml"'
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --valid=$(validix) --new-index=$(ix) --xml-output=$(ix).xml --new-search=$(ix) $(OPTS)
+	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --maxclicklevel=$(maxclicklevel) --valid=$(validix) --new-index=$(ix) --xml-output=$(ix).xml --new-search=$(ix) $(OPTS)
 
 whole	:
 	@echo "update cache for all pages, this may run about 1 to 2 hours"

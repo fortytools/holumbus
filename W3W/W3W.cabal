@@ -1,5 +1,5 @@
 name:          W3W
-version:       0.0.1
+version:       0.0.2
 license:       MIT
 license-file:  LICENSE
 author:        Torben Gülck, Mathias Leonhardt, Tobias Lüders, Uwe Schmidt
@@ -71,11 +71,11 @@ executable w3wSimpleSearch
                 , W3W.PageInfo
                 , W3W.URIConfig
 
-  build-depends: base                      >= 4   && < 5
-               , Holumbus-Searchengine     >= 1   && < 2
-               , editline                  >= 0.2 && < 1
-               , hxt-unicode               >= 9   && < 10
-               , text                      >= 0.7 && < 1
+  build-depends: base                      >= 4     && < 5
+               , Holumbus-Searchengine     >= 1.0.2 && < 2
+               , editline                  >= 0.2   && < 1
+               , hxt-unicode               >= 9     && < 10
+               , text                      >= 0.7   && < 1
 
   hs-source-dirs: src
 

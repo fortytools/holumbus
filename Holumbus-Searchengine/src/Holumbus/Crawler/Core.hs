@@ -57,17 +57,17 @@ urisProcessed uris              = do
                                   modifyState theToBeProcessed    $ deleteURIs uris
                                   modifyState theAlreadyProcessed $ flip unionURIs  uris
 
-uriToBeProcessed                :: URI -> CrawlerAction a r ()
-uriToBeProcessed uri            = do
+uriToBeProcessed                :: URI -> Int -> CrawlerAction a r ()
+uriToBeProcessed uri level      = do
                                   aps <- getState theAlreadyProcessed
                                   when ( not $ uri `memberURIs` aps )
-                                       ( modifyState theToBeProcessed $ insertURI uri )
+                                       ( modifyState theToBeProcessed $ insertURI' uri level)
 
-urisToBeProcessed               :: URIs -> CrawlerAction a r ()
+urisToBeProcessed               :: URIsWithLevel -> CrawlerAction a r ()
 urisToBeProcessed uris          = do
                                   aps <- getState theAlreadyProcessed
                                   let newUris = deleteURIs aps uris
-                                  modifyState theToBeProcessed $ flip unionURIs newUris
+                                  modifyState theToBeProcessed $ flip (unionURIs' min) newUris
 
 uriAddToRobotsTxt               :: URI -> CrawlerAction a r ()
 uriAddToRobotsTxt uri           = do
@@ -87,7 +87,7 @@ accumulateRes res               = do
 crawlDocs               :: (NFData a, NFData r, Binary r) => [URI] -> CrawlerAction a r ()
 crawlDocs uris          = do
                           noticeC "crawlDocs" ["init crawler state and start crawler loop"]
-                          putState theToBeProcessed (fromListURIs uris)
+                          putState theToBeProcessed (fromListURIs' $ zip uris (repeat 0))
                           crawlerLoop
                           noticeC "crawlDocs" ["crawler loop finished"]
                           crawlerSaveState
@@ -146,7 +146,7 @@ crawlerSaveState        = do
 
 type MapFold a r        = (a -> IO r) -> (r -> r -> IO r) -> [a] -> IO r
 
-crawlNextDocs           :: (NFData r) => MapFold URI (URIs, URIs, r) -> CrawlerAction a r ()
+crawlNextDocs           :: (NFData r) => MapFold URIWithLevel (URIs, URIsWithLevel, r) -> CrawlerAction a r ()
 crawlNextDocs mapf      = do
                           uris <- getState theToBeProcessed
                           nd   <- getState   theNoOfDocs
@@ -161,8 +161,8 @@ crawlNextDocs mapf      = do
 
                           noticeC "crawlNextDocs" ["next", show (length urisTBP), "uri(s) will be processed"]
 
-                          urisProcessed $ fromListURIs urisTBP
-                          urisAllowed <- filterM isAllowedByRobots urisTBP
+                          urisProcessed $ fromListURIs $ map fst urisTBP
+                          urisAllowed <- filterM (isAllowedByRobots . fst) urisTBP
 
                           when (not . null $ urisAllowed) $
                                do
@@ -200,27 +200,33 @@ crawlNextDocs mapf      = do
 
 -- ------------------------------------------------------------
 
-processDoc'             :: URI -> CrawlerAction a r (URIs, URIs, [(URI, a)])
-processDoc' uri         = do
+processDoc'             :: URIWithLevel -> CrawlerAction a r (URIs, URIsWithLevel, [(URI, a)])
+processDoc' (uri, lev)  = do
                           conf <- ask
                           [(uri', (uris', docRes))] <- liftIO $ runX (processDocArrow conf uri)
                           let toBeFollowed = getS theFollowRef conf
+                          let maxLevel     = getS theClickLevel conf
+                          let ! lev1       = lev + 1 
                           let movedUris    = if null uri'
                                              then emptyURIs
                                              else singletonURIs uri'
-                          let newUris      = fromListURIs .
-                                             filter toBeFollowed $ uris'
+                          let newUris      = if lev >= maxLevel
+                                             then emptyURIs
+                                             else fromListURIs'
+                                                  . map (\ u -> (u, lev1)) 
+                                                  . filter toBeFollowed
+                                                  $ uris'
                           return (movedUris, newUris, docRes)
 
 -- ------------------------------------------------------------
 
-combineDocResults'      :: (NFData r) => MergeDocResults r -> (URIs, URIs, r) -> (URIs, URIs, r) -> IO (URIs, URIs, r)
+combineDocResults'      :: (NFData r) => MergeDocResults r -> (URIs, URIsWithLevel, r) -> (URIs, URIsWithLevel, r) -> IO (URIs, URIsWithLevel, r)
 combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
                         = do
                           noticeC' "crawlNextDocs" ["combining results"]
                           r   <- mergeOp r1 r2
                           m     <- return $ unionURIs m1 m2
-                          n     <- return $ unionURIs n1 n2
+                          n     <- return $ unionURIs' min n1 n2
                           res   <- return $ (m, n, r)
                           rnf res `seq`
                               noticeC' "crawlNextDocs" ["results combined"]
@@ -234,32 +240,40 @@ crawlNextDoc            :: (NFData a, NFData r) => CrawlerAction a r ()
 crawlNextDoc            = do
                           uris <- getState theToBeProcessed
                           modifyState theNoOfDocs (+1)
-                          let uri = nextURI uris
+                          let uri@(u, _lev) = nextURI uris
                           noticeC "crawlNextDoc" [show uri]
-                          uriProcessed      uri                                 -- uri is put into processed URIs
-                          isGood <- isAllowedByRobots uri
+                          uriProcessed u                                        -- uri is put into processed URIs
+                          isGood <- isAllowedByRobots u
                           when isGood $
                             do
                             res <- processDoc uri                               -- get document and extract new refs and result
-                            (uri', uris', resList') <- rnf res `seq`            -- force evaluation
-                                                       return res
+                            let (uri', uris', resList') = rnf res `seq` res     -- force evaluation
+
                             when (not . null $ uri') $
                               uriProcessed uri'                                 -- doc has been moved, uri' is real uri, so it's also put into the set of processed URIs
+
                             noticeC "crawlNextDoc" [show . length . nub . sort $ uris', "new uris found"]
-                            mapM_ uriToBeProcessed uris'                        -- insert new uris into toBeProcessed set
+                            mapM_ (uncurry uriToBeProcessed) uris'              -- insert new uris into toBeProcessed set
                             mapM_ accumulateRes resList'                        -- combine results with state accu
 
 -- | Run the process document arrow and prepare results
 
-processDoc              :: URI -> CrawlerAction a r (URI, [URI], [(URI, a)])
-processDoc uri          = do
+processDoc              :: URIWithLevel -> CrawlerAction a r (URI, [URIWithLevel], [(URI, a)])
+processDoc (uri, lev)   = do
                           conf <- ask
+                          let maxLevel = getS theClickLevel conf
+                          let ! lev1   = lev + 1
                           [(uri', (uris, res))] <- liftIO $ runX (processDocArrow conf uri)
+                          let newUris  = if lev >= maxLevel
+                                         then []
+                                         else map (\ u -> (u, lev1))
+                                              . filter (getS theFollowRef conf)
+                                              $ uris
                           return ( if uri' /= uri
                                    then uri'
                                    else ""
-                                 , filter (getS theFollowRef conf) uris
-                                 , res                                                  -- usually in case of normal processing this list consists of a singleton list
+                                 , newUris
+                                 , res                                                  -- usually in case of normal processing this is a singleton list
                                  )
                                                         -- and in case of an error it's an empty list
 -- ------------------------------------------------------------
