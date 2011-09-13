@@ -6,6 +6,9 @@
   </head>
   <body>
     <div id="header"/>
+    <table cellspacing="0" cellpadding="0" style="border-left: 1px solid #777777; border-right: 1px solid #777777;">
+    <tr>
+    <td style="vertical-align:top; background-color:#FFFFFF;">
     <div id="content">
       <div id="form">
         <form action="/querypage">
@@ -22,7 +25,12 @@
         <pager/>
       </div>
     </div>
+    </td>
+    <td style="vertical-align:top; background-color:#1E326F;">
     <div id="sider"/>
+    </td>
+    </tr>
+    </table>
     <div id="footer">
       &copy;&nbsp;FH&nbsp;Wedel
     </div>

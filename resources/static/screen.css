@@ -6,10 +6,6 @@ body {
   margin-left: auto;
   margin-right: auto;
   width: 910px;
-  height: 720px;
-  background-color: #FFFFFF;
-  border: 1px solid #777777;
-  color: #3369AA;
   font-family: Tahoma, sans-serif;
 }
 
@@ -18,27 +14,22 @@ a {
   color: #3369AA;
 }
 
-input {
-  border-color: #3369AA;
-  border-style: groove;
-}
-
 #header {
-  width: 834px;
+  width: 910px;
   height: 90px;
   background: #FFFFFF url(FH_Banner7.jpg) no-repeat top left;
-  border-right: 1px solid #1F2A6A;
+  border-top: 1px solid #777777;
+  border-left: 1px solid #777777;
+  border-right: 1px solid #777777;
 }
 
 #content {
-  width: 795px;
-  height: 585px;
-  float: left;
+  width: 835px;
+  background-color: #FFFFFF;
 }
 
 #content ul {
-  max-height: 480px;
-  overflow: auto;
+  padding-right: 40px;
 }
 
 #content ul * {
@@ -57,16 +48,14 @@ input {
   background-color: #DDDDDD;
 }
 
-#result {
-  height: 504px;
-}
-
 .suggest_link {
   background-color: #FFFFFF;
+  color: grey;
 }
 
 .suggest_link_over {
   background-color: #DDDDDD;
+  color: #3369AA;
 }
 
 #suggestion div {
@@ -117,27 +106,31 @@ input {
 }
 
 #form {
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 20px;
-  width: 30em;
+  padding-left: 250px;
+  padding-top: 20px;
 }
 
 #query {
   width: 20em;
-  font-size: 11pt;
+  font-size: 10pt;
+  border: none;
+  outline: 1px solid #3369AA;
 }
 
 #button {
   width: 10em;
+  font-size: 10pt;
+  border: none;
+  outline: 1px solid #3369AA;
 }
 
 #suggestion
 {
+  color: grey;
   position: absolute;
   background-color: #FFFFFF;
   width: 20em;
-  border: 1px solid #3369AA;
+  outline: 1px solid grey;
   visibility: hidden;
   font-size: 10pt;
 }
@@ -145,24 +138,25 @@ input {
 #sider {
   width: 75px;
   height: 605px;
-  background: #FFFFFF url(rightgradient2.jpg) no-repeat top right;
-  float: right;
+  background: url(rightgradient2.jpg) no-repeat top right;
 }
 
 #pager {
   text-align: center;
+  padding-bottom: 20px;
 }
 
 #footer {
   background-color: #1E326F;
-  border-top: 1px solid #777777;
   color: #FFFFFF;
   font-size: 9pt;
   padding-right: 10px;
   text-align: right;
   width: 900px;
   height: 19px;
-  float: right;
   padding-top: 5px;
+  border-left: 1px solid #777777;
+  border-right: 1px solid #777777;
+  border-bottom: 1px solid #777777;
 }
 
