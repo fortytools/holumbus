@@ -40,8 +40,6 @@ import           Holumbus.Index.CompactSmallDocuments
 
 import           Holumbus.Query.Result          ( Score )
 
--- import           Debug.Trace
-
 -- ------------------------------------------------------------
  
 import qualified Holumbus.Index.Inverted.CompressedPrefixMem    as PM

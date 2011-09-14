@@ -182,18 +182,6 @@ uri2Words			:: String -> [String]
 uri2Words			= tokenize "[^:/#?=.]+"
 
 
---tokenizeDates :: String -> [String]
---tokenizeDates s = map _r . dateSearch' . tokenizeSubex tokenRE $ s
-{-
-tokenizeDates s = 	map transform $
-					normList $
-					map (matchSubex $ eval markableRE True) $
-					tokenize (eval markableRE False) s
-					where 
-						markableRE =  theDateExpression
--}
-
-
 -- ------------------------------------------------------------
 --
 -- word normalization and translation

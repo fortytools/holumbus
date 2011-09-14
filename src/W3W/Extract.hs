@@ -12,7 +12,6 @@ import      Data.Maybe
 import		Holumbus.Crawler
 import		Text.XML.HXT.Core
 import 		Text.Regex.XMLSchema.String (matchSubex, tokenizeSubex)
---import		W3W.RegExpressions
 import		W3W.Date as D
 
 -- ------------------------------------------------------------
@@ -100,9 +99,9 @@ isEgLayout                      = fromLA $
                                   )
                                   `guards` this
 
-isSiLayout                      :: ArrowXml a => a XmlTree XmlTree                                  
+isSiLayout                      :: ArrowXml a => a XmlTree XmlTree
 isSiLayout                      = fromLA $
-                                  ( getMetaAttr "keywords"			-- hack: ther should be a meta elem for author 
+                                  ( getMetaAttr "keywords"			-- hack: ther should be a meta elem for author
                                     >>>
                                     isA ("Uwe Schmidt" `isPrefixOf`)
                                   )
@@ -114,10 +113,10 @@ isSiLayout                      = fromLA $
 
 hasNameWithId			:: ArrowXml a => String -> String -> a XmlTree XmlTree
 hasNameWithId ename eid		= isElem
-                                  >>>
-                                  hasName ename
-                                  >>>
-                                  hasAttrValue "id" (== eid)
+                            >>>
+                            hasName ename
+                            >>>
+                            hasAttrValue "id" (== eid)
 
 hasDivWithId			:: ArrowXml a => String -> a XmlTree XmlTree
 hasDivWithId			= hasNameWithId "div"
@@ -147,8 +146,8 @@ boringWord              	:: String -> Bool
 boringWord w            	= null w
                                   ||
                                   (null . tail $ w)
-				  ||
-				  not (any isXmlLetter w)
+                                  ||
+                                  not (any isXmlLetter w)
 
 boringURIpart                   :: String -> Bool
 boringURIpart                   = ( `elem`

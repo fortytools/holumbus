@@ -14,11 +14,12 @@ import        	 W3W.Date as D
 
 w3wIndexContextConfig           :: D.DateExtractorFunc -> D.DateProcessorFunc -> [IndexContextConfig]
 w3wIndexContextConfig dateExtractor dateProcessor
-                                = [ 
+                                = [
 									                  ixHeadlines
                                   , ixURI
                                   , ixURIClass
-                                  ,	ixDates
+                                  , ixDates
+                                  , ixHrefDates
                 								  , ixContent
                                   ]
     where
@@ -38,6 +39,29 @@ w3wIndexContextConfig dateExtractor dateProcessor
                                   { ixc_name            = "uri"
                                   , ixc_collectText     = getURI
                                   , ixc_textToWords     = uri2Words     -- split uri path at /
+                                  , ixc_boringWord      = boringURIpart
+                                  }
+
+    ixHrefDates                  = ixDefault
+                                  { ixc_name            = "hrefdates"
+                                  , ixc_collectText     =  getByPath ["html", "body"] -- weiter eingrenzen
+                                                           >>>
+                                                           deep (isElem >>> hasName "table" >>> hasAttrValue "class" (== "month-large"))
+                                                           >>>
+                                                           deep (isElem >>> hasName "td")
+                                                           >>>
+                                                           deep (isElem >>> hasName "div")
+                                                           >>>
+                                                           deep (isElem >>> hasName "a")
+                                                           >>>
+                                                           getAttrValue "href"
+                                                           {-
+                                                           (getAttrValue "href"
+                                                             &&&
+                                                            getHtmlPlainText)
+                                                            >>> arr2 (\ a b -> a ++ " <<< " ++ b ++ " >>> ")
+                                                            -}
+                                  , ixc_textToWords     = dateProcessor . dateExtractor
                                   , ixc_boringWord      = boringURIpart
                                   }
 
@@ -61,4 +85,4 @@ w3wIndexContextConfig dateExtractor dateProcessor
                                   { ixc_name            = "content"
                                   , ixc_collectText     = getContentText
                                   }
--- -----------------------------------------------------------------------------    
+-- -----------------------------------------------------------------------------
