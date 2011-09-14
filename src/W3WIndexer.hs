@@ -59,7 +59,7 @@ w3wIndexer o                    = stdIndexer
     config                      = ao_crawlFct o $
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
-                                  setCrawlerMaxDocs md mp mt $                                  
+                                  setCrawlerMaxDocs md mp mt $
                                   config0
 
     (ct, ht)                    = ao_crawlLog o

@@ -23,18 +23,18 @@ import           	Extract
 
 -- | Additional information about a function.
 
-data PageInfo = PageInfo 
+data PageInfo = PageInfo
     		  	{ modified 	:: String      		-- ^ The last modified timestamp
 				    , author 	  :: String       	-- ^ The author
             , content   :: String         -- ^ The first few lines of the page contents
             , dates     :: String         -- ^ The dates
-				    } 
+				    }
 				deriving (Show, Eq)
 
 mkPageInfo 			:: String -> String -> String -> String -> PageInfo
 mkPageInfo			= PageInfo
 
-emptyPageInfo   :: PageInfo 
+emptyPageInfo   :: PageInfo
 emptyPageInfo   = mkPageInfo "" "" "" ""
 
 instance XmlPickler PageInfo where
@@ -83,7 +83,7 @@ w3wGetPageInfo                  = ( fromLA (getModified `withDefault` "")
                                     fromLA (getAuthor `withDefault` "")
                                     &&&
                                     getPageCont
-									&&& 
+									&&&
 									getTeaserTextDates
                                   )
                                   >>^
@@ -125,7 +125,7 @@ getPageCont                     = getHtmlText
 
 
 surroundByWords :: Int -> String -> String
-surroundByWords number expr = "([^ ]{0,20}( )?){0,"++(show number)++"}" 
+surroundByWords number expr = "([^ ]{0,20}( )?){0,"++(show number)++"}"
 								++ expr
 								++ "(( )?[^ ]{0,20}){0,"++(show number)++"}"
 

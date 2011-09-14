@@ -46,7 +46,7 @@ data SearchResult = SearchResult
 data SearchResultDocs = SearchResultDocs
   { srTime      :: Float
   ,	srDocCount  :: Int
-  ,	srDocHits   :: [SRDocHit] 
+  ,	srDocHits   :: [SRDocHit]
   }
 
 data SearchResultWords = SearchResultWords
@@ -129,7 +129,7 @@ getIndexSearchResults q f =
 		return result
 			where
 			pr = parseQuery q
-			printError err = do 
+			printError err = do
 				return $ SearchResultDocs 0.0 0 [SRDocHit ("problem parsing query: " ++ err) 0.0 emptyPageInfo "" M.empty]
 			makeQuery pq = do
 				t1 <- getCPUTime
@@ -139,7 +139,7 @@ getIndexSearchResults q f =
 				t2 <- getCPUTime
 				d <- return ((fromIntegral (t2 - t1) / 1000000000000.0) :: Float)
 				return $ mkDocSearchResult d docsSearchResult
-					
+
 -- | get only Word-Completions (without Document Search Results)
 getWordCompletions :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResultWords
 getWordCompletions q f =
@@ -150,13 +150,13 @@ getWordCompletions q f =
 		return result
 			where
 			pr = parseQuery q
-			printError err = do 
+			printError err = do
 				return $ SearchResultWords 0 [SRWordHit ("problem parsing query: " ++ err) 0]
 			makeQuery pq = do
 				r <- f pq -- This is where the magic happens!
 				rr <- return (rank defaultRankCfg r)
 				getWordHits (wordHits rr)
-					
+
 -- | convert Document-Hits to SearchResult
 getDocHits :: DocHits PageInfo -> IO SearchResultDocs
 getDocHits h = do
@@ -176,7 +176,7 @@ getWordHits h = do
 	where
 		wordData = (L.reverse $ L.sortBy (compare `on` snd) (map (\(c, (_, o)) -> (c, M.fold (\m r -> r + IM.size m) 0 o)) (M.toList h)))
 		getWordHits' [] = []
-		getWordHits' ((c,s):xs) = 
-			[ SRWordHit c s ] 
+		getWordHits' ((c,s):xs) =
+			[ SRWordHit c s ]
 			++ (getWordHits' xs)
 

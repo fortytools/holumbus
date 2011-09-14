@@ -98,9 +98,9 @@ isEgLayout                      = fromLA $
                                   )
                                   `guards` this
 
-isSiLayout                      :: ArrowXml a => a XmlTree XmlTree                                  
+isSiLayout                      :: ArrowXml a => a XmlTree XmlTree
 isSiLayout                      = fromLA $
-                                  ( getMetaAttr "keywords"			-- hack: ther should be a meta elem for author 
+                                  ( getMetaAttr "keywords"			-- hack: ther should be a meta elem for author
                                     >>>
                                     isA ("Uwe Schmidt" `isPrefixOf`)
                                   )

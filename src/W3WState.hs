@@ -36,7 +36,7 @@ import System.IO	( stderr
 -- application to be a 'MonadTimer'.
 
 newtype W3WState = W3WState
-    { 
+    {
 		getCore :: Core
     }
 

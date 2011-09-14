@@ -29,7 +29,7 @@ type Application = SnapExtend ApplicationState
 data ApplicationState = ApplicationState
   {
     templateState :: HeistState Application,
-  	w3wState      :: W3WState  
+  	w3wState      :: W3WState
   }
 
 ------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ instance HasW3WState ApplicationState where
 
 ------------------------------------------------------------------------------
 
--- The 'Initializer' for ApplicationState. This is used to generate the 
+-- The 'Initializer' for ApplicationState. This is used to generate the
 -- 'ApplicationState' needed for our application and will automatically
 -- generate reload\/cleanup actions for us.
 

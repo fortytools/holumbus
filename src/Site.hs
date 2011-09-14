@@ -7,7 +7,7 @@ This is where all the routes and handlers are defined for our site. The
 
 -}
 
-module Site ( site ) 
+module Site ( site )
 
 where
 
@@ -70,7 +70,7 @@ strToInt :: Int -> String -> Int
 strToInt defaultValue str
   | (L.length readsResult > 0) = fst $ L.head readsResult
   | otherwise = defaultValue
-  where 
+  where
   readsResult = reads $ str
 
 ------------------------------------------------------------------------------
@@ -106,19 +106,19 @@ getQueryStringParam param = do
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item with css-class-attribute
 htmlList :: String -> [X.Node] -> X.Node
-htmlList cssClass xNodes = 
-  X.Element (T.pack $ "ul") 
-    [(T.pack $ "class", T.pack $ cssClass)] 
+htmlList cssClass xNodes =
+  X.Element (T.pack $ "ul")
+    [(T.pack $ "class", T.pack $ cssClass)]
     xNodes
-  
+
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item with css-class-attribute
 htmlListItem :: String -> X.Node -> X.Node
-htmlListItem cssClass xNode = 
-  X.Element (T.pack $ "li") 
-    [(T.pack $ "class", T.pack $ cssClass)] 
+htmlListItem cssClass xNode =
+  X.Element (T.pack $ "li")
+    [(T.pack $ "class", T.pack $ cssClass)]
     [xNode]
-  
+
 ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node
 htmlTextNode :: String -> X.Node
@@ -128,8 +128,8 @@ htmlTextNode text = X.TextNode $ T.pack $ text
 -- | creates a HTML Info Node
 
 htmlLink :: String -> String -> String -> X.Node
-htmlLink cssClass href text = 
-  X.Element (T.pack $ "a") 
+htmlLink cssClass href text =
+  X.Element (T.pack $ "a")
     [ (T.pack $ "href", T.pack $ href),
       (T.pack $ "class", T.pack $ cssClass)
     ]
@@ -139,8 +139,8 @@ htmlLink cssClass href text =
 -- | creates a HTML Info Node
 
 htmlLink' :: String -> String -> X.Node -> X.Node
-htmlLink' cssClass href xNode = 
-  X.Element (T.pack $ "a") 
+htmlLink' cssClass href xNode =
+  X.Element (T.pack $ "a")
     [ (T.pack $ "href", T.pack $ href),
       (T.pack $ "class", T.pack $ cssClass)
     ]
@@ -157,19 +157,19 @@ htmlLink' cssClass href xNode =
 -- |   </ul>
 -- | </li>
 docHitToListItem :: Bool -> SRDocHit -> X.Node
-docHitToListItem isDate docHit = htmlListItem "searchResult_li" $ 
+docHitToListItem isDate docHit = htmlListItem "searchResult_li" $
   htmlLink' "ul" (srUri docHit) $ subList
   where
     subList = htmlList "searchResult_ul" subListItems
     subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
-                ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit) 
+                ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit)
                   ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
-                ++  if (isDate) 
-                    then dateContexts stringOfDateContexts listOfMatchedPositions 
+                ++  if (isDate)
+                    then dateContexts stringOfDateContexts listOfMatchedPositions
                     else contentContext
 --              ++ [htmlListItem "debug" $ htmlTextNode $ " <isDate: " ++ (show isDate) ++ "> "]
 --              ++ [htmlListItem "debug" $ htmlTextNode $ " <listOfMatchedPositions: " ++ (show listOfMatchedPositions) ++ "> "]
-                ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]  
+                ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
     contentContext =  [htmlListItem "content" $ htmlTextNode teaserText]
     teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
     stringOfDateContexts = dates . srPageInfo $ docHit
@@ -177,25 +177,25 @@ docHitToListItem isDate docHit = htmlListItem "searchResult_li" $
     dateContextMap = M.lookup "dates" $ srContextMap docHit
     listOfMaps2listOfPositions [] = []
     listOfMaps2listOfPositions l = IS.toList . snd . L.head $ l
- 
+
 ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
 -- | i.e. given a JSON-String of Date Contexts (date1,date2,date3,date4,...)
 -- | and a listOfMatchedPositions = [0,2]
--- | the result will be 
+-- | the result will be
 -- | <li class="dates">...date1...</li>
 -- | <li class="dates">...date3...</li>
 dateContexts :: String -> [Int] -> [X.Node]
 dateContexts _ [] = []
 dateContexts "" _ = []
-dateContexts stringOfDateContexts listOfMatchedPositions = 
-  (P.map str2htmlListItem listOfMatchedContexts) 
+dateContexts stringOfDateContexts listOfMatchedPositions =
+  (P.map str2htmlListItem listOfMatchedContexts)
 --  ++ [htmlListOfDateContexts] -- TODO: einkommentieren zum Debuggen, damit alle date-Kontexte einer Seite angezigt werden
 --  ++ [htmlListItem "matched_positions" $ htmlTextNode $ L.unwords $ P.map show listOfMatchedPositions] -- TODO: einkommentieren, damit die Posiionen der Fundstellen angezeigt werden
     where
       str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
-      listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions  
-      getDateContextAt position = 
+      listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions
+      getDateContextAt position =
         if (position') > ((L.length listOfDateContexts) - 1)
         then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
         else "..." ++ (listOfDateContexts !! position') ++ "..."
@@ -209,11 +209,11 @@ dateContexts stringOfDateContexts listOfMatchedPositions =
 ------------------------------------------------------------------------------
 -- | creates the HTML info text describing the search result (i.e. "Found 38 docs in 0.0 sec.")
 docHitsMetaInfo :: SearchResultDocs -> X.Node
-docHitsMetaInfo searchResultDocs = 
-  htmlListItem "info" $ htmlTextNode $ 
-    "Found " ++ 
-    (show $ srDocCount searchResultDocs) ++ 
-    " docs in " ++ 
+docHitsMetaInfo searchResultDocs =
+  htmlListItem "info" $ htmlTextNode $
+    "Found " ++
+    (show $ srDocCount searchResultDocs) ++
+    " docs in " ++
     (show $ srTime searchResultDocs) ++ " sec."
 
 ------------------------------------------------------------------------------
@@ -224,7 +224,7 @@ docHitsMetaInfo searchResultDocs =
 -- |   dropHits: Number of Hits to be dropped from the Result of all Document-Hits
 -- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30"> 4 </a>
 mkPagerLink :: String -> (Int, Int, Int) -> X.Node
-mkPagerLink query (number, takeHits, dropHits) = 
+mkPagerLink query (number, takeHits, dropHits) =
   htmlLink "pager"
     ("/querypage?query=" ++ query ++ "&takeHits=" ++ (show takeHits) ++ "&dropHits=" ++ (show dropHits))
     (" " ++ (show number) ++ " ")
@@ -233,7 +233,7 @@ mkPagerLink query (number, takeHits, dropHits) =
 -- | maybe transform the search-query into a normalized date string.
 -- | Result: (tranformedStringOrOriginalString, whetherOrNotTheStringIsADate)
 maybeNormalizeQuery :: String -> (String, Bool)
-maybeNormalizeQuery query = 
+maybeNormalizeQuery query =
   (either id id normalizedDateOrQuery, isDate)
   where
     normalizedDates = D.dateRep2NormalizedDates . D.extractDateRep $ query
@@ -243,7 +243,7 @@ maybeNormalizeQuery query =
                              else Right $ L.head normalizedDates
 
 ------------------------------------------------------------------------------
--- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns readable 
+-- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns readable
 -- | date representation (i.e. "März, 12 Uhr")
 unNormalizeDate :: String -> String
 unNormalizeDate = unNormalizeDate' . (split '-')
