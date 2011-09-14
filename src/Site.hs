@@ -35,9 +35,7 @@ import Text.JSON hiding (Result)
 import W3W.Date as D
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
-import Data.Time.Clock
-import Data.Time.Calendar
-
+import Monad (liftM)
 ------------------------------------------------------------------------------
 -- |
 -- | some constants
@@ -66,7 +64,7 @@ numDisplayedCompletions = 20
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
--- | convert a ByteString to an Int.
+-- | convert a String to an Int.
 -- | returns defaultValue if conversion fails
 strToInt :: Int -> String -> Int
 strToInt defaultValue str
@@ -245,29 +243,31 @@ maybeNormalizeQuery query =
                              else Right $ L.head normalizedDates
 
 ------------------------------------------------------------------------------
--- | prepare a normalized Date-String (i.e. "****-**-03-12-**") for comparison with indexed normalized dates.
--- | the leading "****-**-" will be replaced with the actual date.
--- | since the comparison will be prefix-based the trailing "-**" can be truncated.
-prepareNormDateForCompare :: String -> IO String
-prepareNormDateForCompare normDate = do
-  s <- fillNormDate normDate
-  return $ truncNormDate s
+-- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns readable 
+-- | date representation (i.e. "März, 12 Uhr")
+unNormalizeDate :: String -> String
+unNormalizeDate = unNormalizeDate' . (split '-')
   where
-    truncNormDate = L.reverse . truncNormDate' . L.reverse
-    truncNormDate' normDate@(x:xs)
-      | (x == '*' || x == '-') = truncNormDate' xs
-      | otherwise = normDate
-    fillNormDate d = do
-      curr <- currentTimeStr
-      return $ fillNormDate' d curr
-    fillNormDate' _ [] = []
-    fillNormDate' normDate@(x:xs) (y:ys)
-      | (x == '*' || x == '-') = y:(fillNormDate' xs ys)
-      | otherwise = normDate
-    currentTimeStr = do
-      utcTime <- getCurrentTime
-      let day = utctDay utcTime
-      return (showGregorian day)
+    split delim [] = [""]
+    split delim (c:cs)
+      | c == delim = "" : rest
+      | otherwise = (c : L.head rest) : L.tail rest
+      where
+        rest = split delim cs
+    unNormalizeDate' parts =
+      ("" `maybeDay` ". ") ++ month ++ (" " `maybeYear` "") ++ (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
+      where
+        maybeYear = getIfNotEmpty 0 parts
+        month = monthNames !! ((strToInt 13 (parts !! 1)) - 1) -- month should always be part of a date expression
+        maybeDay = getIfNotEmpty 2 parts
+        maybeHours = getIfNotEmpty 3 parts
+        maybeMins = getIfNotEmpty 4 parts
+        getIfNotEmpty index array pred succ
+          | (L.head elem /= '*') = pred ++ elem ++ succ
+          | otherwise = ""
+          where
+            elem = array !! index
+        monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
 
 ------------------------------------------------------------------------------
 -- |
@@ -313,18 +313,17 @@ frontpage = ifTop $ render "frontpage"
 processquery :: Application ()
 processquery = do
   query <- getQueryStringParam "query"
-  let (query', isDate) = maybeNormalizeQuery query
-  query'' <-  if isDate
-              then liftIO $ prepareNormDateForCompare query'
-              else return query'
-  liftIO $ P.putStrLn query'' -- print debug info to console
+  let dateRep = extractDateRep query
+  (transformedQuery, numOfTransforms) <-liftIO $ dateRep2stringWithTransformedDates dateRep
+  let hasDate = (numOfTransforms > 0)
+  liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
   queryFunc' <- queryFunction
-  searchResultDocs <- liftIO $ getIndexSearchResults query'' queryFunc'
+  searchResultDocs <- liftIO $ getIndexSearchResults transformedQuery queryFunc'
   strTakeHits <- getQueryStringParam "takeHits"
   strDropHits <- getQueryStringParam "dropHits"
   let intDropHits = strToInt 0 strDropHits
   let intTakeHits = strToInt hitsPerPage strTakeHits
-  let indexSplices = [ ("result", resultSplice isDate intTakeHits intDropHits searchResultDocs)
+  let indexSplices = [ ("result", resultSplice hasDate intTakeHits intDropHits searchResultDocs)
                      , ("oldquery", oldQuerySplice)
                      , ("pager", pagerSplice query searchResultDocs)
                      ]
@@ -363,11 +362,18 @@ pagerSplice query searchResultDocs = do
 -- returns the list of found completions to the Ajax-caller
 completions :: Application ()
 completions = do
-  query <- getQueryStringParam "query"
+  query'' <- getQueryStringParam "query"
+  let (query', isDate) = maybeNormalizeQuery query'' -- determin whether its a date
+  query <-  if isDate
+            then liftIO $ prepareNormDateForCompare (query', "") -- if its a date, truncate trailing "*"s and replace leading "*"s
+            else return query'
   queryFunc' <- queryFunction
-  searchResultWords <- liftIO $ getWordCompletions query $ queryFunc'
+  searchResultWords' <- liftIO $ getWordCompletions query $ queryFunc'
+  let searchResultWords = if isDate
+                          then L.map (\ (SRWordHit word hit) -> SRWordHit (unNormalizeDate word) hit) $ srWordHits searchResultWords'
+                          else srWordHits searchResultWords'
   putResponse myResponse
-  writeText (T.pack $ toJSONArray numDisplayedCompletions $ srWordHits searchResultWords)
+  writeText (T.pack $ toJSONArray numDisplayedCompletions $ searchResultWords)
   where
   myResponse = setContentType "text/plain; charset=utf-8" . setResponseCode 200 $ emptyResponse
 

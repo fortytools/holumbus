@@ -38,6 +38,7 @@ fhwStart                        :: [URI]
 fhwStart                        =  fhwURIs [ ""                 -- fhw start page
                                            , "~eg/"             -- Martin Egge's home
                                            , "~si/"             -- si's home
+                                           , "online-campus/termine/"
                                            ]
                                    ++
                                    ptlURIs [ ""                 -- ptl start page
@@ -58,6 +59,7 @@ fhwRefs                         = simpleFollowRef'
                                                      , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
                                                      ]                                    
                                             , "~eg/" ++ htmlPaths       -- Martin Egges pages
+                                            , "online-campus/termine/" ++ htmlPaths    
                                             ]
                                   , ptlHome ++
                                             alternatives

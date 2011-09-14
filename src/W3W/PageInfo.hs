@@ -27,12 +27,12 @@ import        		Text.JSON
 
 -- | Additional information about a function.
 
-data PageInfo = PageInfo 
+data PageInfo = PageInfo
     		  	{ modified 	:: String      		-- ^ The last modified timestamp
 			      , author 	:: String       	-- ^ The author
             , content   :: String           -- ^ The first few lines of the page contents
             , dates     :: String           -- ^ The dates
-			      } 
+			      }
 			      deriving (Show, Eq)
 
 mkPageInfo 			:: String -> String -> String -> String -> PageInfo
@@ -79,13 +79,13 @@ w3wGetTitle                     = fromLA $
                                   getURI
 
 w3wGetPageInfo                  :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree PageInfo
-w3wGetPageInfo dateExtractor dateProcessor = 
+w3wGetPageInfo dateExtractor dateProcessor =
                                   ( fromLA (getModified `withDefault` "")
                                     &&&
                                     fromLA (getAuthor `withDefault` "")
                                     &&&
                                     getPageCont
-									                  &&& 
+									                  &&&
 									                  (getTeaserTextDates dateExtractor dateProcessor)
                                   )
                                   >>^
@@ -126,7 +126,7 @@ getPageCont = getHtmlText
               (words >>> unwordsCont 50)	-- take the first 50 words from content
 
 getTeaserTextDates :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree String
-getTeaserTextDates dateExtractor dateProcessor = 
+getTeaserTextDates dateExtractor dateProcessor =
                    getHtmlPlainText
 	                 >>^
                    (words >>> unwords >>> (dateProcessor . dateExtractor) >>> toJSONArray)
