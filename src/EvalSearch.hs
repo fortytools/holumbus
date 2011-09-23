@@ -46,7 +46,7 @@ import Holumbus.Query.Fuzzy
 
 import Holumbus.Utility
 
-import IndexTypes
+import W3W.IndexTypes
 
 import Network.URI                      ( unEscapeString )
 

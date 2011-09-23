@@ -12,15 +12,15 @@ import           W3W.Extract
 import        	 W3W.Date as D
 -- ------------------------------------------------------------
 
-w3wIndexContextConfig           :: D.DateExtractorFunc -> D.DateProcessorFunc -> [IndexContextConfig]
-w3wIndexContextConfig dateExtractor dateProcessor
+w3wIndexConfig           :: D.DateExtractorFunc -> D.DateProcessorFunc -> [IndexContextConfig]
+w3wIndexConfig dateExtractor dateProcessor
                                 = [
-									                  ixHeadlines
+                                    ixHeadlines
                                   , ixURI
                                   , ixURIClass
                                   , ixDates
-                                  , ixHrefDates
-                								  , ixContent
+                                  , ixContent
+                                  , ixCalender
                                   ]
     where
     ixDefault                   = IndexContextConfig
@@ -42,26 +42,17 @@ w3wIndexContextConfig dateExtractor dateProcessor
                                   , ixc_boringWord      = boringURIpart
                                   }
 
-    ixHrefDates                  = ixDefault
-                                  { ixc_name            = "hrefdates"
-                                  , ixc_collectText     =  getByPath ["html", "body"] -- weiter eingrenzen
+    ixCalender                  = ixDefault
+                                  { ixc_name            = "calender"
+                                  , ixc_collectText     =  getByPath ["html", "body"]
                                                            >>>
                                                            deep (isElem >>> hasName "table" >>> hasAttrValue "class" (== "month-large"))
                                                            >>>
-                                                           deep (isElem >>> hasName "td")
-                                                           >>>
-                                                           deep (isElem >>> hasName "div")
-                                                           >>>
                                                            deep (isElem >>> hasName "a")
                                                            >>>
-                                                           getAttrValue "href"
-                                                           {-
-                                                           (getAttrValue "href"
-                                                             &&&
-                                                            getHtmlPlainText)
-                                                            >>> arr2 (\ a b -> a ++ " <<< " ++ b ++ " >>> ")
-                                                            -}
-                                  , ixc_textToWords     = dateProcessor . dateExtractor
+                                                           (fromLA $ deep (getAttrValue "href"))
+
+                                  , ixc_textToWords     = getNormFunc dateProcessor . dateExtractor
                                   , ixc_boringWord      = boringURIpart
                                   }
 
@@ -74,10 +65,18 @@ w3wIndexContextConfig dateExtractor dateProcessor
 
     ixDates                     = ixDefault
                                   { ixc_name            = "dates"
-                                  , ixc_collectText     = getHtmlPlainText
-                                                          >>^
-                                                          (words >>> unwords)
-                                  , ixc_textToWords     = dateProcessor . dateExtractor
+                                  , ixc_collectText     = (
+                                                            getByPath ["html", "body"]
+                                                            >>>
+                                                            -- multi (isElem >>> hasName "div" >>> hasAttrValue "id" (/= "footer"))
+                                                            -- >>>
+                                                            ( fromLA $ deep getText )
+                                                            >>^
+                                                            (" " ++)
+                                                          )
+                                                          >. concat >>^ normalizeWS
+
+                                  , ixc_textToWords     = getNormFunc dateProcessor . dateExtractor
                                   , ixc_boringWord      = null
                                   }
 

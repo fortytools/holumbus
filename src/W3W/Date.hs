@@ -109,12 +109,12 @@ num            = "\\d+"
 dateAlias      = alt $ map fst dateAliasFunc
 
 dateAliasFunc :: [(String, Day -> [Day])]
-dateAliasFunc = [ ("HEUTE",           box)
-                , ("MORGEN",          box . addDays 1)
-                , ("DIESE WOCHE",     extractWeek)
-                , ("NAECHSTE WOCHE",  extractWeek . addDays 7)
-                , ("DIESER MONAT",    extractMonth)
-                , ("NAECHSTER MONAT", extractMonth . addMonth) -- SEMESTER
+dateAliasFunc = [ ("heute",           box)
+                , ("morgen",          box . addDays 1)
+                , ("diese woche",     extractWeek)
+                , ("naechste woche",  extractWeek . addDays 7)
+                , ("dieser monat",    extractMonth)
+                , ("naechster monat", extractMonth . addMonth) -- SEMESTER
                 ]
 
 -- the token types
@@ -481,9 +481,9 @@ dd = map _d . dateSearch' . tt
 rr = map _r . dateSearch' . tt
 pp = map _p . dateSearch' . tt
 
-
 type DateExtractorFunc = String -> [DateRep]
-type DateProcessorFunc = [DateRep] -> [String]
+data DateProcessorFunc = DateNormalizer       { getNormFunc    :: ([DateRep] -> [String]) }
+                       | DateContextExtractor { getContextFunc :: ([DateRep] -> [[String]]) } --[leftContext, theDate, rightContext]
 
 digits :: Int -> Int -> String
 digits numDigits number = if (number < 0)
@@ -518,15 +518,16 @@ normalizeDate d = (normalizedDateString, dateAlias)
       (digits 2 $ _hour $ _d d) ++ "-" ++
       (digits 2 $ _min $ _d d)
 
-dateRep2NormalizedDates :: [DateRep] -> [String]
-dateRep2NormalizedDates dateRep = map (fst . normalizeDate) $ filter (\ x -> (_r x) /= "") dateRep
+dateRep2NormalizedDates :: DateProcessorFunc
+dateRep2NormalizedDates = DateNormalizer func
+  where func = map (fst . normalizeDate) . filter (\ x -> (_r x) /= "")
 
-dateRep2DatesContext :: [DateRep] -> [String]
-dateRep2DatesContext [] = []
-dateRep2DatesContext (x:[]) = [(takeLastNWords 5 $ _p x) ++ " " ++ (_r x)]
-dateRep2DatesContext (x:y:xs) =
-  [(takeLastNWords 5 $ _p x) ++ " " ++ (_r x) ++ " " ++ (takeFirstNWords 5 $ _p y)] ++ (dateRep2DatesContext (y:xs))
-
+dateRep2DatesContext :: DateProcessorFunc
+dateRep2DatesContext = DateContextExtractor func
+  where
+    func [] = []
+    func (x:[]) = [[takeLastNWords 5 $ _p x , _r x, ""]]
+    func (x:y:xs) = [[takeLastNWords 5 $ _p x , _r x , takeFirstNWords 5 $ _p y]] ++ (func (y:xs))
 
 ------------------------------------------------------------------------------
 -- | Input: (Normalized Date-String, dateAlias)
@@ -542,7 +543,7 @@ prepareNormDateForCompare :: (String, String) -> IO String
 prepareNormDateForCompare normDate = do
   (isDateAlias, dateAliasResult) <- scanDateAlias $ snd normDate
   if isDateAlias
-     then return dateAliasResult
+     then return $ dateAliasResult ++ " OR (\"" ++ (snd normDate) ++ "\")"
      else do
       s <- fillNormDate $ fst normDate
       return $ truncNormDate s
@@ -616,5 +617,40 @@ dateRep2stringWithTransformedDates dateRep = do
       return (str ++ (fst strWithNumber), snd strWithNumber)
     concatStrWithNumber xs = (concat $ map fst xs, foldl (+) 0 $ map snd xs)
 
+------------------------------------------------------------------------------
+-- | convert a String to an Int.
+-- | returns defaultValue if conversion fails
+strToInt :: Int -> String -> Int
+strToInt defaultValue str
+  | (length readsResult > 0) = fst $ head readsResult
+  | otherwise = defaultValue
+  where
+  readsResult = reads $ str
 
+------------------------------------------------------------------------------
+-- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns readable
+-- | date representation (i.e. "März, 12 Uhr")
+unNormalizeDate :: String -> String
+unNormalizeDate = unNormalizeDate' . (split '-')
+  where
+    split delim [] = [""]
+    split delim (c:cs)
+      | c == delim = "" : rest
+      | otherwise = (c : head rest) : tail rest
+      where
+        rest = split delim cs
+    unNormalizeDate' parts =
+      ("" `maybeDay` ". ") ++ month ++ (" " `maybeYear` "") ++ (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
+      where
+        maybeYear = getIfNotEmpty 0 parts
+        month = monthNames !! ((strToInt 13 (parts !! 1)) - 1) -- month should always be part of a date expression
+        maybeDay = getIfNotEmpty 2 parts
+        maybeHours = getIfNotEmpty 3 parts
+        maybeMins = getIfNotEmpty 4 parts
+        getIfNotEmpty index array pred succ
+          | (head elem /= '*') = pred ++ elem ++ succ
+          | otherwise = ""
+          where
+            elem = array !! index
+        monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
 

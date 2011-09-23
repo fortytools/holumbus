@@ -30,8 +30,8 @@ import Prelude as P
 import Data.Map as M
 import Data.IntSet as IS
 --import Text.Regex (splitRegex, mkRegex)
-import IndexTypes
-import Text.JSON hiding (Result)
+import W3W.IndexTypes
+import Text.JSON
 import W3W.Date as D
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
@@ -45,7 +45,7 @@ import Monad (liftM)
 ------------------------------------------------------------------------------
 -- | number of hits shown per page
 hitsPerPage :: Int
-hitsPerPage = 5
+hitsPerPage = 20
 
 ------------------------------------------------------------------------------
 -- | number of words contained in the teaser text
@@ -64,16 +64,6 @@ numDisplayedCompletions = 20
 ------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
--- | convert a String to an Int.
--- | returns defaultValue if conversion fails
-strToInt :: Int -> String -> Int
-strToInt defaultValue str
-  | (L.length readsResult > 0) = fst $ L.head readsResult
-  | otherwise = defaultValue
-  where
-  readsResult = reads $ str
-
-------------------------------------------------------------------------------
 -- | get the Index-Data
 getCoreIdx :: Application CompactInverted
 getCoreIdx = do
@@ -89,7 +79,7 @@ getCoreDoc = do
 
 ------------------------------------------------------------------------------
 -- | the function that does the query
-queryFunction :: Application (Query -> IO (Result PageInfo))
+queryFunction :: Application (Query -> IO (Holumbus.Query.Result.Result PageInfo))
 queryFunction = do
   doc <- getCoreDoc
   idx <- getCoreIdx
@@ -120,9 +110,28 @@ htmlListItem cssClass xNode =
     [xNode]
 
 ------------------------------------------------------------------------------
+-- | creates a HTML List-Item.
+-- | Takes the left Date-Context, the Date itself and the right Date-Context
+htmlListItemDate :: String -> String -> String -> X.Node
+htmlListItemDate leftContext date rightContext =
+  X.Element (T.pack $ "li")
+    []
+    [htmlSpanTextNode "dateContext" (leftContext ++ " ")
+    ,htmlSpanTextNode "date" date
+    ,htmlSpanTextNode "dateContext" (" " ++ rightContext)]
+
+------------------------------------------------------------------------------
 -- | creates a HTML Txt Node
 htmlTextNode :: String -> X.Node
 htmlTextNode text = X.TextNode $ T.pack $ text
+
+------------------------------------------------------------------------------
+-- | creates a HTML Txt Node in a <span class="???"></span> element
+htmlSpanTextNode :: String -> String -> X.Node
+htmlSpanTextNode cssClass text =
+  X.Element (T.pack $ "span")
+    [(T.pack $ "class", T.pack $ cssClass)]
+    [htmlTextNode text]
 
 ------------------------------------------------------------------------------
 -- | creates a HTML Info Node
@@ -157,24 +166,27 @@ htmlLink' cssClass href xNode =
 -- |   </ul>
 -- | </li>
 docHitToListItem :: Bool -> SRDocHit -> X.Node
-docHitToListItem isDate docHit = htmlListItem "searchResult_li" $
-  htmlLink' "ul" (srUri docHit) $ subList
+docHitToListItem isDate docHit =
+  htmlListItem "searchResult_li" $ htmlLink' "ul" (srUri docHit) $ subList
   where
     subList = htmlList "searchResult_ul" subListItems
     subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
                 ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit)
                   ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
                 ++  if (isDate)
-                    then dateContexts stringOfDateContexts listOfMatchedPositions
-                    else contentContext
---              ++ [htmlListItem "debug" $ htmlTextNode $ " <isDate: " ++ (show isDate) ++ "> "]
---              ++ [htmlListItem "debug" $ htmlTextNode $ " <listOfMatchedPositions: " ++ (show listOfMatchedPositions) ++ "> "]
+                    then mkDateContexts stringOfDateContexts listOfMatchedPositionsDate
+                         ++
+                         mkDateContexts stringOfCalenderContexts listOfMatchedPositionsCalender
+                    else mkContentContext
                 ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
-    contentContext =  [htmlListItem "content" $ htmlTextNode teaserText]
-    teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . content . srPageInfo $ docHit
-    stringOfDateContexts = dates . srPageInfo $ docHit
-    listOfMatchedPositions = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty dateContextMap
-    dateContextMap = M.lookup "dates" $ srContextMap docHit
+    mkContentContext =  [htmlListItem "content" $ htmlTextNode teaserText]
+    teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . contentContext . srPageInfo $ docHit
+    stringOfDateContexts = datesContext . srPageInfo $ docHit
+    stringOfCalenderContexts = calenderContext . srPageInfo $ docHit
+    listOfMatchedPositionsDate     = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty dateContextMap
+    listOfMatchedPositionsCalender = listOfMaps2listOfPositions . M.toList $ fromMaybe M.empty calenderContextMap
+    dateContextMap     = M.lookup "dates"    $ srContextMap docHit
+    calenderContextMap = M.lookup "calender" $ srContextMap docHit
     listOfMaps2listOfPositions [] = []
     listOfMaps2listOfPositions l = IS.toList . snd . L.head $ l
 
@@ -185,26 +197,25 @@ docHitToListItem isDate docHit = htmlListItem "searchResult_li" $
 -- | the result will be
 -- | <li class="dates">...date1...</li>
 -- | <li class="dates">...date3...</li>
-dateContexts :: String -> [Int] -> [X.Node]
-dateContexts _ [] = []
-dateContexts "" _ = []
-dateContexts stringOfDateContexts listOfMatchedPositions =
+mkDateContexts :: String -> [Int] -> [X.Node]
+mkDateContexts _ [] = []
+mkDateContexts "" _ = []
+mkDateContexts stringOfDateContexts listOfMatchedPositions =
   (P.map str2htmlListItem listOfMatchedContexts)
---  ++ [htmlListOfDateContexts] -- TODO: einkommentieren zum Debuggen, damit alle date-Kontexte einer Seite angezigt werden
---  ++ [htmlListItem "matched_positions" $ htmlTextNode $ L.unwords $ P.map show listOfMatchedPositions] -- TODO: einkommentieren, damit die Posiionen der Fundstellen angezeigt werden
     where
-      str2htmlListItem dateContext = htmlListItem "dates" $ htmlTextNode dateContext
+      str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate leftContext theDate rightContext
       listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions
       getDateContextAt position =
         if (position') > ((L.length listOfDateContexts) - 1)
-        then "bad index: " ++ (show position') ++ " in: " ++ stringOfDateContexts ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
-        else "..." ++ (listOfDateContexts !! position') ++ "..."
-          where
+           then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">", "")
+           -- else ("...", (show stringOfDateContexts), "...")
+           else ("..." ++ (contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
+        where
           position' = position - 1
-      listOfDateContexts = fromJson $ decodeStrict stringOfDateContexts
+          contexts = listOfDateContexts !! position'
+      listOfDateContexts = fromJson ((decodeStrict stringOfDateContexts) :: Text.JSON.Result [[String]])
       fromJson (Ok a) = a
-      fromJson (Error s) = [s]
-      htmlListOfDateContexts = htmlList "date_contexts" $ P.map str2htmlListItem listOfDateContexts
+      fromJson (Error s) = [[s]]
 
 ------------------------------------------------------------------------------
 -- | creates the HTML info text describing the search result (i.e. "Found 38 docs in 0.0 sec.")
@@ -236,38 +247,11 @@ maybeNormalizeQuery :: String -> (String, Bool)
 maybeNormalizeQuery query =
   (either id id normalizedDateOrQuery, isDate)
   where
-    normalizedDates = D.dateRep2NormalizedDates . D.extractDateRep $ query
+    normalizedDates = getNormFunc D.dateRep2NormalizedDates . D.extractDateRep $ query
     isDate = not $ L.null normalizedDates
     normalizedDateOrQuery  = if not isDate
                              then Left query
                              else Right $ L.head normalizedDates
-
-------------------------------------------------------------------------------
--- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns readable
--- | date representation (i.e. "März, 12 Uhr")
-unNormalizeDate :: String -> String
-unNormalizeDate = unNormalizeDate' . (split '-')
-  where
-    split delim [] = [""]
-    split delim (c:cs)
-      | c == delim = "" : rest
-      | otherwise = (c : L.head rest) : L.tail rest
-      where
-        rest = split delim cs
-    unNormalizeDate' parts =
-      ("" `maybeDay` ". ") ++ month ++ (" " `maybeYear` "") ++ (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
-      where
-        maybeYear = getIfNotEmpty 0 parts
-        month = monthNames !! ((strToInt 13 (parts !! 1)) - 1) -- month should always be part of a date expression
-        maybeDay = getIfNotEmpty 2 parts
-        maybeHours = getIfNotEmpty 3 parts
-        maybeMins = getIfNotEmpty 4 parts
-        getIfNotEmpty index array pred succ
-          | (L.head elem /= '*') = pred ++ elem ++ succ
-          | otherwise = ""
-          where
-            elem = array !! index
-        monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
 
 ------------------------------------------------------------------------------
 -- |
@@ -333,7 +317,7 @@ processquery = do
 resultSplice :: Bool -> Int -> Int -> SearchResultDocs -> Splice Application
 resultSplice isDate takeHits dropHits searchResultDocs = do
   let items = P.map (docHitToListItem isDate) (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
---  liftIO $ P.putStrLn . show . (member "dates") . srContextMap . L.head . srDocHits $ searchResultDocs
+  liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head . srDocHits $ searchResultDocs
   let infos = [docHitsMetaInfo searchResultDocs]
   return $ [htmlList "searchResultList" (infos ++ items)]
 
@@ -363,14 +347,14 @@ pagerSplice query searchResultDocs = do
 completions :: Application ()
 completions = do
   query'' <- getQueryStringParam "query"
-  let (query', isDate) = maybeNormalizeQuery query'' -- determin whether its a date
+  let (query', isDate) = maybeNormalizeQuery query'' -- determine if its a date
   query <-  if isDate
             then liftIO $ prepareNormDateForCompare (query', "") -- if its a date, truncate trailing "*"s and replace leading "*"s
             else return query'
   queryFunc' <- queryFunction
   searchResultWords' <- liftIO $ getWordCompletions query $ queryFunc'
   let searchResultWords = if isDate
-                          then L.map (\ (SRWordHit word hit) -> SRWordHit (unNormalizeDate word) hit) $ srWordHits searchResultWords'
+                          then L.map (\ (SRWordHit word hit) -> SRWordHit (D.unNormalizeDate word) hit) $ srWordHits searchResultWords'
                           else srWordHits searchResultWords'
   putResponse myResponse
   writeText (T.pack $ toJSONArray numDisplayedCompletions $ searchResultWords)

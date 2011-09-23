@@ -32,9 +32,9 @@ import           System.Exit
 import           System.Console.GetOpt
 import           System.CPUTime
 import           Text.Printf
-import           IndexTypes
+import           W3W.IndexTypes
 import 			     Control.Monad.Trans
-import 			     PageInfo
+import 			     W3W.PageInfo
 
 -- ------------------------------------------------------------
 -- Representation of all Document-Hits and Word-Completions found
@@ -76,10 +76,10 @@ defaultRankTable
     = [ ("title", 0.8)
       , ("keywords", 0.6)
       , ("headlines", 0.4)
-      , ("content", 0.2)
+      , ("contentContext", 0.2)
       , ("uri", 0.1)
       , ("uriclass", 0.1)
-      , ("dates", 0.1)
+      , ("datesContext", 0.1)
       ]
 
 defaultRankCfg :: RankConfig a
