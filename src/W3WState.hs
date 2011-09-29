@@ -27,7 +27,7 @@ import Holumbus.Index.Common
 import W3WSimpleSearch
 import Snap.Extension
 import Snap.Types
-import System.IO	( stderr
+import System.IO  ( stderr
                     , hPutStrLn
                     )
 
@@ -37,7 +37,7 @@ import System.IO	( stderr
 
 newtype W3WState = W3WState
     {
-		getCore :: Core
+    getCore :: Core
     }
 
 ------------------------------------------------------------------------------
@@ -85,19 +85,22 @@ w3wInitializer = liftIO getW3WInitialState >>= mkInitializer . W3WState
 ixBase          :: FilePath
 ixBase          = "./index"
 
+-- ------------------------------------------------------------------------------------------------------------------------
+
 getW3WInitialState    :: IO Core
 getW3WInitialState = do
-	idx  <- loadIndex w3wIndex
-	infoM "W3W.Main" ("W3W index   loaded from file " ++ show w3wIndex)
-	doc  <- loadDocuments w3wDocs
-	infoM "W3W.Main" ("W3W docs    loaded from file " ++ show w3wDocs )
-	infoM "W3W.Main" ("W3W docs contains " ++ show (sizeDocs doc) ++ " entries")
-	return $ Core
+  idx  <- loadIndex w3wIndex
+  infoM "W3W.Main" ("W3W index   loaded from file " ++ show w3wIndex)
+  infoM "W3W.Main" ("W3W index   contains " ++ show (sizeWords idx) ++ " words")
+  doc  <- loadDocuments w3wDocs
+  infoM "W3W.Main" ("W3W docs    loaded from file " ++ show w3wDocs )
+  infoM "W3W.Main" ("W3W docs    contains " ++ show (sizeDocs doc) ++ " entries")
+  return $ Core
              { index      = idx
              , documents  = doc
              }
-		where
-			w3wIndex      = ixBase ++ "/ix.bin.idx"
-			w3wDocs       = ixBase ++ "/ix.bin.doc"
-			infoM m msg   = hPutStrLn stderr $ m ++ ": " ++ msg
+    where
+      w3wIndex      = ixBase ++ "/ix.bin.idx"
+      w3wDocs       = ixBase ++ "/ix.bin.doc"
+      infoM m msg   = hPutStrLn stderr $ m ++ ": " ++ msg
 

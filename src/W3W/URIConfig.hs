@@ -35,10 +35,11 @@ ptlURIs                         :: [URI] -> [URI]
 ptlURIs                         = map (ptlHome ++)
 
 fhwStart                        :: [URI]
-fhwStart                        =  fhwURIs [ ""                 -- fhw start page
-                                           , "~eg/"             -- Martin Egge's home
-                                           , "~si/"             -- si's home
-                                           , "online-campus/termine/kalender/"
+fhwStart                        =  fhwURIs [
+                                           -- ""                 -- fhw start page
+                                           "~eg/"             -- Martin Egge's home
+                                           -- , "~si/"             -- si's home
+                                           -- , "online-campus/termine/kalender/"
                                            ]
                                    ++
                                    ptlURIs [ ""                 -- ptl start page
@@ -49,8 +50,10 @@ fhwRefs                         :: URI -> Bool
 fhwRefs                         = simpleFollowRef'
                                   [ fhwHome ++
                                             alternatives
-                                            [ ""                        -- the homepage
-                                            , htmlFiles                 -- all top level fhw pages
+                                            [
+                                            -- ""                        -- the homepage
+                                            -- , htmlFiles                 -- all top level fhw pages
+                                            {-
                                             , "~si/" ++                 -- si's pages with dates
                                                      alternatives
                                                      [ "termine/" ++ htmlFiles
@@ -58,8 +61,9 @@ fhwRefs                         = simpleFollowRef'
                                                      , "praktika/SoftwarePraktikum/20[1-9][0-9][sw]s/index.html"
                                                      , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
                                                      ]
-                                            , "~eg/" ++ htmlPaths       -- Martin Egges pages
-                                            , "online-campus/termine/kalender/"  ++ htmlPathsCalender -- kalender
+                                                     -}
+                                            "~eg/" ++ htmlPaths       -- Martin Egges pages
+                                            -- , "online-campus/termine/kalender/"  ++ htmlPathsCalender -- kalender
                                             ]
                                   , ptlHome ++
                                             alternatives
@@ -97,7 +101,7 @@ htmlPaths                       :: String
 htmlPaths                       = filePath ++ htmlFiles
 
 htmlPathsCalender               :: String
-htmlPathsCalender               = "(" ++ "[^/?]+" ++ "/){1,4}" ++ htmlFiles
+htmlPathsCalender               = "(" ++ "[^/?]+" ++ "/)" ++ htmlFiles
 
 -- ------------------------------------------------------------
 

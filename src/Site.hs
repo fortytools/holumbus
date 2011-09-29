@@ -63,6 +63,10 @@ numDisplayedCompletions = 20
 -- |
 ------------------------------------------------------------------------------
 
+saveHead :: [a] -> a -> a
+saveHead [] x = x
+saveHead (x:xs) _   = x
+
 ------------------------------------------------------------------------------
 -- | get the Index-Data
 getCoreIdx :: Application CompactInverted
@@ -188,7 +192,7 @@ docHitToListItem isDate docHit =
     dateContextMap     = M.lookup "dates"    $ srContextMap docHit
     calenderContextMap = M.lookup "calender" $ srContextMap docHit
     listOfMaps2listOfPositions [] = []
-    listOfMaps2listOfPositions l = IS.toList . snd . L.head $ l
+    listOfMaps2listOfPositions x = IS.toList . snd . L.head $ x
 
 ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
@@ -317,7 +321,10 @@ processquery = do
 resultSplice :: Bool -> Int -> Int -> SearchResultDocs -> Splice Application
 resultSplice isDate takeHits dropHits searchResultDocs = do
   let items = P.map (docHitToListItem isDate) (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
-  liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head . srDocHits $ searchResultDocs
+  let docHits = srDocHits searchResultDocs
+  if P.null $ docHits
+     then liftIO $ P.putStrLn "- keine Ergebnisse -"
+     else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
   let infos = [docHitsMetaInfo searchResultDocs]
   return $ [htmlList "searchResultList" (infos ++ items)]
 

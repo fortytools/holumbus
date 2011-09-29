@@ -71,6 +71,7 @@ w3wIndexer o                    = stdIndexer
                                   )
                                   `guards` this
 
+
 -- ------------------------------------------------------------
 
 w3wCacher                       :: AppOpts -> IO CacheCrawlerState

@@ -44,13 +44,13 @@ w3wIndexConfig dateExtractor dateProcessor
 
     ixCalender                  = ixDefault
                                   { ixc_name            = "calender"
-                                  , ixc_collectText     =  getByPath ["html", "body"]
-                                                           >>>
-                                                           deep (isElem >>> hasName "table" >>> hasAttrValue "class" (== "month-large"))
-                                                           >>>
-                                                           deep (isElem >>> hasName "a")
-                                                           >>>
-                                                           (fromLA $ deep (getAttrValue "href"))
+                                  , ixc_collectText     = getRelevantNodes
+                                                          >>>
+                                                          deep (isElem >>> hasName "table" >>> hasAttrValue "class" (== "month-large"))
+                                                          >>>
+                                                          deep (isElem >>> hasName "a")
+                                                          >>>
+                                                          (fromLA $ deep (getAttrValue "href"))
 
                                   , ixc_textToWords     = getNormFunc dateProcessor . dateExtractor
                                   , ixc_boringWord      = boringURIpart
@@ -65,17 +65,7 @@ w3wIndexConfig dateExtractor dateProcessor
 
     ixDates                     = ixDefault
                                   { ixc_name            = "dates"
-                                  , ixc_collectText     = (
-                                                            getByPath ["html", "body"]
-                                                            >>>
-                                                            -- multi (isElem >>> hasName "div" >>> hasAttrValue "id" (/= "footer"))
-                                                            -- >>>
-                                                            ( fromLA $ deep getText )
-                                                            >>^
-                                                            (" " ++)
-                                                          )
-                                                          >. concat >>^ normalizeWS
-
+                                  , ixc_collectText     = getHtmlText
                                   , ixc_textToWords     = getNormFunc dateProcessor . dateExtractor
                                   , ixc_boringWord      = null
                                   }

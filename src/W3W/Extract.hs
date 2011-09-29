@@ -5,6 +5,7 @@
 module W3W.Extract
 where
 
+
 import      Data.Char.Properties.XMLCharProps
 import      Data.Char                            ( toLower )
 import      Data.List                            ( isPrefixOf )
@@ -14,6 +15,9 @@ import		Text.XML.HXT.Core
 import 		Text.Regex.XMLSchema.String (matchSubex, tokenizeSubex)
 import		W3W.Date as D
 
+import Data.Tree.NTree.TypeDefs
+import Text.XML.HXT.DOM.XmlTreeFunctions
+import qualified Text.XML.HXT.DOM.XmlNode as XN
 -- ------------------------------------------------------------
 --
 -- the arrows for building the index
@@ -43,16 +47,47 @@ getContentText                  =  choiceA
                                    , this           :-> none
                                    ]
 
-getHtmlText                     :: IOSArrow XmlTree String
-getHtmlText                     = getAllText $
-                                  choiceA
+{-
+getAllText x =
+        (
+            x
+            >>>
+            ( fromLA $ deep getText )
+            >>^
+            (" " ++)            -- text parts are separated by a space
+          )
+          >. (concat >>> normalizeWS)       -- normalize Space
+-}
+
+
+getHtmlText :: IOSArrow XmlTree String
+getHtmlText = getRelevantNodes >>> extractText
+
+extractText :: IOSArrow XmlTree String
+extractText = (
+                ( fromLA $ deep getText )
+                >>^
+                (" " ++)            -- text parts are separated by a space
+              )
+              >. (concat >>> normalizeWS)       -- normalize Space
+
+getRelevantNodes                :: IOSArrow XmlTree XmlTree -- TODO hier ansetzen um FOOTER DIV wegzulassen
+getRelevantNodes                = choiceA
                                   [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
                                                           >>>
                                                           deep (hasDivWithId "col3_content")
                                                         )
                                   , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
                                                           >>>
-                                                          deep (hasDivWithId "PageContentDiv")
+                                                          (
+                                                            deep (hasDivWithId "ContentHeaderDiv"
+                                                                  <+>
+                                                                  hasDivWithId "ContentOutlineDiv"
+                                                                  <+>
+                                                                  hasDivWithId "ContentBodyDiv"
+                                                                  )
+
+                                                          ) -- >>^ (\ (a, (b, c)) -> XN.mkRoot [] [a, b, c])
                                                         )
                                   , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
                                                           >>>

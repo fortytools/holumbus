@@ -526,7 +526,7 @@ dateRep2DatesContext :: DateProcessorFunc
 dateRep2DatesContext = DateContextExtractor func
   where
     func [] = []
-    func (x:[]) = [[takeLastNWords 5 $ _p x , _r x, ""]]
+    func (x:[]) = if not . null $ _r x then [[takeLastNWords 5 $ _p x , _r x, ""]] else []
     func (x:y:xs) = [[takeLastNWords 5 $ _p x , _r x , takeFirstNWords 5 $ _p y]] ++ (func (y:xs))
 
 ------------------------------------------------------------------------------
