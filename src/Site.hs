@@ -42,6 +42,8 @@ import Monad (liftM)
 -- |
 ------------------------------------------------------------------------------
 
+fhWedelPrefix :: String
+fhWedelPrefix = "http://www.fh-wedel.de/"
 ------------------------------------------------------------------------------
 -- | number of hits shown per page
 hitsPerPage :: Int
@@ -116,14 +118,25 @@ htmlListItem cssClass xNode =
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item.
 -- | Takes the left Date-Context, the Date itself and the right Date-Context
-htmlListItemDate :: String -> String -> String -> X.Node
-htmlListItemDate leftContext date rightContext =
+htmlListItemDate :: DateContextType ->  String -> String -> String -> X.Node
+htmlListItemDate DateInCalender leftContext date rightContext =
   X.Element (T.pack $ "li")
-    []
+    [(T.pack $ "class", T.pack $ "calenderDate")]
+    [htmlLink' "ul" (fhWedelPrefix ++ leftContext) $
+      X.Element (T.pack $ "div")
+      []
+      [htmlSpanTextNode "dateContext" ("Fh-Wedel Kalender: " ++ " ")
+      ,htmlSpanTextNode "date" date
+      ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
+      ]
+    ]
+htmlListItemDate DateInStdContent leftContext date rightContext =
+  X.Element (T.pack $ "li")
+    [(T.pack $ "class", T.pack $ "stdDate")]
     [htmlSpanTextNode "dateContext" (leftContext ++ " ")
     ,htmlSpanTextNode "date" date
-    ,htmlSpanTextNode "dateContext" (" " ++ rightContext)]
-
+    ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
+    ]
 ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node
 htmlTextNode :: String -> X.Node
@@ -159,6 +172,8 @@ htmlLink' cssClass href xNode =
     ]
     [xNode]
 
+
+data DateContextType = DateInStdContent | DateInCalender
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item containing a List with the link to the document found, the teasertext and the ranking-score
 -- | i.e.
@@ -171,19 +186,21 @@ htmlLink' cssClass href xNode =
 -- | </li>
 docHitToListItem :: Bool -> SRDocHit -> X.Node
 docHitToListItem isDate docHit =
-  htmlListItem "searchResult_li" $ htmlLink' "ul" (srUri docHit) $ subList
+  htmlListItem "searchResult_li" $ {-htmlLink' "ul" (srUri docHit) $-} subList
   where
-    subList = htmlList "searchResult_ul" subListItems
-    subListItems = [htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
-                ++ [htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit)
+    subList = htmlList (if (isDate) then "searchResultDates_ul" else "searchResult_ul") subListItems
+    subListItems = [htmlLink' "ul" (srUri docHit) $ htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
+                ++ [htmlLink' "ul" (srUri docHit) $ htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit)
                   ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
                 ++  if (isDate)
-                    then mkDateContexts stringOfDateContexts listOfMatchedPositionsDate
+                    then mkDateContexts stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
+                          (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
                          ++
-                         mkDateContexts stringOfCalenderContexts listOfMatchedPositionsCalender
-                    else mkContentContext
+                         mkDateContexts stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
+                         "" -- fordebugging only!
+                    else [htmlLink' "ul" (srUri docHit) mkContentContext]
                 ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
-    mkContentContext =  [htmlListItem "content" $ htmlTextNode teaserText]
+    mkContentContext =  htmlListItem "content" $ htmlTextNode teaserText
     teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . contentContext . srPageInfo $ docHit
     stringOfDateContexts = datesContext . srPageInfo $ docHit
     stringOfCalenderContexts = calenderContext . srPageInfo $ docHit
@@ -192,7 +209,7 @@ docHitToListItem isDate docHit =
     dateContextMap     = M.lookup "dates"    $ srContextMap docHit
     calenderContextMap = M.lookup "calender" $ srContextMap docHit
     listOfMaps2listOfPositions [] = []
-    listOfMaps2listOfPositions x = IS.toList . snd . L.head $ x
+    listOfMaps2listOfPositions x = L.map (L.head . IS.toList . snd) x
 
 ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
@@ -201,20 +218,24 @@ docHitToListItem isDate docHit =
 -- | the result will be
 -- | <li class="dates">...date1...</li>
 -- | <li class="dates">...date3...</li>
-mkDateContexts :: String -> [Int] -> [X.Node]
-mkDateContexts _ [] = []
-mkDateContexts "" _ = []
-mkDateContexts stringOfDateContexts listOfMatchedPositions =
+mkDateContexts :: String -> [Int] -> DateContextType -> String -> [X.Node]
+mkDateContexts _ [] _ _ = []
+mkDateContexts "" _ _ _ = []
+mkDateContexts stringOfDateContexts listOfMatchedPositions dct debugInfo =
   (P.map str2htmlListItem listOfMatchedContexts)
     where
-      str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate leftContext theDate rightContext
+      str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate dct leftContext theDate rightContext
       listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions
       getDateContextAt position =
         if (position') > ((L.length listOfDateContexts) - 1)
            then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">", "")
-           -- else ("...", (show stringOfDateContexts), "...")
-           else ("..." ++ (contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
+            --     else ("contexts: ", (show stringOfDateContexts),
+            --        " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
+            --              ++ " and dateContextMap is <" ++ debugInfo ++ ">")
+           else showContexts dct 
         where
+          showContexts DateInStdContent = ("..." ++ (contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
+          showContexts DateInCalender   = ((contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
           position' = position - 1
           contexts = listOfDateContexts !! position'
       listOfDateContexts = fromJson ((decodeStrict stringOfDateContexts) :: Text.JSON.Result [[String]])

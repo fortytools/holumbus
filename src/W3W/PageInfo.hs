@@ -79,17 +79,19 @@ w3wGetTitle                     = fromLA $
                                   `orElse`
                                   getURI
 
+
 w3wGetPageInfo                  :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree PageInfo
 w3wGetPageInfo dateExtractor dateProcessor =
-                                ( fromLA (getModified `withDefault` "")
+
+                                ( fromLA (getModified `withDefault` "default1")
                                   &&&
-                                  fromLA (getAuthor `withDefault` "")
+                                  fromLA (getAuthor `withDefault` "default2")
                                   &&&
-                                  (getTeaserTextPageCont `withDefault` "")
+                                  (getTeaserTextPageCont `withDefault` "default3")
                                   &&&
-                                  ((getTeaserTextDates dateExtractor dateProcessor) `withDefault` "")
+                                  ((getTeaserTextDates dateExtractor dateProcessor) `withDefault` "default4")
                                   &&&
-                                  ((getTeaserTextCalender dateExtractor dateProcessor) `withDefault` "")
+                                  ((getTeaserTextCalender dateExtractor dateProcessor) `withDefault` "default5")
                                 )
                                 >>^
                                 (\ (m, (a, (c, (d, x)))) -> mkPageInfo m a c d x)
@@ -125,13 +127,27 @@ getAuthor                       = getAuthorFromURI
 
 getTeaserTextPageCont :: IOSArrow XmlTree String
 getTeaserTextPageCont =
+{--         (
+              trace 1 $
+                xshow $
+                  treeRepOfXmlDoc
+                  >>>
+                  addHeadlineToXmlDoc
+                  >>>
+                  getChildren
+            )
+            >>>
             getHtmlText
-            >>^
+
+            --}
             (
-              words
-              >>>
-              unwordsCont 50
-            ) -- take the first 50 words from content
+              trace 1 $
+              getHtmlText
+            )
+            >>> getHtmlText
+
+
+            -- take the first 50 words from content
 
 getTeaserTextDates :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree String
 getTeaserTextDates dateExtractor dateProcessor =
@@ -167,7 +183,7 @@ getTeaserTextCalender dateExtractor dateProcessor =
                         where
                           hrefAndText2CalenderContext (href, text) =
                             let res = (getNormFunc D.dateRep2NormalizedDates . dateExtractor $ href) in
-                            [["FH-Wedel Kalender:"
+                            [[ href
                             , if (not . null $ res) then D.unNormalizeDate . head $ res else "-"
                             , text
                             ]]

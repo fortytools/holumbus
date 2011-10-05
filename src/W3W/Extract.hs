@@ -10,13 +10,13 @@ import      Data.Char.Properties.XMLCharProps
 import      Data.Char                            ( toLower )
 import      Data.List                            ( isPrefixOf )
 import      Data.Maybe
-import		Holumbus.Crawler
-import		Text.XML.HXT.Core
-import 		Text.Regex.XMLSchema.String (matchSubex, tokenizeSubex)
-import		W3W.Date as D
+import      Holumbus.Crawler
+import      Text.XML.HXT.Core
+import      Text.Regex.XMLSchema.String (matchSubex, tokenizeSubex)
+import      W3W.Date as D
 
 import Data.Tree.NTree.TypeDefs
-import Text.XML.HXT.DOM.XmlTreeFunctions
+
 import qualified Text.XML.HXT.DOM.XmlNode as XN
 -- ------------------------------------------------------------
 --
@@ -80,14 +80,12 @@ getRelevantNodes                = choiceA
                                   , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
                                                           >>>
                                                           (
-                                                            deep (hasDivWithId "ContentHeaderDiv"
-                                                                  <+>
-                                                                  hasDivWithId "ContentOutlineDiv"
-                                                                  <+>
-                                                                  hasDivWithId "ContentBodyDiv"
-                                                                  )
-
-                                                          ) -- >>^ (\ (a, (b, c)) -> XN.mkRoot [] [a, b, c])
+                                                            ((deep (hasDivWithId "ContentHeaderDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
+                                                            &&&
+                                                            ((deep (hasDivWithId "ContentOutlineDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
+                                                            &&&
+                                                            ((deep (hasDivWithId "ContentBodyDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
+                                                          ) >>^ (\ (a, (b, c)) -> XN.mkRoot [] [a, b, c])
                                                         )
                                   , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
                                                           >>>
