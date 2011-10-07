@@ -47,7 +47,7 @@ fhWedelPrefix = "http://www.fh-wedel.de/"
 ------------------------------------------------------------------------------
 -- | number of hits shown per page
 hitsPerPage :: Int
-hitsPerPage = 20
+hitsPerPage = 10
 
 ------------------------------------------------------------------------------
 -- | number of words contained in the teaser text
@@ -291,11 +291,16 @@ docHitsMetaInfo searchResultDocs =
 -- |   takeHits: Number of Hits to be displayed per Site
 -- |   dropHits: Number of Hits to be dropped from the Result of all Document-Hits
 -- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30"> 4 </a>
-mkPagerLink :: String -> (Int, Int, Int) -> X.Node
-mkPagerLink query (number, takeHits, dropHits) =
-  htmlLink ""
-    ("/querypage?query=" ++ query ++ "&takeHits=" ++ (show takeHits) ++ "&dropHits=" ++ (show dropHits))
-    (" " ++ (show number) ++ " ")
+mkPagerLink :: String -> Int -> Int -> X.Node
+mkPagerLink query actPage number =
+  htmlLink cssClass
+    ("/querypage?query=" ++ query ++ "&page=" ++ pageNum)
+    (" " ++ pageNum ++ " ")
+  where
+    pageNum = show number
+    cssClass = if actPage == number
+                  then "actPage"
+                  else ""
 
 ------------------------------------------------------------------------------
 -- | maybe transform the search-query into a normalized date string.
@@ -360,20 +365,18 @@ processquery = do
   liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
   queryFunc' <- queryFunction
   searchResultDocs <- liftIO $ getIndexSearchResults transformedQuery queryFunc'
-  strTakeHits <- getQueryStringParam "takeHits"
-  strDropHits <- getQueryStringParam "dropHits"
-  let intDropHits = strToInt 0 strDropHits
-  let intTakeHits = strToInt hitsPerPage strTakeHits
-  let indexSplices = [ ("result", resultSplice hasDate intTakeHits intDropHits searchResultDocs)
+  strPage <- getQueryStringParam "page"
+  let intPage = strToInt 1 strPage
+  let indexSplices = [ ("result", resultSplice hasDate intPage searchResultDocs)
                      , ("oldquery", oldQuerySplice)
-                     , ("pager", pagerSplice query searchResultDocs)
+                     , ("pager", pagerSplice query intPage searchResultDocs)
                      ]
   heistLocal (bindSplices indexSplices) $ render "frontpage"
 
 -- | generates the HTML node to be inserted into "<result />"
-resultSplice :: Bool -> Int -> Int -> SearchResultDocs -> Splice Application
-resultSplice isDate takeHits dropHits searchResultDocs = do
-  let items = P.map (docHitToListItem isDate) (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
+resultSplice :: Bool -> Int -> SearchResultDocs -> Splice Application
+resultSplice isDate pageNum searchResultDocs = do
+  let items = P.map (docHitToListItem isDate) (L.take hitsPerPage $ L.drop ((pageNum-1)*hitsPerPage) $ srDocHits searchResultDocs)
   let docHits = srDocHits searchResultDocs
 --  if P.null $ docHits
 --     then liftIO $ P.putStrLn "- keine Ergebnisse -"
@@ -390,13 +393,11 @@ oldQuerySplice = do
   return $ [htmlTextNode query']
 
 -- | generates the HTML node to be inserted into "<pager />"
-pagerSplice :: String -> SearchResultDocs -> Splice Application
-pagerSplice query searchResultDocs = do
+pagerSplice :: String -> Int -> SearchResultDocs -> Splice Application
+pagerSplice query actPage searchResultDocs = do
   let resultCount =  L.length $ srDocHits searchResultDocs
   let maxNumberOfPages = ceiling $ (fromIntegral resultCount) / (fromIntegral hitsPerPage) -- TODO: Defaulting the following constraint(s) to type `Double' arising from a use of `/' at src/Site.hs:225:63
-  let mkLinkTriple hitsPerPage currentPage = (currentPage, hitsPerPage, (currentPage-1)*hitsPerPage) -- TODO: binding for `hitsPerPage' shadows the existing binding defined at src/Site.hs:48:1
-  let linkTriples = L.map (mkLinkTriple hitsPerPage) [1..maxNumberOfPages]
-  return $ L.map (mkPagerLink query) linkTriples
+  return $ L.map (mkPagerLink query actPage) [1..maxNumberOfPages]
 
 ------------------------------------------------------------------------------
 -- |
