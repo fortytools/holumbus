@@ -86,7 +86,7 @@ monthL         = altNC
                  , "dezember"
                  ]
 
-monthA         = altNC . map (opt . dot) $ map snd monthAbr
+monthA         = altNC . map dot $ map snd monthAbr
 
 monthAbr       = (9, "sept") :
                  zip [1..12]
