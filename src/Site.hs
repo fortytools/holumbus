@@ -144,7 +144,7 @@ htmlListItemDate DateInCalender _ leftContext date rightContext =
 
 htmlListItemDate DateInStdContent linkUrl leftContext date rightContext =
   X.Element (T.pack $ "li")
-    [(T.pack $ "class", T.pack $ "")]
+    []
     [
       X.Element (T.pack $ "div")
       []
