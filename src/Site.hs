@@ -50,7 +50,7 @@ hitsPerPage :: Int
 hitsPerPage = 10
 
 maxPages :: Int
-maxPages = 10
+maxPages = 3
 
 ------------------------------------------------------------------------------
 -- | number of words contained in the teaser text
