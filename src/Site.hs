@@ -399,7 +399,7 @@ oldQuerySplice = do
 pagerSplice :: String -> Int -> SearchResultDocs -> Splice Application
 pagerSplice query actPage searchResultDocs = do
   let resultCount =  L.length $ srDocHits searchResultDocs
-  let numberOfPages = max maxPages (ceiling $ (fromIntegral resultCount) / (fromIntegral hitsPerPage)) -- TODO: Defaulting the following constraint(s) to type `Double' arising from a use of `/' at src/Site.hs:225:63
+  let numberOfPages = min maxPages (ceiling $ (fromIntegral resultCount) / (fromIntegral hitsPerPage)) -- TODO: Defaulting the following constraint(s) to type `Double' arising from a use of `/' at src/Site.hs:225:63
   return $ L.map (mkPagerLink query actPage) [1..numberOfPages]
 
 ------------------------------------------------------------------------------
