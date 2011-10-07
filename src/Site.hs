@@ -130,14 +130,19 @@ htmlListItemDate :: DateContextType ->  String -> String -> String -> X.Node
 htmlListItemDate DateInCalender leftContext date rightContext =
   X.Element (T.pack $ "li")
     [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
-    [htmlLink' "" (fhWedelPrefix ++ leftContext) $
-      X.Element (T.pack $ "div")
+    [
+      X.Element (T.pack $ "li")
       []
-      [htmlSpanTextNode "dateContext" ("Fh-Wedel Kalender: " ++ " ")
-      ,htmlSpanTextNode "date" date
-      ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
+      [htmlLink' "" (fhWedelPrefix ++ leftContext) $
+        X.Element (T.pack $ "div")
+        []
+        [htmlSpanTextNode "dateContext" ("Fh-Wedel Kalender: " ++ " ")
+        ,htmlSpanTextNode "date" date
+        ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
+        ]
       ]
     ]
+
 htmlListItemDate DateInStdContent leftContext date rightContext =
   X.Element (T.pack $ "li")
     [(T.pack $ "class", T.pack $ "standardDateTeaserText")]
@@ -210,7 +215,7 @@ data DateContextType = DateInStdContent | DateInCalender
 -- | </li>
 docHitToListItem :: Bool -> SRDocHit -> X.Node
 docHitToListItem isDate docHit =
-  htmlListItem "" $ {-htmlLink' "ul" (srUri docHit) $-} subList
+  htmlListItem "searchResults" $ subList
   where
     subList = htmlList "searchResult" subListItems
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
