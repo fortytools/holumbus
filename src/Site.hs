@@ -220,10 +220,20 @@ docHitToListItem :: Bool -> SRDocHit -> X.Node
 docHitToListItem isDate docHit =
   htmlListItem "searchResult" $ subList
   where
+    auth = author . srPageInfo $ docHit
+    modi = modified . srPageInfo $ docHit
+    authText = if (auth == "")
+                  then ""
+                  else "geändert von " ++ auth
+    modiText = if (modi == "")
+                  then ""
+                  else
+                    if (auth == "")
+                       then "geändert am " ++ modi
+                       else " am " ++ modi
     subList = htmlList "" subListItems
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
-                ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ (author . srPageInfo $ docHit)
-                  ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
+                ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ authText ++ modiText]
                 ++  if (isDate)
                     then mkDateContexts (srUri docHit) stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
                           (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
