@@ -383,9 +383,9 @@ resultSplice :: Bool -> Int -> Int -> SearchResultDocs -> Splice Application
 resultSplice isDate takeHits dropHits searchResultDocs = do
   let items = P.map (docHitToListItem isDate) (L.take takeHits $ L.drop dropHits $ srDocHits searchResultDocs)
   let docHits = srDocHits searchResultDocs
-  if P.null $ docHits
-     then liftIO $ P.putStrLn "- keine Ergebnisse -"
-     else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
+--  if P.null $ docHits
+--     then liftIO $ P.putStrLn "- keine Ergebnisse -"
+--     else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
   let infos = [docHitsMetaInfo searchResultDocs]
   return $ [htmlList "" (infos ++ items)]
 
