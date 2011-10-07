@@ -293,7 +293,7 @@ docHitsMetaInfo searchResultDocs =
 -- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30"> 4 </a>
 mkPagerLink :: String -> (Int, Int, Int) -> X.Node
 mkPagerLink query (number, takeHits, dropHits) =
-  htmlLink "pager"
+  htmlLink ""
     ("/querypage?query=" ++ query ++ "&takeHits=" ++ (show takeHits) ++ "&dropHits=" ++ (show dropHits))
     (" " ++ (show number) ++ " ")
 
