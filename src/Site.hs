@@ -230,7 +230,7 @@ docHitToListItem isDate docHit =
                   else
                     if (auth == "")
                        then "geändert am " ++ modi
-                       else " am " ++ modi
+                       else " am " ++ saveHead (P.map unNormalizeDate $ getNormFunc dateRep2NormalizedDates . extractDateRep $ modi) "???"
     subList = htmlList "" subListItems
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
                 ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ authText ++ modiText]
