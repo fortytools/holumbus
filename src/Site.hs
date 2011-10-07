@@ -126,8 +126,8 @@ htmlListItem cssClass xNode =
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item.
 -- | Takes the left Date-Context, the Date itself and the right Date-Context
-htmlListItemDate :: DateContextType ->  String -> String -> String -> X.Node
-htmlListItemDate DateInCalender leftContext date rightContext =
+htmlListItemDate :: DateContextType -> String -> String -> String -> String -> X.Node
+htmlListItemDate DateInCalender _ leftContext date rightContext =
   X.Element (T.pack $ "li")
     [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
     [
@@ -136,21 +136,29 @@ htmlListItemDate DateInCalender leftContext date rightContext =
       [htmlLink' "" (fhWedelPrefix ++ leftContext) $
         X.Element (T.pack $ "div")
         []
-        [htmlSpanTextNode "dateContext" ("Fh-Wedel Kalender: " ++ " ")
+        [htmlSpanTextNode "date" date
+        ,htmlSpanTextNode "dateContext" (": " ++ rightContext)
+        ]
+      ]
+    ]
+
+htmlListItemDate DateInStdContent linkUrl leftContext date rightContext =
+  X.Element (T.pack $ "li")
+    [(T.pack $ "class", T.pack $ "")]
+    [
+      X.Element (T.pack $ "div")
+      []
+      [htmlLink' "" linkUrl $
+        X.Element (T.pack $ "div")
+        []
+        [htmlSpanTextNode "dateContext" (leftContext ++ " ")
         ,htmlSpanTextNode "date" date
         ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
         ]
       ]
     ]
 
-htmlListItemDate DateInStdContent leftContext date rightContext =
-  X.Element (T.pack $ "li")
-    [(T.pack $ "class", T.pack $ "standardDateTeaserText")]
-    [htmlSpanTextNode "dateContext" (leftContext ++ " ")
-    ,htmlSpanTextNode "date" date
-    ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
-    ]
-------------------------------------------------------------------------------
+ ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node
 htmlTextNode :: String -> X.Node
 htmlTextNode text = X.TextNode $ T.pack $ text
@@ -222,10 +230,10 @@ docHitToListItem isDate docHit =
                 ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ (author . srPageInfo $ docHit)
                   ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
                 ++  if (isDate)
-                    then mkDateContexts stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
+                    then mkDateContexts (srUri docHit) stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
                           (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
                          ++
-                         mkDateContexts stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
+                         mkDateContexts (srUri docHit) stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
                          "" -- fordebugging only!
                     else [htmlLink' "" (srUri docHit) mkContentContext]
                 ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
@@ -245,15 +253,18 @@ docHitToListItem isDate docHit =
 -- | i.e. given a JSON-String of Date Contexts (date1,date2,date3,date4,...)
 -- | and a listOfMatchedPositions = [0,2]
 -- | the result will be
--- | <li class="dates">...date1...</li>
--- | <li class="dates">...date3...</li>
-mkDateContexts :: String -> [Int] -> DateContextType -> String -> [X.Node]
-mkDateContexts _ [] _ _ = []
-mkDateContexts "" _ _ _ = []
-mkDateContexts stringOfDateContexts listOfMatchedPositions dct debugInfo =
+-- | <li class="dates"><a href="linkUrl">...date1...</a></li>
+-- | ...
+-- | or, if it's a date-context:
+-- | <li class="dates"><a href="link-to-calender-event">...date3...</a></li>
+-- | ...
+mkDateContexts :: String -> String -> [Int] -> DateContextType -> String -> [X.Node]
+mkDateContexts _ _ [] _ _ = []
+mkDateContexts _ "" _ _ _ = []
+mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct debugInfo =
   (P.map str2htmlListItem listOfMatchedContexts)
     where
-      str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate dct leftContext theDate rightContext
+      str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate dct linkUrl leftContext theDate rightContext
       listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions
       getDateContextAt position =
         if (position') > ((L.length listOfDateContexts) - 1)
