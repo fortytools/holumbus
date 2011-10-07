@@ -167,12 +167,15 @@ htmlLink cssClass href text =
 htmlLink' :: String -> String -> X.Node -> X.Node
 htmlLink' cssClass href xNode =
   X.Element (T.pack $ "a")
-    [(T.pack $ "href", T.pack $ href)]
-    ++
-    if cssClass == ""
-      then []
-      else (T.pack $ "class", T.pack $ cssClass)
-    ]
+    (
+      [(T.pack $ "href", T.pack $ href)]
+      ++
+      (
+        if (cssClass == "")
+          then []
+          else [(T.pack $ "class", T.pack $ cssClass)]
+      )
+    )
     [xNode]
 
 
