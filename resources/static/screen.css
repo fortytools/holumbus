@@ -14,6 +14,11 @@ a {
   color: #3369AA;
 }
 
+ul, li {
+  margin-left: 0;
+  padding-left: 0;
+}
+
 #header {
   width: 910px;
   height: 90px;
@@ -28,24 +33,31 @@ a {
   background-color: #FFFFFF;
 }
 
-#content ul {
-  padding-right: 40px;
-}
-
 #content ul * {
   list-style-type: none;
 }
 
-#content ul li ul {
+.searchResult
+{
+  padding-left: 40px;
+  padding-right: 40px;
+}
+
+.searchResult ul {
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 20px;
   padding-right: 20px;
 }
 
-#content ul li ul:hover
+.searchResult ul:hover
 {
   background-color: #DDDDDD;
+}
+
+.calenderDateTeaserText div:hover
+{
+  background-color: #BBBBBB;
 }
 
 .suggest_link {
@@ -66,18 +78,19 @@ a {
 }
 
 .info {
+  padding-left: 60px;
   padding-top: 5px;
   padding-bottom: 10px;
   font-size: 8pt;
   color: black;
 }
 
-.author_modified {
+.searchResultModified {
   font-size: 8pt;
   color: grey;
 }
 
-.content {
+.teaserText {
   font-size: 8pt;
   color: black;
 }
@@ -85,7 +98,7 @@ a {
 .date {
   font-size: 8pt;
   font-weight: bold;
-  color: green;
+  color: black;
 }
 
 .dateContext {
@@ -93,22 +106,10 @@ a {
   color: black;
 }
 
-.date_info {
-  font-size: 8pt;
-  color: red;
-}
-
-.link {
-  font-size: 10pt;
-}
-
 .score {
   font-size: 8pt;
   color: red;
-}
-
-.pager {
-  font-size: 10pt;
+  display: none;
 }
 
 #form {
@@ -141,6 +142,10 @@ a {
   font-size: 10pt;
 }
 
+#result {
+  min-height: 512px;
+}
+
 #sider {
   width: 75px;
   height: 605px;
@@ -150,6 +155,13 @@ a {
 #pager {
   text-align: center;
   padding-bottom: 20px;
+  font-size: 10pt;
+  padding-left: 60px;
+  padding-right: 60px;
+}
+
+.actPage {
+  font-weight: bold;
 }
 
 #footer {
