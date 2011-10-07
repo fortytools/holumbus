@@ -86,7 +86,7 @@ monthL         = altNC
                  , "dezember"
                  ]
 
-monthA         = altNC . map dot $ map snd monthAbr
+monthA         = altNC . map (opt . dot) $ map snd monthAbr
 
 monthAbr       = (9, "sept") :
                  zip [1..12]
@@ -461,7 +461,7 @@ t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für d
 
 t1 = "Heute ist der 10.7.2003 und NAECHSTE WOCHE gibts am Freitag, den 11.7.2003 Fisch"
 t2 = "Erdbeerkaese"
-t3 = "12. September 2011 12. Oktober 2011"
+t3 = "12. September 2011 um 23:00 Uhr gibts Erdbeerkäse"
 
 -- tokenRE :
 --   regulärer Ausdruck mit {label}
