@@ -50,7 +50,7 @@ hitsPerPage :: Int
 hitsPerPage = 10
 
 maxPages :: Int
-maxPages = 3
+maxPages = 10
 
 ------------------------------------------------------------------------------
 -- | number of words contained in the teaser text
@@ -142,7 +142,7 @@ htmlListItemDate DateInCalender _ leftContext date rightContext =
       ]
 
 htmlListItemDate DateInStdContent linkUrl leftContext date rightContext =
-  htmlLink' "" (fhWedelPrefix ++ leftContext) $
+  htmlLink' "" (linkUrl) $
     X.Element (T.pack $ "li")
       []
       [ X.Element (T.pack $ "div")
@@ -427,7 +427,7 @@ completions = do
 
 -- convert List to JSON-Array
 toJSONArray :: Int -> [SRWordHit] -> String
-toJSONArray n srwh = encodeStrict $ showJSONs (P.map (\ (SRWordHit w1 h1) -> w1 ++ " (" ++ (show h1) ++ ")") (L.take n srwh))
+toJSONArray n srwh = encodeStrict $ showJSONs (P.map (\ (SRWordHit w1 h1) -> w1 {- ++ " (" ++ (show h1) ++ ")" -} ) (L.take n srwh))
 
 ------------------------------------------------------------------------------
 
