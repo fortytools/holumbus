@@ -27,13 +27,13 @@ function handleResponseAutoCompleter()
     var i = 0;
     for(var suggestion in suggestions)
     {
-	  var sugg = suggestions[suggestion]; 
-	  var sugg1 = sugg.substring(0, sugg.indexOf(" ("));
+      var sugg = suggestions[suggestion]; 
+      // var sugg1 = sugg.substring(0, sugg.indexOf(" ("));
       if(sugg != "")
       {
-        output += '<div onmouseover="suggestOverMouse(this)" onmouseout="suggestOut(this)" onmousedown="setSuggestion(\''+sugg1+'\')" id="'+i+'" class="suggest_link">' 
-		+ sugg 
-		+ '</div>';
+        output  += '<div onmouseover="suggestOverMouse(this)" onmouseout="suggestOut(this)" onmousedown="setSuggestion(\''+sugg+'\')" id="'+i+'" class="suggest_link">'
+                + sugg
+                + '</div>';
       }
       i++;
     }
@@ -64,7 +64,7 @@ function suggestOverMouse(div) {
 function suggestOver(div) {
  selectedSuggestion = div.id;
  div.className = 'suggest_link_over';
- document.getElementById("query").value = div.innerHTML.substring(0, div.innerHTML.indexOf(" ("));
+ document.getElementById("query").value = div.innerHTML; //.substring(0, div.innerHTML.indexOf(" ("));
 }
 
 //Move out function
