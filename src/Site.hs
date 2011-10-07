@@ -128,35 +128,27 @@ htmlListItem cssClass xNode =
 -- | Takes the left Date-Context, the Date itself and the right Date-Context
 htmlListItemDate :: DateContextType -> String -> String -> String -> String -> X.Node
 htmlListItemDate DateInCalender _ leftContext date rightContext =
-  X.Element (T.pack $ "li")
-    [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
-    [
-      X.Element (T.pack $ "div")
-      []
-      [htmlLink' "" (fhWedelPrefix ++ leftContext) $
-        X.Element (T.pack $ "div")
+  htmlLink' "" (fhWedelPrefix ++ leftContext) $
+    X.Element (T.pack $ "li")
+      [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
+      [ X.Element (T.pack $ "div")
         []
         [htmlSpanTextNode "date" date
         ,htmlSpanTextNode "dateContext" (": " ++ rightContext)
         ]
       ]
-    ]
 
 htmlListItemDate DateInStdContent linkUrl leftContext date rightContext =
-  X.Element (T.pack $ "li")
-    []
-    [
-      X.Element (T.pack $ "div")
+  htmlLink' "" (fhWedelPrefix ++ leftContext) $
+    X.Element (T.pack $ "li")
       []
-      [htmlLink' "" linkUrl $
-        X.Element (T.pack $ "div")
+      [ X.Element (T.pack $ "div")
         []
         [htmlSpanTextNode "dateContext" (leftContext ++ " ")
         ,htmlSpanTextNode "date" date
         ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
         ]
       ]
-    ]
 
  ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node
