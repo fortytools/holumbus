@@ -104,7 +104,11 @@ getQueryStringParam param = do
 htmlList :: String -> [X.Node] -> X.Node
 htmlList cssClass xNodes =
   X.Element (T.pack $ "ul")
-    [(T.pack $ "class", T.pack $ cssClass)]
+    (
+      if (cssClass == "")
+        then []
+        else [(T.pack $ "class", T.pack $ cssClass)]
+    )
     xNodes
 
 ------------------------------------------------------------------------------
@@ -112,7 +116,11 @@ htmlList cssClass xNodes =
 htmlListItem :: String -> X.Node -> X.Node
 htmlListItem cssClass xNode =
   X.Element (T.pack $ "li")
-    [(T.pack $ "class", T.pack $ cssClass)]
+    (
+      if (cssClass == "")
+        then []
+        else [(T.pack $ "class", T.pack $ cssClass)]
+    )
     [xNode]
 
 ------------------------------------------------------------------------------
@@ -122,7 +130,7 @@ htmlListItemDate :: DateContextType ->  String -> String -> String -> X.Node
 htmlListItemDate DateInCalender leftContext date rightContext =
   X.Element (T.pack $ "li")
     [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
-    [htmlLink' "ul" (fhWedelPrefix ++ leftContext) $
+    [htmlLink' "" (fhWedelPrefix ++ leftContext) $
       X.Element (T.pack $ "div")
       []
       [htmlSpanTextNode "dateContext" ("Fh-Wedel Kalender: " ++ " ")
@@ -147,7 +155,11 @@ htmlTextNode text = X.TextNode $ T.pack $ text
 htmlSpanTextNode :: String -> String -> X.Node
 htmlSpanTextNode cssClass text =
   X.Element (T.pack $ "span")
-    [(T.pack $ "class", T.pack $ cssClass)]
+    (
+      if (cssClass == "")
+        then []
+        else [(T.pack $ "class", T.pack $ cssClass)]
+    )
     [htmlTextNode text]
 
 ------------------------------------------------------------------------------
@@ -156,9 +168,15 @@ htmlSpanTextNode cssClass text =
 htmlLink :: String -> String -> String -> X.Node
 htmlLink cssClass href text =
   X.Element (T.pack $ "a")
-    [ (T.pack $ "href", T.pack $ href),
-      (T.pack $ "class", T.pack $ cssClass)
-    ]
+    (
+      [(T.pack $ "href", T.pack $ href)]
+      ++
+      (
+        if (cssClass == "")
+          then []
+          else [(T.pack $ "class", T.pack $ cssClass)]
+      )
+    )
     [htmlTextNode text]
 
 ------------------------------------------------------------------------------
