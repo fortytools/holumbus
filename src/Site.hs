@@ -223,9 +223,9 @@ data DateContextType = DateInStdContent | DateInCalender
 -- | </li>
 docHitToListItem :: Bool -> SRDocHit -> X.Node
 docHitToListItem isDate docHit =
-  htmlListItem "searchResults" $ subList
+  htmlListItem "searchResult" $ subList
   where
-    subList = htmlList "searchResult" subListItems
+    subList = htmlList "" subListItems
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
                 ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ (author . srPageInfo $ docHit)
                   ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
