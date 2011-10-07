@@ -121,7 +121,7 @@ htmlListItem cssClass xNode =
 htmlListItemDate :: DateContextType ->  String -> String -> String -> X.Node
 htmlListItemDate DateInCalender leftContext date rightContext =
   X.Element (T.pack $ "li")
-    [(T.pack $ "class", T.pack $ "calenderDate")]
+    [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
     [htmlLink' "ul" (fhWedelPrefix ++ leftContext) $
       X.Element (T.pack $ "div")
       []
@@ -132,7 +132,7 @@ htmlListItemDate DateInCalender leftContext date rightContext =
     ]
 htmlListItemDate DateInStdContent leftContext date rightContext =
   X.Element (T.pack $ "li")
-    [(T.pack $ "class", T.pack $ "stdDate")]
+    [(T.pack $ "class", T.pack $ "standardDateTeaserText")]
     [htmlSpanTextNode "dateContext" (leftContext ++ " ")
     ,htmlSpanTextNode "date" date
     ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
@@ -167,8 +167,11 @@ htmlLink cssClass href text =
 htmlLink' :: String -> String -> X.Node -> X.Node
 htmlLink' cssClass href xNode =
   X.Element (T.pack $ "a")
-    [ (T.pack $ "href", T.pack $ href),
-      (T.pack $ "class", T.pack $ cssClass)
+    [(T.pack $ "href", T.pack $ href)]
+    ++
+    if cssClass == ""
+      then []
+      else (T.pack $ "class", T.pack $ cssClass)
     ]
     [xNode]
 
@@ -186,11 +189,11 @@ data DateContextType = DateInStdContent | DateInCalender
 -- | </li>
 docHitToListItem :: Bool -> SRDocHit -> X.Node
 docHitToListItem isDate docHit =
-  htmlListItem "searchResult_li" $ {-htmlLink' "ul" (srUri docHit) $-} subList
+  htmlListItem "" $ {-htmlLink' "ul" (srUri docHit) $-} subList
   where
-    subList = htmlList (if (isDate) then "searchResultDates_ul" else "searchResult_ul") subListItems
-    subListItems = [htmlLink' "ul" (srUri docHit) $ htmlListItem "link" $ htmlTextNode . srTitle $ docHit]
-                ++ [htmlLink' "ul" (srUri docHit) $ htmlListItem "author_modified" $ htmlTextNode $ (author . srPageInfo $ docHit)
+    subList = htmlList "searchResult" subListItems
+    subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
+                ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ (author . srPageInfo $ docHit)
                   ++ " (" ++ ( modified . srPageInfo $ docHit) ++ ")"]
                 ++  if (isDate)
                     then mkDateContexts stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
@@ -198,9 +201,9 @@ docHitToListItem isDate docHit =
                          ++
                          mkDateContexts stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
                          "" -- fordebugging only!
-                    else [htmlLink' "ul" (srUri docHit) mkContentContext]
+                    else [htmlLink' "" (srUri docHit) mkContentContext]
                 ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
-    mkContentContext =  htmlListItem "content" $ htmlTextNode teaserText
+    mkContentContext =  htmlListItem "teaserText" $ htmlTextNode teaserText
     teaserText = (++ "...") . L.unwords . L.take numTeaserWords . L.words . contentContext . srPageInfo $ docHit
     stringOfDateContexts = datesContext . srPageInfo $ docHit
     stringOfCalenderContexts = calenderContext . srPageInfo $ docHit
@@ -347,7 +350,7 @@ resultSplice isDate takeHits dropHits searchResultDocs = do
      then liftIO $ P.putStrLn "- keine Ergebnisse -"
      else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
   let infos = [docHitsMetaInfo searchResultDocs]
-  return $ [htmlList "searchResultList" (infos ++ items)]
+  return $ [htmlList "" (infos ++ items)]
 
 -- | generates the HTML node to be inserted into "<oldquery />"
 oldQuerySplice :: Splice Application
