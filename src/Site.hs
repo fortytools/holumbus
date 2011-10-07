@@ -131,7 +131,7 @@ htmlListItemDate DateInCalender leftContext date rightContext =
   X.Element (T.pack $ "li")
     [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
     [
-      X.Element (T.pack $ "li")
+      X.Element (T.pack $ "div")
       []
       [htmlLink' "" (fhWedelPrefix ++ leftContext) $
         X.Element (T.pack $ "div")
