@@ -1,25 +1,24 @@
-html {
+html
+{
   background: #182E7A url(bg_blue.gif) repeat-x;
 }
 
-body {
+body
+{
   margin-left: auto;
   margin-right: auto;
   width: 910px;
   font-family: Tahoma, sans-serif;
 }
 
-a {
+a
+{
   text-decoration: none;
   color: #3369AA;
 }
 
-ul, li {
-  margin-left: 0;
-  padding-left: 0;
-}
-
-#header {
+.header
+{
   width: 910px;
   height: 90px;
   background: #FFFFFF url(FH_Banner7.jpg) no-repeat top left;
@@ -28,103 +27,45 @@ ul, li {
   border-right: 1px solid #777777;
 }
 
-#content {
+table
+{
+  border-left: 1px solid #777777;
+  border-right: 1px solid #777777;
+}
+
+.contentTd
+{
+  vertical-align:top;
+  background-color:#FFFFFF;
+}
+
+.content
+{
   width: 835px;
   background-color: #FFFFFF;
 }
 
-#content ul * {
+.content ul *
+{
   list-style-type: none;
 }
 
-.searchResult
+.form
 {
-  padding-left: 40px;
-  padding-right: 40px;
-}
-
-.searchResult ul {
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
-.searchResult ul:hover
-{
-  background-color: #DDDDDD;
-}
-
-.calenderDateTeaserText div:hover
-{
-  background-color: #BBBBBB;
-}
-
-.suggest_link {
-  background-color: #FFFFFF;
-  color: grey;
-}
-
-.suggest_link_over {
-  background-color: #DDDDDD;
-  color: #3369AA;
-}
-
-#suggestion div {
-  padding-left: 5px;
-  padding-right: 5px;
-  margin-top: 2px;
-  margin-bottom: 2px;
-}
-
-.info {
-  padding-left: 60px;
-  padding-top: 5px;
-  padding-bottom: 10px;
-  font-size: 8pt;
-  color: black;
-}
-
-.searchResultModified {
-  font-size: 8pt;
-  color: grey;
-}
-
-.teaserText {
-  font-size: 8pt;
-  color: black;
-}
-
-.date {
-  font-size: 8pt;
-  font-weight: bold;
-  color: black;
-}
-
-.dateContext {
-  font-size: 8pt;
-  color: black;
-}
-
-.score {
-  font-size: 8pt;
-  color: red;
-  display: none;
-}
-
-#form {
   padding-left: 250px;
   padding-top: 20px;
 }
 
-#query {
+#query
+{
   width: 20em;
   font-size: 10pt;
   border: none;
   outline: 1px solid #3369AA;
 }
 
-#button {
+.button
+{
   width: 10em;
   font-size: 10pt;
   border: none;
@@ -142,17 +83,104 @@ ul, li {
   font-size: 10pt;
 }
 
-#result {
+#suggestion div
+{
+  padding-left: 5px;
+  padding-right: 5px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.suggest_link
+{
+  background-color: #FFFFFF;
+  color: grey;
+}
+
+.suggest_link_over
+{
+  background-color: #DDDDDD;
+  color: #3369AA;
+}
+
+.result
+{
   min-height: 512px;
 }
 
-#sider {
-  width: 75px;
-  height: 605px;
-  background: url(rightgradient2.jpg) no-repeat top right;
+ul, li
+{
+  margin-left: 0;
+  padding-left: 0;
 }
 
-#pager {
+.info
+{
+  padding-left: 60px;
+  padding-top: 5px;
+  padding-bottom: 10px;
+  font-size: 8pt;
+  color: black;
+}
+
+.searchResult
+{
+  padding-left: 40px;
+  padding-right: 40px;
+}
+
+.searchResult ul
+{
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.searchResult ul:hover
+{
+  background-color: #DDDDDD;
+}
+
+.searchResultModified
+{
+  font-size: 8pt;
+  color: grey;
+}
+
+.teaserText
+{
+  font-size: 8pt;
+  color: black;
+}
+
+.calenderDateTeaserText div:hover
+{
+  background-color: #BBBBBB;
+}
+
+.date
+{
+  font-size: 8pt;
+  font-weight: bold;
+  color: black;
+}
+
+.dateContext
+{
+  font-size: 8pt;
+  color: black;
+}
+
+.score
+{
+  font-size: 8pt;
+  color: red;
+  display: none;
+}
+
+.pager
+{
   text-align: center;
   padding-bottom: 20px;
   font-size: 10pt;
@@ -160,11 +188,26 @@ ul, li {
   padding-right: 60px;
 }
 
-.actPage {
+.actPage
+{
   font-weight: bold;
 }
 
-#footer {
+.siderTd
+{
+  vertical-align:top;
+  background-color:#1E326F;
+}
+
+.sider
+{
+  width: 75px;
+  height: 605px;
+  background: url(rightgradient2.jpg) no-repeat top right;
+}
+
+.footer
+{
   background-color: #1E326F;
   color: #FFFFFF;
   font-size: 9pt;
