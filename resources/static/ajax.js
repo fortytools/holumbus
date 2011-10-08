@@ -25,13 +25,25 @@ function handleResponseAutoCompleter()
   {
     var suggestions = eval(http.responseText);	
     var i = 0;
+
+    var query=document.getElementById("query").value;
+    var lastBlankPos=query.lastIndexOf(' ');
+    if(query.length>lastBlankPos+1)
+    {
+      query=query.substr(0, lastBlankPos+1);
+    }
+    else
+    {
+      query="";
+    }
+
     for(var suggestion in suggestions)
     {
       var sugg = suggestions[suggestion]; 
       if(sugg != "")
       {
-        output  += '<div onmouseover="suggestOverMouse(this)" onmouseout="suggestOut(this)" onmousedown="setSuggestion(\''+sugg+'\')" id="'+i+'" class="suggest_link">'
-                + sugg
+        output  += '<div onmouseover="suggestOverMouse(this)" onmouseout="suggestOut(this)" onmousedown="setSuggestion(\'' + query + ' ' + sugg + '\')" id="'+i+'" class="suggest_link">'
+                + query + ' ' + sugg
                 + '</div>';
       }
       i++;
@@ -95,6 +107,11 @@ function keyUpHandler(e)
     // A key has been pressed in the form-input.
     // Send Ajax-Request to retrieve list of word-completions.
     var query=document.getElementById("query").value;
+    var lastBlankPos=query.lastIndexOf(' ');
+    if(query.length>lastBlankPos+1)
+    {
+      query=query.substring(lastBlankPos);
+    }
     if(query.length>0)
     {
       http.open('get', 'completions?query='+query);

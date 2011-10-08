@@ -110,11 +110,17 @@ dateAlias      = alt $ map fst dateAliasFunc
 
 dateAliasFunc :: [(String, Day -> [Day])]
 dateAliasFunc = [ ("heute",           box)
+                , ("Heute",           box)
                 , ("morgen",          box . addDays 1)
-                , ("diese woche",     extractWeek)
-                , ("naechste woche",  extractWeek . addDays 7)
-                , ("dieser monat",    extractMonth)
-                , ("naechster monat", extractMonth . addMonth) -- SEMESTER
+                , ("Morgen",          box . addDays 1)
+                , ("diese Woche",     extractWeek)
+                , ("Diese Woche",     extractWeek)
+                , ("naechste Woche",  extractWeek . addDays 7)
+                , ("Naechste Woche",  extractWeek . addDays 7)
+                , ("dieser Monat",    extractMonth)
+                , ("Dieser Monat",    extractMonth)
+                , ("naechster Monat", extractMonth . addMonth)
+                , ("Naechster Monat", extractMonth . addMonth)
                 ]
 
 -- the token types
@@ -176,12 +182,12 @@ emptyText       :: Text
 emptyText       = id
 
 -- mkText "asd" => f(x)
---    mit f("sdf") => "asdsdf"
+--		mit f("sdf") => "asdsdf"
 mkText          :: String -> Text
 mkText          = (++)
 
 -- concText f(x) g(x) => h(x)
---    mit h(x) => g(f(x))
+--		mit h(x) => g(f(x))
 concText        :: Text -> Text -> Text
 concText        = (.)
 
@@ -247,7 +253,7 @@ datePToDateRep dp
 dateParser      :: DateParse -> DateParser DateParse
 dateParser d    = ( do
                     s <- fillTok                -- delTok <|> wordTok
-                    dateParser0 (appPre s d)    -- gelesenes Token an d anhängen
+                    dateParser0 (appPre s d) 	  -- gelesenes Token an d anhängen
                   )
                   <|>
                   parseDate d                   -- here is the hook for the real date parser
