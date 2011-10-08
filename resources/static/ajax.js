@@ -28,7 +28,6 @@ function handleResponseAutoCompleter()
     for(var suggestion in suggestions)
     {
       var sugg = suggestions[suggestion]; 
-      // var sugg1 = sugg.substring(0, sugg.indexOf(" ("));
       if(sugg != "")
       {
         output  += '<div onmouseover="suggestOverMouse(this)" onmouseout="suggestOut(this)" onmousedown="setSuggestion(\''+sugg+'\')" id="'+i+'" class="suggest_link">'
@@ -51,7 +50,7 @@ function handleResponseAutoCompleter()
 var selectedSuggestion = '';
 var numSuggestions = 0;
 
-//Move over function
+// Move over function
 function suggestOverMouse(div) {
  if (selectedSuggestion != '') {
    suggestOut(document.getElementById(selectedSuggestion));
@@ -60,18 +59,19 @@ function suggestOverMouse(div) {
  div.className = 'suggest_link_over';
 }
 
-//Move over function
+// Move over function
 function suggestOver(div) {
  selectedSuggestion = div.id;
  div.className = 'suggest_link_over';
- document.getElementById("query").value = div.innerHTML; //.substring(0, div.innerHTML.indexOf(" ("));
+ document.getElementById("query").value = div.innerHTML;
 }
 
-//Move out function
+// Move out function
 function suggestOut(div) {
  div.className = 'suggest_link';
 }
 
+// Handle key-Up events
 function keyUpHandler(e)
 {
   keyIn = e.keyCode;
@@ -107,7 +107,7 @@ function keyUpHandler(e)
 }
 
 // Suggestion List Item has been clicked.
-// Insert Selected Word-Completion into Form-Input.
+// Insert selected word-completion into form-input.
 function setSuggestion(suggestion)
 {
   document.getElementById("query").value=suggestion;
@@ -121,10 +121,10 @@ function hide()
   var sugg = document.getElementById("suggestion");
   if ( sugg.hasChildNodes() )
   {
-	while ( sugg.childNodes.length >= 1 )
-	{
-	    sugg.removeChild( sugg.firstChild );       
-	} 
+    while ( sugg.childNodes.length >= 1 )
+    {
+      sugg.removeChild( sugg.firstChild );       
+    } 
   }
   document.getElementById("suggestion").style.visibility="hidden";
 }
