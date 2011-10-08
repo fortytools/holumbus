@@ -13,7 +13,8 @@ import      Data.Maybe
 import      Holumbus.Crawler
 import      Text.XML.HXT.Core
 import      Text.Regex.XMLSchema.String (matchSubex, tokenizeSubex)
-import      W3W.Date as D
+import      qualified W3W.Date as D
+import      Holumbus.Crawler.PdfToText
 
 import Data.Tree.NTree.TypeDefs
 
@@ -40,13 +41,21 @@ getHeadlines                    = fromLA     $
 
 -- ------------------------------------------------------------
 
-getContentText                  :: IOSArrow XmlTree String
-getContentText                  =  choiceA
-                                   [ isHtmlContents :-> getHtmlText
-                                   , isPdfContents  :-> none	-- not yet implemented
-                                   , this           :-> none
-                                   ]
 
+getContentText :: IOSArrow XmlTree String
+getContentText =  choiceA
+                  [ isHtmlContents :-> getHtmlText
+                  , isPdfContents  :-> (getAllText getChildren)
+                  , this           :-> none
+                  ]
+                  {-
+                  where
+                      extractPdfText  = traceDoc "Context: extractPdfText: start"
+                                        >>>
+                                        processChildren ( deep getText >>> pdfToTextA >>> mkText )
+                                        >>>
+                                        traceDoc "Context: extractPdfText: result"
+                  -}
 {-
 getAllText x =
         (

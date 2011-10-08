@@ -33,9 +33,24 @@ import           Text.XML.HXT.Cache
 import           Text.XML.HXT.HTTP()
 import           Text.XML.HXT.Curl
 
-import           W3W.Date as D
--- ------------------------------------------------------------
+import           qualified W3W.Date as D
+import           Holumbus.Crawler.PdfToText
+import           qualified Text.XML.HXT.DOM.XmlNode as XN
 
+-- ------------------------------------------------------------
+preDocumentFilter :: IOSArrow XmlTree XmlTree
+preDocumentFilter = choiceA
+        [ isHtmlContents  :-> this          -- do nothing
+        , isPdfContents :-> extractPdfText  -- extract the text from a pdf
+        , this    :-> replaceChildren none  -- throw away every contents
+        ]
+        where
+            extractPdfText  = traceDoc "Indexer: extractPdfText: start"
+                              >>>
+                              processChildren ( deep getText >>> pdfToTextA >>> mkText )
+                              >>>
+                              traceDoc "Indexer: extractPdfText: result"
+        
 w3wIndexer                      :: AppOpts -> IO W3WIndexerCrawlerState
 w3wIndexer o                    = stdIndexer
                                   config
@@ -47,7 +62,7 @@ w3wIndexer o                    = stdIndexer
                                   (ao_crawlPar o)
                                   w3wRefs
                                   Nothing
-                                  (Just $ checkDocumentStatus >>> checkTransferStatus)
+                                  (Just $ checkDocumentStatus >>> checkTransferStatus >>> preDocumentFilter)
                                   (Just $ w3wGetTitle)
                                   (Just $ w3wGetPageInfo dateExtractor dateProcessorContext)
                                   (w3wIndexConfig dateExtractor dateProcessorIndex)
@@ -137,6 +152,7 @@ initAppOpts                     = AO
                                                   >>>
                                                   withAcceptedMimeTypes [ text_html
                                                                         , application_xhtml
+                                                                        , application_pdf
                                                                         ]
                                                   >>>
                                                   withCurl [ (curl_location,             v_1)            -- automatically follow redirects

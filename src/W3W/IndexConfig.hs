@@ -9,7 +9,7 @@ import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 import           Text.XML.HXT.Core
 import           W3W.Extract
-import        	 W3W.Date as D
+import           W3W.Date as D
 -- ------------------------------------------------------------
 
 w3wIndexConfig           :: D.DateExtractorFunc -> D.DateProcessorFunc -> [IndexContextConfig]
@@ -65,7 +65,7 @@ w3wIndexConfig dateExtractor dateProcessor
 
     ixDates                     = ixDefault
                                   { ixc_name            = "dates"
-                                  , ixc_collectText     = getHtmlText
+                                  , ixc_collectText     = getContentText
                                   , ixc_textToWords     = getNormFunc dateProcessor . dateExtractor
                                   , ixc_boringWord      = null
                                   }

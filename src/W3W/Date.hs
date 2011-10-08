@@ -176,12 +176,12 @@ emptyText       :: Text
 emptyText       = id
 
 -- mkText "asd" => f(x)
---		mit f("sdf") => "asdsdf"
+--    mit f("sdf") => "asdsdf"
 mkText          :: String -> Text
 mkText          = (++)
 
 -- concText f(x) g(x) => h(x)
---		mit h(x) => g(f(x))
+--    mit h(x) => g(f(x))
 concText        :: Text -> Text -> Text
 concText        = (.)
 
@@ -247,7 +247,7 @@ datePToDateRep dp
 dateParser      :: DateParse -> DateParser DateParse
 dateParser d    = ( do
                     s <- fillTok                -- delTok <|> wordTok
-                    dateParser0 (appPre s d) 	  -- gelesenes Token an d anhängen
+                    dateParser0 (appPre s d)    -- gelesenes Token an d anhängen
                   )
                   <|>
                   parseDate d                   -- here is the hook for the real date parser

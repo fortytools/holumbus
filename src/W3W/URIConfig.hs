@@ -93,7 +93,7 @@ filePath                        :: String
 filePath                        = "(" ++ fileName ++ "/)*"
 
 htmlFiles                       :: String
-htmlFiles                       = optional (fileName ++ ext "html")
+htmlFiles                       = optional (fileName ++ alternatives [ext "html", ext "htm", ext "pdf"])
 
 htmlPaths                       :: String
 htmlPaths                       = filePath ++ htmlFiles
@@ -102,4 +102,3 @@ htmlPathsCalender               :: String
 htmlPathsCalender               = "(" ++ "[^/?]+" ++ "/)" ++ htmlFiles
 
 -- ------------------------------------------------------------
-
