@@ -35,11 +35,7 @@ ptlURIs                         :: [URI] -> [URI]
 ptlURIs                         = map (ptlHome ++)
 
 fhwStart                        :: [URI]
-fhwStart                        =  fhwURIs [
-                                           ""                 -- fhw start page
-                                           , "~eg/"             -- Martin Egge's home
-                                           , "~si/"             -- si's home
-                                           , "online-campus/termine/kalender/"
+fhwStart                        =  fhwURIs [ ""                 -- fhw start page
                                            ]
                                    ++
                                    ptlURIs [ ""                 -- ptl start page
@@ -50,26 +46,15 @@ fhwRefs                         :: URI -> Bool
 fhwRefs                         = simpleFollowRef'
                                   [ fhwHome ++
                                             alternatives
-                                            [
-                                            ""                        -- the homepage
-                                            , htmlFiles                 -- all top level fhw pages
-                                            , "~si/" ++                 -- si's pages with dates
-                                                     alternatives
-                                                     [ "termine/" ++ htmlFiles
-                                                     , "praktika/SoftwarePraktikum/index.html"
-                                                     , "praktika/SoftwarePraktikum/20[1-9][0-9][sw]s/index.html"
-                                                     , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
-                                                     ]
-                                            , "~eg/" ++ htmlPaths       -- Martin Egges pages
-                                            , "online-campus/termine/kalender/"  ++ htmlPathsCalender -- kalender
+                                            [ htmlPaths
                                             ]
                                   , ptlHome ++
                                             alternatives
-                                            [ ".*/news/" ++ htmlPaths   -- for test: the ptl news pages added
+                                            [ htmlPaths
                                             ]
 
                                   ]
-                                  ( [ ".*[?].*"                         -- no URIs with parameters
+                                  ( [ ".*[?].*"                 -- no URIs with parameters
                                     ]
                                   )
 
@@ -98,7 +83,5 @@ htmlFiles                       = optional (fileName ++ alternatives [ext "html"
 htmlPaths                       :: String
 htmlPaths                       = filePath ++ htmlFiles
 
-htmlPathsCalender               :: String
-htmlPathsCalender               = "(" ++ "[^/?]+" ++ "/)" ++ htmlFiles
-
 -- ------------------------------------------------------------
+
