@@ -14,7 +14,6 @@ import           Data.List
 
 import           Holumbus.Crawler
 
-
 -- ------------------------------------------------------------
 
 w3wStart                        :: [URI]
