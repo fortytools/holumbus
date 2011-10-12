@@ -17,7 +17,10 @@ import           Data.Maybe
 import           W3W.IndexConfig
 import           W3W.IndexTypes
 import           W3W.PageInfo
-import           W3W.URIConfig
+
+-- Change here for local / global fh-w Index
+-- import           W3W.URIConfig
+import           W3W.URIConfigLocal
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.CacheCore
