@@ -3,7 +3,7 @@
 cd /home/administrator/W3W
 echo "Creating index: "`date` >> log/indexJob.log
 cd index
-mv Makefile .. && rm -rf * && mv ../Makefile .
+mv Makefile .. && sudo rm -rf * && mv ../Makefile .
 make whole
 
 cd ..
