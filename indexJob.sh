@@ -3,10 +3,10 @@
 cd /home/administrator/W3W
 echo "Creating index: "`date` >> log/indexJob.log
 cd index
-mv Makefile .. >> log/indexJob.log
-sudo rm -rf *  >> log/indexJob.log
-mv ../Makefile . >> log/indexJob.log
-make whole >> log/indexJob.log
+mv Makefile .. >> ../log/indexJob.log
+sudo rm -rf *  >> ../log/indexJob.log
+mv ../Makefile . >> ../log/indexJob.log
+make whole >> ../log/indexJob.log
 
 cd ..
 echo "Index size: "`du -s ./index | sed -e "s/\(^[^\t]*\)\t.*$/\1/"`" MB" >> log/indexJob.log
