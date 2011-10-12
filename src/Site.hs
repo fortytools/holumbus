@@ -375,7 +375,7 @@ processquery = do
   let dateRep = extractDateRep query
   (transformedQuery, numOfTransforms) <-liftIO $ dateRep2stringWithTransformedDates dateRep
   let hasDate = (numOfTransforms > 0)
-  liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
+  -- liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
   queryFunc' <- queryFunction
   searchResultDocs <- liftIO $ getIndexSearchResults transformedQuery queryFunc'
   strPage <- getQueryStringParam "page"
