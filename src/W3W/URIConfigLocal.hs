@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module W3W.URIConfig
+module W3W.URIConfigLocal
     ( w3wStart
     , w3wRefs
     , fileName
@@ -39,8 +39,8 @@ fhwStart                        =  fhwURIs [
                                            ""                 -- fhw start page
                                            , "~eg/"             -- Martin Egge's home
                                            , "~si/"             -- si's home
-                                           ]
                                            , "online-campus/termine/aktuelles-semester/"
+                                           ]
                                    ++
                                    ptlURIs [ ""                 -- ptl start page
                                            ]
