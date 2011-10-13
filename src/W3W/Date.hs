@@ -115,12 +115,12 @@ dateAliasFunc = [ ("heute",           box)
                 , ("Morgen",          box . addDays 1)
                 , ("diese Woche",     extractWeek)
                 , ("Diese Woche",     extractWeek)
-                , ("naechste Woche",  extractWeek . addDays 7)
-                , ("Naechste Woche",  extractWeek . addDays 7)
+                , ("nächste Woche",  extractWeek . addDays 7)
+                , ("Nächste Woche",  extractWeek . addDays 7)
                 , ("dieser Monat",    extractMonth)
                 , ("Dieser Monat",    extractMonth)
-                , ("naechster Monat", extractMonth . addMonth)
-                , ("Naechster Monat", extractMonth . addMonth)
+                , ("nächster Monat", extractMonth . addMonth)
+                , ("Nächster Monat", extractMonth . addMonth)
                 ]
 
 -- the token types

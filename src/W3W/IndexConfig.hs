@@ -44,13 +44,21 @@ w3wIndexConfig dateExtractor dateProcessor
 
     ixCalender                  = ixDefault
                                   { ixc_name            = "calender"
-                                  , ixc_collectText     = getRelevantNodes
-                                                          >>>
-                                                          deep (isElem >>> hasName "table" >>> hasAttrValue "class" (== "month-large"))
-                                                          >>>
-                                                          deep (isElem >>> hasName "a")
-                                                          >>>
-                                                          (fromLA $ deep (getAttrValue "href"))
+                                  , ixc_collectText     = 
+                                    (
+                                      getRelevantNodes
+                                      >>>
+                                      deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "tx-cal-controller "))
+                                      >>>
+                                      deep (isElem >>> hasName "dt")
+                                      >>>
+                                      ((deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "leftdate")) >>> extractText)
+                                      &&&
+                                      ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "10:00")
+                                      )
+                                      >>^ ( \ (a,b) -> a ++ " " ++ b )
+                                    )
+                                                          
 
                                   , ixc_textToWords     = getNormFunc dateProcessor . dateExtractor
                                   , ixc_boringWord      = boringURIpart

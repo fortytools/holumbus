@@ -235,11 +235,12 @@ docHitToListItem isDate docHit =
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
                 ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ authText ++ modiText]
                 ++  if (isDate)
-                    then mkDateContexts (srUri docHit) stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
-                          (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
-                         ++
-                         mkDateContexts (srUri docHit) stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
-                         "" -- fordebugging only!
+                    then
+                      if (L.null $ listOfMatchedPositionsCalender)
+                         then mkDateContexts (srUri docHit) stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
+                              (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
+                         else mkDateContexts (srUri docHit) stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
+                              (show $ M.toList $ fromMaybe M.empty calenderContextMap)
                     else [htmlLink' "" (srUri docHit) mkContentContext]
                 ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
     mkContentContext =  htmlListItem "teaserText" $ htmlTextNode teaserText
@@ -273,11 +274,11 @@ mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct debugInfo
       listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions
       getDateContextAt position =
         if (position') > ((L.length listOfDateContexts) - 1)
-           then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">", "")
-            --     else ("contexts: ", (show stringOfDateContexts),
-            --        " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
-            --              ++ " and dateContextMap is <" ++ debugInfo ++ ">")
-           else showContexts dct 
+          then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">", "")
+          else ("contexts: ", (show stringOfDateContexts),
+                " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
+                ++ " and dateContextMap is <" ++ debugInfo ++ ">")
+           -- else showContexts dct 
         where
           showContexts DateInStdContent = ("..." ++ (contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
           showContexts DateInCalender   = ((contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")

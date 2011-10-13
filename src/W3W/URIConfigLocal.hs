@@ -61,7 +61,7 @@ fhwRefs                         = simpleFollowRef'
                                                      , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
                                                      ]
                                             , "~eg/" ++ htmlPaths       -- Martin Egges pages
-                                            , "online-campus/termine/aktuelles-semester/"  ++ htmlPathsCalender -- kalender
+                                            , "online-campus/termine/aktuelles-semester/"  ++ htmlPaths -- kalender
                                             ]
                                   , ptlHome ++
                                             alternatives
@@ -98,7 +98,5 @@ htmlFiles                       = optional (fileName ++ alternatives [ext "html"
 htmlPaths                       :: String
 htmlPaths                       = filePath ++ htmlFiles
 
-htmlPathsCalender               :: String
-htmlPathsCalender               = "(" ++ "[^/?]+" ++ "/)" ++ htmlFiles
 
 -- ------------------------------------------------------------

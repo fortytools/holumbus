@@ -79,7 +79,8 @@ defaultRankTable
       , ("contentContext", 0.2)
       , ("uri", 0.1)
       , ("uriclass", 0.1)
-      , ("datesContext", 0.1)
+      , ("datesContext", 0.9)
+      , ("calenderContext", 0.9)
       ]
 
 defaultRankCfg :: RankConfig a

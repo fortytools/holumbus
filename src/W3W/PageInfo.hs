@@ -152,34 +152,65 @@ getTeaserTextDates dateExtractor dateProcessor =
 
 getTeaserTextCalender :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree String
 getTeaserTextCalender dateExtractor dateProcessor =
-                        (
-                          getRelevantNodes
-                          >>>
-                          deep (isElem >>> hasName "table" >>> hasAttrValue "class" (== "month-large"))
-                          >>>
-                          deep (isElem >>> hasName "a")
-                          >>>
-                          (
-                            (fromLA $ deep (getAttrValue "href"))
-                            &&&
-                            extractText
-                          )
-                          >>^
-                          hrefAndText2CalenderContext
-                        )
-                        >.
-                        concat
-                        >>^
-                        toJSONArray
-                        where
-                          hrefAndText2CalenderContext (href, text) =
-                            let res = (getNormFunc D.dateRep2NormalizedDates . dateExtractor $ href) in
-                              [[ href
-                              , if (not . null $ res) then D.unNormalizeDate . head $ res else "-"
-                              , text
-                              ]]
+  (
+    getRelevantNodes
+    >>>
+    deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "tx-cal-controller "))
+    >>>
+    deep (isElem >>> hasName "dt")
+    >>>
+    (
+      (deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "leftdate")) >>> extractText)
+      &&&
+      ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "10:00")
+    )
+    >>^ ( \ (a,b) -> [[ show ( getNormFunc D.dateRep2NormalizedDates . dateExtractor $ a ++ " " ++ b ), a, b]] )
+  ) >. concat >>^ toJSONArray
 
+  -- ! Datum trennen und mit zeit kombinieren !
 
+  {-
+  (
+    (
+      getRelevantNodes
+      >>>
+      deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "tx-cal-controller "))
+      >>>
+      deep (isElem >>> hasName "dt")
+      >>>
+      (
+        (
+          (deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "leftdate")) >>> extractText)
+          &&&
+          ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "")
+        )
+        &&&
+        (
+          deep (isElem >>> hasName "div")
+          >>>
+          deep (isElem >>> hasName "a")
+          >>>
+          (
+            (fromLA $ deep (getAttrValue "href"))
+            &&&
+            extractText
+          )
+        )
+      )
+      >>^ ( \ ((date, time),(href, teaser)) ->
+            let res = ( getNormFunc D.dateRep2NormalizedDates . dateExtractor $ date ++ " " ++ time ) in
+            [
+              [ date ++ " " ++ time
+              , if (not . null $ res) then D.unNormalizeDate . head $ res else "-"
+              , teaser
+              ]
+            ]
+          )
+    )
+    >. concat
+  )
+  >>^ toJSONArray
+  -}
 toJSONArray :: [[String]] -> String
 toJSONArray = encodeStrict . showJSONs
 
