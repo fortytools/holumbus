@@ -152,6 +152,7 @@ getTeaserTextDates dateExtractor dateProcessor =
 
 getTeaserTextCalender :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree String
 getTeaserTextCalender dateExtractor dateProcessor =
+  {-
   (
     getRelevantNodes
     >>>
@@ -162,14 +163,15 @@ getTeaserTextCalender dateExtractor dateProcessor =
     (
       (deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "leftdate")) >>> extractText)
       &&&
-      ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "10:00")
+      ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "")
     )
     >>^ ( \ (a,b) -> [[ show ( getNormFunc D.dateRep2NormalizedDates . dateExtractor $ a ++ " " ++ b ), a, b]] )
   ) >. concat >>^ toJSONArray
 
   -- ! Datum trennen und mit zeit kombinieren !
-
-  {-
+  -}
+  
+  
   (
     (
       getRelevantNodes
@@ -210,7 +212,7 @@ getTeaserTextCalender dateExtractor dateProcessor =
     >. concat
   )
   >>^ toJSONArray
-  -}
+  
 toJSONArray :: [[String]] -> String
 toJSONArray = encodeStrict . showJSONs
 
