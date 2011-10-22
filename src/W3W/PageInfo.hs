@@ -6,6 +6,7 @@ module W3W.PageInfo
     , emptyPageInfo
     , w3wGetTitle
     , w3wGetPageInfo
+    , (&&&&)
     )
 
 where
@@ -82,15 +83,15 @@ w3wGetTitle                     = fromLA $
 
 w3wGetPageInfo                  :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree PageInfo
 w3wGetPageInfo dateExtractor dateProcessor =
-                                ( fromLA (getModified `withDefault` "kein teaser für modified gefunden!")
+                                ( fromLA (getModified `withDefault` "")
                                   &&&
-                                  fromLA (getAuthor `withDefault` "kein teaser für author gefunden!")
+                                  fromLA (getAuthor `withDefault` "")
                                   &&&
-                                  (getTeaserTextPageCont `withDefault` "kein teaser für content gefunden!")
+                                  (getTeaserTextPageCont `withDefault` "")
                                   &&&
-                                  ((getTeaserTextDates dateExtractor dateProcessor) `withDefault` "kein teaser für dates gefunden!")
+                                  ((getTeaserTextDates dateExtractor dateProcessor) `withDefault` "")
                                   &&&
-                                  ((getTeaserTextCalender dateExtractor dateProcessor) `withDefault` "kein teaser für kalender gefunden!")
+                                  ((getTeaserTextCalender dateExtractor dateProcessor) `withDefault` "")
                                 )
                                 >>^
                                 (\ (m, (a, (c, (d, x)))) -> mkPageInfo m a c d x)
@@ -150,9 +151,18 @@ getTeaserTextDates dateExtractor dateProcessor =
               toJSONArray
             )
 
+getFirstIfDef [] = []
+getFirstIfDef (x:xs) = [x]
+
+(&&&&) :: IOSLA t t1 t2 -> IOSLA t t1 t3 -> IOSLA t t1 ([t2], [t3])
+IOSLA f &&&& IOSLA g = IOSLA $ \ s x -> do
+                                        (s1, ys1) <- f s  x
+                                        (s2, ys2) <- g s1 x
+                                        return ( s2, [ ( [y1 | y1 <- ys1], [y2 | y2 <- ys2] ) ] )
+
 getTeaserTextCalender :: D.DateExtractorFunc -> D.DateProcessorFunc -> IOSArrow XmlTree String
 getTeaserTextCalender dateExtractor dateProcessor =
-  {-
+{-  
   (
     getRelevantNodes
     >>>
@@ -165,54 +175,79 @@ getTeaserTextCalender dateExtractor dateProcessor =
       &&&
       ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "")
     )
-    >>^ ( \ (a,b) -> [[ show ( getNormFunc D.dateRep2NormalizedDates . dateExtractor $ a ++ " " ++ b ), a, b]] )
-  ) >. concat >>^ toJSONArray
-
-  -- ! Datum trennen und mit zeit kombinieren !
+    >>^ ( \ (a,b) -> a ++ " " ++ b )
+  )
+  >.
+  concat
+  >>^
+  (
+    (getContextFunc dateProcessor . dateExtractor)
+    >>>
+    toJSONArray
+  )
   -}
-  
+  -- ! Datum trennen und mit zeit kombinieren !
   
   (
+    getRelevantNodes
+    >>>
+    deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "tx-cal-controller "))
+    >>>
+    deep (isElem >>> hasName "dt")
+    >>>
     (
-      getRelevantNodes
-      >>>
-      deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "tx-cal-controller "))
-      >>>
-      deep (isElem >>> hasName "dt")
-      >>>
       (
         (
           (deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "leftdate")) >>> extractText)
-          &&&
+          >>^
+          (getNormFunc D.dateRep2NormalizedDates . dateExtractor)
+        )
+        &&&&
+        (
           ((deep (isElem >>> hasName "div") >>> deep (isElem >>> hasName "span") >>> extractText) `withDefault` "")
         )
-        &&&
+      )
+      &&&
+      (
+        deep (isElem >>> hasName "div")
+        >>>
+        deep (isElem >>> hasName "a")
+        >>>
         (
-          deep (isElem >>> hasName "div")
-          >>>
-          deep (isElem >>> hasName "a")
-          >>>
-          (
-            (fromLA $ deep (getAttrValue "href"))
-            &&&
-            extractText
-          )
+          (fromLA $ deep (getAttrValue "href"))
+          &&&
+          extractText
         )
       )
-      >>^ ( \ ((date, time),(href, teaser)) ->
-            let res = ( getNormFunc D.dateRep2NormalizedDates . dateExtractor $ date ++ " " ++ time ) in
-            [
-              [ date ++ " " ++ time
-              , if (not . null $ res) then D.unNormalizeDate . head $ res else "-"
-              , teaser
-              ]
-            ]
-          )
     )
-    >. concat
+    >>^ ( \ ((dates', times),(href, teaser)) -> 
+          let
+            dates = if (not . null $ dates') then head dates' else ["no date"]
+            mkCalenderEntry 1 0 = [[href, (D.unNormalizeDate $ dates !! 0), teaser]]
+            mkCalenderEntry 1 1 = [[href, (D.unNormalizeDate $ dates !! 0) ++ " " ++ (times !! 0), teaser]]
+            mkCalenderEntry 1 2 = [[href, (D.unNormalizeDate $ dates !! 0) ++ " " ++ (times !! 0) ++ " - " ++
+                                                                                    (times !! 1), teaser]]
+            mkCalenderEntry 2 0 = [[href, (D.unNormalizeDate $ dates !! 0) ++ " - " ++
+                                          (D.unNormalizeDate $ dates !! 1), teaser],
+                                   [href, (D.unNormalizeDate $ dates !! 0) ++ " - " ++
+                                          (D.unNormalizeDate $ dates !! 1), teaser]
+                                  ]
+            mkCalenderEntry 2 2 = [[href, (D.unNormalizeDate $ dates !! 0) ++ " " ++ (times !! 0) ++ " - " ++
+                                          (D.unNormalizeDate $ dates !! 1) ++ " " ++ (times !! 1), teaser],
+                                   [href, (D.unNormalizeDate $ dates !! 0) ++ " " ++ (times !! 0) ++ " - " ++
+                                          (D.unNormalizeDate $ dates !! 1) ++ " " ++ (times !! 1), teaser]
+                                  ]
+            mkCalenderEntry _ _ = [["", "", "unbekanntes Zeitformat im Kalender gefunden!"]]
+          in
+            mkCalenderEntry (length dates) (length times)
+        )
   )
-  >>^ toJSONArray
-  
+  >.
+  concat
+  >>^
+  toJSONArray
+
+ 
 toJSONArray :: [[String]] -> String
 toJSONArray = encodeStrict . showJSONs
 

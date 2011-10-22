@@ -54,13 +54,20 @@ whole-index	: $(indexer)
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
 	@echo 'the result as xml is "$(ix).xml"'
+	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+
+whole-index-debug	: $(indexer)
+	@echo "build an index of all fhw and ptl pages"
+	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
+	@echo 'the result index is "$(ix)"'
+	@echo 'the result as xml is "$(ix).xml"'
 	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=05000 --valid=$(validix) --new-index=$(ix) --xml-output=$(ix).xml --new-search=$(ix) $(OPTS)
 
 whole	:
 	@echo "update cache for all pages, this may run about 1 to 2 hours"
 	$(MAKE) whole-cache 2> whole-cache.out
 	@echo "create index for all pages"
-	$(MAKE) whole-index 2> whole-ix.out
+	$(MAKE) whole-index-debug 2> whole-ix.out
 	@echo "look at the following files"
 	@ls -l *.bin *.out
 

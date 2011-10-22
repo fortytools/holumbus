@@ -115,12 +115,14 @@ dateAliasFunc = [ ("heute",           box)
                 , ("Morgen",          box . addDays 1)
                 , ("diese Woche",     extractWeek)
                 , ("Diese Woche",     extractWeek)
-                , ("nächste Woche",  extractWeek . addDays 7)
-                , ("Nächste Woche",  extractWeek . addDays 7)
+                , ("nächste Woche",   extractWeek . addDays 7)
+                , ("Nächste Woche",   extractWeek . addDays 7)
                 , ("dieser Monat",    extractMonth)
                 , ("Dieser Monat",    extractMonth)
-                , ("nächster Monat", extractMonth . addMonth)
-                , ("Nächster Monat", extractMonth . addMonth)
+                , ("nächster Monat",  extractMonth . addMonth)
+                , ("Nächster Monat",  extractMonth . addMonth)
+                , ("übernächster Monat", extractMonth . addMonth . addMonth)
+                , ("Übernächster Monat", extractMonth . addMonth . addMonth)
                 ]
 
 -- the token types
@@ -152,6 +154,7 @@ type TokenStream   = [Token]
 type DateParser a  = Parsec [(String, String)] () a
 
 type Text          = String -> String           -- for fast concatenation
+
 
 -- must be extended for weekday or semester, if neccessary
 
@@ -600,8 +603,8 @@ extractMonth d = mkListOfDays (setToFirst date) (setToLast date)
   where
     date = toGregorian d
     setToFirst (y,m,_) = fromGregorian y m 1
-    setToLast (y,m,_) = addDays (-1) $ fromGregorian y (m+1) 1
-
+    setToLast (y,m,_) = addDays (-1) $ if (m == 12) then fromGregorian (y+1) 1 1 else fromGregorian y (m+1) 1
+    
 addMonth :: Day -> Day
 addMonth d = addDays (fromIntegral $ gregorianMonthLength y m) d
   where

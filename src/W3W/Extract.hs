@@ -94,7 +94,9 @@ getRelevantNodes                = choiceA
                                                             ((deep (hasDivWithId "ContentOutlineDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
                                                             &&&
                                                             ((deep (hasDivWithId "ContentBodyDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
-                                                          ) >>^ (\ (a, (b, c)) -> XN.mkRoot [] [a, b, c])
+                                                            &&&
+                                                            ((deep (hasDivWithId "SiteNavigationDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
+                                                          ) >>^ (\ (a, (b, (c, d))) -> XN.mkRoot [] [a, b, c, d])
                                                         )
                                   , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
                                                           >>>

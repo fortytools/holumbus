@@ -234,13 +234,13 @@ docHitToListItem isDate docHit =
     subList = htmlList "" subListItems
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
                 ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ authText ++ modiText]
-                ++  if (isDate)
+                ++  if (isDate && ((not . L.null $ listOfMatchedPositionsCalender) || (not . L.null $ listOfMatchedPositionsDate)))
                     then
                       if (L.null $ listOfMatchedPositionsCalender)
-                         then mkDateContexts (srUri docHit) stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
-                              (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
-                         else mkDateContexts (srUri docHit) stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
-                              (show $ M.toList $ fromMaybe M.empty calenderContextMap)
+                      then mkDateContexts (srUri docHit) stringOfDateContexts listOfMatchedPositionsDate DateInStdContent
+                          (show $ M.toList $ fromMaybe M.empty dateContextMap) -- for debugging only!
+                      else mkDateContexts (srUri docHit) stringOfCalenderContexts listOfMatchedPositionsCalender DateInCalender
+                          (show $ M.toList $ fromMaybe M.empty calenderContextMap)
                     else [htmlLink' "" (srUri docHit) mkContentContext]
                 ++ [htmlListItem "score" $ htmlTextNode . show . srScore $ docHit]
     mkContentContext =  htmlListItem "teaserText" $ htmlTextNode teaserText
@@ -252,7 +252,7 @@ docHitToListItem isDate docHit =
     dateContextMap     = M.lookup "dates"    $ srContextMap docHit
     calenderContextMap = M.lookup "calender" $ srContextMap docHit
     listOfMaps2listOfPositions [] = []
-    listOfMaps2listOfPositions x = L.map (L.head . IS.toList . snd) x
+    listOfMaps2listOfPositions x = L.concat $ L.map (IS.toList . snd) x
 
 ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
