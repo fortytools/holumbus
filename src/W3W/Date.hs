@@ -131,7 +131,7 @@ tokenRE = foldr1 xor $
                  map (uncurry subex) $
                  [ ( "ddmmyyyy",     dayMonthYear )
                  , ( "ddMonthyyyy",  dayD `s0` monthN `s0` (year `orr` year') )
-                 , ( "Monthyyyy",    monthN `s0` (year `orr` year') )
+                 , ( "monthyyyy",    monthN `s0` (year `orr` year') )
                  , ( "ddmm",         dayMonth)
                  , ( "ddMonth",      dayD `s0` monthN )
                  , ( "yyyymmdd",     year ++ "[-/]" ++ month ++ "[-/]" ++ day )
@@ -335,6 +335,13 @@ parseDay d      = ( do
                   )
                   <|>
                   ( do
+                    (s, d') <- parseDateTok "monthyyyy" d
+                    let s' = sed ((++ ".") . monthToM) monthN s
+                    let [m, j] = tokenize num s'
+                    return $ setDay (read j) (read m) (-1) d'
+                  )
+                  <|>
+                  ( do
                     (s, d') <- parseDateTok "dateAlias" d
                     return $ setDay (-1) (-1) (-1) d'
                   )
@@ -470,7 +477,7 @@ t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für d
 
 t1 = "Heute ist der 10.7.2003 und NAECHSTE WOCHE gibts am Freitag, den 11.7.2003 Fisch"
 t2 = "Erdbeerkaese"
-t3 = "12. September 2011 um 23:00 Uhr gibts Erdbeerkäse"
+t3 = "im September 2011 um 23:00 Uhr gibts Erdbeerkäse"
 
 -- tokenRE :
 --   regulärer Ausdruck mit {label}

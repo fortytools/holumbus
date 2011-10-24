@@ -131,7 +131,7 @@ getIndexSearchResults q f =
 			where
 			pr = parseQuery q
 			printError err = do
-				return $ SearchResultDocs 0.0 0 [SRDocHit ("problem parsing query: " ++ err) 0.0 emptyPageInfo "" M.empty]
+				return $ SearchResultDocs 0.0 0 [SRDocHit "" 0.0 emptyPageInfo "" M.empty]
 			makeQuery pq = do
 				t1 <- getCPUTime
 				r <- f pq -- This is where the magic happens!

@@ -376,7 +376,7 @@ processquery = do
   let dateRep = extractDateRep query
   (transformedQuery, numOfTransforms) <-liftIO $ dateRep2stringWithTransformedDates dateRep
   let hasDate = (numOfTransforms > 0)
-  -- liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
+  liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
   queryFunc' <- queryFunction
   searchResultDocs <- liftIO $ getIndexSearchResults transformedQuery queryFunc'
   strPage <- getQueryStringParam "page"
@@ -392,9 +392,9 @@ resultSplice :: Bool -> Int -> SearchResultDocs -> Splice Application
 resultSplice isDate pageNum searchResultDocs = do
   let items = P.map (docHitToListItem isDate) (L.take hitsPerPage $ L.drop ((pageNum-1)*hitsPerPage) $ srDocHits searchResultDocs)
   let docHits = srDocHits searchResultDocs
---  if P.null $ docHits
---     then liftIO $ P.putStrLn "- keine Ergebnisse -"
---     else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
+  if P.null $ docHits
+     then liftIO $ P.putStrLn "- keine Ergebnisse -"
+     else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
   let infos = [docHitsMetaInfo searchResultDocs]
   return $ [htmlList "" (infos ++ items)]
 
