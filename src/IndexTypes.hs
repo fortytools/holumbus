@@ -2,8 +2,8 @@
 
 -- ------------------------------------------------------------
 
-module W3W.IndexTypes
-    ( module W3W.IndexTypes
+module IndexTypes
+    ( module IndexTypes
     , Document
     , Documents
     , SmallDocuments
@@ -17,7 +17,7 @@ import           Data.Binary
 import qualified Data.IntMap                    as IM
 import           Data.Maybe
 
-import           W3W.PageInfo
+import           PageInfo
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore

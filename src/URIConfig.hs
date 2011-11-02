@@ -2,8 +2,9 @@
 
 -- ------------------------------------------------------------
 
-module W3W.URIConfigLocal
-    ( w3wStart
+module URIConfig
+    ( UriConfig (..)
+    , w3wStart
     , w3wRefs
     , fileName
     , htmlFiles
@@ -15,11 +16,13 @@ import           Data.List
 import           Holumbus.Crawler
 
 -- ------------------------------------------------------------
+data UriConfig                  = UCTestIndex | UCFullIndex
+                                  deriving (Eq, Show)
 
-w3wStart                        :: [URI]
+w3wStart                        :: UriConfig -> [URI]
 w3wStart                        = fhwStart
 
-w3wRefs                         :: URI -> Bool
+w3wRefs                         :: UriConfig -> URI -> Bool
 w3wRefs                         = fhwRefs
 
 fhwHome                         :: String
@@ -34,8 +37,13 @@ fhwURIs                         = map (fhwHome ++)
 ptlURIs                         :: [URI] -> [URI]
 ptlURIs                         = map (ptlHome ++)
 
-fhwStart                        :: [URI]
-fhwStart                        =  fhwURIs [
+fhwStart                        :: UriConfig -> [URI]
+fhwStart UCFullIndex            =  fhwURIs [ ""                 -- fhw start page
+                                           ]
+                                   ++
+                                   ptlURIs [ ""                 -- ptl start page
+                                           ]
+fhwStart UCTestIndex            =  fhwURIs [
                                            ""                 -- fhw start page
                                            , "~eg/"             -- Martin Egge's home
                                            , "~si/"             -- si's home
@@ -43,11 +51,24 @@ fhwStart                        =  fhwURIs [
                                            ]
                                     ++
                                     ptlURIs [ ""                 -- ptl start page
-                                           ]
+                                            ]
 
+fhwRefs                         :: UriConfig -> URI -> Bool
+fhwRefs UCFullIndex             = simpleFollowRef'
+                                  [ fhwHome ++
+                                            alternatives
+                                            [ htmlPaths
+                                            ]
+                                  , ptlHome ++
+                                            alternatives
+                                            [ htmlPaths
+                                            ]
 
-fhwRefs                         :: URI -> Bool
-fhwRefs                         = simpleFollowRef'
+                                  ]
+                                  ( [ ".*[?].*"                 -- no URIs with parameters
+                                    ]
+                                  )
+fhwRefs UCTestIndex             = simpleFollowRef'
                                   [ fhwHome ++
                                             alternatives
                                             [
@@ -97,5 +118,5 @@ htmlFiles                       = optional (fileName ++ alternatives [ext "html"
 htmlPaths                       :: String
 htmlPaths                       = filePath ++ htmlFiles
 
-
 -- ------------------------------------------------------------
+

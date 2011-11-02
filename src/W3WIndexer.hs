@@ -14,13 +14,11 @@ import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
 
-import           W3W.IndexConfig
-import           W3W.IndexTypes
-import           W3W.PageInfo
+import           IndexConfig
+import           IndexTypes
+import           PageInfo
 
--- Change here for local / global fh-w Index
--- import           W3W.URIConfig
-import           W3W.URIConfigLocal
+import           URIConfig
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.CacheCore
@@ -36,7 +34,6 @@ import           Text.XML.HXT.Cache
 import           Text.XML.HXT.HTTP()
 import           Text.XML.HXT.Curl
 
-import           qualified W3W.Date as D
 import           Holumbus.Crawler.PdfToText
 import           qualified Text.XML.HXT.DOM.XmlNode as XN
 
@@ -58,22 +55,18 @@ w3wIndexer                      :: AppOpts -> IO W3WIndexerCrawlerState
 w3wIndexer o                    = stdIndexer
                                   config
                                   (ao_resume o)
-                                  w3wStart
+                                  (w3wStart $ ao_uriConfig o)
                                   emptyW3WState
     where
     config0                     = indexCrawlerConfig
                                   (ao_crawlPar o)
-                                  w3wRefs
+                                  (w3wRefs $ ao_uriConfig o)
                                   Nothing
                                   (Just $ checkDocumentStatus >>> checkTransferStatus >>> preDocumentFilter)
                                   (Just $ w3wGetTitle)
-                                  (Just $ w3wGetPageInfo dateExtractor dateProcessorContext)
-                                  (w3wIndexConfig dateExtractor dateProcessorIndex)
-                                  where
-                                    dateExtractor               = D.extractDateRep
-                                    dateProcessorIndex          = D.dateRep2NormalizedDates
-                                    dateProcessorContext        = D.dateRep2DatesContext
-
+                                  (Just $ w3wGetPageInfo)
+                                  (w3wIndexConfig)
+                                  
     config                      = ao_crawlFct o $
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
@@ -100,13 +93,14 @@ w3wCacher o                     = stdCacher
                                   (ao_crawlPar o)
                                   (ao_crawlCch o)
                                   (ao_resume o)
-                                  w3wStart
-                                  w3wRefs
+                                  (w3wStart $ ao_uriConfig o)
+                                  (w3wRefs $ ao_uriConfig o)
 
 -- ------------------------------------------------------------
 
 data AppAction                  = BuildIx | BuildCache
                                   deriving (Eq, Show)
+
 
 data AppOpts                    = AO
                                   { ao_index    :: String
@@ -123,7 +117,8 @@ data AppOpts                    = AO
                                   , ao_crawlLog :: (Priority, Priority)
                                   , ao_crawlPar :: SysConfig
                                   , ao_crawlFct :: W3WIndexerConfig    -> W3WIndexerConfig
-                                  , ao_crawlCch :: CacheCrawlerConfig    -> CacheCrawlerConfig
+                                  , ao_crawlCch :: CacheCrawlerConfig  -> CacheCrawlerConfig
+                                  , ao_uriConfig :: UriConfig
                                   }
 
 type SetAppOpt                  = AppOpts -> AppOpts
@@ -180,6 +175,7 @@ initAppOpts                     = AO
                                                     >>>
                                                     disableRobotsTxt                                    -- for w3w robots.txt is not needed
                                                   )
+                                  , ao_uriConfig = UCFullIndex
                                   }
     where
     editPackageURIs             = id -- chgS theProcessRefs (>>> arr rewriteURIs)
@@ -230,7 +226,7 @@ main1 pn args
     optDescr                    = [ Option "h?" ["help"]        (NoArg  $ \   x -> x { ao_help     = True })                            "usage info"
                                   , Option ""   ["build-index"] (NoArg  $ \   x -> x { ao_crawlSav = (500, "./tmp/ix-") })              "build W3W index (default)"
                                   , Option ""   ["build-cache"] (NoArg  $ \   x -> x { ao_action   = BuildCache })                      "update the W3W cache"
-
+                                  , Option ""   ["test-index"]  (NoArg  $ \   x -> x { ao_uriConfig = UCTestIndex })                    "build a small sub index of the fhw pages for testing"
                                   , Option "i"  ["index"]       (ReqArg ( \ f x -> x { ao_index    = f    })            "INDEX")        "index input file (binary format) to be operated on"
                                   , Option "n"  ["new-index"]   (ReqArg ( \ f x -> x { ao_ixout    = f    })            "NEW-INDEX")    "new index file (binary format) to be generatet, default is index file"
                                   , Option "s"  ["new-search"]  (ReqArg ( \ f x -> x { ao_ixsearch = f    })            "SEARCH-INDEX") "new search index files (binary format) ready to be used by W3W! search"

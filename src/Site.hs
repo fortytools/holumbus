@@ -30,11 +30,12 @@ import Prelude as P
 import Data.Map as M
 import Data.IntSet as IS
 --import Text.Regex (splitRegex, mkRegex)
-import W3W.IndexTypes
+import IndexTypes
 import Text.JSON
-import W3W.Date as D
+import Date as D
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
+import Helpers
 import Monad (liftM)
 ------------------------------------------------------------------------------
 -- |
@@ -230,7 +231,7 @@ docHitToListItem isDate docHit =
                   else
                     if (auth == "")
                        then "geändert am " ++ modi
-                       else " am " ++ saveHead (P.map unNormalizeDate $ getNormFunc dateRep2NormalizedDates . extractDateRep $ modi) modi
+                       else " am " ++ saveHead (P.map unNormalizeDate $ dateRep2NormalizedDates . extractDateRep $ modi) modi
     subList = htmlList "" subListItems
     subListItems = [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultTitle" $ htmlTextNode . srTitle $ docHit]
                 ++ [htmlLink' "" (srUri docHit) $ htmlListItem "searchResultModified" $ htmlTextNode $ authText ++ modiText]
@@ -323,7 +324,7 @@ maybeNormalizeQuery :: String -> (String, Bool)
 maybeNormalizeQuery query =
   (either id id normalizedDateOrQuery, isDate)
   where
-    normalizedDates = getNormFunc D.dateRep2NormalizedDates . D.extractDateRep $ query
+    normalizedDates = D.dateRep2NormalizedDates . D.extractDateRep $ query
     isDate = not $ L.null normalizedDates
     normalizedDateOrQuery  = if not isDate
                              then Left query

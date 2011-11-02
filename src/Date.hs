@@ -1,4 +1,30 @@
-module W3W.Date
+-- ----------------------------------------------------------------------------
+
+{- |
+  Module     : Date
+
+  Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+  Parsers for Strings containing date-expressions and functions to normalize them
+  or convert normalized dates back to human-readable dates.
+  This module also contains some helper functions for date operations.
+
+-}
+
+-- ----------------------------------------------------------------------------
+
+module Date
+  ( extractDateRep
+  , normalizeDate
+  , dateRep2NormalizedDates
+  , dateRep2DatesContext
+  , prepareNormDateForCompare
+  , dateRep2stringWithTransformedDates
+  , unNormalizeDate
+  )
 where
 
 import Control.Arrow                                   ( second )
@@ -15,7 +41,7 @@ import Text.Regex.XMLSchema.String
 import Data.Time.Clock
 import Data.Time.Calendar
 import Data.Time.Calendar.WeekDate
-
+import Helpers
 import Monad                                            (liftM)
 import Control.Monad.Trans                              (liftIO)
 
@@ -462,45 +488,11 @@ monthToM m
       map (second (`isPrefixOf` map toLower m)) $
       monthAbr
 
--- ------------------------------------------------------------
-
-t :: String
-t = "Am Sonntag, dem 17. Februar '03 findet um 9 Uhr ein wichtiger Termin für das Sommersemester 2000 statt. "
-    ++ "Dieser wird allerdings auf Montag verschoben. Und zwar auf den ersten Montag im Wintersemester 11/12, 12:30. "
-    ++ "Ein wichtiger Termin findet im SoSe 2011 statt. Im Jahr '12 gibt es Termine, aber auch in WS 2010/11. "
-    ++ "Ein weiterer Termin ist  am 2.4.11 um 12 Uhr. Oder war es doch Di. der 3.4.? Egal. "
-    ++ "Ein weiterer wichtiger Termin findet am 2001-3-4 statt bzw. generell zwischen 01/3/4 - 01/6/4 um 13 Uhr. "
-    ++ "Am kommenden Mittwoch findet Changemanagement in HS5 statt. Dies gilt dann auch für den 7. Juni "
-    ++ "des Jahres 2011. Noch ein wichtiger Termin findet um 16:15 Uhr am Do., 1.2.03 statt. "
-    ++ "Freitag, der 13. Juli ist kein Glückstag"
-    ++ "und Freitag, der 13. Juli um 11:55 Uhr ist es zu spät."
-
-t1 = "Heute ist der 10.7.2003 und NAECHSTE WOCHE gibts am Freitag, den 11.7.2003 Fisch"
-t2 = "Erdbeerkaese"
-t3 = "im September 2011 um 23:00 Uhr gibts Erdbeerkäse"
-
--- tokenRE :
---   regulärer Ausdruck mit {label}
-
--- tokenizeSubex tokenRE $ t:
---   z.B. [(weekday,Montag),(word,Salat),...]
-
--- dateSearch' . tokenizeSubex tokenRE $ t
---   [DR {_p="Random Text", _r="Di. 3.4.", _d={_year=-1, _month=4, _day=3, _hour=-1, _min=-1}}, ...]
-
-r = map _r . dateSearch' . tokenizeSubex tokenRE $ t
-d = map _d . dateSearch' . tokenizeSubex tokenRE $ t
-a =          dateSearch' . tokenizeSubex tokenRE $ t
-
-tt = tokenizeSubex tokenRE
-dd = map _d . dateSearch' . tt
-rr = map _r . dateSearch' . tt
-pp = map _p . dateSearch' . tt
-
-type DateExtractorFunc = String -> [DateRep]
-data DateProcessorFunc = DateNormalizer       { getNormFunc    :: ([DateRep] -> [String]) }
-                       | DateContextExtractor { getContextFunc :: ([DateRep] -> [[String]]) } --[leftContext, theDate, rightContext]
-
+-- ----------------------------------------------------------------------------
+-- | Converts a Number into a String of a certain length, filled with "*".
+-- | e.g. digits 4 11 -> "**11", digits 4 2011 -> "2011", digits 4 -1 -> "****", ...
+-- | Input:  number of digits in result, number to be converted
+-- | Output: String containing the converted number
 digits :: Int -> Int -> String
 digits numDigits number = if (number < 0)
                           then (numDigits `times` "*")
@@ -511,18 +503,37 @@ digits numDigits number = if (number < 0)
                                     then (times (n-1) s) ++ s
                                     else ""
 
+-- ----------------------------------------------------------------------------
+-- | take the first n words of a string
 takeFirstNWords :: Int -> String -> String
 takeFirstNWords n str = unwords . (take n) . words $ str
 
+-- ----------------------------------------------------------------------------
+-- | take the last n words of a string
 takeLastNWords :: Int -> String -> String
 takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
 
-
-extractDateRep :: DateExtractorFunc
+-- ----------------------------------------------------------------------------
+-- | Extracts a List of Date-Parse-Results of a String.
+-- | e.g. "Heute ist der 10.7.2003 und am Freitag, den 11.7.2003 um 13:00 Uhr gibts Fisch" ->
+-- | [DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}},
+-- |  DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}},
+-- |  DR {_p = " und am ", _r = "Freitag, den 11.7.2003 um 13:00 Uhr", _d = DT {_year = 2003, _month = 7, _day = 11, _hour = 13, _min = 0}},
+-- |  DR {_p = " gibts Fisch", _r = "", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}}]
+-- | Words recognized as Dates are contained in the _r-fileds. Their interpretation is contained in th _d-fields. "Heute" is a special keyword
+-- | that will be interpretated later.
+extractDateRep :: String -> [DateRep]
 extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
 
--- returns (normalized date, dateAlias),
--- dateAliases will be interpreted by prepareNormDateForCompare
+-- ----------------------------------------------------------------------------
+-- | a DateRep-Item is transformed into a normalized Date (i.e. "Juni 2010 um 12:00" -> "****-06-02-12-00")
+-- | Furthermore, the words describing the recognized date are returned to be further processed by "prepareNormDateForCompare"
+-- | where dateAliases like "heute" or "diese Woche" are transformed into dates.
+-- | Input:  Representation of a parsed date
+-- | Output: (Normalized Version of the Date, Words recognized as the date)
+-- | Examples:
+-- | 1) DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}} -> ("2003-07-10-**-**", "10.7.2003")
+-- | 2) DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}} -> ("****-**-**-**-**", "Heute")
 normalizeDate :: DateRep -> (String, String)
 normalizeDate d = (normalizedDateString, dateAlias)
   where
@@ -534,27 +545,48 @@ normalizeDate d = (normalizedDateString, dateAlias)
       (digits 2 $ _hour $ _d d) ++ "-" ++
       (digits 2 $ _min $ _d d)
 
-dateRep2NormalizedDates :: DateProcessorFunc
-dateRep2NormalizedDates = DateNormalizer func
-  where func = map (fst . normalizeDate) . filter (\ x -> (_r x) /= "")
+-- ----------------------------------------------------------------------------
+-- | The list of Date-Parse.Results is transformed into a list of normalized dates
+-- | e.g.
+-- | [DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}},
+-- |  DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}}]
+-- | ->
+-- | ["****-**-**-**-**", "2003-07-10-**-**"]
+dateRep2NormalizedDates :: [DateRep] -> [String]
+dateRep2NormalizedDates = map (fst . normalizeDate) . filter (\ x -> (_r x) /= "")
 
-dateRep2DatesContext :: DateProcessorFunc
-dateRep2DatesContext = DateContextExtractor func
-  where
-    func [] = []
-    func (x:[]) = if not . null $ _r x then [[takeLastNWords 5 $ _p x , _r x, ""]] else []
-    func (x:y:xs) = [[takeLastNWords 5 $ _p x , _r x , takeFirstNWords 5 $ _p y]] ++ (func (y:xs))
-
-------------------------------------------------------------------------------
--- | Input: (Normalized Date-String, dateAlias)
+-- ----------------------------------------------------------------------------
+-- | The list of Date-Parse.Results is transformed into a list of the dates (not normalized!), each surrounded by max. 5 words
+-- | to the left and to the right of the date.
+-- | e.g.
+-- | [DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}},
+-- |  DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}}
+-- |  DR {_p = " und am ", _r = "Freitag, den 11.7.2003 um 13:00 Uhr", _d = DT {_year = 2003, _month = 7, _day = 11, _hour = 13, _min = 0}}
+-- |  DR {_p = " gibts Fisch", _r = "", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}}]
+-- | ->
+-- | [["","Heute","ist der"],["ist der","10.7.2003","und am"],["und am","Freitag, den 11.7.2003 um 13:00 Uhr","gibts Fisch"]]
 -- |
+-- | Result: One list item of the Result is formed like [leftContext, theDate, rightContext]
+dateRep2DatesContext          :: [DateRep] -> [[String]] 
+dateRep2DatesContext []       = []
+dateRep2DatesContext (x:[])   = if not . null $ _r x then [[takeLastNWords 5 $ _p x , _r x, ""]] else []
+dateRep2DatesContext (x:y:xs) = [[takeLastNWords 5 $ _p x , _r x , takeFirstNWords 5 $ _p y]] ++ (dateRep2DatesContext (y:xs))
+
+-- ----------------------------------------------------------------------------
 -- | Prepare a normalized Date-String (i.e. "****-**-03-12-**") for comparison with indexed normalized dates.
 -- | The leading "****-**-" will be replaced with the actual date.
--- | Since the comparison is prefix-based the trailing "-**" are truncated.
+-- | Since the comparison is prefix-based, the trailing "-**" are simply truncated.
 -- | Since the result depends on the actual (world) date, it is wrapped in the IO Monad.
 -- |
--- | The second input value is perhaps a dateAlias like "HEUTE", "MORGEN", ...
--- | In this case the result will be the expansion of the dateAlias.
+-- | The second input value is perhaps a dateAlias like "Heute", "Morgen", ...
+-- | In this case the result will be the expansion of the dateAlias, i.e. the list of prepared dates, concatenated by "OR"
+-- |
+-- | Input: (Normalized Date-String, dateAlias)
+-- | Examples:
+-- | 1) ("****-**-**-**-**", "diese Woche") ->
+-- |    "2011-10-31 OR 2011-11-01 OR 2011-11-02 OR 2011-11-03 OR 2011-11-04 OR 2011-11-05 OR 2011-11-06 OR (\"diese Woche\")"
+-- | 2) ("****-03-04-**-**", "3. April") ->
+-- |    "2011-03-04"
 prepareNormDateForCompare :: (String, String) -> IO String
 prepareNormDateForCompare normDate = do
   (isDateAlias, dateAliasResult) <- scanDateAlias $ snd normDate
@@ -579,9 +611,12 @@ prepareNormDateForCompare normDate = do
       today <- liftM utctDay getCurrentTime
       return (showGregorian today)
 
-box :: a -> [a]
-box x = [x]
-
+-- ----------------------------------------------------------------------------
+-- | Check if input string is a date-alias (heute, diese Woche, ...).
+-- | If it is, return True and the list of normalized days representing the date-alias,
+-- | concatenated by "OR".
+-- | If it is not, return false and an empty String.
+-- | Helper function for prepareNormDateForCompare.
 scanDateAlias :: String -> IO (Bool, String)
 scanDateAlias s = runIfDefined $ lookup s dateAliasFunc
   where
@@ -592,12 +627,18 @@ scanDateAlias s = runIfDefined $ lookup s dateAliasFunc
     toDays [x] = showGregorian x
     toDays xs  = foldl1 (\ a b -> a ++ " OR " ++ b) $ map showGregorian xs
 
+-- ----------------------------------------------------------------------------
+-- | Input: start-day and end-day of an interval of days
+-- | Output: the list containing all days from start-day til end-day
 mkListOfDays :: Day -> Day -> [Day]
 mkListOfDays dFrom dTo = map ModifiedJulianDay [dayFrom..dayTo]
   where
     dayFrom = toModifiedJulianDay dFrom
     dayTo = toModifiedJulianDay dTo
 
+-- ----------------------------------------------------------------------------
+-- | Input: a day
+-- | Output: list of all days of the week containing the input-day
 extractWeek :: Day -> [Day]
 extractWeek d = mkListOfDays (setToMonday weekDate) (setToSunday weekDate)
   where
@@ -605,6 +646,9 @@ extractWeek d = mkListOfDays (setToMonday weekDate) (setToSunday weekDate)
     setToMonday (y,w,_) = fromWeekDate y w 1
     setToSunday (y,w,_) = fromWeekDate y w 7
 
+-- ----------------------------------------------------------------------------
+-- | Input: a day
+-- | Output: list of all days of the month containing the input-day
 extractMonth :: Day -> [Day]
 extractMonth d = mkListOfDays (setToFirst date) (setToLast date)
   where
@@ -612,12 +656,17 @@ extractMonth d = mkListOfDays (setToFirst date) (setToLast date)
     setToFirst (y,m,_) = fromGregorian y m 1
     setToLast (y,m,_) = addDays (-1) $ if (m == 12) then fromGregorian (y+1) 1 1 else fromGregorian y (m+1) 1
     
+-- ----------------------------------------------------------------------------
+-- | Input: a day
+-- | Output: the day after a month, where the length of the month is dependent of the input-day
 addMonth :: Day -> Day
 addMonth d = addDays (fromIntegral $ gregorianMonthLength y m) d
   where
     (y, m, _) = toGregorian d
 
--- Result: IO (String with transformed dates, number of transformations)
+-- ----------------------------------------------------------------------------
+-- | Input: parse result of a String that may contain multiple dates
+-- | Result: IO (String with transformed dates, number of transformations made)
 dateRep2stringWithTransformedDates :: [DateRep] -> IO (String, Int)
 dateRep2stringWithTransformedDates dateRep = do
   listOfStrWithNum <- mapM (\ dr -> conc (_p dr) (transformDate dr)) $ dateRep
@@ -633,18 +682,10 @@ dateRep2stringWithTransformedDates dateRep = do
       return (str ++ (fst strWithNumber), snd strWithNumber)
     concatStrWithNumber xs = (concat $ map fst xs, foldl (+) 0 $ map snd xs)
 
-------------------------------------------------------------------------------
--- | convert a String to an Int.
--- | returns defaultValue if conversion fails
-strToInt :: Int -> String -> Int
-strToInt defaultValue str
-  | (length readsResult > 0) = fst $ head readsResult
-  | otherwise = defaultValue
-  where
-  readsResult = reads $ str
+
 
 ------------------------------------------------------------------------------
--- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns readable
+-- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns human readable
 -- | date representation (i.e. "März, 12 Uhr")
 unNormalizeDate :: String -> String
 unNormalizeDate = unNormalizeDate' . (split '-')

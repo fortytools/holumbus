@@ -1,14 +1,25 @@
-{-
+-- ----------------------------------------------------------------------------
 
-This module defines our application's monad and any application-specific
-information it requires.
+{- |
+  Module     : Application
+
+  Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+  This module defines our application's monad and any application-specific
+  information it requires.
 
 -}
 
-module Application ( Application, applicationInitializer )
+-- ----------------------------------------------------------------------------
 
+module Application
+  ( Application
+  , applicationInitializer
+  )
 where
-
 import Snap.Extension
 import Snap.Extension.Heist.Impl
 import W3WState
@@ -29,19 +40,19 @@ type Application = SnapExtend ApplicationState
 data ApplicationState = ApplicationState
   {
     templateState :: HeistState Application,
-  	w3wState      :: W3WState
+    w3wState      :: W3WState
   }
 
 ------------------------------------------------------------------------------
 
 instance HasHeistState Application ApplicationState where
-	getHeistState     = templateState
-	setHeistState s a = a { templateState = s }
+  getHeistState     = templateState
+  setHeistState s a = a { templateState = s }
 
 
 instance HasW3WState ApplicationState where
-    getW3WState     = w3wState
-    setW3WState s a = a { w3wState = s }
+  getW3WState     = w3wState
+  setW3WState s a = a { w3wState = s }
 
 ------------------------------------------------------------------------------
 

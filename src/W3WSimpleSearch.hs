@@ -21,7 +21,7 @@ import qualified Data.IntMap            as IM
 import           Data.String.Unicode    ( utf8ToUnicode )
 import           Holumbus.Index.Common
 import           Holumbus.Query.Language.Grammar
-import           Parser
+import           Holumbus.Query.Language.Parser
 import           Holumbus.Query.Processor
 import           Holumbus.Query.Result
 import           Holumbus.Query.Ranking
@@ -32,9 +32,9 @@ import           System.Exit
 import           System.Console.GetOpt
 import           System.CPUTime
 import           Text.Printf
-import           W3W.IndexTypes
+import           IndexTypes
 import 			     Control.Monad.Trans
-import 			     W3W.PageInfo
+import 			     PageInfo
 
 -- ------------------------------------------------------------
 -- Representation of all Document-Hits and Word-Completions found
@@ -74,11 +74,9 @@ type RankTable  = [(Context, Score)]
 defaultRankTable :: RankTable
 defaultRankTable
     = [ ("title", 0.8)
-      , ("keywords", 0.6)
-      , ("headlines", 0.4)
-      , ("contentContext", 0.2)
-      , ("uri", 0.1)
-      , ("uriclass", 0.1)
+      , ("headlines", 0.7)
+      , ("contentContext", 0.6)
+      , ("uri", 0.5)
       , ("datesContext", 0.9)
       , ("calenderContext", 0.9)
       ]
