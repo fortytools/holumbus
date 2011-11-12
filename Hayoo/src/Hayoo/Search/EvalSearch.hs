@@ -51,8 +51,6 @@ import Data.ByteString.Lazy.Char8       ( ByteString
 import Data.Function
 import Data.Maybe
 
-import qualified Data.IntMap            as IM
-import qualified Data.IntSet            as IS
 import qualified Data.List              as L
 import qualified Data.Map               as M
 import qualified Data.Text.Encoding     as T
@@ -254,7 +252,7 @@ hayooFctRanking rt ws ts _ di dch
   calcWeightedScore c h r
                         = maybe r (\w -> r + ((w / mw) * count)) (lookupWeight ws)
     where
-    count               = fromIntegral $ M.fold ((+) . IS.size) 0 h
+    count               = fromIntegral $ M.fold ((+) . sizePos) 0 h
     mw                  = snd $ L.maximumBy (compare `on` snd) ws
     lookupWeight []     = Nothing
     lookupWeight (x:xs) = if fst x == c then
@@ -317,7 +315,7 @@ genModules              :: Result FunctionInfo -> [(String, Int)]
 genModules r            = reverse $
                           L.sortBy (compare `on` snd) $
                           M.toList $
-                          IM.fold collectModules M.empty (docHits r)
+                          foldDocIdMap collectModules M.empty (docHits r)
   where
   collectModules ((DocInfo d _), _)  modules
                         = maybe modules (\fi -> M.insertWith (+) (takeWhile (/= '.') . moduleName $ fi) 1 modules) $
@@ -327,7 +325,7 @@ genPackages             :: Result FunctionInfo -> [(String, Int)]
 genPackages r           = reverse $
                           L.sortBy (compare `on` snd) $
                           M.toList $
-                          IM.fold collectPackages M.empty (docHits r)
+                          foldDocIdMap collectPackages M.empty (docHits r)
   where
   collectPackages ((DocInfo d _), _) packages
                         = maybe packages (\fi -> M.insertWith (+) (package fi) 1 packages) $

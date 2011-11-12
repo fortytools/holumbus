@@ -19,9 +19,7 @@ import           Control.Arrow
 import           Control.DeepSeq
 
 import           Data.Binary
--- import qualified Data.ByteString.Char8               as C
-import qualified Data.IntSet                    as IS
-import qualified Data.IntMap                    as IM
+
 import           Data.List                      ( foldl' )
 import qualified Data.Map                       as M    ( lookup )
 import           Data.Maybe
@@ -35,11 +33,11 @@ import           Holumbus.Crawler.IndexerCore
 
 import qualified Holumbus.Data.PrefixTree       as PT
 
-import           Holumbus.Index.Common          ( Document(..)
+import           Holumbus.Index.Common      {-    ( Document(..)
                                                 , Occurrences
                                                 , toList, fromList
                                                 , custom, editDocIds, removeById, toMap, updateDocIds', updateDocuments
-                                                )
+                                                )-}
 import           Holumbus.Index.CompactDocuments
                                                 ( Documents(..)
                                                 , emptyDocuments
@@ -150,10 +148,10 @@ removePack' pkgName ps IndexerState
                                   }
     where
                                                         -- collect all DocIds used in the given packages
-    docIds                      = IM.foldWithKey checkDoc IM.empty . toMap $ ds
+    docIds                      = foldWithKeyDocIdMap checkDoc emptyDocIdMap . toMap $ ds
     checkDoc did doc xs
-        | docPartOfPack         = IM.insert did IS.empty xs
-        | otherwise             =                        xs
+        | docPartOfPack         = insertDocIdMap did emptyPos xs
+        | otherwise             =                             xs
         where
         docPartOfPack           = (`elem` ps) . pkgName $ doc
 
@@ -161,7 +159,7 @@ removePack' pkgName ps IndexerState
     ix'                         = removeDocIdsInverted docIds ix
 
                                                         -- restrict document table
-    ds'                         = foldl' removeById ds $ IM.keys docIds
+    ds'                         = foldl' removeById ds $ keysDocIdMap docIds
 
 -- ------------------------------------------------------------
 
@@ -177,8 +175,8 @@ defragmentIndex IndexerState
     where
     ix'                         = updateDocIds' editId ix
     ds'                         = editDocIds editId ds
-    idMap                       = IM.fromList . flip zip [1..] . IM.keys . toMap $ ds
-    editId i                    = fromJust . IM.lookup i $ idMap
+    idMap                       = fromListDocIdMap . flip zip (map mkDocId [1..]) . keysDocIdMap . toMap $ ds
+    editId i                    = fromJust . lookupDocIdMap i $ idMap
 
 -- ------------------------------------------------------------
 
@@ -205,7 +203,7 @@ packageRanking ixs@(IndexerState { ixs_documents = ds })
                                   . map fromJust
                                   . filter isJust               -- all illegal package refs are filtered out (there are illegal refs)
                                   . map custom
-                                  . IM.elems
+                                  . elemsDocIdMap
                                   . toMap $ ds
 
     insertRank d                = d { custom = fmap insertRank' (custom d) }
@@ -227,7 +225,7 @@ lookupRankTable p               = fromMaybe 1.0 . PT.lookup p
 
 buildRankTable                  :: SmallDocuments PackageInfo -> RankTable
 buildRankTable                  = toMap
-                                  >>> IM.elems
+                                  >>> elemsDocIdMap
                                   >>> map ( custom
                                             >>> fromJust
                                             >>> (p_name &&& p_rank)

@@ -25,13 +25,14 @@ module Hayoo.Search.HTML
     )
 where
 
-import           Data.Text (Text, pack)
-import           Data.Char (toLower, isSpace)
-import           Data.Maybe
+import           Data.Char      ( toLower
+                                , isSpace
+                                )
 import           Data.Function
-import qualified Data.IntMap  as IM
-import qualified Data.List    as L
-import qualified Data.Map     as M
+import qualified Data.List      as L
+import qualified Data.Map       as M
+import           Data.Maybe
+import           Data.Text      (Text, pack)
 
 import           Text.XHtmlCombinators
 import qualified Text.XHtmlCombinators.Attributes as A
@@ -129,7 +130,7 @@ packageResults rs rp = let pl = extractPackages rp in
   packageCategory c = a' [A.class_ "category", A.href $ pack $ "http://hackage.haskell.org/packages/archive/pkg-list.html#cat:" ++ map toLower c] $ text' c
   extractPackages = take pageLimit . drop (rsStart rs) . 
                     (mapMaybe (\(_, (di, _)) -> custom $ document di)) . 
-                    reverse . L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList . docHits
+                    reverse . L.sortBy (compare `on` (docScore . fst . snd)) . toListDocIdMap . docHits
 
 -- | The function hits.
 functionResults :: RenderState -> (Result FunctionInfo) -> XHtml FlowContent
@@ -139,7 +140,7 @@ functionResults rs rf = do
     where
                 notSignature (_, (_, wch)) = M.keys wch /= ["signature"]
                 toListSortedDocs = take pageLimit . drop (rsStart rs) . reverse . 
-                        L.sortBy (compare `on` (docScore . fst . snd)) . IM.toList
+                        L.sortBy (compare `on` (docScore . fst . snd)) . toListDocIdMap
                 toListSortedWords = L.sortBy (compare `on` fst) . take maxWordHits . 
                         L.sortBy (compare `on` (wordScore .fst . snd)) . filter notSignature . M.toList
 

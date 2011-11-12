@@ -10,7 +10,6 @@
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
-  Version    : 0.3
 
   The Holumbus query processor. Supports exact word or phrase queries as well
   as fuzzy word and case-insensitive word and phrase queries. Boolean
@@ -36,38 +35,36 @@ where
 
 -- import Data.Maybe
 
-import           Data.Binary (Binary (..))
-import           Data.Function
-
 import           Control.Monad
 import           Control.Parallel.Strategies
 
-import qualified Data.List as L
-import qualified Data.IntMap as IM
-import qualified Data.IntSet as IS
+import           Data.Binary                    ( Binary (..) )
+import           Data.Function
+import qualified Data.List                      as L
 
-import           Holumbus.Index.Common hiding (contexts)
-import qualified Holumbus.Index.Common as IDX
+import           Holumbus.Index.Common          hiding (contexts)
+import qualified Holumbus.Index.Common          as IDX
 
 import           Holumbus.Query.Language.Grammar
 
-import           Holumbus.Query.Fuzzy (FuzzyScore, FuzzyConfig)
-import qualified Holumbus.Query.Fuzzy as F
+import           Holumbus.Query.Fuzzy           ( FuzzyScore
+                                                , FuzzyConfig
+                                                )
+import qualified Holumbus.Query.Fuzzy           as F
 
-import           Holumbus.Query.Result (Result)
--- import qualified Holumbus.Query.Result as R
+import           Holumbus.Query.Result          ( Result )
 
-import           Holumbus.Query.Intermediate (Intermediate)
-import qualified Holumbus.Query.Intermediate as I
+import           Holumbus.Query.Intermediate    ( Intermediate )
+import qualified Holumbus.Query.Intermediate    as I
 
 -- ----------------------------------------------------------------------------
 
 -- | The configuration for the query processor.
-data ProcessConfig  	= ProcessConfig 
+data ProcessConfig      = ProcessConfig 
                           { fuzzyConfig   :: ! FuzzyConfig -- ^ The configuration for fuzzy queries.
                           , optimizeQuery :: ! Bool        -- ^ Optimize the query before processing.
                           , wordLimit     :: ! Int         -- ^ The maximum number of words used from a prefix. Zero switches off limiting.
-                          , docLimit      :: ! Int	     -- ^ The maximum number of documents taken into account. Zero switches off limiting.
+                          , docLimit      :: ! Int           -- ^ The maximum number of documents taken into account. Zero switches off limiting.
                           }
 
 instance Binary ProcessConfig where
@@ -75,7 +72,7 @@ instance Binary ProcessConfig where
   get = liftM4 ProcessConfig get get get get
 
 -- | The internal state of the query processor.
-data ProcessState i 	= ProcessState 
+data ProcessState i     = ProcessState 
                           { config   :: ! ProcessConfig   -- ^ The configuration for the query processor.
                           , contexts :: ! [Context]       -- ^ The current list of contexts.
                           , index    :: ! i               -- ^ The index to search.
@@ -215,19 +212,20 @@ processPhraseInternal :: (String -> RawResult) -> Context -> String -> Intermedi
 processPhraseInternal f c q = let
   w = words q 
   m = mergeOccurrencesList $ map snd $ f (head w) in
-  if m == IM.empty then I.emptyIntermediate
+  if nullDocIdMap m
+  then I.emptyIntermediate
   else I.fromList q c [(q, processPhrase' (tail w) 1 m)]
   where
-  processPhrase' :: [String] -> Int -> Occurrences -> Occurrences
+  processPhrase' :: [String] -> Position -> Occurrences -> Occurrences
   processPhrase' [] _ o = o
-  processPhrase' (x:xs) p o = processPhrase' xs (p+1) (IM.filterWithKey (nextWord $ map snd $ f x) o)
+  processPhrase' (x:xs) p o = processPhrase' xs (p+1) (filterWithKeyDocIdMap (nextWord $ map snd $ f x) o)
     where
-    nextWord :: [Occurrences] -> Int -> Positions -> Bool
-    nextWord [] _ _  = False
-    nextWord no d np = maybe False hasSuccessor (IM.lookup d (mergeOccurrencesList no))
-      where
-      hasSuccessor :: Positions -> Bool
-      hasSuccessor w = IS.fold (\cp r -> r || (IS.member (cp + p) w)) False np
+      nextWord :: [Occurrences] -> DocId -> Positions -> Bool
+      nextWord [] _ _  = False
+      nextWord no d np = maybe False hasSuccessor (lookupDocIdMap d (mergeOccurrencesList no))
+          where
+            hasSuccessor :: Positions -> Bool
+            hasSuccessor w = foldPos (\cp r -> r || (memberPos (cp + p) w)) False np
 
 -- | Process a single word and try some fuzzy alternatives if nothing was found.
 processFuzzyWord :: HolIndex i => ProcessState i -> String -> Intermediate
@@ -246,8 +244,8 @@ processFuzzyWordM s oq = do
     where
     processFuzzyWordM' []     r = return r
     processFuzzyWordM' (q:qs) r = if I.null r
-				  then processWordM s (fst q) >>= processFuzzyWordM' qs
-				  else return r
+                                  then processWordM s (fst q) >>= processFuzzyWordM' qs
+                                  else return r
 
 -- | Process a negation by getting all documents and substracting the result of the negated query.
 processNegation :: HolIndex i => ProcessState i -> Intermediate -> Intermediate
@@ -280,41 +278,41 @@ processBin But r1 r2 = I.difference r1 r2
 --
 -- The limit 500 should be part of a configuration
 
-limitWords 		:: ProcessState i -> RawResult -> RawResult
-limitWords s r		= cutW . cutD $ r
+limitWords              :: ProcessState i -> RawResult -> RawResult
+limitWords s r          = cutW . cutD $ r
   where
-  limitD		= docLimit $ config s
+  limitD                = docLimit $ config s
   cutD
-      | limitD > 0	= limitDocs limitD
-      | otherwise	= id
+      | limitD > 0      = limitDocs limitD
+      | otherwise       = id
 
-  limitW 		= wordLimit $ config s
+  limitW                = wordLimit $ config s
   cutW
       | limitW > 0
         &&
         length r > limitW
-			= map snd . take limitW . L.sortBy (compare `on` fst) . map calcScore
-      | otherwise	= id
+                        = map snd . take limitW . L.sortBy (compare `on` fst) . map calcScore
+      | otherwise       = id
 
-  calcScore 		:: (Word, Occurrences) -> (Double, (Word, Occurrences))
-  calcScore w@(_, o) 	= (log (fromIntegral (total s) / fromIntegral (IM.size o)), w)
+  calcScore             :: (Word, Occurrences) -> (Double, (Word, Occurrences))
+  calcScore w@(_, o)    = (log (fromIntegral (total s) / fromIntegral (sizeDocIdMap o)), w)
 
 -- ----------------------------------------------------------------------------
 
 -- | Limit the number of docs in a raw result
 
-limitDocs		:: Int -> RawResult -> RawResult
-limitDocs _     []	= []
+limitDocs               :: Int -> RawResult -> RawResult
+limitDocs _     []      = []
 limitDocs limit _
-    | limit <= 0	= []
-limitDocs limit (x:xs)	= x : limitDocs (limit - IM.size (snd x)) xs
+    | limit <= 0        = []
+limitDocs limit (x:xs)  = x : limitDocs (limit - sizeDocIdMap (snd x)) xs
 
 -- ----------------------------------------------------------------------------
 
 -- | Monadic version of 'limitWords'.
-limitWordsM 		:: (Monad m) => ProcessState i -> RawResult -> m RawResult
-limitWordsM s r 	= return $ limitWords s r
+limitWordsM             :: (Monad m) => ProcessState i -> RawResult -> m RawResult
+limitWordsM s r         = return $ limitWords s r
 
 -- | Merge occurrences
-mergeOccurrencesList 	:: [Occurrences] -> Occurrences
-mergeOccurrencesList 	= IM.unionsWith IS.union
+mergeOccurrencesList    :: [Occurrences] -> Occurrences
+mergeOccurrencesList    = unionsWithDocIdMap unionPos

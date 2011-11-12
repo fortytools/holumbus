@@ -16,10 +16,13 @@
 
 -- ----------------------------------------------------------------------------
 
-module Hayoo.Search.JSON (renderJson, renderEmptyJson) where
+module Hayoo.Search.JSON
+    ( renderJson
+    , renderEmptyJson
+    )
+where
 
 import qualified Data.Map as M
-import qualified Data.IntMap as IM
 
 import Text.JSON
 
@@ -28,6 +31,8 @@ import Holumbus.Query.Result
 
 import Hayoo.IndexTypes
 import Hayoo.Search.Common
+
+-- ----------------------------------------------------------------------------
 
 renderEmptyJson         :: String
 renderEmptyJson         = encodeStrict $
@@ -53,9 +58,9 @@ renderJson (msg, res, _, mods, pkgs)
                           ]
 
 buildDocHits            :: DocHits FunctionInfo -> JSValue
-buildDocHits dh         = JSArray $ map buildDoc (IM.toList dh)
+buildDocHits dh         = JSArray $ map buildDoc $ toListDocIdMap dh
 
-buildDoc                :: (Int, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
+buildDoc                :: (DocId, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
 buildDoc (_, (DocInfo (Document t u (Just fi)) _, _))
                         = jo
                           [ ("name",        js t)

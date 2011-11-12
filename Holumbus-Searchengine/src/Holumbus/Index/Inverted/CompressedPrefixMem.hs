@@ -45,8 +45,6 @@ import qualified Data.Binary            as B
 import           Data.Function		( on )
 
 import           Data.Int
-import qualified Data.IntMap 		as IM
-import qualified Data.IntSet 		as IS
 
 import           Data.List		( foldl', sortBy )
 import qualified Data.Map 		as M
@@ -96,7 +94,7 @@ updateDocIdOcc		:: (ComprOccurrences s) => (DocId -> DocId) -> s -> s
 updateDocIdOcc f 	= mapOcc $ updateOccurrences f
 
 deleteDocIds		:: (ComprOccurrences s) => Occurrences -> s -> s
-deleteDocIds ids	= mapOcc $ flip IM.difference ids
+deleteDocIds ids	= mapOcc $ flip diffOccurrences ids
 
 -- ----------------------------------------------------------------------------
 --
@@ -305,8 +303,8 @@ instance (B.Binary occ, ComprOccurrences occ) => HolIndex (Inverted occ) where
                                   . toListInverted
 
   splitByDocuments i 		= splitInverted ( map (uncurry convert) $
-						  IM.toList $
-						  IM.unionsWith (M.unionWith (M.unionWith IS.union)) docResults
+						  toListDocIdMap $
+						  unionsWithDocIdMap (M.unionWith (M.unionWith unionPos)) docResults
 						)
     where
     docResults 			= map (\c -> resultByDocument c (allWords i c)) (contexts i)
@@ -314,7 +312,7 @@ instance (B.Binary occ, ComprOccurrences occ) => HolIndex (Inverted occ) where
       where
       makeIndex r (c, ws) 	= foldl' makeOcc r (M.toList ws)
         where
-        makeOcc (rs, ri) (w, p) = (IS.size p + rs, insertOccurrences c w (IM.singleton d p) ri)
+        makeOcc (rs, ri) (w, p) = (sizePos p + rs, insertOccurrences c w (singletonDocIdMap d p) ri)
 
   splitByWords i 		= splitInverted ( map (uncurry convert) .
 				                  M.toList .

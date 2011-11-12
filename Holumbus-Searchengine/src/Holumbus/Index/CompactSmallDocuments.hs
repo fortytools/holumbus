@@ -37,7 +37,6 @@ import           Control.DeepSeq
 
 import           Data.Binary				( Binary )
 import qualified Data.Binary            		as B
-import qualified Data.IntMap as IM
 
 import           Holumbus.Index.Common
 import qualified Holumbus.Index.CompactDocuments	as CD
@@ -55,9 +54,9 @@ newtype SmallDocuments a	= SmallDocuments
 -- ----------------------------------------------------------------------------
 
 instance Binary a => HolDocuments SmallDocuments a where
-  sizeDocs 			= IM.size . idToSmallDoc
+  sizeDocs 			= sizeDocIdMap . idToSmallDoc
   
-  lookupById  d i 		= maybe (fail "") return . fmap CD.toDocument . IM.lookup i . idToSmallDoc $ d
+  lookupById  d i 		= maybe (fail "") return . fmap CD.toDocument . lookupDocIdMap i . idToSmallDoc $ d
 
   makeEmpty _ 			= emptyDocuments
 
@@ -87,14 +86,14 @@ instance (Binary a, XmlPickler a) =>
     where
     xpickle 			= xpElem "documents" $
                                   xpWrap convertDoctable $
-				  xpWrap (IM.fromList, IM.toList) $
+				  xpWrap (fromListDocIdMap, toListDocIdMap) $
 				  xpList xpDocumentWithId
 	where
 	convertDoctable 	= ( SmallDocuments
 				  , idToSmallDoc
                                   )
 	xpDocumentWithId 	= xpElem "doc" $
-				  xpPair (xpAttr "id" xpPrim) xpickle
+				  xpPair (xpAttr "id" xpDocId) xpickle
 
 -- ----------------------------------------------------------------------------
 
@@ -110,12 +109,12 @@ instance Binary a => 		Binary (SmallDocuments a)
 -- | Create an empty table.
 
 emptyDocuments 			:: SmallDocuments a
-emptyDocuments 			= SmallDocuments IM.empty
+emptyDocuments 			= SmallDocuments emptyDocIdMap
 
 -- | Create a document table containing a single document.
 
 singleton 			:: (Binary a) => Document a -> SmallDocuments a
-singleton d 			= SmallDocuments (IM.singleton 1 (CD.fromDocument d))
+singleton d 			= SmallDocuments (singletonDocIdMap firstDocId (CD.fromDocument d))
 
 -- | Convert a Compact document table into a small compact document table.
 -- Called at the end of building an index

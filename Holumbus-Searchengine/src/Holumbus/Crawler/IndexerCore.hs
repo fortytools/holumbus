@@ -210,7 +210,7 @@ unionIndexerStatesM		:: (MonadIO m, HolIndexM m i, HolDocuments d c) =>
 unionIndexerStatesM ixs1 ixs2
     | s1 < s2			= unionIndexerStatesM ixs2 ixs1
     | otherwise			= do
-                                  ix2s <- updateDocIdsM' (+ m1) ix2
+                                  ix2s <- updateDocIdsM' addM1 ix2
                                   ! ix <- mergeIndexesM ix1 ix2s
 				  ! dc <- return $ unionDocs dt1 dt2s
                                   return $!
@@ -218,11 +218,12 @@ unionIndexerStatesM ixs1 ixs2
 					              , ixs_documents    = dc
 					              }
     where
+    addM1                       = mkDocId . (+ (theDocId m1)) . theDocId
     ix1				= ixs_index     ixs1
     ix2				= ixs_index     ixs2
     dt1				= ixs_documents ixs1
     dt2				= ixs_documents ixs2
-    dt2s			= editDocIds    (+ m1) dt2
+    dt2s			= editDocIds    addM1 dt2
     s1				= sizeDocs dt1
     s2				= sizeDocs dt2
     m1				= maxDocId dt1
@@ -259,7 +260,7 @@ insertRawContextM did ix (cx, ws)
 				= foldM (insWordM cx did) ix ws
 
 insWordM 			:: (Monad m, HolIndexM m i) =>
-                                   Context -> DocId -> i -> (Word, Int) -> m i
+                                   Context -> DocId -> i -> (Word, Position) -> m i
 insWordM cx' did' ix' (w', p')  = insertPositionM cx' w' did' p' ix'
 
 -- ------------------------------------------------------------

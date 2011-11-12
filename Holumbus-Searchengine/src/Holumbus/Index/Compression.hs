@@ -34,31 +34,31 @@ module Holumbus.Index.Compression
   )
 where
 
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+import Holumbus.Index.Common.DocIdMap
+import Holumbus.Index.Common.Occurences
+import Holumbus.Index.Common.DiffList
 
-import Holumbus.Data.DiffList (DiffList)
-import qualified Holumbus.Data.DiffList as DL
+-- ----------------------------------------------------------------------------
 
-import Holumbus.Index.Common
+type CompressedOccurrences      = DocIdMap CompressedPositions
+type CompressedPositions        = DiffList
 
-type CompressedOccurrences = IntMap CompressedPositions
-type CompressedPositions = DiffList
+-- ----------------------------------------------------------------------------
 
 -- | Decompressing the occurrences by just decompressing all contained positions.
 inflateOcc :: CompressedOccurrences -> Occurrences
-inflateOcc = IM.map inflatePos
+inflateOcc = mapDocIdMap inflatePos
 
 -- | Compress the occurrences by just compressing all contained positions.
 deflateOcc :: Occurrences -> CompressedOccurrences
-deflateOcc = IM.map deflatePos
+deflateOcc = mapDocIdMap deflatePos
 
 -- | Convert the compressed differences back to a set of integers.
 inflatePos :: CompressedPositions -> Positions
-inflatePos = DL.toIntSet
+inflatePos = toPositions
 
 -- | Save some memory on the positions by just saving their differences and compressing these.
 deflatePos :: Positions -> CompressedPositions
-deflatePos = DL.fromIntSet
+deflatePos = fromPositions
 
 -- ----------------------------------------------------------------------------

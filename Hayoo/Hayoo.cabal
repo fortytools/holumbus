@@ -1,5 +1,5 @@
 name:          Hayoo
-version:       1.0.1
+version:       1.1.0
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
@@ -47,14 +47,15 @@ executable hayooIndexer
                 , Hayoo.IndexConfig
 
   build-depends: base                   >= 4   && < 5
-               , Holumbus-Searchengine  >= 1   && < 2
+               , Holumbus-Searchengine  >= 1.1 && < 2
                , binary                 >= 0.5 && < 1
                , bytestring             >= 0.9 && < 1
                , bzlib                  >= 0.4 && < 1
                , containers             >= 0.2 && < 1
                , deepseq                >= 1.1 && < 2
+               , enummapset             >= 0   && < 1
                , filepath               >= 1   && < 2
-               , haskell98              >= 1   && < 2
+               -- , haskell201              >= 1   && < 2
                , hxt                    >= 9.1 && < 10
                , hxt-cache              >= 9   && < 10
                , hxt-charproperties     >= 9   && < 10

@@ -23,17 +23,10 @@ import           Control.Exception (bracket)
 
 import           Data.Binary
 import qualified Data.ByteString.Lazy   as B
--- import           Data.ByteString.Lazy.Char8     (pack)
 import           Data.Char
--- import           Data.Digest.Pure.MD5
--- import qualified Data.IntMap            as IM
 import qualified Data.List              as L
--- import           Data.Maybe
 
--- import           Holumbus.Index.Common
--- import qualified Holumbus.Index.Documents as DOC
-
-import           Numeric
+import           Numeric                ( showHex )
 
 import           System.IO
 

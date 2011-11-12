@@ -47,8 +47,8 @@ import qualified Data.ByteString.Lazy 	as BS
 
 import qualified Holumbus.Data.PrefixTree as M
 
-import           Data.IntMap (IntMap)
-import qualified Data.IntMap as IM
+-- import           Data.IntMap (IntMap)
+import qualified Data.EnumMap as IM
 
 import           Holumbus.Index.Common
 
@@ -59,7 +59,7 @@ import           Text.XML.HXT.Core
 -- | The table which is used to map a document to an artificial id and vice versa.
 
 type URIMap			= M.PrefixTree DocId
-type DocMap a			= IntMap (CompressedDoc a)
+type DocMap a			= DocIdMap (CompressedDoc a)
 
 newtype CompressedDoc a		= CDoc { unCDoc :: ByteString }
                                   deriving (Eq, Show)
@@ -82,10 +82,10 @@ fromDocument			= CDoc . BZ.compress . B.encode
 mapDocument			:: (Binary a) => (Document a -> Document a) -> CompressedDoc a -> CompressedDoc a
 mapDocument f			= fromDocument . f . toDocument
 
-toDocMap			:: (Binary a) => IntMap (Document a) -> DocMap a
+toDocMap			:: (Binary a) => DocIdMap (Document a) -> DocMap a
 toDocMap			= IM.map fromDocument
 
-fromDocMap			:: (Binary a) => DocMap a -> IntMap (Document a)
+fromDocMap			:: (Binary a) => DocMap a -> DocIdMap (Document a)
 fromDocMap			= IM.map toDocument
 
 -- ----------------------------------------------------------------------------
@@ -103,9 +103,7 @@ instance Binary a => HolDocuments Documents a where
       checkDoc i doc (c, d, l) 	= maybe checkId (\ni -> ((i, ni):c, d, l)) (lookupByURI d1 (uri . toDocument $ doc))
         where
         checkId 		= if IM.member i d
-                                  then let
-                                       ni = l + 1
-                                       in
+                                  then let ni = incrDocId l in
                                        ((i, ni):c, IM.insert ni doc d, ni)
                                   else (c, IM.insert i doc d, max i l)
 
@@ -123,7 +121,7 @@ instance Binary a => HolDocuments Documents a where
       where
       newIdToDoc 		= IM.insert newId (fromDocument d) (idToDoc ds)
       newDocToId 		= M.insert (uri d) newId (docToId ds)
-      newId 			= (lastDocId ds) + 1
+      newId 			= incrDocId (lastDocId ds)
 
   updateDoc ds i d 		= ds 
                                   { idToDoc = IM.insert i (fromDocument d) (idToDoc ds)
@@ -187,7 +185,7 @@ instance (Binary a, XmlPickler a) =>
 				  , \(Documents itd _ _) -> itd
                                   )
 	xpDocumentWithId 	= xpElem "doc" $
-				  xpPair (xpAttr "id" xpPrim) xpickle
+				  xpPair (xpAttr "id" xpDocId) xpickle
 
 -- ----------------------------------------------------------------------------
 
@@ -224,12 +222,15 @@ instance 			NFData (CompressedDoc a)
 -- | Create an empty table.
 
 emptyDocuments 			:: Documents a
-emptyDocuments 			= Documents IM.empty M.empty 0
+emptyDocuments 			= Documents IM.empty M.empty nullDocId
 
 -- | Create a document table containing a single document.
 
 singleton 			:: (Binary a) => Document a -> Documents a
-singleton d 			= Documents (IM.singleton 1 (fromDocument d)) (M.singleton (uri d) 1) 1
+singleton d 			= Documents
+                                  (IM.singleton firstDocId (fromDocument d))
+                                  (M.singleton (uri d) firstDocId)
+                                  firstDocId
 
 -- | Simplify a document table by transforming the custom information into a string.
 
@@ -245,7 +246,7 @@ idToDoc2docToId 		= IM.foldWithKey (\i d r -> M.insert (uri . toDocument $ d) i 
 
 -- | Query the 'idToDoc' part of the document table for the last id.
 
-lastId 				:: DocMap a -> Int
-lastId				= maybe 0 (fst . fst) . IM.maxViewWithKey
+lastId 				:: DocMap a -> DocId
+lastId				= maybe nullDocId (fst . fst) . IM.maxViewWithKey
 
 -- ------------------------------------------------------------
