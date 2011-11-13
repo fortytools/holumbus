@@ -312,16 +312,9 @@ getMetaAttr key                 = getMeta
                                   >>>
                                   getAttrValue "content"
 
--- ------------------------------------------------------------
---
--- text predicates
---
--- ------------------------------------------------------------
-
 
 -- all strings with length < 2 are boring
 -- and all strings not starting with a letter
-
 boringWord              	:: String -> Bool
 boringWord w            	= null w
                                   ||
@@ -350,72 +343,16 @@ deleteNotAllowedChars   	= map notAllowedToSpace
         | isAllowedWordChar c   = c
         | otherwise             = ' '
 
-isAllowedWordChar       	:: Char -> Bool
-isAllowedWordChar c     	= isXmlLetter c
-				  ||
-				  isXmlDigit c
-				  ||
-				  c `elem` "_-"
+isAllowedWordChar   :: Char -> Bool
+isAllowedWordChar c = isXmlLetter c
+                      ||
+                      isXmlDigit c
+                      ||
+                      c `elem` "_-"
 
 -- ------------------------------------------------------------
---
--- tokenizing
---
--- ------------------------------------------------------------
-
+-- | tokenize a uri string
 uri2Words			:: String -> [String]
 uri2Words			= tokenize "[^:/#?=.]+"
 
--- ------------------------------------------------------------
--- | These abbreviations are used to determine the author of a site by its
--- | URI. Used in PageInfo.hs/getAuthor.
--- | This list should be kept up to date in future work.
--- | Other authors are found by seeking for a certain tag containing their name (see PageInfo.hs/getAuthor).
-short2Name			:: String -> String
-short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
-                                  [ ("rb", "Ulrich Raubach")
-                                  , ("ur", "Sven Urbanski")
-                                  , ("eg", "Martin Egge")
-                                  , ("si", "Uwe Schmidt")
-                                  , ("ahr", "Dirk Ahrens")
-                                  , ("an", "Michael Anders")
-                                  , ("bd", "Rene Bodaine")
-                                  , ("ce", "Michael Ceyp")
-                                  , ("ge", "Hans-Detlef Gerhardt")
-                                  , ("hs", "Andreas Häuslein")
-                                  , ("uh", "Ulrich Hoffmann")
-                                  , ("iw", "Sebastian Iwanowski")
-                                  , ("kal", "Ilja Kaleck")
-                                  , ("rb", "Ulrich Raubach")
-                                  , ("uw", "Wolfgang Uelzmann")
-                                  , ("bos", "Timm Borstelmann")
-                                  , ("eg", "Martin Egge")
-                                  , ("klk", "Gerit Kaleck")
-                                  , ("kar", "Helga Karafiat")
-                                  , ("ki", "Thorsten Kirch")
-                                  , ("ne", "Lars Neumann")
-                                  , ("op", "Dieter Opitz")
-                                  , ("uhl", "Christian Uhlig")
-                                  ]
 
-                                  
--- ------------------------------------------------------------
--- | Normalize the modified-dates to human readable representations.
--- | Used in PageInfo.hs/getModified
-normalizeDateModified         :: String -> String
-normalizeDateModified rawDate = if (not . null $ normalizedDates)
-                                  then head normalizedDates
-                                  else rawDate
-                                where
-                                  normalizedDates = (map unNormalizeDate) . dateRep2NormalizedDates . extractDateRep $ rawDate
-
--- ------------------------------------------------------------
--- | like unwords but with a limited number of words (appends "...")
-unwordsCont                     :: Int -> [String] -> String
-unwordsCont mx ws
-    | length ws' > mx           = unwords . (++ ["..."]) . init $ ws'
-    | otherwise                 = unwords                       $ ws'
-    where
-    ws'                         = take (mx + 1) ws
-
--- ------------------------------------------------------------

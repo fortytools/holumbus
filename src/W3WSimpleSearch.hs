@@ -124,15 +124,21 @@ getAllSearchResults q f = do
 	words <- getWordCompletions q f
 	return $ SearchResult docs words
 
--- | insert time needed for request into SearchResultDocs data type
+-- | Insert the time needed for request into SearchResultDocs data type.
+-- | Delete all elements in the list of search-results such that the list is uniq
+-- | by the title of a found document.
+-- | Shorten the search-result list to (hitsPerPage * maxPages) elements.
+-- | Adapt the displayed number of docs found 
 mkDocSearchResult :: Float -> SearchResultDocs -> SearchResultDocs
 mkDocSearchResult requestTime searchResultDocs = SearchResultDocs requestTime dislayedNumOfHits docHits
   where
     docHits = take (hitsPerPage * maxPages) $ uniqByTitle $ srDocHits searchResultDocs
+    -- not a good idea: (length $ uniqByTitle $ srDocHits searchResultDocs), since the whole list would be processed by the O(n^2) algorithm "uniqByTitle"
     dislayedNumOfHits = if (numElemsShortList == hitsPerPage * maxPages)
                            then numElemsLongList
                            else numElemsShortList
     numElemsShortList = length docHits
+    -- this is the length without filtering!
     numElemsLongList = srDocCount searchResultDocs
 
 -- | helper for mkDocSearchResult:

@@ -38,6 +38,7 @@ import            Extract
 import            Date as D
 import            Text.Regex.XMLSchema.String (tokenizeExt)
 import            Text.JSON
+import            Data.Maybe
 
 
 -- ------------------------------------------------------------
@@ -88,37 +89,88 @@ instance B.Binary PageInfo where
 -- ------------------------------------------------------------
 -- | the title of a document.
 -- | returns the URI if the title is not defined
-w3wGetTitle                     :: IOSArrow XmlTree String
-w3wGetTitle                     = fromLA $
-                                  ( getHtmlTitle        -- title contents
-                                    >>>
-                                    isA (not . null)    -- if empty, take the URI as title
-                                  )
-                                  `orElse`
-                                  getURI
+w3wGetTitle :: IOSArrow XmlTree String
+w3wGetTitle = fromLA $
+              ( getHtmlTitle        -- title contents
+                >>>
+                isA (not . null)    -- if empty, take the URI as title
+              )
+              `orElse`
+              getURI
 
 -- ------------------------------------------------------------
 -- | the PageInfo of a document.
 -- | This includes information about the site author, the modified-date of a site and the context-info.
+w3wGetPageInfo :: IOSArrow XmlTree PageInfo
+w3wGetPageInfo =
+                ( fromLA (getModified `withDefault` "")
+                  &&&
+                  (getAuthor `withDefault` "")
+                  &&&
+                  (getContextInfoPageCont `withDefault` "") -- The context-info for an indexed word consists of the first 50 words of the documents content.
+                  &&&
+                  (getContextInfoDates `withDefault` "") -- For dates, the context-info conists of the 5 previous words and the 5 next words surrouning the date.
+                  &&&
+                  (getContextInfoCalender `withDefault` "") -- For dates found in the FH Wedel-calender, the context-info consists of the href-information (the link and the text node of an anchor tag) associated with that date.
+                )
+                >>^
+                (\ (m, (a, (c, (d, x)))) -> mkPageInfo m a c d x)
+
+-- ------------------------------------------------------------
+-- | These abbreviations are used to determine the author of a site by its
+-- | URI. Used in PageInfo.hs/getAuthor.
+-- | This list should be kept up to date in future work.
+-- | Other authors are found by seeking for a certain tag containing their name (see PageInfo.hs/getAuthor).
+short2Name      :: String -> String
+short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
+                                  [ ("rb", "Ulrich Raubach")
+                                  , ("ur", "Sven Urbanski")
+                                  , ("eg", "Martin Egge")
+                                  , ("si", "Uwe Schmidt")
+                                  , ("ahr", "Dirk Ahrens")
+                                  , ("an", "Michael Anders")
+                                  , ("bd", "Rene Bodaine")
+                                  , ("ce", "Michael Ceyp")
+                                  , ("ge", "Hans-Detlef Gerhardt")
+                                  , ("hs", "Andreas Häuslein")
+                                  , ("uh", "Ulrich Hoffmann")
+                                  , ("iw", "Sebastian Iwanowski")
+                                  , ("kal", "Ilja Kaleck")
+                                  , ("rb", "Ulrich Raubach")
+                                  , ("uw", "Wolfgang Uelzmann")
+                                  , ("bos", "Timm Borstelmann")
+                                  , ("eg", "Martin Egge")
+                                  , ("klk", "Gerit Kaleck")
+                                  , ("kar", "Helga Karafiat")
+                                  , ("ki", "Thorsten Kirch")
+                                  , ("ne", "Lars Neumann")
+                                  , ("op", "Dieter Opitz")
+                                  , ("uhl", "Christian Uhlig")
+                                  ]
 
 
+-- ------------------------------------------------------------
+-- | Normalize the modified-dates to human readable representations.
+-- | Used in PageInfo.hs/getModified
+normalizeDateModified         :: String -> String
+normalizeDateModified rawDate = if (not . null $ normalizedDates)
+                                  then head normalizedDates
+                                  else rawDate
+                                where
+                                  normalizedDates = (map unNormalizeDate) . dateRep2NormalizedDates . extractDateRep $ rawDate
 
+-- ------------------------------------------------------------
+-- | like unwords but with a limited number of words (appends "...")
+unwordsCont                     :: Int -> [String] -> String
+unwordsCont mx ws
+    | length ws' > mx           = unwords . (++ ["..."]) . init $ ws'
+    | otherwise                 = unwords                       $ ws'
+    where
+    ws'                         = take (mx + 1) ws
 
-w3wGetPageInfo                  :: IOSArrow XmlTree PageInfo
-w3wGetPageInfo                  =
-                                ( fromLA (getModified `withDefault` "")
-                                  &&&
-                                  (getAuthor `withDefault` "")
-                                  &&&
-                                  (getContextInfoPageCont `withDefault` "") -- The context-info for an indexed word consists of the first 50 words of the documents content.
-                                  &&&
-                                  (getContextInfoDates `withDefault` "") -- For dates, the context-info conists of the 5 previous words and the 5 next words surrouning the date.
-                                  &&&
-                                  (getContextInfoCalender `withDefault` "") -- For dates found in the FH Wedel-calender, the context-info consists of the href-information (the link and the text node of an anchor tag) associated with that date.
-                                )
-                                >>^
-                                (\ (m, (a, (c, (d, x)))) -> mkPageInfo m a c d x)
-
+-- ------------------------------------------------------------
+-- | select the modified date of a document and put it in a
+-- | normalized form (if recognized by date parser, see Date.hs)
 getModified :: LA XmlTree String
 getModified =
   ( getAttrValue0 "http-last-modified"		-- HTTP header
@@ -130,6 +182,8 @@ getModified =
   >>^
   normalizeDateModified
 
+-- ------------------------------------------------------------
+-- | select the author of a document.
 getAuthor :: IOSArrow XmlTree String
 getAuthor = fromLA (getAuthorFromURI)
             `orElse`

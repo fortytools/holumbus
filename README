@@ -1,3 +1,27 @@
-asdabc
-asd
-test
+1. Installation
+
+Um das Projekt zu kompilieren, muss im Verzeichnis W3W der Befehl
+  cabal install
+  bzw.
+  sudo cabal install
+ausgeführt werden. Es werden die beiden ausführbaren Dateien
+  Main
+und
+  W3WIndexer
+erzeugt. Hierfür müssen, falls nicht vorhanden, einige Bibliotheken installiert werden (TODO: evtl. in neuer linux VM ausprobieren und dokumentieren?).
+
+W3WIndexer ist das Programm um 
+- die Webseiten der FH Wedel zu besuchen und die Inhalte in einem Cache zu speichern ("Crawler")
+- die Informationen der Webseiten (welche nun bereits im Cache gespeichert sind) zu indexieren ("Indexer").
+
+1.1 Der Crawler
+Um den Crawler zu starten, muss W3WIndexer wie folgt aufgerufen werden:
+  W3WIndexer --build-cache
+
+
+1.2 Der Indexer
+Um den Indexer zu starten, muss W3WIndexer wie folgt aufgerufen werden:
+  W3WIndexer --build-index
+
+1.3 Der Webserver
+...
