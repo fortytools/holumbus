@@ -37,6 +37,16 @@ import 			     Control.Monad.Trans
 import 			     PageInfo
 
 -- ------------------------------------------------------------
+-- | number of hits shown per page
+hitsPerPage :: Int
+hitsPerPage = 10
+
+-- ------------------------------------------------------------
+-- | max number of pages
+maxPages :: Int
+maxPages = 10
+
+
 -- Representation of all Document-Hits and Word-Completions found
 data SearchResult = SearchResult
   { srDocs		:: SearchResultDocs
@@ -116,7 +126,26 @@ getAllSearchResults q f = do
 
 -- | insert time needed for request into SearchResultDocs data type
 mkDocSearchResult :: Float -> SearchResultDocs -> SearchResultDocs
-mkDocSearchResult requestTime searchResultDocs = SearchResultDocs requestTime (srDocCount searchResultDocs) (srDocHits searchResultDocs)
+mkDocSearchResult requestTime searchResultDocs = SearchResultDocs requestTime dislayedNumOfHits docHits
+  where
+    docHits = take (hitsPerPage * maxPages) $ uniqByTitle $ srDocHits searchResultDocs
+    dislayedNumOfHits = if (numElemsShortList == hitsPerPage * maxPages)
+                           then numElemsLongList
+                           else numElemsShortList
+    numElemsShortList = length docHits
+    numElemsLongList = srDocCount searchResultDocs
+
+-- | helper for mkDocSearchResult:
+-- | delete all elements in the list of search-results such that the list is uniq
+-- | by the title of a found document.
+-- | This is an O(n^2) algorithm but we truncate the result list of uniqByTitle to (hitsPerPage*maxPages) elements,
+-- | so only these elements are computed due to lazy evaluation.
+-- | This has proven to be the best method to get rid of many equal search results.
+uniqByTitle :: [SRDocHit] -> [SRDocHit]
+uniqByTitle []     = []
+uniqByTitle (x:xs) = (x : uniqByTitle (deleteByTitle (srTitle x) xs) )
+  where
+    deleteByTitle title = filter (\ listItem -> (srTitle listItem /= title))
 
 -- | get only Document Search Results (without Word-Completions)
 getIndexSearchResults :: String -> (Query -> IO (Result PageInfo)) -> IO SearchResultDocs

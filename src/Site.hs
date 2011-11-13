@@ -46,14 +46,6 @@ import Monad (liftM)
 
 
 ------------------------------------------------------------------------------
--- | number of hits shown per page
-hitsPerPage :: Int
-hitsPerPage = 10
-
-maxPages :: Int
-maxPages = 10
-
-------------------------------------------------------------------------------
 -- | number of words contained in the teaser text
 numTeaserWords :: Int
 numTeaserWords = 30
@@ -62,8 +54,6 @@ numTeaserWords = 30
 -- | number of word completions send in response to the Ajax request
 numDisplayedCompletions :: Int
 numDisplayedCompletions = 20
-
--- helpers
 
 ------------------------------------------------------------------------------
 -- | get the Index-Data
@@ -191,7 +181,7 @@ site = route [
 -- | renders the front page.
 -- | simply display "frontpage.tpl" Template-file without substituting any <... /> Tags
 frontpage :: Application ()
-frontpage = ifTop $ render "frontpage"
+frontpage = ifTop $ heistLocal (bindSplices [("result", return [examples])]) $ render "frontpage"
 
 
 ------------------------------------------------------------------------------
@@ -224,11 +214,13 @@ processquery = do
 -- | generates the HTML node to be inserted into "<result />"
 resultSplice :: Bool -> Int -> SearchResultDocs -> Splice Application
 resultSplice isDate pageNum searchResultDocs = do
-  let items = P.map (docHitToListItem isDate) (L.take hitsPerPage $ L.drop ((pageNum-1)*hitsPerPage) $ srDocHits searchResultDocs)
   let docHits = srDocHits searchResultDocs
+  let items = P.map (docHitToListItem isDate) (L.take hitsPerPage $ L.drop ((pageNum-1)*hitsPerPage) $ docHits)
   if P.null $ docHits
      then liftIO $ P.putStrLn "- keine Ergebnisse -"
-     else liftIO $ P.putStrLn $ "<" ++ (show . (M.member "datesContext") . srContextMap . L.head $ docHits) ++ ">"
+     else do
+       liftIO $ P.putStrLn $ "<" ++ (show . (M.member "datesContext") . srContextMap . L.head $ docHits) ++ ">"
+       -- liftIO $ P.putStrLn $ "<" ++ (show $ P.length $ docHits) ++ ">"
   let infos = [docHitsMetaInfo searchResultDocs]
   if P.null $ docHits
      then return $ [examples]
