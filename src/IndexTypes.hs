@@ -1,3 +1,17 @@
+-- ----------------------------------------------------------------------------
+
+{- |
+  Module     : IndexTypes
+
+  Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+  The List of sub indexes created in the index file
+-}
+
+-- ----------------------------------------------------------------------------
 {-# OPTIONS #-}
 
 -- ------------------------------------------------------------
@@ -40,7 +54,6 @@ import           Holumbus.Index.CompactSmallDocuments
 
 import           Holumbus.Query.Result          ( Score )
 
--- import           Debug.Trace
 
 -- ------------------------------------------------------------
 
@@ -89,6 +102,7 @@ defragmentIndex IndexerState
 -- ------------------------------------------------------------
 
 type W3WIndexerState                  = W3WState   PageInfo
+
 type W3WIndexerConfig                 = W3WConfig  PageInfo
 
 type W3WIndexerCrawlerState           = CrawlerState W3WIndexerState

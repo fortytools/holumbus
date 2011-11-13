@@ -15,6 +15,7 @@ import Control.Applicative
 import Data.Maybe
 import List as L
 import Data.Text as T
+import Date as D
 import Data.Text.Encoding as E
 import Snap.Extension.Heist
 import Snap.Util.FileServe
@@ -32,10 +33,10 @@ import Data.IntSet as IS
 --import Text.Regex (splitRegex, mkRegex)
 import IndexTypes
 import Text.JSON
-import Date as D
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
 import Helpers
+
 import Monad (liftM)
 ------------------------------------------------------------------------------
 -- |
@@ -43,8 +44,7 @@ import Monad (liftM)
 -- |
 ------------------------------------------------------------------------------
 
-fhWedelPrefix :: String
-fhWedelPrefix = "http://www.fh-wedel.de/"
+
 ------------------------------------------------------------------------------
 -- | number of hits shown per page
 hitsPerPage :: Int
@@ -63,15 +63,7 @@ numTeaserWords = 30
 numDisplayedCompletions :: Int
 numDisplayedCompletions = 20
 
-------------------------------------------------------------------------------
--- |
--- | some little helpers
--- |
-------------------------------------------------------------------------------
-
-saveHead :: [a] -> a -> a
-saveHead [] x = x
-saveHead (x:xs) _   = x
+-- helpers
 
 ------------------------------------------------------------------------------
 -- | get the Index-Data
@@ -103,110 +95,6 @@ getQueryStringParam param = do
   query <- decodedParam $ encodeUtf8 $ T.pack param
   return $ T.unpack (E.decodeUtf8 query)
 
-------------------------------------------------------------------------------
--- | creates a HTML List-Item with css-class-attribute
-htmlList :: String -> [X.Node] -> X.Node
-htmlList cssClass xNodes =
-  X.Element (T.pack $ "ul")
-    (
-      if (cssClass == "")
-        then []
-        else [(T.pack $ "class", T.pack $ cssClass)]
-    )
-    xNodes
-
-------------------------------------------------------------------------------
--- | creates a HTML List-Item with css-class-attribute
-htmlListItem :: String -> X.Node -> X.Node
-htmlListItem cssClass xNode =
-  X.Element (T.pack $ "li")
-    (
-      if (cssClass == "")
-        then []
-        else [(T.pack $ "class", T.pack $ cssClass)]
-    )
-    [xNode]
-
-------------------------------------------------------------------------------
--- | creates a HTML List-Item.
--- | Takes the left Date-Context, the Date itself and the right Date-Context
-htmlListItemDate :: DateContextType -> String -> String -> String -> String -> X.Node
-htmlListItemDate DateInCalender _ leftContext date rightContext =
-  htmlLink' "" (fhWedelPrefix ++ leftContext) $
-    X.Element (T.pack $ "li")
-      [(T.pack $ "class", T.pack $ "calenderDateTeaserText")]
-      [ X.Element (T.pack $ "div")
-        []
-        [htmlSpanTextNode "date" date
-        ,htmlSpanTextNode "dateContext" (": " ++ rightContext)
-        ]
-      ]
-
-htmlListItemDate DateInStdContent linkUrl leftContext date rightContext =
-  htmlLink' "" (linkUrl) $
-    X.Element (T.pack $ "li")
-      []
-      [ X.Element (T.pack $ "div")
-        []
-        [htmlSpanTextNode "dateContext" (leftContext ++ " ")
-        ,htmlSpanTextNode "date" date
-        ,htmlSpanTextNode "dateContext" (" " ++ rightContext)
-        ]
-      ]
-
- ------------------------------------------------------------------------------
--- | creates a HTML Txt Node
-htmlTextNode :: String -> X.Node
-htmlTextNode text = X.TextNode $ T.pack $ text
-
-------------------------------------------------------------------------------
--- | creates a HTML Txt Node in a <span class="???"></span> element
-htmlSpanTextNode :: String -> String -> X.Node
-htmlSpanTextNode cssClass text =
-  X.Element (T.pack $ "span")
-    (
-      if (cssClass == "")
-        then []
-        else [(T.pack $ "class", T.pack $ cssClass)]
-    )
-    [htmlTextNode text]
-
-------------------------------------------------------------------------------
--- | creates a HTML Info Node
-
-htmlLink :: String -> String -> String -> X.Node
-htmlLink cssClass href text =
-  X.Element (T.pack $ "a")
-    (
-      [(T.pack $ "href", T.pack $ href)]
-      ++
-      (
-        if (cssClass == "")
-          then []
-          else [(T.pack $ "class", T.pack $ cssClass)]
-      )
-    )
-    [htmlTextNode text]
-
-------------------------------------------------------------------------------
--- | creates a HTML Info Node
-
-htmlLink' :: String -> String -> X.Node -> X.Node
-htmlLink' cssClass href xNode =
-  X.Element (T.pack $ "a")
-    (
-      [(T.pack $ "href", T.pack $ href)]
-      ++
-      (
-        if (cssClass == "")
-          then []
-          else [(T.pack $ "class", T.pack $ cssClass)]
-      )
-    )
-    [xNode]
-
-
-data DateContextType = DateInStdContent | DateInCalender
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item containing a List with the link to the document found, the teasertext and the ranking-score
 -- | i.e.
@@ -255,39 +143,6 @@ docHitToListItem isDate docHit =
     listOfMaps2listOfPositions [] = []
     listOfMaps2listOfPositions x = L.concat $ L.map (IS.toList . snd) x
 
-------------------------------------------------------------------------------
--- | convert the contexts of a date to html-list-items
--- | i.e. given a JSON-String of Date Contexts (date1,date2,date3,date4,...)
--- | and a listOfMatchedPositions = [0,2]
--- | the result will be
--- | <li class="dates"><a href="linkUrl">...date1...</a></li>
--- | ...
--- | or, if it's a date-context:
--- | <li class="dates"><a href="link-to-calender-event">...date3...</a></li>
--- | ...
-mkDateContexts :: String -> String -> [Int] -> DateContextType -> String -> [X.Node]
-mkDateContexts _ _ [] _ _ = []
-mkDateContexts _ "" _ _ _ = []
-mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct debugInfo =
-  (P.map str2htmlListItem listOfMatchedContexts)
-    where
-      str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate dct linkUrl leftContext theDate rightContext
-      listOfMatchedContexts = P.map getDateContextAt listOfMatchedPositions
-      getDateContextAt position =
-        if (position') > ((L.length listOfDateContexts) - 1)
-          then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">", "")
-          -- else ("contexts: ", (show stringOfDateContexts),
-          --      " where list is: <" ++ (L.unwords $ P.map show listOfMatchedPositions) ++ ">"
-          --      ++ " and dateContextMap is <" ++ debugInfo ++ ">")
-          else showContexts dct
-        where
-          showContexts DateInStdContent = ("..." ++ (contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
-          showContexts DateInCalender   = ((contexts !! 0), (contexts !! 1), (contexts !! 2) ++ "...")
-          position' = position - 1
-          contexts = listOfDateContexts !! position'
-      listOfDateContexts = fromJson ((decodeStrict stringOfDateContexts) :: Text.JSON.Result [[String]])
-      fromJson (Ok a) = a
-      fromJson (Error s) = [[s]]
 
 ------------------------------------------------------------------------------
 -- | creates the HTML info text describing the search result (i.e. "Found 38 docs in 0.0 sec.")
@@ -299,23 +154,7 @@ docHitsMetaInfo searchResultDocs =
     " docs in " ++
     (show $ srTime searchResultDocs) ++ " sec."
 
-------------------------------------------------------------------------------
--- | creates a HTML Link used in the Pager Splice
--- |   query: the search-query
--- |   number: Number displayed in the Pager-Link (the text node of the link)
--- |   takeHits: Number of Hits to be displayed per Site
--- |   dropHits: Number of Hits to be dropped from the Result of all Document-Hits
--- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30"> 4 </a>
-mkPagerLink :: String -> Int -> Int -> X.Node
-mkPagerLink query actPage number =
-  htmlLink cssClass
-    ("/querypage?query=" ++ query ++ "&page=" ++ pageNum)
-    (" " ++ pageNum ++ " ")
-  where
-    pageNum = show number
-    cssClass = if actPage == number
-                  then "actPage"
-                  else ""
+
 
 ------------------------------------------------------------------------------
 -- | maybe transform the search-query into a normalized date string.
@@ -329,12 +168,6 @@ maybeNormalizeQuery query =
     normalizedDateOrQuery  = if not isDate
                              then Left query
                              else Right $ L.head normalizedDates
-
-------------------------------------------------------------------------------
--- |
--- | end of helpers
--- |
-------------------------------------------------------------------------------
 
 ------------------------------------------------------------------------------
 -- |
@@ -377,7 +210,7 @@ processquery = do
   let dateRep = extractDateRep query
   (transformedQuery, numOfTransforms) <-liftIO $ dateRep2stringWithTransformedDates dateRep
   let hasDate = (numOfTransforms > 0)
-  liftIO $ P.putStrLn $ transformedQuery -- print debug info to console
+  liftIO $ P.putStrLn $ "<" ++ transformedQuery ++ ">" -- print debug info to console
   queryFunc' <- queryFunction
   searchResultDocs <- liftIO $ getIndexSearchResults transformedQuery queryFunc'
   strPage <- getQueryStringParam "page"
@@ -395,9 +228,11 @@ resultSplice isDate pageNum searchResultDocs = do
   let docHits = srDocHits searchResultDocs
   if P.null $ docHits
      then liftIO $ P.putStrLn "- keine Ergebnisse -"
-     else liftIO $ P.putStrLn . show . (M.member "datesContext") . srContextMap . L.head $ docHits
+     else liftIO $ P.putStrLn $ "<" ++ (show . (M.member "datesContext") . srContextMap . L.head $ docHits) ++ ">"
   let infos = [docHitsMetaInfo searchResultDocs]
-  return $ [htmlList "" (infos ++ items)]
+  if P.null $ docHits
+     then return $ [examples]
+     else return $ [htmlList "" (infos ++ items)]
 
 -- | generates the HTML node to be inserted into "<oldquery />"
 oldQuerySplice :: Splice Application

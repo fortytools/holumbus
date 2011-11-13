@@ -1,3 +1,21 @@
+-- ----------------------------------------------------------------------------
+
+{- |
+  Module     : PageInfo
+
+  Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+  Definition of all information that is collected per indexed site and stored in the index file (ix.bin/ix.bin.xml).
+  This includes information about the site author, the modified-date of a site and the context-info. The context-info for an indexed word
+  consists of the first 50 words of the site. For dates, the context-info conists of the 5 previous words and the 5 next words surrouning the date.
+  For dates found in the FH Wedel-calender, the context-info consists of the href-information (the link and the text node of an anchor tag)
+  associated with that date.
+-}
+
+-- ----------------------------------------------------------------------------
 {-# OPTIONS #-}
 
 module PageInfo
@@ -9,23 +27,21 @@ module PageInfo
     )
 
 where
-import           	Control.DeepSeq
-import 		 		    Control.Monad			( liftM4, liftM5 )
-import           	Data.Binary                    ( Binary(..) )
-import qualified 	Data.Binary                    as B
-import           	Data.List                      ( isPrefixOf )
-import		 		    Holumbus.Crawler
-import		 		    Text.XML.HXT.Core
-import           	Extract
-import	          Date as D
-import        		Text.Regex.XMLSchema.String (tokenizeExt)
-import        		Text.JSON
+import            Control.DeepSeq
+import            Control.Monad                  ( liftM4, liftM5 )
+import            Data.Binary                    ( Binary(..) )
+import qualified  Data.Binary                    as B
+import            Data.List                      ( isPrefixOf )
+import            Holumbus.Crawler
+import            Text.XML.HXT.Core
+import            Extract
+import            Date as D
+import            Text.Regex.XMLSchema.String (tokenizeExt)
+import            Text.JSON
 
 
 -- ------------------------------------------------------------
-
--- | Additional information about a function.
-
+-- | All parts of the page-info associated to an indexed website
 data PageInfo = PageInfo
     { modified 	      :: String      -- ^ The last modified timestamp
     , author  	      :: String      -- ^ The author
@@ -35,12 +51,11 @@ data PageInfo = PageInfo
     }
     deriving (Show, Eq)
 
-mkPageInfo 			:: String -> String -> String -> String -> String -> PageInfo
-mkPageInfo			= PageInfo
-
 emptyPageInfo   :: PageInfo
 emptyPageInfo   = mkPageInfo "" "" "" "" ""
 
+mkPageInfo  :: String -> String -> String -> String -> String -> PageInfo
+mkPageInfo  = PageInfo
 
 instance XmlPickler PageInfo where
   xpickle = xpWrap (fromTuple, toTuple) xpFunction
@@ -70,14 +85,23 @@ instance B.Binary PageInfo where
 --
 -- ------------------------------------------------------------
 
+-- ------------------------------------------------------------
+-- | the title of a document.
+-- | returns the URI if the title is not defined
 w3wGetTitle                     :: IOSArrow XmlTree String
 w3wGetTitle                     = fromLA $
-                                  ( getHtmlTitle		-- title contents
+                                  ( getHtmlTitle        -- title contents
                                     >>>
                                     isA (not . null)    -- if empty, take the URI as title
                                   )
                                   `orElse`
                                   getURI
+
+-- ------------------------------------------------------------
+-- | the PageInfo of a document.
+-- | This includes information about the site author, the modified-date of a site and the context-info.
+
+
 
 
 w3wGetPageInfo                  :: IOSArrow XmlTree PageInfo
@@ -86,11 +110,11 @@ w3wGetPageInfo                  =
                                   &&&
                                   (getAuthor `withDefault` "")
                                   &&&
-                                  (getTeaserTextPageCont `withDefault` "")
+                                  (getContextInfoPageCont `withDefault` "") -- The context-info for an indexed word consists of the first 50 words of the documents content.
                                   &&&
-                                  (getTeaserTextDates `withDefault` "")
+                                  (getContextInfoDates `withDefault` "") -- For dates, the context-info conists of the 5 previous words and the 5 next words surrouning the date.
                                   &&&
-                                  (getTeaserTextCalender `withDefault` "")
+                                  (getContextInfoCalender `withDefault` "") -- For dates found in the FH Wedel-calender, the context-info consists of the href-information (the link and the text node of an anchor tag) associated with that date.
                                 )
                                 >>^
                                 (\ (m, (a, (c, (d, x)))) -> mkPageInfo m a c d x)
@@ -136,14 +160,14 @@ getAuthor = fromLA (getAuthorFromURI)
 
 
 
-getTeaserTextPageCont :: IOSArrow XmlTree String
-getTeaserTextPageCont =
+getContextInfoPageCont :: IOSArrow XmlTree String
+getContextInfoPageCont =
   getContentText
   >>^
   (words >>> unwordsCont 50)
 
-getTeaserTextDates :: IOSArrow XmlTree String
-getTeaserTextDates =
+getContextInfoDates :: IOSArrow XmlTree String
+getContextInfoDates =
   getContentText
   >>^
   (
@@ -152,8 +176,8 @@ getTeaserTextDates =
     toJSONArray
   )
 
-getTeaserTextCalender :: IOSArrow XmlTree String
-getTeaserTextCalender =
+getContextInfoCalender :: IOSArrow XmlTree String
+getContextInfoCalender =
   (
     getCalenderInfo
     >>^

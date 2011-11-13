@@ -47,7 +47,7 @@ data SearchResultDocs = SearchResultDocs
   { srTime      :: Float
   ,	srDocCount  :: Int
   ,	srDocHits   :: [SRDocHit]
-  }
+  } deriving Show
 
 data SearchResultWords = SearchResultWords
   { srWordCount :: Int
@@ -61,7 +61,7 @@ data SRDocHit = SRDocHit
   , srUri    :: String
   , srContextMap  :: M.Map Context DocWordHits -- Context: "title", "keywords", "content", "dates", ...
                                                -- DocWordHits: Map Word Positions
-  }
+  } deriving Show
 
 data SRWordHit = SRWordHit
   { srWord :: String
@@ -73,12 +73,12 @@ type RankTable  = [(Context, Score)]
 
 defaultRankTable :: RankTable
 defaultRankTable
-    = [ ("title", 0.8)
-      , ("headlines", 0.7)
-      , ("contentContext", 0.6)
-      , ("uri", 0.5)
-      , ("datesContext", 0.9)
-      , ("calenderContext", 0.9)
+    = [ ("title", 1.0)
+      , ("headlines", 1.0)
+      , ("contentContext", 0.5)
+      , ("uri", 0.1)
+      , ("datesContext", 1.0)
+      , ("calenderContext", 2.0)
       ]
 
 defaultRankCfg :: RankConfig a
@@ -129,7 +129,7 @@ getIndexSearchResults q f =
 			where
 			pr = parseQuery q
 			printError err = do
-				return $ SearchResultDocs 0.0 0 [SRDocHit "" 0.0 emptyPageInfo "" M.empty]
+				return $ SearchResultDocs 0.0 0 []
 			makeQuery pq = do
 				t1 <- getCPUTime
 				r <- f pq -- This is where the magic happens!
@@ -150,7 +150,7 @@ getWordCompletions q f =
 			where
 			pr = parseQuery q
 			printError err = do
-				return $ SearchResultWords 0 [SRWordHit ("problem parsing query: " ++ err) 0]
+				return $ SearchResultWords 0 []
 			makeQuery pq = do
 				r <- f pq -- This is where the magic happens!
 				rr <- return (rank defaultRankCfg r)

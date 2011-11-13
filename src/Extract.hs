@@ -203,9 +203,10 @@ extractText = (
               >. (concat >>> normalizeWS)       -- normalize Space
 
 -- ----------------------------------------------------------------------------
--- | Select all nodes whose contents are to be considered.
+-- | Select all nodes whose contents are to be indexed.
 -- | For some sites these are special nodes to ignore "useless" content (e.g. footers),
--- | for all other sites its simply the body-node.
+-- | for all other sites its simply the html-body node.
+-- | This list could be further continued in future work.
 getRelevantNodes                :: IOSArrow XmlTree XmlTree 
 getRelevantNodes                = choiceA
                                   [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
@@ -238,18 +239,23 @@ getRelevantNodes                = choiceA
                                                         )
                                   ]
 
+-- ------------------------------------------------------------
+-- | Select the URI of the actual document
 getURI                          :: ArrowXml a => a XmlTree String
 getURI                          = fromLA $ getAttrValue transferURI
 
---getDates                        :: ArrowXml a => a XmlTree String
---getDates                        = getHtmlPlainText
+-- ------------------------------------------------------------
+-- 
+-- predicate arrows
+--  
 -- ------------------------------------------------------------
 
--- predicate arrows
-
+-- ------------------------------------------------------------
+-- | Filter sites of a certain layout.
+-- | This list of functions could be further continued in future work.
 isXxxLayout                     :: ArrowXml a => String -> a XmlTree XmlTree
 isXxxLayout xxx                 = fromLA $
-                                  getLink				-- hack
+                                  getLink  -- hack
                                   >>>
                                   hasAttrValue "rel" (== "shortcut icon")
                                   >>>
@@ -280,6 +286,8 @@ isSiLayout                      = fromLA $
 -- ------------------------------------------------------------
 --
 -- mothers little helpers
+--
+-- ------------------------------------------------------------
 
 hasNameWithId			:: ArrowXml a => String -> String -> a XmlTree XmlTree
 hasNameWithId ename eid		= isElem
@@ -307,6 +315,8 @@ getMetaAttr key                 = getMeta
 -- ------------------------------------------------------------
 --
 -- text predicates
+--
+-- ------------------------------------------------------------
 
 
 -- all strings with length < 2 are boring
@@ -330,6 +340,8 @@ boringURIpart                   = ( `elem`
 -- ------------------------------------------------------------
 --
 -- text preprocessing
+--
+-- ------------------------------------------------------------
 
 deleteNotAllowedChars  		:: String -> String
 deleteNotAllowedChars   	= map notAllowedToSpace
@@ -348,11 +360,17 @@ isAllowedWordChar c     	= isXmlLetter c
 -- ------------------------------------------------------------
 --
 -- tokenizing
+--
+-- ------------------------------------------------------------
 
 uri2Words			:: String -> [String]
 uri2Words			= tokenize "[^:/#?=.]+"
 
-
+-- ------------------------------------------------------------
+-- | These abbreviations are used to determine the author of a site by its
+-- | URI. Used in PageInfo.hs/getAuthor.
+-- | This list should be kept up to date in future work.
+-- | Other authors are found by seeking for a certain tag containing their name (see PageInfo.hs/getAuthor).
 short2Name			:: String -> String
 short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
                                   [ ("rb", "Ulrich Raubach")
@@ -380,13 +398,19 @@ short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
                                   , ("uhl", "Christian Uhlig")
                                   ]
 
+                                  
+-- ------------------------------------------------------------
+-- | Normalize the modified-dates to human readable representations.
+-- | Used in PageInfo.hs/getModified
 normalizeDateModified         :: String -> String
 normalizeDateModified rawDate = if (not . null $ normalizedDates)
                                   then head normalizedDates
-                                  else "DEBUG: couldn't normalize: " ++ rawDate
+                                  else rawDate
                                 where
                                   normalizedDates = (map unNormalizeDate) . dateRep2NormalizedDates . extractDateRep $ rawDate
 
+-- ------------------------------------------------------------
+-- | like unwords but with a limited number of words (appends "...")
 unwordsCont                     :: Int -> [String] -> String
 unwordsCont mx ws
     | length ws' > mx           = unwords . (++ ["..."]) . init $ ws'

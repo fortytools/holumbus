@@ -1,11 +1,19 @@
+-- ----------------------------------------------------------------------------
+
+{- |
+  Module     : Main
+
+  Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
+  Stability  : experimental
+  Portability: portable
+  Version    : 0.1
+
+  This is the entry point for this web server application.
+-}
+
+-- ----------------------------------------------------------------------------
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
-
-{-
-
-This is the entry point for this web server application.
-
--}
 
 module Main where
 

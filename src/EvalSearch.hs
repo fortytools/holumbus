@@ -22,7 +22,7 @@ where
 import IndexTypes
 
 -- ------------------------------------------------------------
-
+-- | datatype representing the index data
 data Core = Core
           { index     :: ! CompactInverted
           , documents :: ! (SmallDocuments PageInfo)

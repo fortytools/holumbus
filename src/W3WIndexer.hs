@@ -154,12 +154,12 @@ initAppOpts                     = AO
                                                                         ]
                                                   >>>
                                                   withCurl [ (curl_location,             v_1)            -- automatically follow redirects
-                                                           , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
+                                                           , (curl_max_redirects,        "0")            -- but limit # of redirects to 3
                                                            ]
                                                   >>>
                                                   -- withHTTP [ (curl_max_redirects,        "3") ]          -- nice try: HTTP web access instead of curl, problem: no document size limit
                                                   -- >>>
-                                                  withRedirect yes
+                                                  withRedirect no
                                                   >>>
                                                   withInputOption curl_max_filesize (show (1024 * 1024 * 3 `div` 2 ::Int)) -- this limit excludes automtically generated pages, sometimes > 1.5 Mbyte
                                                   >>>
@@ -227,6 +227,7 @@ main1 pn args
                                   , Option ""   ["build-index"] (NoArg  $ \   x -> x { ao_crawlSav = (500, "./tmp/ix-") })              "build W3W index (default)"
                                   , Option ""   ["build-cache"] (NoArg  $ \   x -> x { ao_action   = BuildCache })                      "update the W3W cache"
                                   , Option ""   ["test-index"]  (NoArg  $ \   x -> x { ao_uriConfig = UCTestIndex })                    "build a small sub index of the fhw pages for testing"
+                                  , Option ""   ["debug-index"]  (NoArg  $ \   x -> x { ao_uriConfig = UCDebugIndex })                  "build a small sub index of the fhw pages for testing"
                                   , Option "i"  ["index"]       (ReqArg ( \ f x -> x { ao_index    = f    })            "INDEX")        "index input file (binary format) to be operated on"
                                   , Option "n"  ["new-index"]   (ReqArg ( \ f x -> x { ao_ixout    = f    })            "NEW-INDEX")    "new index file (binary format) to be generatet, default is index file"
                                   , Option "s"  ["new-search"]  (ReqArg ( \ f x -> x { ao_ixsearch = f    })            "SEARCH-INDEX") "new search index files (binary format) ready to be used by W3W! search"

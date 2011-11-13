@@ -16,7 +16,7 @@ import           Data.List
 import           Holumbus.Crawler
 
 -- ------------------------------------------------------------
-data UriConfig                  = UCTestIndex | UCFullIndex
+data UriConfig                  = UCTestIndex | UCFullIndex | UCDebugIndex
                                   deriving (Eq, Show)
 
 w3wStart                        :: UriConfig -> [URI]
@@ -51,6 +51,10 @@ fhwStart UCTestIndex            =  fhwURIs [
                                            ]
                                     ++
                                     ptlURIs [ ""                 -- ptl start page
+                                            ]
+
+fhwStart UCDebugIndex            =  fhwURIs [
+                                             "mitarbeiter/ehemalige/her/"
                                             ]
 
 fhwRefs                         :: UriConfig -> URI -> Bool
@@ -92,6 +96,11 @@ fhwRefs UCTestIndex             = simpleFollowRef'
                                   ( [ ".*[?].*"                         -- no URIs with parameters
                                     ]
                                   )
+
+fhwRefs UCDebugIndex            = simpleFollowRef'
+                                  [ fhwHome ++ "http://www.fh-wedel.de/mitarbeiter/ehemalige/her/"
+                                  ]
+                                  ([])
 
 -- ------------------------------------------------------------
 

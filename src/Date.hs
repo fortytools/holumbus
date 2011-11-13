@@ -134,6 +134,10 @@ num            = "\\d+"
 
 dateAlias      = alt $ map fst dateAliasFunc
 
+-- -----------------------------------------------------------------
+-- | r.e.s for date aliases are expanded to Lists of Dates by "scanDateAlias" (see below).
+-- | The second value of a tuple is a function that is applied to the actual date ("today").
+-- | The Result of this function is the List of dates corresponding to the date-alias String.
 dateAliasFunc :: [(String, Day -> [Day])]
 dateAliasFunc = [ ("heute",           box)
                 , ("Heute",           box)
@@ -172,18 +176,15 @@ tokenRE = foldr1 xor $
                  , ( "word",         "[\\w\\d]+")
                  , ( "del",          "[^\\w\\d]+")
                  ]
--- ------------------------------------------------------------
 
 type Token         = (String, String)
 type TokenStream   = [Token]
 
 type DateParser a  = Parsec [(String, String)] () a
 
-type Text          = String -> String           -- for fast concatenation
+type TextFunc          = String -> String   -- represent Strings as functions for fast concatenation
 
-
--- must be extended for weekday or semester, if neccessary
-
+-- representation of a parsed date
 data DateVal       = DT { _year   :: ! Int -- "!": strictness flag
                         , _month  :: ! Int
                         , _day    :: ! Int
@@ -192,12 +193,13 @@ data DateVal       = DT { _year   :: ! Int -- "!": strictness flag
                         }
                      deriving (Eq, Show)
 
-data DateParse     = DP { _pre    ::   Text
-                        , _rep    ::   Text
-                        , _dat    :: ! DateVal
+-- | parse-result of text containing a date.
+data DateParse     = DP { _pre    ::   TextFunc     -- This is the text that precedes the date.
+                        , _rep    ::   TextFunc     -- This is the text that was recognized as a date.
+                        , _dat    :: ! DateVal      -- This is the representation of the parsed date.
                         }
 
--- just a helper for result output
+-- | just a helper for result output of DateParse.
 data DateRep       = DR { _p ::   String
                         , _r ::   String
                         , _d :: ! DateVal
@@ -206,24 +208,23 @@ data DateRep       = DR { _p ::   String
 
 -- ------------------------------------------------------------
 
--- emptyText "asd" => "asd"
-emptyText       :: Text
+-- return a function representing an empty string
+emptyText       :: TextFunc
 emptyText       = id
 
--- mkText "asd" => f(x)
---		mit f("sdf") => "asdsdf"
-mkText          :: String -> Text
+-- return a function representing a string
+mkText          :: String -> TextFunc
 mkText          = (++)
 
--- concText f(x) g(x) => h(x)
---		mit h(x) => g(f(x))
-concText        :: Text -> Text -> Text
+-- return a function representing a concatenation of two strings
+concText        :: TextFunc -> TextFunc -> TextFunc
 concText        = (.)
 
--- textToString f(x) => f("")
-textToString    :: Text -> String
+-- evaluate a function representing a string to the represented string
+textToString    :: TextFunc -> String
 textToString    = ($ [])
 
+-- initialize a date representation
 emptyDateVal    :: DateVal
 emptyDateVal    = DT { _year   = -1
                      , _month  = -1
@@ -232,19 +233,23 @@ emptyDateVal    = DT { _year   = -1
                      , _min    = -1
                      }
 
+-- initialize the parse-result of a string                     
 emptyDateParse  :: DateParse
 emptyDateParse  = DP { _pre = emptyText
                      , _rep = emptyText
                      , _dat = emptyDateVal
                      }
--- appPre "asd" {id id emptyDateVal} => {"" . (++ "asd") , id , emtpyDateVal}
+
+-- append a string to the _pre-part of a DateParse
 appPre          :: String -> DateParse -> DateParse
 appPre s d      = d { _pre = (_pre d) `concText` (mkText s) }
 
--- appRep "asd" {id id emptyDateVal} => {id , "" . (++ "asd") , emptyDateVal}
+-- append a string to the _rep-part of a DateParse
 appRep          :: String -> DateParse -> DateParse
 appRep s d      = d { _rep = (_rep d) `concText` (mkText s) }
 
+-- assign values to a DateVal.
+-- year-values like e.g. "7" are expanded to "2007"
 setDateVal      :: Int -> Int -> Int -> Int -> Int -> DateVal -> DateVal
 setDateVal j m t s i (DT j' m' t' s' i' )
                 = DT j'' m'' t'' s'' i''
@@ -257,15 +262,15 @@ setDateVal j m t s i (DT j' m' t' s' i' )
       s''             = s `max` s'
       i''             = i `max` i'
 
--- setDay 1 2 3 {id id {-1 -1 -1 -1 -1}} => {id id {1 2 3 -1 -1}}
-setDay          :: Int -> Int -> Int -> DateParse -> DateParse
+-- set the day in the _dat-part of a DateParse
+setDay          :: Int -> Int -> Int -> (DateParse -> DateParse)
 setDay j m t d  = d { _dat = setDateVal j m t (-1) (-1) (_dat d) }
 
--- setHour 4 5 {id id {1 2 3 -1 -1}} => {id id {1 2 3 4 5}}
+-- set the hour in the _dat-part of a DateParse
 setHour         :: Int -> Int -> DateParse -> DateParse
 setHour h m d   = d { _dat = setDateVal (-1) (-1) (-1) h m (_dat d) }
 
-
+-- evaluate the TextFuncs to strings in a DateParse
 datePToDateRep  :: DateParse -> DateRep
 datePToDateRep dp
                 = DR { _p = textToString $ _pre dp
@@ -274,15 +279,13 @@ datePToDateRep dp
                      }
 
 -- ------------------------------------------------------------
-
--- all date parsers thread a state the subparsers to accumulate
+-- all date parsers thread a state to the subparsers to accumulate
 -- the parts of a date, the context, the external representation and
 -- the pure data, year, month, day, ...
-
 dateParser      :: DateParse -> DateParser DateParse
 dateParser d    = ( do
                     s <- fillTok                -- delTok <|> wordTok
-                    dateParser0 (appPre s d) 	  -- gelesenes Token an d anhängen
+                    dateParser0 (appPre s d) 	  -- append Token to _pre
                   )
                   <|>
                   parseDate d                   -- here is the hook for the real date parser
@@ -297,14 +300,12 @@ dateParser0 d   = dateParser d <|> return d
 
 
 -- a simple helper for showing the results
-
 dateSearch'     :: TokenStream -> [DateRep]
 dateSearch'     = map datePToDateRep .
                   dateSearch
 
 -- look for a sequence of date specs, the last entry in the list
 -- does not contain a valid date, but just the context behind the last real date
-
 dateSearch      :: TokenStream -> [DateParse]
 dateSearch ts   = either (const []) id .
                   parse (many (dateParser emptyDateParse)) "" $
@@ -521,7 +522,7 @@ takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
 -- |  DR {_p = " und am ", _r = "Freitag, den 11.7.2003 um 13:00 Uhr", _d = DT {_year = 2003, _month = 7, _day = 11, _hour = 13, _min = 0}},
 -- |  DR {_p = " gibts Fisch", _r = "", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}}]
 -- | Words recognized as Dates are contained in the _r-fileds. Their interpretation is contained in th _d-fields. "Heute" is a special keyword
--- | that will be interpretated later.
+-- | ("date-alias") that can be expanded to the actual date by scanDateAlias.
 extractDateRep :: String -> [DateRep]
 extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
 
@@ -685,8 +686,8 @@ dateRep2stringWithTransformedDates dateRep = do
 
 
 ------------------------------------------------------------------------------
--- | takes normalized Date-String (i.e. "****-**-03-12-**") and returns human readable
--- | date representation (i.e. "März, 12 Uhr")
+-- | takes normalized Date-String (e.g. "****-**-03-12-**") and returns human readable
+-- | date representation (e.g. "März, 12 Uhr")
 unNormalizeDate :: String -> String
 unNormalizeDate = unNormalizeDate' . (split '-')
   where
