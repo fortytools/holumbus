@@ -48,15 +48,39 @@ import           Text.XML.HXT.Core
 -- | The table to store the document descriptions
 
 newtype SmallDocuments a	= SmallDocuments
-                                  { idToSmallDoc   :: CD.DocMap a		-- ^ A mapping from a document id to the document itself.
+                                  { idToSmallDoc   :: CD.DocMap a -- ^ A mapping from a doc id
+                                                                  --   to the document itself.
                                   }
+
+-- ----------------------------------------------------------------------------
+
+instance (Binary a, HolIndex i) => HolDocIndex SmallDocuments a i where
+    unionDocIndex dt1 ix1 dt2 ix2
+        | s1 < s2		= unionDocIndex dt2 ix2 dt1 ix1
+        | otherwise		= (dt, ix)
+        where
+	  dt   			= unionDocs     dt1  dt2s
+          ix   			= mergeIndexes  ix1  ix2s
+
+          dt2s 			= editDocIds    add1 dt2
+          ix2s 			= updateDocIds' add1 ix2
+
+          add1 			= mkDocId . (+ (theDocId m1)) . theDocId
+          m1	 		= maxKeyDocIdMap . toMap $ dt1
+
+          s1			= sizeDocs dt1
+          s2			= sizeDocs dt2
 
 -- ----------------------------------------------------------------------------
 
 instance Binary a => HolDocuments SmallDocuments a where
   sizeDocs 			= sizeDocIdMap . idToSmallDoc
   
-  lookupById  d i 		= maybe (fail "") return . fmap CD.toDocument . lookupDocIdMap i . idToSmallDoc $ d
+  lookupById  d i 		= maybe (fail "") return
+                                  . fmap CD.toDocument
+                                  . lookupDocIdMap i
+                                  . idToSmallDoc
+                                  $ d
 
   makeEmpty _ 			= emptyDocuments
 

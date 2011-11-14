@@ -25,10 +25,11 @@ module Holumbus.Index.Common
   HolIndex (..)
   , HolIndexM (..)
   , HolDocuments (..)
+  , HolDocIndex (..)
   , HolCache (..)
 
   -- * Indexes and Documents
-  , mergeAll
+  -- , mergeAll
 
   , module Holumbus.Index.Common.BasicTypes
   , module Holumbus.Index.Common.Document
@@ -43,8 +44,8 @@ where
 
 import Control.Monad  			( foldM )
 
-import Data.Binary 			( Binary (..) )
-import Data.Maybe
+-- import Data.Binary 			( Binary (..) )
+-- import Data.Maybe
 
 import Holumbus.Index.Common.BasicTypes
 import Holumbus.Index.Common.Document
@@ -58,7 +59,7 @@ import Holumbus.Index.Common.LoadStore
 
 -- | This class provides a generic interface to different types of index implementations.
 
-class (Binary i) => HolIndex i where
+class HolIndex i where
   -- | Returns the number of unique words in the index.
   sizeWords     		:: i -> Int
 
@@ -211,7 +212,7 @@ instance (HolIndex i) => HolIndexM IO i where
 
 -- ------------------------------------------------------------
 
-class Binary (d a) => HolDocuments d a where
+class HolDocuments d a where
   -- | Returns the number of unique documents in the table.
   sizeDocs      		:: d a -> Int
   
@@ -268,10 +269,11 @@ class Binary (d a) => HolDocuments d a where
   editDocIds			:: (DocId -> DocId) -> d a -> d a
   editDocIds f			= fromMap . foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap . toMap
 
+{-
   -- | Get maximum DocId
   maxDocId			:: d a -> DocId
   maxDocId			= maxKeyDocIdMap . toMap
-
+-}
 -- ------------------------------------------------------------
 
 class HolCache c where
@@ -290,6 +292,23 @@ class HolCache c where
 
 -- ------------------------------------------------------------
 
+class (HolDocuments d a, HolIndex i) => HolDocIndex d a i where
+
+    -- | Merge two doctables and indexes together into a single doctable and index
+    unionDocIndex 		:: d a -> i -> d a -> i -> (d a, i)
+
+    -- | Defragment a doctable and index, useful when the doc ids are
+    -- organized as an intervall of ints.
+    --
+    -- Default implementation is the identity
+
+    defragmentDocIndex          :: d a -> i -> (d a, i)
+    defragmentDocIndex          = (,)
+
+-- ------------------------------------------------------------
+
+{- old stuff
+
 -- | Merges an index with its documents table with another index and its documents table. 
 -- Conflicting id's for documents will be resolved automatically.
 
@@ -299,5 +318,5 @@ mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocIds replaceIds i2))
   (ud, md) = mergeDocs d1 d2
   idTable = fromListDocIdMap ud
   replaceIds _ _ d = fromMaybe d (lookupDocIdMap d idTable)
-
+-}
 -- ------------------------------------------------------------

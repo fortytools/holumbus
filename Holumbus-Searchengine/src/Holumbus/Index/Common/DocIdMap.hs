@@ -45,11 +45,17 @@ singletonDocIdMap d v           = insertDocIdMap d v emptyDocIdMap
 nullDocIdMap                    :: DocIdMap v -> Bool
 nullDocIdMap                    = IM.null
 
+memberDocIdMap                  :: DocId -> DocIdMap v -> Bool
+memberDocIdMap                  = IM.member
+
 lookupDocIdMap                  :: DocId -> DocIdMap v -> Maybe v
 lookupDocIdMap                  = IM.lookup
 
 insertDocIdMap                  :: DocId -> v -> DocIdMap v -> DocIdMap v
 insertDocIdMap                  = IM.insert
+
+deleteDocIdMap                  :: DocId -> DocIdMap v -> DocIdMap v
+deleteDocIdMap                  = IM.delete
 
 insertWithDocIdMap              :: (v -> v -> v) -> DocId -> v -> DocIdMap v -> DocIdMap v
 insertWithDocIdMap              = IM.insertWith
@@ -60,20 +66,26 @@ sizeDocIdMap                    = IM.size
 maxKeyDocIdMap          	:: DocIdMap v -> DocId
 maxKeyDocIdMap          	= maybe nullDocId (fst . fst) . IM.maxViewWithKey
 
-differenceDocIdMap             :: DocIdMap v -> DocIdMap v -> DocIdMap v
+unionDocIdMap                   :: DocIdMap v -> DocIdMap v -> DocIdMap v
+unionDocIdMap                   = IM.union
+
+differenceDocIdMap              :: DocIdMap v -> DocIdMap v -> DocIdMap v
 differenceDocIdMap              = IM.difference
 
-unionWithDocIdMap              :: (v -> v -> v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
+unionWithDocIdMap               :: (v -> v -> v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
 unionWithDocIdMap               = IM.unionWith
 
-intersectionWithDocIdMap       :: (v -> v -> v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
-intersectionWithDocIdMap       = IM.intersectionWith
+intersectionWithDocIdMap        :: (v -> v -> v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
+intersectionWithDocIdMap        = IM.intersectionWith
 
-unionsWithDocIdMap             :: (v -> v -> v) -> [DocIdMap v] -> DocIdMap v
+unionsWithDocIdMap              :: (v -> v -> v) -> [DocIdMap v] -> DocIdMap v
 unionsWithDocIdMap              = IM.unionsWith
 
 mapDocIdMap                     :: (v -> r) -> DocIdMap v -> DocIdMap r
 mapDocIdMap                     = IM.map
+
+filterDocIdMap                  :: (v -> Bool) -> DocIdMap v -> DocIdMap v
+filterDocIdMap                  = IM.filter
 
 filterWithKeyDocIdMap           :: (DocId -> v -> Bool) -> DocIdMap v -> DocIdMap v
 filterWithKeyDocIdMap           = IM.filterWithKey
