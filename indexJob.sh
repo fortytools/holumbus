@@ -1,11 +1,10 @@
 #! /bin/bash
 
 cd /home/administrator/W3W
+mkdir log
+
 echo "Creating index: "`date` >> log/indexJob.log
 cd index
-mv Makefile ..
-sudo rm -rf *
-mv ../Makefile .
 make whole 2>&1 >> ../log/indexJob.log
 
 cd ..
