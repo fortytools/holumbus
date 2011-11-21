@@ -46,6 +46,12 @@ import           Text.XML.HXT.Core
 -- ----------------------------------------------------------------------------
 
 -- | The table to store the document descriptions
+--
+-- This table does not contain the reverse map from URIs do DocIds,
+-- this reverse map is only needed when crawling, not for searching the index.
+-- As a consequence, most of the indes operations are not implemented
+--
+-- see also 'Holumbus.Index.CompactDocuments.Documents' data type
 
 newtype SmallDocuments a	= SmallDocuments
                                   { idToSmallDoc   :: CD.DocMap a -- ^ A mapping from a doc id
@@ -55,21 +61,21 @@ newtype SmallDocuments a	= SmallDocuments
 -- ----------------------------------------------------------------------------
 
 instance (Binary a, HolIndex i) => HolDocIndex SmallDocuments a i where
-    unionDocIndex dt1 ix1 dt2 ix2
-        | s1 < s2		= unionDocIndex dt2 ix2 dt1 ix1
-        | otherwise		= (dt, ix)
+    defragmentDocIndex          = notImpl
+{-
+    defragmentDocIndex dt ix    = (dt1, ix1)
         where
-	  dt   			= unionDocs     dt1  dt2s
-          ix   			= mergeIndexes  ix1  ix2s
+          dt1                   = editDocIds editId dt
+          ix1                   = updateDocIds' editId ix
+          editId i              = fromJust . lookupDocIdMap i $ idMap
+          idMap                 = fromListDocIdMap . flip zip (map mkDocId [1..]) . keysDocIdMap . toMap $ dt
+-}
 
-          dt2s 			= editDocIds    add1 dt2
-          ix2s 			= updateDocIds' add1 ix2
-
-          add1 			= mkDocId . (+ (theDocId m1)) . theDocId
-          m1	 		= maxKeyDocIdMap . toMap $ dt1
-
-          s1			= sizeDocs dt1
-          s2			= sizeDocs dt2
+    unionDocIndex dt1 ix1 dt2 ix2
+        			= (dt, ix)
+        where
+	  dt   			= unionDocs     dt1  dt2
+          ix   			= mergeIndexes  ix1  ix2
 
 -- ----------------------------------------------------------------------------
 
@@ -84,18 +90,46 @@ instance Binary a => HolDocuments SmallDocuments a where
 
   makeEmpty _ 			= emptyDocuments
 
-  lookupByURI	 		= error "Not yet implemented"
-  mergeDocs	 		= error "Not yet implemented"
-  unionDocs			= error "Not yet implemented"
-  insertDoc	 		= error "Not yet implemented"
-  updateDoc	 		= error "Not yet implemented"
-  removeById	 		= error "Not yet implemented"
-  updateDocuments		= error "Not yet implemented"
-  filterDocuments 		= error "Not yet implemented"
-  editDocIds			= error "Not yet implemented"
+  -- this is a sufficient test, but if the doc ids don't form an intervall
+  -- it may be too strict
+  disjointDocs dt1 dt2          = disjoint ( minKeyDocIdMap . idToSmallDoc $ dt1
+                                           , maxKeyDocIdMap . idToSmallDoc $ dt1
+                                           )
+                                           ( minKeyDocIdMap . idToSmallDoc $ dt2
+                                           , maxKeyDocIdMap . idToSmallDoc $ dt2
+                                           )
+      where
+        disjoint p1@(x1, y1) p2@(x2, _y2)
+            | x1 <= x2          = y1 < x2
+            | otherwise         = disjoint p2 p1
+
+  unionDocs dt1 dt2
+      | disjointDocs dt1 dt2	= SmallDocuments
+                                  { idToSmallDoc = unionDocIdMap (idToSmallDoc dt1) (idToSmallDoc dt2)
+                                  }
+      | otherwise               = error "unionDocs: doctables are not disjoint"
+
+  editDocIds f d		= SmallDocuments
+                                  { idToSmallDoc = newIdToDoc
+                                  }
+    where
+    newIdToDoc			= foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap
+                                  $ idToSmallDoc d
 
   fromMap 			= SmallDocuments . CD.toDocMap
   toMap 			= CD.fromDocMap . idToSmallDoc
+
+  -- only lookup by doc id, union and defragment ops are implemented
+  -- the others are not needed when merging or searching the doc indexes
+
+  lookupByURI	 		= notImpl
+  mergeDocs	 		= notImpl
+
+  insertDoc	 		= notImpl
+  updateDoc	 		= notImpl
+  removeById	 		= notImpl
+  updateDocuments		= notImpl
+  filterDocuments 		= notImpl
 
 -- ----------------------------------------------------------------------------
 
@@ -127,6 +161,11 @@ instance Binary a => 		Binary (SmallDocuments a)
     get 			= do
                                   i2d <- B.get
                                   return $ SmallDocuments i2d
+
+-- ------------------------------------------------------------
+
+notImpl                         :: a
+notImpl                         = error "operation not implemented for SmallDocuments data type"
 
 -- ------------------------------------------------------------
 

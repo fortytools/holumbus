@@ -7,6 +7,10 @@ where
 
 import           Control.DeepSeq
 
+import 		 Control.Monad.Reader
+import		 Control.Monad.State
+import 		 Control.Monad.ReaderStateIO
+
 -- import		 Control.Monad.State
 
 import           Data.Binary			( Binary )
@@ -30,6 +34,7 @@ import           System.Log.Logger				( Priority(..) )
 
 -- | The action to combine the result of a single document with the accumulator for the overall crawler result.
 -- This combining function runs in the IO monad to enable storing parts of the result externally
+-- but it is not a CrawlerAction, else parallel crawling with forkIO is not longer applicable
 
 type AccumulateDocResult a r	= (URI, a) -> r -> IO r
 
@@ -37,9 +42,17 @@ type AccumulateDocResult a r	= (URI, a) -> r -> IO r
 
 type MergeDocResults       r    =        r -> r -> IO r
 
+-- | The operator for saving intermediate results
+
+type SavePartialResults    r    = FilePath -> r -> IO r
+
 -- | The extractor function for a single document
 
 type ProcessDocument	 a	= IOSArrow XmlTree a
+
+-- | The crawler action monad
+
+type CrawlerAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
 
 -- | The crawler configuration record
 
@@ -59,6 +72,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_maxParThreads	:: ! Int
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
+                                  , cc_savePreAction    :: SavePartialResults r
 				  , cc_traceLevel	:: ! Priority
                                   , cc_traceLevelHxt	:: ! Priority
 				  }
@@ -178,6 +192,9 @@ theSaveIntervall	= S cc_saveIntervall	(\ x s -> s {cc_saveIntervall = x})
 theSavePathPrefix	:: Selector (CrawlerConfig a r) String
 theSavePathPrefix	= S cc_savePathPrefix	(\ x s -> s {cc_savePathPrefix = x})
 
+theSavePreAction	:: Selector (CrawlerConfig a r) (SavePartialResults r)
+theSavePreAction	= S cc_savePreAction	(\ x s -> s {cc_savePreAction = x})
+
 theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
 theFollowRef		= S cc_followRef	(\ x s -> s {cc_followRef = x})
 
@@ -224,6 +241,7 @@ defaultCrawlerConfig op	op2
 			  , cc_addRobotsTxt	= const $ const return				-- do not add robots.txt evaluation
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
+                          , cc_savePreAction    = const $ return                                -- no action before saving state
                           , cc_clickLevel       = maxBound                                      -- click level set to infinity
 			  , cc_maxNoOfDocs	= (-1)						-- maximum # of docs to be crawled, -1 means unlimited
                           , cc_maxParDocs	= 20						-- maximum # of doc crawled in parallel
@@ -291,6 +309,11 @@ setCrawlerSaveConf	:: Int -> String -> CrawlerConfig a r -> CrawlerConfig a r
 setCrawlerSaveConf i f	= setS theSaveIntervall i
                           >>>
                           setS theSavePathPrefix f
+
+-- | Set action performed before saving crawler state
+
+setCrawlerSaveAction	:: (FilePath -> r -> IO r) -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerSaveAction f	= setS theSavePreAction f
 
 -- | Set max # of steps (clicks) to reach a document
 
@@ -360,6 +383,27 @@ initCrawlerState r	= CrawlerState
 			  , cs_resultAccu	= r
 			  , cs_resultInit	= r
 			  }
+
+-- ------------------------------------------------------------
+--
+-- basic crawler actions
+
+-- | Load a component from the crawler configuration
+
+getConf				:: Selector (CrawlerConfig a r) v -> CrawlerAction a r v
+getConf				= asks . getS
+
+getState			:: Selector (CrawlerState r) v -> CrawlerAction a r v
+getState 			= gets . getS
+
+putState			:: Selector (CrawlerState r) v -> v -> CrawlerAction a r ()
+putState sel			= modify . setS sel
+
+modifyState			:: Selector (CrawlerState r) v -> (v -> v) -> CrawlerAction a r ()
+modifyState sel			= modify . chgS sel
+
+modifyStateIO			:: Selector (CrawlerState r) v -> (v -> IO v) -> CrawlerAction a r ()
+modifyStateIO sel		= modifyIO . chgM sel
 
 -- ------------------------------------------------------------
 

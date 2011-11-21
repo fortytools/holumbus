@@ -44,6 +44,7 @@ import           Data.Binary		( Binary )
 import qualified Data.Binary            as B
 import		 Data.ByteString.Lazy 	( ByteString )
 import qualified Data.ByteString.Lazy 	as BS
+import           Data.Maybe             ( fromJust )
 
 import qualified Holumbus.Data.PrefixTree as M
 import           Holumbus.Index.Common
@@ -72,6 +73,13 @@ data Documents a 		= Documents
 -- ----------------------------------------------------------------------------
 
 instance (Binary a, HolIndex i) => HolDocIndex Documents a i where
+    defragmentDocIndex dt ix  = (dt1, ix1)
+        where
+          dt1                   = editDocIds editId dt
+          ix1                   = updateDocIds' editId ix
+          editId i              = fromJust . lookupDocIdMap i $ idMap
+          idMap                 = fromListDocIdMap . flip zip (map mkDocId [1..]) . keysDocIdMap . toMap $ dt
+
     unionDocIndex dt1 ix1 dt2 ix2
         | s1 < s2		= unionDocIndex dt2 ix2 dt1 ix1
         | otherwise		= (dt, ix)
@@ -130,11 +138,26 @@ instance Binary a => HolDocuments Documents a where
                                        ((i, ni):c, insertDocIdMap ni doc d, ni)
                                   else (c, insertDocIdMap i doc d, max i l)
 
-  unionDocs dt1 dt2		= Documents
+  -- this is a sufficient test, but if the doc ids don't form an intervall
+  -- it may be too strict
+  disjointDocs dt1 dt2          = disjoint ( minKeyDocIdMap . idToDoc $ dt1
+                                           , maxKeyDocIdMap . idToDoc $ dt1
+                                           )
+                                           ( minKeyDocIdMap . idToDoc $ dt2
+                                           , maxKeyDocIdMap . idToDoc $ dt2
+                                           )
+      where
+        disjoint p1@(x1, y1) p2@(x2, _y2)
+            | x1 <= x2          = y1 < x2
+            | otherwise         = disjoint p2 p1
+
+  unionDocs dt1 dt2
+      | disjointDocs dt1 dt2	= Documents
                                   { idToDoc	= unionDocIdMap (idToDoc dt1) (idToDoc dt2)
                                   , docToId	= M.union  (docToId dt1) (docToId dt2)
                                   , lastDocId	= lastDocId dt1 `max` lastDocId dt2
                                   }
+      | otherwise               = error "unionDocs: doctables are not disjoint"
 
   makeEmpty _ 			= emptyDocuments
 

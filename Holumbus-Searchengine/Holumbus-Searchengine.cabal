@@ -50,7 +50,7 @@ library
     Holumbus.Crawler.CacheCore
     Holumbus.Crawler.Constants
     Holumbus.Crawler.Core
-    Holumbus.Crawler.CrawlerAction
+    -- Holumbus.Crawler.CrawlerAction
     Holumbus.Crawler
     Holumbus.Crawler.Html
     Holumbus.Crawler.IndexerCore

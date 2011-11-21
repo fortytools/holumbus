@@ -108,10 +108,16 @@ inverted2compactInverted        = fromList PM.emptyInvertedOSerialized . toList
 type HayooState  di             = IndexerState       Inverted Documents di
 type HayooConfig di             = IndexCrawlerConfig Inverted Documents di
 
-type HayoorCrawlerState di      = CrawlerState (HayooState di)
+type HayooCrawlerState di       = CrawlerState (HayooState di)
 
 emptyHayooState                 :: HayooState di
 emptyHayooState                 = emptyIndexerState emptyInverted emptyDocuments
+
+flushHayooState                 :: HayooState di -> HayooState di
+flushHayooState hs              = hs { ixs_index     = emptyInverted
+                                     , ixs_documents = emptyDocuments
+                                                       { lastDocId = lastDocId . ixs_documents $ hs }
+                                     }
 
 -- ------------------------------------------------------------
 
@@ -167,17 +173,19 @@ defragmentIndex                 :: (Binary di) =>
                                    HayooState di -> HayooState di
 defragmentIndex IndexerState
               { ixs_index     = ix
-              , ixs_documents = ds
+              , ixs_documents = dt
               }                 = IndexerState
                                   { ixs_index     = ix'
-                                  , ixs_documents = ds'
+                                  , ixs_documents = dt'
                                   }
     where
+    (dt', ix')                  = defragmentDocIndex dt ix
+{-
     ix'                         = updateDocIds' editId ix
     ds'                         = editDocIds editId ds
     idMap                       = fromListDocIdMap . flip zip (map mkDocId [1..]) . keysDocIdMap . toMap $ ds
     editId i                    = fromJust . lookupDocIdMap i $ idMap
-
+-}
 -- ------------------------------------------------------------
 
 -- | package ranking is implemented by the following algorithm

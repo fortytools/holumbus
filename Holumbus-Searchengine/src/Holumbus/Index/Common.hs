@@ -235,6 +235,9 @@ class HolDocuments d a where
       where
       addDoc d dt		= snd . insertDoc dt $ d
 
+  -- | Test whether the doc ids of both tables are disjoint
+  disjointDocs                  :: d a -> d a -> Bool
+
   -- | Return an empty document table. The input parameter is taken to identify the typeclass
   makeEmpty     		:: d a -> d a
   

@@ -34,7 +34,7 @@ import           Control.Monad.Trans
 
 import 		 Data.List		( isPrefixOf )
 
-import           Holumbus.Crawler.CrawlerAction
+import           Holumbus.Crawler.Types
 
 import           System.Log.Logger
 

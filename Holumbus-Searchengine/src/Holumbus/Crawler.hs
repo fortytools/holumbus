@@ -5,7 +5,7 @@
 module Holumbus.Crawler
     ( module Holumbus.Crawler.Constants
     , module Holumbus.Crawler.Core
-    , module Holumbus.Crawler.CrawlerAction
+    -- , module Holumbus.Crawler.CrawlerAction
     , module Holumbus.Crawler.Html
     , module Holumbus.Crawler.Logger
     , module Holumbus.Crawler.Robots
@@ -19,7 +19,7 @@ where
 
 import           Holumbus.Crawler.Constants
 import		 Holumbus.Crawler.Core
-import           Holumbus.Crawler.CrawlerAction
+-- import           Holumbus.Crawler.CrawlerAction
 import		 Holumbus.Crawler.Html
 import		 Holumbus.Crawler.Logger
 import		 Holumbus.Crawler.Robots

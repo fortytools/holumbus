@@ -56,17 +56,36 @@ hayooIndexer o                  = stdIndexer
     config                      = ao_crawlFct o $
                                   setCrawlerTraceLevel ct ht $
                                   setCrawlerSaveConf si sp   $
+                                  setCrawlerSaveAction partA $
                                   setCrawlerMaxDocs md mp mt $
-                                  setCrawlerPreRefsFilter noHaddockPage $       -- haddock pages don't need to be scanned for new URIs
+                                  -- haddock pages don't need to be scanned for new URIs
+                                  setCrawlerPreRefsFilter noHaddockPage $
                                   config0
 
     (ct, ht)                    = ao_crawlLog o
     (si, sp)                    = ao_crawlSav o
     (md, mp, mt)                = ao_crawlDoc o
+    partA
+        | ao_partix o           = writePartialIndex
+        | otherwise             = const $ return
+
 
 noHaddockPage                   :: IOSArrow XmlTree XmlTree
 noHaddockPage                   = fromLA $
                                   hasAttrValue transferURI (not . isHaddockURI) `guards` this
+
+writePartialIndex                :: FilePath -> HayooIndexerState -> IO HayooIndexerState
+writePartialIndex out ixs        = do let IndexerState { ixs_index     = ix
+                                                       , ixs_documents = dt
+                                                       } = ixs
+                                      writeDocTable dt
+                                      writeDocIx    ix
+                                      return $ flushHayooState ixs
+    where
+      writeDocTable             = B.encodeFile docFile . docTable2smallDocTable
+      writeDocIx                = B.encodeFile idxFile . inverted2compactInverted
+      docFile                   = out ++ ".doc"
+      idxFile                   = out ++ ".idx"
 
 -- ------------------------------------------------------------
 
@@ -150,6 +169,7 @@ data AppOpts                    = AO
                                   , ao_pkgIndex :: Bool
                                   , ao_action   :: AppAction
                                   , ao_defrag   :: Bool
+                                  , ao_partix   :: Bool
                                   , ao_resume   :: Maybe String
                                   , ao_packages :: [String]
                                   , ao_latest   :: Maybe Int
@@ -182,6 +202,7 @@ initAppOpts                     = AO
                                   , ao_pkgIndex = False
                                   , ao_action   = BuildIx
                                   , ao_defrag   = False
+                                  , ao_partix   = False
                                   , ao_resume   = Nothing
                                   , ao_packages = []
                                   , ao_latest   = Nothing
@@ -317,7 +338,8 @@ main1 pn args
                                   , Option ""   ["latest"]      (ReqArg ( setOption parseTime
                                                                           (\ x t -> x { ao_latest   = Just t })
                                                                         )                                               "DURATION")     "select latest packages newer than given time, format like in option \"valid\""
-                                  , Option ""   ["defragment"]  (NoArg  $ \   x -> x { ao_defrag    = True  })                          "defragment index after delete or update"
+                                  , Option ""   ["partition"]   (NoArg  $ \   x -> x { ao_partix    = True })                           "partition the index into smaller pieces and write the index part by part"
+                                  , Option ""   ["defragment"]  (NoArg  $ \   x -> x { ao_defrag    = True })                           "defragment index after delete or update"
                                   , Option ""   ["hackage"]     (NoArg  $ \   x -> x { ao_getHack   = True })                           "when processing latest packages, first update the package list from hackage"
                                   , Option ""   ["ranking"]     (NoArg  $ \   x -> x { ao_pkgRank   = True })                           "when processing package index, compute package rank, default is no rank"
 

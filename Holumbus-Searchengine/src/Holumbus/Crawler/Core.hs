@@ -20,7 +20,7 @@ import           Data.Function.Selector
 
 import           Data.List
 
-import           Holumbus.Crawler.CrawlerAction
+-- import           Holumbus.Crawler.CrawlerAction
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.Logger
 import           Holumbus.Crawler.URIs
@@ -37,9 +37,12 @@ import           Text.XML.HXT.Core              hiding
 -- ------------------------------------------------------------
 
 saveCrawlerState                :: (Binary r) => FilePath -> CrawlerAction a r ()
-saveCrawlerState fn             = do
-                                  s <- get
-                                  liftIO $ B.encodeFile fn s
+saveCrawlerState fn             = do preSave
+                                     s <- get
+                                     liftIO $ B.encodeFile  fn s
+    where
+      preSave                   = do  act <- getConf theSavePreAction
+                                      modifyStateIO theResultAccu (act fn)
 
 loadCrawlerState                :: (Binary r) => FilePath -> CrawlerAction a r ()
 loadCrawlerState fn             = do
@@ -220,7 +223,10 @@ processDoc' (uri, lev)  = do
 
 -- ------------------------------------------------------------
 
-combineDocResults'      :: (NFData r) => MergeDocResults r -> (URIs, URIsWithLevel, r) -> (URIs, URIsWithLevel, r) -> IO (URIs, URIsWithLevel, r)
+combineDocResults'      :: (NFData r) =>
+                           MergeDocResults r ->
+                          (URIs, URIsWithLevel, r) ->
+                          (URIs, URIsWithLevel, r) -> IO (URIs, URIsWithLevel, r)
 combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
                         = do
                           noticeC' "crawlNextDocs" ["combining results"]

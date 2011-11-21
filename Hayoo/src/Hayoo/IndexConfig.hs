@@ -49,13 +49,13 @@ hayooIndexContextConfig		= [ ixModule
                                   { ixc_name          	= "package"
                                   , ixc_collectText   	= getAttrValue "package"
 				  , ixc_textToWords	= return
-                                  , ixc_boringWord	= (== "unknownpackage")
+                                  , ixc_boringWord	= \ x -> null x || x == "unknownpackage"
                                   }
     ixName			= ixDefault
 				  { ixc_name          	= "name"
                                   , ixc_collectText   	= getAttrValue "title"          -- is simpler than: fromLA $ getAllText (deep $ trtdWithClass (== "decl")) -- TODO 2.8 version
 				  , ixc_textToWords	= return                        --                  tokenize "[^ ():]+" >>> take 1
-				  , ixc_boringWord	= const False                   -- (`elem` ["type", "class", "data", "module"])
+				  , ixc_boringWord	= null                          -- (`elem` ["type", "class", "data", "module"])
                                   }
     ixPartial			= ixName
                                   { ixc_name          	= "partial"
