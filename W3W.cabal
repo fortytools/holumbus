@@ -22,11 +22,11 @@ extra-source-files:
 executable w3wIndexer
   main-is:      W3WIndexer.hs
 
-  other-modules:  W3W.IndexTypes
-                , W3W.IndexConfig
-                , W3W.Extract
-                , W3W.PageInfo
-                , W3W.URIConfig
+  other-modules:  IndexTypes
+                , IndexConfig
+                , Extract
+                , PageInfo
+                , URIConfig
 
   build-depends: base                   >= 4   && < 5
                , Holumbus-Searchengine  >= 1.0.1 && < 2
