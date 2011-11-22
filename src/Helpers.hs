@@ -217,7 +217,7 @@ mkPagerLink query actPage number =
 examples :: X.Node
 examples =
       X.Element (T.pack $ "div")
-      [(T.pack $ "id", T.pack $ "examples")]
+      [(T.pack $ "class", T.pack $ "examples")]
         [ htmlParaTextNode "Beispiele für Suchanfragen:",
           htmlList "examples" [
             htmlListItem "" $
