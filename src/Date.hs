@@ -31,9 +31,7 @@ import Control.Arrow                                   ( second )
 import Data.Char                                       ( toLower
                                                        , toUpper
                                                        )
-import Data.Char.Properties.XMLCharProps
 import Data.List                                       ( isPrefixOf )
-import Data.Maybe
 
 import Text.Parsec
 import Text.Regex.XMLSchema.String
@@ -43,46 +41,90 @@ import Data.Time.Calendar
 import Data.Time.Calendar.WeekDate
 import Helpers
 import Monad                                            (liftM)
-import Control.Monad.Trans                              (liftIO)
-
 
 -- ------------------------------------------------------------
 
 -- some little helpers for building r.e.s
 
+star :: String -> String
 star           = (++ "*") . pars
+
+plus :: String -> String
 plus           = (++ "+") . pars
+
+opt :: String -> String
 opt            = (++ "?") . pars
+
+dot :: String -> String
 dot            = (++ "\\.")
+
+pars :: String -> String
 pars           = ("(" ++) . (++ ")")
+
+orr :: String -> String -> String
 orr x y        = pars $ pars x ++ "|" ++ pars y
+
+xor :: String -> String -> String
 xor x y        = pars $ pars x ++ "{|}" ++ pars y
+
+nocase :: String -> String
+nocase []      = []
 nocase (x:xs)  = '[' : toUpper x : toLower x : ']' : xs
+
+alt :: [String] -> String
 alt            = pars . foldr1 orr
+
+altNC :: [String] -> String
 altNC          = pars . alt . map nocase
+
+subex :: String -> String -> String
 subex n e      = pars $ "{" ++ n ++ "}" ++ pars e
 
+ws :: String
 ws             = "\\s"
+
+ws0 :: String
 ws0            = star ws
+
+ws1 :: String
 ws1            = plus ws
+
+s0 :: String -> String -> String
 s0 x y         = x ++ ws0 ++ y
 
 -- the date and time r.e.s
 
+day :: String
 day            = "(0?[1-9]|[12][0-9]|3[01])"
 
+month :: String
 month          = "(0?[1-9]|1[0-2])"
+
+year2 :: String
 year2          = "[0-5][0-9]"
+
+year4 :: String
 year4          = "20" ++ year2
+
+year :: String
 year           = year4 `orr` year2 -- ! orr year' ?
+
+year' :: String
 year'          = "'" ++ year2
 
+dayD :: String
 dayD           = dot day
+
+monthD :: String
 monthD         = dot month
 
+dayMonthYear :: String
 dayMonthYear   = dayD `s0` monthD `s0` year
+
+dayMonth :: String
 dayMonth       = dayD `s0` monthD
 
+dayOfWeekL :: String
 dayOfWeekL     = altNC
                  [ "montag"
                  , "dienstag"
@@ -93,10 +135,15 @@ dayOfWeekL     = altNC
                  , "sonnabend"
                  , "sonntag"
                  ]
+
+dayOfWeekA :: String
 dayOfWeekA     = alt . map dot $
                  [ "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+dayOfWeek :: String
 dayOfWeek      = dayOfWeekL `orr` dayOfWeekA
 
+monthL :: String
 monthL         = altNC
                  [ "januar"
                  , "februar"
@@ -112,26 +159,42 @@ monthL         = altNC
                  , "dezember"
                  ]
 
+monthA :: String
 monthA         = altNC . map dot $ map snd monthAbr
 
+monthAbr :: [(Integer, String)]
 monthAbr       = (9, "sept") :
                  zip [1..12]
                  [ "jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
 
+monthN :: String
 monthN         = pars $ monthL `orr` monthA
 
+hour :: String
 hour           = pars "([0-1]?[0-9])|(2[0-4])"
+
+minute :: String
 minute         = pars "(0?[0-9])|([1-5][0-9])"
+
+uhr :: String
 uhr            = ws0 ++ nocase "uhr"
+
+hourMin :: String
 hourMin        = hour ++ ":" ++ minute ++ opt uhr
 
+wsyear :: String
 wsyear         = year ++ "/[0-9]{2}"
-wsem           = ("Wi?Se?" `orr` nocase "Wintersemester") ++ ws0 ++ wsyear
-ssem           = ("So?Se?" `orr` nocase "Sommersemester") ++ ws0 ++ year
-sem            = wsem `orr` ssem
 
+wsem :: String
+wsem           = ("Wi?Se?" `orr` nocase "Wintersemester") ++ ws0 ++ wsyear
+
+ssem :: String
+ssem           = ("So?Se?" `orr` nocase "Sommersemester") ++ ws0 ++ year
+
+num :: String
 num            = "\\d+"
 
+dateAlias :: String
 dateAlias      = alt $ map fst dateAliasFunc
 
 -- -----------------------------------------------------------------
@@ -156,7 +219,7 @@ dateAliasFunc = [ ("heute",           box)
                 ]
 
 -- the token types
-
+tokenRE :: String
 tokenRE = foldr1 xor $
                  map (uncurry subex) $
                  [ ( "ddmmyyyy",     dayMonthYear )
@@ -285,7 +348,7 @@ datePToDateRep dp
 dateParser      :: DateParse -> DateParser DateParse
 dateParser d    = ( do
                     s <- fillTok                -- delTok <|> wordTok
-                    dateParser0 (appPre s d) 	  -- append Token to _pre
+                    dateParser0 (appPre s d)    -- append Token to _pre
                   )
                   <|>
                   parseDate d                   -- here is the hook for the real date parser
@@ -369,16 +432,16 @@ parseDay d      = ( do
                   )
                   <|>
                   ( do
-                    (s, d') <- parseDateTok "dateAlias" d
+                    (_, d') <- parseDateTok "dateAlias" d
                     return $ setDay (-1) (-1) (-1) d'
                   )
 
-parseYear       :: DateParse -> DateParser DateParse
-parseYear d     = ( do
-                    (s, d') <- parseDateTok "yyyy" d
-                    let [j] = tokenize num s
-                    return $ setDay (read j) (-1) (-1) d'
-                  )
+-- parseYear       :: DateParse -> DateParser DateParse
+-- parseYear d     = ( do
+--                     (s, d') <- parseDateTok "yyyy" d
+--                     let [j] = tokenize num s
+--                     return $ setDay (read j) (-1) (-1) d'
+--                   )
 
 -- parse a weekday and add it to the external rep.
 
@@ -440,11 +503,11 @@ lookAheadN n p d
 
 -- the interface to the primitive parsec token parser
 tok             :: (Token -> Bool) -> DateParser Token
-tok pred        = tokenPrim showTok nextPos testTok
+tok _pred       = tokenPrim showTok nextPos testTok
     where
       showTok               = show . fst
       nextPos pos _tok _ts  = incSourceColumn pos 1
-      testTok tok           = if pred tok then Just tok else Nothing
+      testTok _tok          = if _pred _tok then Just _tok else Nothing
 
 -- check for specific token type and in case of success return the text value
 isTokType       :: (String -> Bool) -> DateParser String
@@ -470,12 +533,12 @@ fillTok         :: DateParser String
 fillTok         = delTok <|> wordTok
 
 -- semester tokens, not yet interpreted
-semTok'         :: String -> DateParser (String, Int, Bool)
-semTok' sem     = do v <- isTokType (== sem)
-                     return (v, read . head . tokenizeExt year $ v, sem == "ssem")
+-- semTok'         :: String -> DateParser (String, Int, Bool)
+-- semTok' sem     = do v <- isTokType (== sem)
+--                   return (v, read . head . tokenizeExt year $ v, sem == "ssem")
 
-semTok          :: DateParser (String, Int, Bool)
-semTok          = semTok' "ssem" <|> semTok' "wsem"
+-- semTok          :: DateParser (String, Int, Bool)
+-- semTok          = semTok' "ssem" <|> semTok' "wsem"
 
 -- ------------------------------------------------------------
 
@@ -536,9 +599,9 @@ extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
 -- | 1) DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}} -> ("2003-07-10-**-**", "10.7.2003")
 -- | 2) DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}} -> ("****-**-**-**-**", "Heute")
 normalizeDate :: DateRep -> (String, String)
-normalizeDate d = (normalizedDateString, dateAlias)
+normalizeDate d = (normalizedDateString, _dateAlias)
   where
-    dateAlias = _r d
+    _dateAlias = _r d
     normalizedDateString =
       (digits 4 $ _year $ _d d) ++ "-" ++
       (digits 2 $ _month $ _d d) ++ "-" ++
@@ -598,16 +661,18 @@ prepareNormDateForCompare normDate = do
       return $ truncNormDate s
   where
     truncNormDate = reverse . truncNormDate' . reverse
-    truncNormDate' normDate@(x:xs)
+    truncNormDate' [] = []
+    truncNormDate' _normDate@(x:xs)
       | (x == '*' || x == '-') = truncNormDate' xs
-      | otherwise = normDate
+      | otherwise = _normDate
     fillNormDate d = do
       curr <- currentTimeStr
       return $ fillNormDate' d curr
+    fillNormDate' [] _ = []
     fillNormDate' _ [] = []
-    fillNormDate' normDate@(x:xs) (y:ys)
+    fillNormDate' _normDate@(x:xs) (y:ys)
       | (x == '*' || x == '-') = y:(fillNormDate' xs ys)
-      | otherwise = normDate
+      | otherwise = _normDate
     currentTimeStr = do
       today <- liftM utctDay getCurrentTime
       return (showGregorian today)
@@ -689,26 +754,25 @@ dateRep2stringWithTransformedDates dateRep = do
 -- | takes normalized Date-String (e.g. "****-**-03-12-**") and returns human readable
 -- | date representation (e.g. "März, 12 Uhr")
 unNormalizeDate :: String -> String
-unNormalizeDate = unNormalizeDate' . (split '-')
+unNormalizeDate = unNormalizeDate' . (_split '-')
   where
-    split delim [] = [""]
-    split delim (c:cs)
+    _split _ [] = [""]
+    _split delim (c:cs)
       | c == delim = "" : rest
       | otherwise = (c : head rest) : tail rest
       where
-        rest = split delim cs
+        rest = _split delim cs
     unNormalizeDate' parts =
-      ("" `maybeDay` ". ") ++ month ++ (" " `maybeYear` "") ++ (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
+      ("" `maybeDay` ". ") ++ _month ++ (" " `maybeYear` "") ++ (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
       where
         maybeYear = getIfNotEmpty 0 parts
-        month = monthNames !! ((strToInt 13 (parts !! 1)) - 1) -- month should always be part of a date expression
+        _month = monthNames !! ((strToInt 13 (parts !! 1)) - 1) -- month should always be part of a date expression
         maybeDay = getIfNotEmpty 2 parts
         maybeHours = getIfNotEmpty 3 parts
         maybeMins = getIfNotEmpty 4 parts
-        getIfNotEmpty index array pred succ
-          | (head elem /= '*') = pred ++ elem ++ succ
+        getIfNotEmpty index array _pred _succ
+          | (head _elem /= '*') = _pred ++ _elem ++ _succ
           | otherwise = ""
           where
-            elem = array !! index
+            _elem = array !! index
         monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
-
