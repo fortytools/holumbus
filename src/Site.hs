@@ -37,7 +37,6 @@ import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
 import Helpers
 
-import Monad (liftM)
 ------------------------------------------------------------------------------
 -- |
 -- | some constants
@@ -214,15 +213,15 @@ processquery = do
 -- | generates the HTML node to be inserted into "<result />"
 resultSplice :: Bool -> Int -> SearchResultDocs -> Splice Application
 resultSplice isDate pageNum searchResultDocs = do
-  let docHits = srDocHits searchResultDocs
-  let items = P.map (docHitToListItem isDate) (L.take hitsPerPage $ L.drop ((pageNum-1)*hitsPerPage) $ docHits)
+  let _docHits = srDocHits searchResultDocs
+  let items = P.map (docHitToListItem isDate) (L.take hitsPerPage $ L.drop ((pageNum-1)*hitsPerPage) $ _docHits)
   -- if P.null $ docHits
   --   then liftIO $ P.putStrLn "- keine Ergebnisse -"
   -- else do
-  --   liftIO $ P.putStrLn $ "<" ++ (show . (M.member "datesContext") . srContextMap . L.head $ docHits) ++ ">"
-  --   liftIO $ P.putStrLn $ "<" ++ (show $ P.length $ docHits) ++ ">"
+  --   liftIO $ P.putStrLn $ "<" ++ (show . (M.member "datesContext") . srContextMap . L.head $ _docHits) ++ ">"
+  --   liftIO $ P.putStrLn $ "<" ++ (show $ P.length $ _docHits) ++ ">"
   let infos = [docHitsMetaInfo searchResultDocs]
-  if P.null $ docHits
+  if P.null $ _docHits
      then return $ [examples]
      else return $ [htmlList "" (infos ++ items)]
 
@@ -238,7 +237,7 @@ oldQuerySplice = do
 pagerSplice :: String -> Int -> SearchResultDocs -> Splice Application
 pagerSplice query actPage searchResultDocs = do
   let resultCount =  L.length $ srDocHits searchResultDocs
-  let numberOfPages = min maxPages (ceiling $ (fromIntegral resultCount) / (fromIntegral hitsPerPage)) -- TODO: Defaulting the following constraint(s) to type `Double' arising from a use of `/' at src/Site.hs:225:63
+  let numberOfPages = min maxPages (ceiling $ (fromIntegral resultCount) / (fromIntegral hitsPerPage)) -- TODO: Defaulting the following constraint(s) to type `Double' arising from a use of `/'
   return $ L.map (mkPagerLink query actPage) [1..numberOfPages]
 
 ------------------------------------------------------------------------------
@@ -266,7 +265,7 @@ completions = do
 
 -- convert List to JSON-Array
 toJSONArray :: Int -> [SRWordHit] -> String
-toJSONArray n srwh = encodeStrict $ showJSONs (P.map (\ (SRWordHit w1 h1) -> w1 {- ++ " (" ++ (show h1) ++ ")" -} ) (L.take n srwh))
+toJSONArray n srwh = encodeStrict $ showJSONs (P.map (\ (SRWordHit w1 _) -> w1 {- ++ " (" ++ (show h1) ++ ")" -} ) (L.take n srwh))
 
 ------------------------------------------------------------------------------
 
