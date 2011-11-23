@@ -28,7 +28,7 @@ module PageInfo
 
 where
 import            Control.DeepSeq
-import            Control.Monad                  ( liftM4, liftM5 )
+import            Control.Monad                  ( liftM5 )
 import            Data.Binary                    ( Binary(..) )
 import qualified  Data.Binary                    as B
 import            Data.List                      ( isPrefixOf )
@@ -36,7 +36,6 @@ import            Holumbus.Crawler
 import            Text.XML.HXT.Core
 import            Extract
 import            Date as D
-import            Text.Regex.XMLSchema.String (tokenizeExt)
 import            Text.JSON
 import            Data.Maybe
 
@@ -44,8 +43,8 @@ import            Data.Maybe
 -- ------------------------------------------------------------
 -- | All parts of the page-info associated to an indexed website
 data PageInfo = PageInfo
-    { modified 	      :: String      -- ^ The last modified timestamp
-    , author  	      :: String      -- ^ The author
+    { modified        :: String      -- ^ The last modified timestamp
+    , author          :: String      -- ^ The author
     , contentContext  :: String      -- ^ The first few lines of the page contents
     , datesContext    :: String      -- ^ The dates
     , calenderContext :: String      -- ^ The dates
@@ -173,11 +172,11 @@ unwordsCont mx ws
 -- | normalized form (if recognized by date parser, see Date.hs)
 getModified :: LA XmlTree String
 getModified =
-  ( getAttrValue0 "http-last-modified"		-- HTTP header
+  ( getAttrValue0 "http-last-modified"          -- HTTP header
     `orElse`
     ( getMetaAttr "date" >>> isA (not . null) ) -- meta tag date (typo3)
     `orElse`
-    getAttrValue0 "http-date"                    -- HTTP server time and date
+    getAttrValue0 "http-date"                   -- HTTP server time and date
   )
   >>^
   normalizeDateModified
