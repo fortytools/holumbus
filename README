@@ -2,9 +2,10 @@
 
 1.1 Vorbereitungen
 
-Benötigte Pakete können über folgenden Befehl installiert werden:
+Benötigte Pakete können über folgende Befehle installiert werden:
 
-sudo apt-get install git libgl1-mesa-dev libglu1-mesa-dev libglut3-dev zlib1g-dev curl libcurl4-gnutls-dev libbz2-dev libgmp3-dev xpdf
+sudo apt-get install git libgl1-mesa-dev libglu1-mesa-dev libglut3-dev zlib1g-dev
+sudo apt-get install curl libcurl4-gnutls-dev libbz2-dev libgmp3-dev xpdf
 
 Auf dem System müssen GHC 7 und Haskell Platform installiert sein.
 
@@ -66,12 +67,14 @@ make whole
 
 2.2 Starten des Webservers
 
-Nachdem ein Index aufgebaut wurde, kann der Webserver im Hauptverzeichnis des Projekts durch folgenden Befehl auf Port 80 gestartet werden:
+Nachdem ein Index aufgebaut wurde, kann der Webserver im Hauptverzeichnis des Projekts durch folgenden Befehl
+auf Port 80 gestartet werden:
 
 w3wServer -p 80
 
 2.3 Cronjob einrichten
 
-Im Projektverzeichnis befindet sich das Shellskript installCronjob.sh, welches das Cronfile des Systems mit dem im Projektverzeichnis befindlichen cronfile überschreibt.
-Nach unserer Voreinstellung wird so ein Cronjob konfiguriert, der jede Nacht um 2 Uhr eine Aktualisierung des Indexes anstößt und
+Im Projektverzeichnis befindet sich das Shellskript installCronjob.sh, welches das Cronfile des Systems mit dem im 
+Projektverzeichnis befindlichen cronfile überschreibt. Nach unserer Voreinstellung wird so ein Cronjob konfiguriert,
+der jede Nacht um 2 Uhr eine Aktualisierung des Indexes anstößt und
 nach Beendigung des Vorgangs den Webserver neu startet.
