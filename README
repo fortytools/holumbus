@@ -52,7 +52,7 @@ Die Kompilation des Projekts erfolgt über den Befehl:
 
 sudo cabal install
 
-2 Benutzung des W3W-Projekts
+2. Benutzung des W3W-Projekts
 
 Nach der Installation befinden sich im ~/.cabal/bin Verzeichnis die Programme w3wIndexer und w3wServer.
 
