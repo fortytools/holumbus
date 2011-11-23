@@ -17,9 +17,7 @@ module Helpers
 where
 import List as L
 import qualified Data.Text as T
-import Text.XHtmlCombinators
 import qualified Text.XmlHtml as X
-import qualified Text.XHtmlCombinators.Attributes as A
 import Text.JSON
 
 
@@ -44,7 +42,7 @@ strToInt defaultValue str
 
 saveHead :: [a] -> a -> a
 saveHead [] x = x
-saveHead (x:xs) _   = x
+saveHead (x:_) _   = x
 
 ------------------------------------------------------------------------------
 -- | creates a HTML List-Item with css-class-attribute
@@ -171,7 +169,7 @@ htmlLink' cssClass href xNode =
 mkDateContexts :: String -> String -> [Int] -> DateContextType -> String -> [X.Node]
 mkDateContexts _ _ [] _ _ = []
 mkDateContexts _ "" _ _ _ = []
-mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct debugInfo =
+mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct _ =
   (map str2htmlListItem listOfMatchedContexts)
     where
       str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate dct linkUrl leftContext theDate rightContext
@@ -181,6 +179,7 @@ mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct debugInfo
           then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ map show listOfMatchedPositions) ++ ">", "")
           -- else ("contexts: ", (show stringOfDateContexts),
           --      " where list is: <" ++ (L.unwords $ map show listOfMatchedPositions) ++ ">"
+          -- last param must be "debugInfo to make this work"
           --      ++ " and dateContextMap is <" ++ debugInfo ++ ">")
           else showContexts dct
         where
