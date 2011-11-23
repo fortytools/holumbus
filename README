@@ -61,7 +61,9 @@ Nach der Installation befinden sich im ~/.cabal/bin Verzeichnis die Programme w3
 
 w3wIndexer kann mit dem Parameter --build-cache als Crawler (besuchen von FH-Seiten und Aufbau eines Caches)
 und mit --build-index als Indexer (Aufbau des Suchindex auf Basis des Caches) verwendet werden.
-Im Unterverzeichnis index gibt es ein Makefile, welches durch folgenden Befehl den Indexaufbau für die gesamte FH-Seite anstößt:
+
+Im Unterverzeichnis index gibt es ein Makefile, welches durch folgenden Befehl den Indexaufbau
+für die gesamte FH-Seite anstößt:
 
 make whole
 
