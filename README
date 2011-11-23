@@ -78,5 +78,5 @@ w3wServer -p 80
 
 Im Projektverzeichnis befindet sich das Shellskript installCronjob.sh, welches das Cronfile des Systems mit dem im 
 Projektverzeichnis befindlichen cronfile überschreibt. Nach unserer Voreinstellung wird so ein Cronjob konfiguriert,
-der jede Nacht um 2 Uhr eine Aktualisierung des Indexes anstößt und nach Beendigung des Vorgangs den Webserver
-neu startet.
+der jede Nacht um 2 Uhr eine Aktualisierung des Indexes anstößt und nach Beendigung des Vorgangs den Webserver neu
+startet. Der Cronjob protokolliert seine Arbeit in der Datei indexJob.log im log-Unterverzeichnis des Projekts.
