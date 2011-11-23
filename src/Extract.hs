@@ -21,7 +21,6 @@ where
 import            Data.Char.Properties.XMLCharProps
 import            Data.Char                            ( toLower )
 import            Data.List                            ( isPrefixOf )
-import            Data.Maybe
 import            Holumbus.Crawler
 import            Text.XML.HXT.Core
 import            Date
@@ -41,7 +40,7 @@ getHeadlines                    = fromLA     $
                                     )
                                   )
     where
-    isHname ('h':d:[])		= d `elem` "123456"
+    isHname ('h':d:[])          = d `elem` "123456"
     isHname _                   = False
 
 -- ----------------------------------------------------------------------------
@@ -277,7 +276,7 @@ isEgLayout                      = fromLA $
 
 isSiLayout                      :: ArrowXml a => a XmlTree XmlTree
 isSiLayout                      = fromLA $
-                                  ( getMetaAttr "keywords"			-- hack: ther should be a meta elem for author
+                                  ( getMetaAttr "keywords"          -- hack: there should be a meta elem for author
                                     >>>
                                     isA ("Uwe Schmidt" `isPrefixOf`)
                                   )
@@ -289,15 +288,15 @@ isSiLayout                      = fromLA $
 --
 -- ------------------------------------------------------------
 
-hasNameWithId			:: ArrowXml a => String -> String -> a XmlTree XmlTree
-hasNameWithId ename eid		= isElem
+hasNameWithId                   :: ArrowXml a => String -> String -> a XmlTree XmlTree
+hasNameWithId ename eid         = isElem
                             >>>
                             hasName ename
                             >>>
                             hasAttrValue "id" (== eid)
 
-hasDivWithId			:: ArrowXml a => String -> a XmlTree XmlTree
-hasDivWithId			= hasNameWithId "div"
+hasDivWithId                    :: ArrowXml a => String -> a XmlTree XmlTree
+hasDivWithId                    = hasNameWithId "div"
 
 getMeta                         :: ArrowXml a => a XmlTree XmlTree
 getMeta                         = getByPath ["html", "head", "meta"]
@@ -315,8 +314,8 @@ getMetaAttr key                 = getMeta
 
 -- all strings with length < 2 are boring
 -- and all strings not starting with a letter
-boringWord              	:: String -> Bool
-boringWord w            	= null w
+boringWord                      :: String -> Bool
+boringWord w                    = null w
                                   ||
                                   (null . tail $ w)
                                   ||
@@ -336,8 +335,8 @@ boringURIpart                   = ( `elem`
 --
 -- ------------------------------------------------------------
 
-deleteNotAllowedChars  		:: String -> String
-deleteNotAllowedChars   	= map notAllowedToSpace
+deleteNotAllowedChars           :: String -> String
+deleteNotAllowedChars           = map notAllowedToSpace
     where
     notAllowedToSpace c
         | isAllowedWordChar c   = c
@@ -352,7 +351,6 @@ isAllowedWordChar c = isXmlLetter c
 
 -- ------------------------------------------------------------
 -- | tokenize a uri string
-uri2Words			:: String -> [String]
-uri2Words			= tokenize "[^:/#?=.]+"
-
+uri2Words                       :: String -> [String]
+uri2Words                       = tokenize "[^:/#?=.]+"
 
