@@ -12,5 +12,5 @@ echo "Index size: "`du -s ./index | sed -e "s/\(^[^\t]*\)\t.*$/\1/"`" MB" >> log
 
 echo "Restarting webserver: "`date` >> log/indexJob.log
 sudo killall apache2
-sudo killall webserver
-sudo ../.cabal/bin/webserver -p 80 > log/out.log 2> log/err.log &
+sudo killall w3wServer
+sudo ../.cabal/bin/w3wServer -p 80 > log/out.log 2> log/err.log &
