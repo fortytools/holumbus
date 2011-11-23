@@ -35,7 +35,6 @@ import           Text.XML.HXT.HTTP()
 import           Text.XML.HXT.Curl
 
 import           Holumbus.Crawler.PdfToText
-import           qualified Text.XML.HXT.DOM.XmlNode as XN
 
 -- ------------------------------------------------------------
 preDocumentFilter :: IOSArrow XmlTree XmlTree
