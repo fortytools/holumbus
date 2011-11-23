@@ -1,27 +1,77 @@
 1. Installation
 
-Um das Projekt zu kompilieren, muss im Verzeichnis W3W der Befehl
-  cabal install
-  bzw.
-  sudo cabal install
-ausgeführt werden. Es werden die beiden ausführbaren Dateien
-  Main
-und
-  W3WIndexer
-erzeugt. Hierfür müssen, falls nicht vorhanden, einige Bibliotheken installiert werden (TODO: evtl. in neuer linux VM ausprobieren und dokumentieren?).
+1.1 Vorbereitungen
 
-W3WIndexer ist das Programm um 
-- die Webseiten der FH Wedel zu besuchen und die Inhalte in einem Cache zu speichern ("Crawler")
-- die Informationen der Webseiten (welche nun bereits im Cache gespeichert sind) zu indexieren ("Indexer").
+Benötigte Pakete können über folgenden Befehl installiert werden:
 
-1.1 Der Crawler
-Um den Crawler zu starten, muss W3WIndexer wie folgt aufgerufen werden:
-  W3WIndexer --build-cache
+sudo apt-get install git libgl1-mesa-dev libglu1-mesa-dev libglut3-dev zlib1g-dev curl libcurl4-gnutls-dev libbz2-dev libgmp3-dev xpdf
 
+Auf dem System müssen GHC 7 und Haskell Platform installiert sein.
 
-1.2 Der Indexer
-Um den Indexer zu starten, muss W3WIndexer wie folgt aufgerufen werden:
-  W3WIndexer --build-index
+Eine Möglichkeit hierzu sind die folgenden Befehle:
 
-1.3 Der Webserver
-...
+wget http://haskell.org/ghc/dist/7.0.3/ghc-7.0.3-i386-unknown-linux.tar.bz2
+tar xjf ghc-7.0.3-i386-unknown-linux.tar.bz2
+cd ghc-7.0.3/
+./configure
+sudo make install
+cd ..
+
+wget http://lambda.galois.com/hp-tmp/2011.2.0.1/haskell-platform-2011.2.0.1.tar.gz
+tar xzf haskell-platform-2011.2.0.1.tar.gz
+cd haskell-platform-2011.2.0.1/
+./configure
+make
+sudo make install
+cd ..
+cabal update
+echo 'PATH=$PATH:$HOME/.cabal/bin' >> ~/.bashrc
+
+1.2 Installation des Holumbus-Frameworks
+
+Das Projekt kann über folgenden Befehl als Read-Only-Version ausgecheckt werden:
+
+git clone git://github.com/fortytools/holumbus.git
+
+Im Unterverzeichnis Holumbus-Searchengine muss folgender Befehl zur Kompilation des Projekts ausgeführt werden:
+
+sudo cabal install
+
+1.3 Installation des W3W-Projekts
+
+Das Projekt kann über folgenden Befehl als Read-Only-Version ausgecheckt werden:
+
+git clone git://github.com/fhsearch/W3W.git
+
+Möchte man am Projekt weiterarbeiten, bekommt man mit folgendem Befehl eine RW-Version,
+hierzu muss jedoch der eigene SSH-Key im Projekt-Repository eingetragen sein:
+
+git clone git@github.com:fhsearch/W3W.git
+
+Die Kompilation des Projekts erfolgt über den Befehl:
+
+sudo cabal install
+
+2 Benutzung des W3W-Projekts
+
+Nach der Installation befinden sich im ~/.cabal/bin Verzeichnis die Programme w3wIndexer und w3wServer.
+
+2.1 Erstellung des Indexes
+
+w3wIndexer kann mit dem Parameter --build-cache als Crawler (besuchen von FH-Seiten und Aufbau eines Caches)
+und mit --build-index als Indexer (Aufbau des Suchindex auf Basis des Caches) verwendet werden.
+Im Unterverzeichnis index gibt es ein Makefile, welches durch folgenden Befehl den Indexaufbau für die gesamte FH-Seite anstößt:
+
+make whole
+
+2.2 Starten des Webservers
+
+Nachdem ein Index aufgebaut wurde, kann der Webserver im Hauptverzeichnis des Projekts durch folgenden Befehl auf Port 80 gestartet werden:
+
+w3wServer -p 80
+
+2.3 Cronjob einrichten
+
+Im Projektverzeichnis befindet sich das Shellskript installCronjob.sh, welches das Cronfile des Systems mit dem im Projektverzeichnis befindlichen cronfile überschreibt.
+Nach unserer Voreinstellung wird so ein Cronjob konfiguriert, der jede Nacht um 2 Uhr eine Aktualisierung des Indexes anstößt und
+nach Beendigung des Vorgangs den Webserver neu startet.
