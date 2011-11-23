@@ -128,4 +128,3 @@ htmlPaths                       :: String
 htmlPaths                       = filePath ++ htmlFiles
 
 -- ------------------------------------------------------------
-
