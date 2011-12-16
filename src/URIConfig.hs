@@ -31,6 +31,9 @@ fhwHome                         = "http://www.fh-wedel.de/"
 ptlHome                         :: String
 ptlHome                         = "http://www.ptl.de/"
 
+cgHome                          :: String
+cgHome                          = "http://cg.fh-wedel.de/"
+
 fhwURIs                         :: [URI] -> [URI]
 fhwURIs                         = map (fhwHome ++)
 
@@ -64,6 +67,10 @@ fhwRefs UCFullIndex             = simpleFollowRef'
                                             [ htmlPaths
                                             ]
                                   , ptlHome ++
+                                            alternatives
+                                            [ htmlPaths
+                                            ]
+                                  , cgHome ++
                                             alternatives
                                             [ htmlPaths
                                             ]
