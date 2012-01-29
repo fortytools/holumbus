@@ -47,6 +47,8 @@ import           Holumbus.Index.CompactSmallDocuments
                                                 ( SmallDocuments(..)
                                                 , docTable2smallDocTable
                                                 )
+import qualified Holumbus.Index.CompactSmallDocuments
+                                                as CSD
 
 import           Holumbus.Query.Result          ( Score )
 
@@ -100,6 +102,9 @@ removeDocIdsInverted            = PM.removeDocIdsInverted
 
 type CompactInverted            = PM.InvertedOSerialized
 
+emptyCompactInverted            :: CompactInverted
+emptyCompactInverted            = PM.emptyInvertedOSerialized
+
 inverted2compactInverted        :: Inverted -> CompactInverted
 inverted2compactInverted        = fromList PM.emptyInvertedOSerialized . toList
 
@@ -118,6 +123,8 @@ flushHayooState hs              = hs { ixs_index     = emptyInverted
                                      , ixs_documents = emptyDocuments
                                                        { lastDocId = lastDocId . ixs_documents $ hs }
                                      }
+emptySmallDocuments             :: SmallDocuments a
+emptySmallDocuments             = CSD.emptyDocuments
 
 -- ------------------------------------------------------------
 

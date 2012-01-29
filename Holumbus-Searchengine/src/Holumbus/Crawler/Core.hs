@@ -42,7 +42,8 @@ saveCrawlerState fn             = do preSave
                                      liftIO $ B.encodeFile  fn s
     where
       preSave                   = do  act <- getConf theSavePreAction
-                                      modifyStateIO theResultAccu (act fn)
+                                      act fn
+                                      -- modifyStateIO theResultAccu (act fn)
 
 loadCrawlerState                :: (Binary r) => FilePath -> CrawlerAction a r ()
 loadCrawlerState fn             = do
@@ -141,6 +142,7 @@ crawlerSaveState        = do
                                  let fn' = mkTmpFile 10 fn n1
                                  noticeC "crawlerSaveState" [show n1, "documents into", show fn']
                                  putState theNoOfDocsSaved n1
+                                 modifyState theListOfDocsSaved (n1 :)
                                  saveCrawlerState fn'
                                  noticeC "crawlerSaveState" ["saving state finished"]
                                )
@@ -191,11 +193,11 @@ crawlNextDocs mapf      = do
 
     where
     processCmd c s u    = do
-                          noticeC' "processCmd"     ["processing document:", show u]
+                          noticeC "processCmd"     ["processing document:", show u]
                           ((m1, n1, rawRes), _) <- runCrawler (processDoc' u) c s
                           r1 <- foldM (flip accOp) res0 rawRes
                           rnf r1 `seq` rnf m1 `seq` rnf r1 `seq`
-                              noticeC' "processCmd" ["document processed: ", show u]
+                              noticeC "processCmd" ["document processed: ", show u]
                           return (m1, n1, r1)
         where
         res0            = getS theResultInit   s
@@ -229,13 +231,13 @@ combineDocResults'      :: (NFData r) =>
                           (URIs, URIsWithLevel, r) -> IO (URIs, URIsWithLevel, r)
 combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
                         = do
-                          noticeC' "crawlNextDocs" ["combining results"]
+                          noticeC "crawlNextDocs" ["combining results"]
                           r   <- mergeOp r1 r2
                           m     <- return $ unionURIs m1 m2
                           n     <- return $ unionURIs' min n1 n2
                           res   <- return $ (m, n, r)
                           rnf res `seq`
-                              noticeC' "crawlNextDocs" ["results combined"]
+                              noticeC "crawlNextDocs" ["results combined"]
                           return res
 
 -- ------------------------------------------------------------

@@ -213,6 +213,10 @@ instance (HolIndex i) => HolIndexM IO i where
 -- ------------------------------------------------------------
 
 class HolDocuments d a where
+  -- | doctable empty?
+  nullDocs                      :: d a -> Bool
+  nullDocs                      = (== 0) . sizeDocs
+
   -- | Returns the number of unique documents in the table.
   sizeDocs      		:: d a -> Int
   
@@ -221,14 +225,17 @@ class HolDocuments d a where
 
   -- | Lookup the id of a document by an URI.
   lookupByURI   		:: Monad m => d a -> URI -> m DocId
-  
+
+{- old stuff, not in use, should not be done with a list, but with a function
+
   -- | Merge two document tables. The returned tuple contains a list of id's from the second
   -- table that were replaced with new id's to avoid collisions.
   mergeDocs     		:: d a -> d a -> ([(DocId, DocId)], d a)
+-- -}
 
   -- | Union of two disjoint document tables. It is assumed, that the DocIds and the document uris
   -- of both indexes are disjoint. If only the sets of uris are disjoint, the DocIds can be made
-  -- disjoint by adding maxDocId of one ar to the DocIds of the second, e.g. with editDocIds
+  -- disjoint by adding maxDocId of one to the DocIds of the second, e.g. with editDocIds
 
   unionDocs			:: d a -> d a -> d a
   unionDocs dt1			= foldDocIdMap addDoc dt1 . toMap

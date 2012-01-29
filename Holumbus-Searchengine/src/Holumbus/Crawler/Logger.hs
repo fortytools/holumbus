@@ -10,31 +10,20 @@ module Holumbus.Crawler.Logger
 
     , module System.Log.Logger
 
-    , logC'
     , logC
-
     , noticeC
     , infoC
     , debugC
     , warnC
     , errC
 
-    , noticeC'
-    , infoC'
-    , debugC'
-    , warnC'
-    , errC'
-
     , setLogLevel
-    , setLogLevel'
     )
 where
 
 import           Control.Monad.Trans
 
 import 		 Data.List		( isPrefixOf )
-
-import           Holumbus.Crawler.Types
 
 import           System.Log.Logger
 
@@ -50,14 +39,14 @@ hxtLoggerName			= "hxt"
 
 -- | Set trace level in config
 
-logC				:: String -> Priority -> [String] -> CrawlerAction c r ()
+logC				:: MonadIO m => String -> Priority -> [String] -> m ()
 logC logName' priority msg	= liftIO $ logC' logName' priority msg
 
 noticeC
   , infoC
   , debugC
   , warnC
-  , errC			:: String -> [String] -> CrawlerAction c r ()
+  , errC			:: MonadIO m => String -> [String] -> m ()
 
 noticeC n			= logC n NOTICE
 infoC   n			= logC n INFO
@@ -65,7 +54,7 @@ debugC  n       		= logC n DEBUG
 warnC   n			= logC n WARNING
 errC    n       		= logC n ERROR
 
-setLogLevel			:: String -> Priority -> CrawlerAction c r ()
+setLogLevel			:: MonadIO m => String -> Priority -> m ()
 setLogLevel  logName' priority	= liftIO $ setLogLevel' logName' priority
 
 setLogLevel'			:: String -> Priority -> IO ()
@@ -86,19 +75,6 @@ logC' logName' priority msg	= logM logName priority msg'
     msg'			= fillName 23 logName        ++ " " ++
                                   fillName 9 (show priority) ++ " " ++
                                   unwords msg
-
-noticeC'
-  , infoC'
-  , debugC'
-  , warnC'
-  , errC'			:: String -> [String] -> IO ()
-
-noticeC' n			= logC' n NOTICE
-infoC'   n			= logC' n INFO
-debugC'  n       		= logC' n DEBUG
-warnC'   n			= logC' n WARNING
-errC'    n       		= logC' n ERROR
-
 
 fillName			:: Int -> String -> String
 fillName n s			= s ++ replicate b ' '

@@ -2,12 +2,14 @@
 
 -- ------------------------------------------------------------
 
-module Main
+module Main (main)
 where
 
 import           Codec.Compression.BZip ( compress, decompress )
 
 import           Control.DeepSeq
+-- import           Control.Monad
+import           Control.Monad.Reader
 
 import qualified Data.Binary                    as B
 import           Data.Char
@@ -24,6 +26,7 @@ import           Hayoo.URIConfig
 import           Holumbus.Crawler
 import           Holumbus.Crawler.CacheCore
 import           Holumbus.Crawler.IndexerCore
+import           Holumbus.Index.Common
 
 import           System.Console.GetOpt
 import           System.Environment
@@ -37,6 +40,8 @@ import           Text.XML.HXT.Curl
 
 -- ------------------------------------------------------------
 
+-- type HayooIndexerCrawlerAction  = CrawlerAction HayooIndexerConfig HayooIndexerState
+{- old stuff
 hayooIndexer                    :: AppOpts -> IO HayooIndexerCrawlerState
 hayooIndexer o                  = stdIndexer
                                   config
@@ -63,32 +68,46 @@ hayooIndexer o                  = stdIndexer
                                   config0
 
     (ct, ht)                    = ao_crawlLog o
-    (si, sp)                    = ao_crawlSav o
+    si                    	= ao_crawlSav o
+    sp	                    	= ao_crawlSfn o
     (md, mp, mt)                = ao_crawlDoc o
     partA
         | ao_partix o           = writePartialIndex
-        | otherwise             = const $ return
+        | otherwise             = const $ return ()
 
-
+-- -}
 noHaddockPage                   :: IOSArrow XmlTree XmlTree
 noHaddockPage                   = fromLA $
                                   hasAttrValue transferURI (not . isHaddockURI) `guards` this
 
-writePartialIndex                :: FilePath -> HayooIndexerState -> IO HayooIndexerState
-writePartialIndex out ixs        = do let IndexerState { ixs_index     = ix
-                                                       , ixs_documents = dt
-                                                       } = ixs
-                                      writeDocTable dt
-                                      writeDocIx    ix
-                                      return $ flushHayooState ixs
-    where
-      writeDocTable             = B.encodeFile docFile . docTable2smallDocTable
-      writeDocIx                = B.encodeFile idxFile . inverted2compactInverted
-      docFile                   = out ++ ".doc"
-      idxFile                   = out ++ ".idx"
+writePartialIndex 		:: Bool -> FilePath -> CrawlerAction a HayooIndexerState ()
+writePartialIndex xout fn       = modifyStateIO
+                                  (theResultAccu .&&&. theResultInit)
+                                  (\ (r, _i) -> do r' <- writePartialIndex' xout fn r
+                                                   return (r', r')
+                                  )
+{- the above code is a bit tricky:
+   when crawling is done in parallel, then initial result is used as a unit value,
+   when merging results. When a partial index is written out, the document id count
+   must not be set back to its initial value, to avoid renumbering when merging then
+   partial indexes. As a consequence, not only the result accu must be changed
+   but also the initial value.
+
+   When this is not done, the indexer runs fine when using the sequential merge,
+   but when running the parallel one, the index ids will overlap.
+-}
+
+writePartialIndex'              :: Bool -> FilePath -> HayooIndexerState -> IO HayooIndexerState
+writePartialIndex' xout out ixs = do writeSearchBin'' out ixs
+                                     if xout
+                                        then writeXml'' (out ++ ".xml") ixs
+                                        else return ()
+                                     let ixs' = flushHayooState ixs
+                                     rnf ixs' `seq`
+                                         return ixs'
 
 -- ------------------------------------------------------------
-
+{- old stuff
 hayooPkgIndexer                 :: AppOpts -> IO HayooPkgIndexerCrawlerState
 hayooPkgIndexer o               = stdIndexer
                                   config
@@ -112,7 +131,8 @@ hayooPkgIndexer o               = stdIndexer
                                   config0
 
     (ct, ht)                    = ao_crawlLog o
-    (si, sp)                    = ao_crawlSav o
+    si                    	= ao_crawlSav o
+    sp                          = ao_crawlSfn o
     (md, mp, mt)                = ao_crawlDoc o
 
 -- ------------------------------------------------------------
@@ -132,20 +152,20 @@ removePackagesPkg               = removePackages getPkgNamePkg
 hayooCacher                     :: AppOpts -> IO CacheCrawlerState
 hayooCacher o                   = stdCacher
                                   (ao_crawlDoc o)
-                                  (ao_crawlSav o)
+                                  (ao_crawlSav o, ao_crawlSfn o)
                                   (ao_crawlLog o)
                                   (ao_crawlPar o)
                                   (ao_crawlCch o)
                                   (ao_resume o)
                                   hayooStart
                                   (hayooRefs True [])
-
+-- -}
 -- ------------------------------------------------------------
 
 hayooPackageUpdate              :: AppOpts -> [String] -> IO CacheCrawlerState
 hayooPackageUpdate o pkgs       = stdCacher
                                   (ao_crawlDoc o)
-                                  (ao_crawlSav o)
+                                  (ao_crawlSav o, ao_crawlSfn o)
                                   (ao_crawlLog o)
                                   (ao_crawlPar o)
                                   -- (setDocAge 1 (ao_crawlPar o))              -- cache validation initiated (1 sec valid) 
@@ -157,11 +177,12 @@ hayooPackageUpdate o pkgs       = stdCacher
 
 -- ------------------------------------------------------------
 
-data AppAction                  = BuildIx | UpdatePkg | RemovePkg | BuildCache
+data AppAction                  = BuildIx | UpdatePkg | RemovePkg | BuildCache | MergeIx
                                   deriving (Eq, Show)
 
 data AppOpts                    = AO
-                                  { ao_index    :: String
+                                  { ao_progname :: String
+                                  , ao_index    :: String
                                   , ao_ixout    :: String
                                   , ao_ixsearch :: String
                                   , ao_xml      :: String
@@ -177,7 +198,8 @@ data AppOpts                    = AO
                                   , ao_pkgRank  :: Bool
                                   , ao_msg      :: String
                                   , ao_crawlDoc :: (Int, Int, Int)
-                                  , ao_crawlSav :: (Int, String)
+                                  , ao_crawlSav :: Int
+                                  , ao_crawlSfn :: String
                                   , ao_crawlLog :: (Priority, Priority)
                                   , ao_crawlPar :: SysConfig
                                   , ao_crawlFct :: HayooIndexerConfig    -> HayooIndexerConfig
@@ -185,7 +207,7 @@ data AppOpts                    = AO
                                   , ao_crawlCch :: CacheCrawlerConfig    -> CacheCrawlerConfig
                                   }
 
-type SetAppOpt                  = AppOpts -> AppOpts
+-- old stuff type SetAppOpt                  = AppOpts -> AppOpts
 
 -- ------------------------------------------------------------
 
@@ -194,7 +216,8 @@ withCache' sec                  = withCache "./cache" sec yes
 
 initAppOpts                     :: AppOpts
 initAppOpts                     = AO
-                                  { ao_index    = ""
+                                  { ao_progname = "hayooIndexer"
+                                  , ao_index    = ""
                                   , ao_ixout    = ""
                                   , ao_ixsearch = ""
                                   , ao_xml      = ""
@@ -210,7 +233,8 @@ initAppOpts                     = AO
                                   , ao_pkgRank  = False
                                   , ao_msg      = ""
                                   , ao_crawlDoc = (25000, 1024, 1)                                      -- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
-                                  , ao_crawlSav = (1024, "./tmp/ix-")                                   -- save intervall and path
+                                  , ao_crawlSav = 5000                                   		-- save intervall
+                                  , ao_crawlSfn = "./tmp/ix-"						-- save path
                                   , ao_crawlLog = (DEBUG, NOTICE)                                       -- log cache and hxt
                                   , ao_crawlPar = withCache' (60 * 60 * 24 * 30)                        -- set cache dir, cache remains valid 1 month, 404 pages are cached
                                                   >>>
@@ -251,9 +275,9 @@ initAppOpts                     = AO
 
 
 -- ------------------------------------------------------------
-
-main                            :: IO ()
-main                            = do
+{- old stuff
+main'                            :: IO ()
+main'                            = do
                                   pn   <- getProgName
                                   args <- getArgs
                                   main1 pn args
@@ -268,7 +292,7 @@ main1 pn args
                                      then exitSuccess
                                      else exitFailure
     | otherwise                 = do
-                                  setLogLevel' "" (fst . ao_crawlLog $ appOpts)
+                                  setLogLevel "" (fst . ao_crawlLog $ appOpts)
                                   runX (  hxtSetTraceAndErrorLogger (snd . ao_crawlLog $ appOpts)
                                           >>>
                                           ( if ao_action appOpts == BuildCache
@@ -297,9 +321,11 @@ main1 pn args
 
     optDescr                    = [ Option "h?" ["help"]        (NoArg  $ \   x -> x { ao_help     = True })                            "usage info"
                                   , Option ""   ["fct-index"]   (NoArg  $ \   x -> x { ao_pkgIndex = False
-                                                                                     , ao_crawlSav = (500, "./tmp/ix-") })              "process index for haddock functions and types (default)"
+                                                                                     , ao_crawlSfn = "./tmp/ix-"
+                                                                                     }                                    )             "process index for haddock functions and types (default)"
                                   , Option ""   ["pkg-index"]   (NoArg  $ \   x -> x { ao_pkgIndex = True
-                                                                                     , ao_crawlSav = (500, "./tmp/pkg-") })             "process index for hackage package description pages"
+                                                                                     , ao_crawlSfn = "./tmp/pkg-"
+                                                                                     }                                     )            "process index for hackage package description pages"
                                   , Option ""   ["cache"]       (NoArg  $ \   x -> x { ao_action   = BuildCache })                      "update the cache"
 
                                   , Option "i"  ["index"]       (ReqArg ( \ f x -> x { ao_index    = f    })            "INDEX")        "index input file (binary format) to be operated on"
@@ -338,7 +364,15 @@ main1 pn args
                                   , Option ""   ["latest"]      (ReqArg ( setOption parseTime
                                                                           (\ x t -> x { ao_latest   = Just t })
                                                                         )                                               "DURATION")     "select latest packages newer than given time, format like in option \"valid\""
-                                  , Option ""   ["partition"]   (NoArg  $ \   x -> x { ao_partix    = True })                           "partition the index into smaller pieces and write the index part by part"
+                                  , Option ""   ["partition"]   (ReqArg ( setOption parseInt
+                                                                          (\ x i -> x { ao_partix    = True
+                                                                                      , ao_crawlSav  = i
+                                                                                      }
+                                                                          )
+                                                                        )                                               "NUMBER")       "partition the index into smaller pieces of given # of docs and write the index part by part"
+                                  , Option ""   ["save"]        (ReqArg ( setOption parseInt
+                                                                          (\ x i -> x { ao_crawlSav  = i })
+                                                                        )                                               "NUMBER")       "save intermediate results of index, default is 5000"
                                   , Option ""   ["defragment"]  (NoArg  $ \   x -> x { ao_defrag    = True })                           "defragment index after delete or update"
                                   , Option ""   ["hackage"]     (NoArg  $ \   x -> x { ao_getHack   = True })                           "when processing latest packages, first update the package list from hackage"
                                   , Option ""   ["ranking"]     (NoArg  $ \   x -> x { ao_pkgRank   = True })                           "when processing package index, compute package rank, default is no rank"
@@ -349,7 +383,7 @@ main1 pn args
                                                    , ao_help = True
                                                    }
                                          ) (f x) . parse $ s
-
+-- -}
 -- ------------------------------------------------------------
 
 parseInt                                :: String -> Either String Int
@@ -385,7 +419,7 @@ setDocAge                               :: Int -> SysConfig -> SysConfig
 setDocAge d                             = (>>> withCache' d)
 
 -- ------------------------------------------------------------
-
+{- old stuff
 mainHackage                     :: AppOpts -> IOSArrow b ()
 mainHackage opts                = action opts
                                   >>>
@@ -604,7 +638,11 @@ writeResults opts               = writeXml opts
 
 writeXml                        :: (XmlPickler a) =>
                                    AppOpts -> IOSArrow a a
-writeXml opts
+writeXml                        = writeXml' . ao_xml
+
+writeXml'                       :: (XmlPickler a) =>
+                                   String -> IOSArrow a a
+writeXml' xf
     | xmlOut                    = traceMsg 0 (unwords ["writing index into XML file", xmlFile])
                                   >>>
                                   perform (xpickleDocument xpickle [withIndent yes] xmlFile)
@@ -616,8 +654,6 @@ writeXml opts
         | null xf               = (False, xf)
         | xf == "-"             = (True,  "")
         | otherwise             = (True,  xf)
-        where
-        xf                      = ao_xml opts
 
 -- ------------------------------------------------------------
 
@@ -665,5 +701,516 @@ writeBin opts
         | otherwise             = oxf
         where
         oxf                     = ao_ixout opts
+-- -}
+-- ------------------------------------------------------------
+
+type HIO = ReaderT AppOpts IO
+
+main :: IO ()
+main
+    = do pn   <- getProgName
+         args <- getArgs
+         runReaderT main2 (evalOptions pn args)
+
+main2 :: HIO ()
+main2
+    = do (h, pn) <- asks (ao_help &&& ao_progname)
+         if h
+            then do msg <- asks ao_msg
+                    liftIO $ do hPutStrLn stderr (msg ++ "\n" ++ usageInfo pn hayooOptDescr)
+                                if null msg
+                                   then exitSuccess
+                                   else exitFailure
+            else do asks (snd . ao_crawlLog) >>= setLogLevel ""
+                    a <- asks ao_action
+                    case a of
+                      BuildCache -> mainCache'
+                      MergeIx    -> mainHaddock'
+                      _          -> do p <- asks ao_pkgIndex
+                                       if p
+                                          then mainHackage'
+                                          else mainHaddock'
+                    liftIO $ exitSuccess
+
+mainCache' :: HIO ()
+mainCache'
+    = do action
+    where
+      action
+          = asks ao_latest >>=
+            maybe action2 updatePackages
+      action2
+          = do pl <- asks ao_packages
+               case pl of
+                 [] -> action3
+                 _  -> updatePkg pl
+
+      action3
+          = do rs <- asks ao_resume
+               notice $ if isJust rs
+                        then ["resume cache update"]
+                        else ["cache hayoo pages"]
+               hayooCacher' >>= writeResults'
+
+      updatePackages latest
+          = do notice ["compute list of latest packages"]
+               (hk, cp) <- asks (ao_getHack &&& ao_crawlPar)
+               pl       <- liftIO $ getNewPackages hk latest
+               local (\ opts -> opts { ao_latest   = Nothing
+                                     , ao_crawlPar = setDocAge 1 cp    -- force cache update
+                                     }
+                     ) $ updatePkg pl
+
+      updatePkg []
+          = notice ["no packages to be updated"]
+      updatePkg ps
+          = do notice $ "updating cache with packages:" : ps
+               opts <- ask
+               res  <- liftIO $ hayooPackageUpdate opts ps
+               writeResults' res
+               notice $ "updating cache with latest packages done" : []
+
+mainHackage' :: HIO ()
+mainHackage'
+    = action
+    where
+      action
+          = do apl <- asks (ao_action &&& ao_packages)
+               case apl of
+                 (RemovePkg, [])
+                     -> noaction
+                 (RemovePkg, ps)
+                     -> removePkg ps >>= writeRes
+                 (UpdatePkg, [])
+                     -> noaction
+                 (UpdatePkg, ps)
+                     -> updatePkg ps >>= writeRes
+                 (_,         ps)
+                     -> do rs <- asks ao_resume
+                           if isJust rs
+                              then notice ["resume hackage package description indexing"]
+                              else return ()
+                           indexPkg ps >>= writeRes
+
+      removePkg :: [String] -> HIO HayooPkgIndexerState
+      removePkg ps
+          = do notice $ "removing packages from hackage package index:" : ps
+               res <- removePackagesPkg'
+               rnf res `seq`
+                   notice $ "packages removed from hackage package index : " : ps
+               return res
+
+      updatePkg :: [String] -> HIO (HayooState PackageInfo)
+      updatePkg ps
+          = do notice $ "updating packages from hackage package index:" : ps
+               newix <- local (\ opts -> opts { ao_action  = BuildIx
+                                              , ao_pkgRank = False
+                                              }
+                              ) (indexPkg ps)
+               oldix <- removePkg ps
+               mergePkg newix oldix
+
+      indexPkg :: [String] -> HIO (HayooState PackageInfo)
+      indexPkg ps
+          = do notice $ if null ps
+                          then ["indexing all packages from hackage package index"]
+                          else "indexing hackage package descriptions for packages:" : ps
+               (getS theResultAccu `fmap` hayooPkgIndexer') >>= rankPkg
+
+      rankPkg ix
+          = do rank <- asks ao_pkgRank
+               if rank
+                  then do notice ["computing package ranks"]
+                          let res = packageRanking ix
+                          rnf res `seq`
+                              notice ["package rank computation finished"]
+                          return res
+                  else do notice ["no package ranks computed"]
+                          return ix
+
+mainHaddock' :: HIO ()
+mainHaddock'
+    = do action
+    where
+      action
+          = do latest <- asks ao_latest
+               maybe action2 updateLatest latest
+      action2
+          = do apl <- asks (ao_action &&& ao_packages)
+               case apl of
+                 (RemovePkg, [])
+                     -> noaction
+                 (RemovePkg, ps)
+                     -> removePkg ps >>= writeRes
+                 (UpdatePkg, [])
+                     -> noaction
+                 (UpdatePkg, ps)
+                     -> updatePkg ps >>= writeRes
+                 (MergeIx, _)
+                     -> loadPartialIx >>= mergeAndWritePartialRes
+                 (_,         ps)
+                     -> do rs <- asks ao_resume
+                           if isJust rs
+                              then notice ["resume haddock document indexing"]
+                              else return ()
+                           indexPkg ps >>= writePartialRes
+      removePkg ps
+          = do notice $ "deleting packages" : ps ++ ["from haddock index"]
+               res <- removePackagesIx'
+               rnf res `seq`
+                   notice $ "packages " : ps ++ ["deleted from haddock index"]
+               return res
+
+      updatePkg :: [String] -> HIO (HayooState FunctionInfo)
+      updatePkg ps
+          = do notice $ "updating haddock index with packages:" : ps
+               newix <- local (\ opts -> opts { ao_action  = BuildIx
+                                              }
+                              ) (fst `fmap` indexPkg ps)
+               oldix <- removePkg ps
+               mergePkg newix oldix
+
+      loadPartialIx :: HIO [Int]
+      loadPartialIx
+          = local (\ o -> o { ao_action   = BuildIx
+                            , ao_packages = []
+                            }) (snd `fmap` indexPkg [])
+
+      indexPkg :: [String] -> HIO (HayooState FunctionInfo, [Int])
+      indexPkg ps
+          = do notice $ if null ps
+                          then ["indexing all haddock pages"]
+                          else "indexing haddock for packages:" : ps
+               (getS (theResultAccu .&&&. theListOfDocsSaved) `fmap` hayooIndexer')
+
+      updateLatest latest
+          = do notice ["reindex with latest packages"]
+               hk  <- asks ao_getHack
+               ps  <- liftIO $ getNewPackages hk latest
+               if null ps
+                  then notice ["no new packages to be indexed"]
+                  else do res <- local (\ o -> o { ao_latest = Nothing }
+                                       ) $ updatePkg ps
+                          notice ["reindex with latest packages finished"]
+                          writeRes res
+
+-- ------------------------------------------------------------
+
+noaction :: HIO ()
+noaction
+    = notice ["no packages to be processed"]
+
+-- ------------------------------------------------------------
+
+removePacks' :: (B.Binary di, NFData di) =>
+                   (Document di -> String) -> HIO (HayooState di)
+removePacks' getPkgName'
+    = do (ix, (pkg, dfg)) <- asks (ao_index &&& ao_packages &&& ao_defrag)
+         liftIO $ removePackages' getPkgName' ix pkg dfg
+
+removePackagesIx' ::HIO HayooIndexerState 
+removePackagesIx'
+    = removePacks' getPkgNameFct
+
+removePackagesPkg' :: HIO HayooPkgIndexerState 
+removePackagesPkg'
+    = removePacks' getPkgNamePkg
+
+-- ------------------------------------------------------------
+
+mergePkg :: (B.Binary a) => HayooState a -> HayooState a -> HIO (HayooState a)
+mergePkg nix oix
+    = do notice $ ["merging existing index with new packages"]
+         liftIO $ unionIndexerStatesM oix nix
+
+-- ------------------------------------------------------------
+
+writePartialRes :: (HayooState FunctionInfo, [Int]) -> HIO ()
+writePartialRes (x, ps)
+    = do part <- asks ao_partix
+         if part
+            then mergeAndWritePartialRes ps
+            else writeRes x
+
+mergeAndWritePartialRes :: [Int] -> HIO ()
+mergeAndWritePartialRes ps
+    = do pxs <- (\ fn -> map (mkTmpFile 10 fn) ps) `fmap` asks ao_crawlSfn
+         out <- asks ao_ixsearch
+         notice $ ["merge partial doctables from"] ++ pxs
+         mdocs <- mergeSmallDocs $ map (++ ".doc") pxs
+         notice $ ["write merged doctable to", out ++ ".doc"]
+         liftIO $ B.encodeFile (out ++ ".doc") mdocs
+         notice $ ["merge partial indexes from"] ++ pxs
+         mixs  <- mergeCompactIxs $ map (++ ".idx") pxs
+         notice $ ["write merged indexes to", out ++ ".idx"]
+         liftIO $ B.encodeFile (out ++ ".idx") mixs
+         notice $ ["merge partial doctables and indexes done"]
+
+mergeSmallDocs :: [String] -> HIO (SmallDocuments FunctionInfo)
+mergeSmallDocs []
+    = return emptySmallDocuments
+mergeSmallDocs (x : xs)
+    = do docs <- mergeSmallDocs xs
+         notice ["merge small documents from file", x]
+         doc1 <- liftIO $ B.decodeFile x
+         rnf doc1 `seq`
+                 (return $ unionDocs docs doc1)
+
+mergeCompactIxs :: [String] -> HIO CompactInverted
+mergeCompactIxs []
+    = return emptyCompactInverted
+mergeCompactIxs (x : xs)
+    = do ixs <- mergeCompactIxs xs
+         notice ["merge compact index from file", x]
+         ix1 <- liftIO $ B.decodeFile x
+         rnf ix1 `seq`
+                 (return $ mergeIndexes ix1 ixs)
+
+-- ------------------------------------------------------------
+
+writeRes :: (XmlPickler a, B.Binary a) => HayooState a -> HIO ()
+writeRes x
+    = writeSearchBin' x >> writeResults' x
+
+writeResults' :: (XmlPickler a, B.Binary a) => a -> HIO ()
+writeResults' v
+    = do (xf, of') <- asks (ao_xml &&& (ao_ixout &&& ao_index))
+         writeXml'' xf  v
+         writeBin'' (out of') v
+    where
+      out (bf, bi)
+          | null bf     = bi
+          | otherwise	= bf
+      
+writeXml'' :: (MonadIO m, XmlPickler a) => FilePath -> a -> m ()
+writeXml'' xf v
+    | xmlOut
+        = do notice ["writing into XML file", xmlFile]
+             liftIO $ runX (constA v
+                            >>> hxtSetTraceAndErrorLogger WARNING
+                            >>> xpickleDocument xpickle [withIndent yes] xmlFile
+                           )
+                        >> return ()
+             notice ["writing XML finished"]
+    | otherwise
+        = notice ["no XML output"]
+    where
+    (xmlOut, xmlFile)
+        | null xf               = (False, xf)
+        | xf == "-"             = (True,  "")
+        | otherwise             = (True,  xf)
+
+writeBin'' :: (MonadIO m, B.Binary a) => FilePath -> a -> m ()
+writeBin'' out v
+    | null out
+        = notice ["no binary output"]
+    | otherwise
+        = do notice ["writing into binary file", out]
+             liftIO $ B.encodeFile out v
+             notice ["writing binary data finished"]
+
+writeSearchBin' :: (B.Binary a) => (HayooState a) -> HIO ()
+writeSearchBin' state
+    = do out <- asks ao_ixsearch
+         writeSearchBin'' out state
+
+writeSearchBin'' :: (MonadIO m, B.Binary a) => FilePath -> (HayooState a) -> m ()
+writeSearchBin'' out state
+    | null out
+        = notice ["no search index written"]
+    | otherwise
+        = do notice ["writing small document table into binary file", docFile]
+             liftIO $ B.encodeFile docFile (docTable2smallDocTable . ixs_documents $ state)
+             notice ["writing compressed inverted index into binary file", idxFile]
+             liftIO $ B.encodeFile idxFile (inverted2compactInverted . ixs_index $ state)
+             notice ["writing search index files finished"]
+    where
+      docFile = out ++ ".doc"
+      idxFile = out ++ ".idx"
+
+-- ------------------------------------------------------------
+
+hayooCacher' :: HIO CacheCrawlerState
+hayooCacher'
+    = do o <- ask
+         liftIO $ stdCacher
+                    (ao_crawlDoc o)
+                    (ao_crawlSav o, ao_crawlSfn o)
+                    (ao_crawlLog o)
+                    (ao_crawlPar o)
+                    (ao_crawlCch o)
+                    (ao_resume o)
+                    hayooStart
+                    (hayooRefs True [])
+
+-- ------------------------------------------------------------
+
+hayooPkgIndexer' :: HIO HayooPkgIndexerCrawlerState
+hayooPkgIndexer'
+    = do o <- ask
+         liftIO $ stdIndexer
+                    (config o)
+                    (ao_resume o)
+                    hackageStart
+                    emptyHayooState
+    where
+    config0 o
+        = indexCrawlerConfig
+          (ao_crawlPar o)
+          (hayooRefs False $ ao_packages o)
+          Nothing
+          (Just $ checkDocumentStatus >>> preparePkg)
+          (Just $ hayooGetPkgTitle)
+          (Just $ hayooGetPkgInfo)
+          hayooPkgIndexContextConfig
+
+    config o
+        = ao_crawlPkg o $
+          setCrawlerTraceLevel ct ht   $
+          setCrawlerSaveConf si sp     $
+          setCrawlerMaxDocs md mp mt   $
+          config0                      $ o
+        where
+          (ct, ht)	= ao_crawlLog o
+          si          	= ao_crawlSav o
+          sp            = ao_crawlSfn o
+          (md, mp, mt)  = ao_crawlDoc o
+
+-- ------------------------------------------------------------
+
+hayooIndexer' :: HIO HayooIndexerCrawlerState
+hayooIndexer'
+    = do o <- ask
+         liftIO $ stdIndexer
+                    (config o)
+                    (ao_resume o)
+                    hayooStart
+                    emptyHayooState
+    where
+    config0 o
+        = indexCrawlerConfig
+          (ao_crawlPar o)
+          (hayooRefs True $ ao_packages o)
+          Nothing
+          (Just $ checkDocumentStatus >>> prepareHaddock)
+          (Just $ hayooGetTitle)
+          (Just $ hayooGetFctInfo)
+          hayooIndexContextConfig
+
+    config o
+        = ao_crawlFct o $
+          setCrawlerTraceLevel ct ht $
+          setCrawlerSaveConf si sp   $
+          setCrawlerSaveAction partA $
+          setCrawlerMaxDocs md mp mt $
+                                  -- haddock pages don't need to be scanned for new URIs
+          setCrawlerPreRefsFilter noHaddockPage $
+          config0                    $ o
+        where
+          xout              = ao_xml      o
+          (ct, ht)          = ao_crawlLog o
+          si                = ao_crawlSav o
+          sp	            = ao_crawlSfn o
+          (md, mp, mt)      = ao_crawlDoc o
+          partA
+              | ao_partix o = writePartialIndex (not . null $ xout)
+              | otherwise   = const $ return ()
+
+-- ------------------------------------------------------------
+
+notice :: MonadIO m => [String] -> m ()
+notice = noticeC "hayoo"
+
+-- ------------------------------------------------------------
+
+evalOptions :: String -> [String] -> AppOpts
+evalOptions pn args
+    = foldl (.) (ef1 . ef2) opts $ initAppOpts { ao_progname = pn }
+    where
+    (opts, ns, es)              = getOpt Permute hayooOptDescr args
+    ef1
+        | null es               = id
+        | otherwise             = \ x -> x { ao_help   = True
+                                           , ao_msg = concat es
+                                           }
+        | otherwise             = id
+    ef2
+        | null ns               = id
+        | otherwise             = \ x -> x { ao_help   = True
+                                           , ao_msg = "wrong program arguments: " ++ unwords ns
+                                           }
+
+hayooOptDescr :: [OptDescr (AppOpts -> AppOpts)]
+hayooOptDescr
+        = [ Option "h?" ["help"]        (NoArg  $ \   x -> x { ao_help     = True })                            "usage info"
+          , Option ""   ["fct-index"]   (NoArg  $ \   x -> x { ao_pkgIndex = False
+                                                             , ao_crawlSfn = "./tmp/ix-"
+                                                             }                                    )             "process index for haddock functions and types (default)"
+          , Option ""   ["pkg-index"]   (NoArg  $ \   x -> x { ao_pkgIndex = True
+                                                             , ao_crawlSfn = "./tmp/pkg-"
+                                                             }                                     )            "process index for hackage package description pages"
+          , Option ""   ["cache"]       (NoArg  $ \   x -> x { ao_action   = BuildCache })                      "update the cache"
+                   
+          , Option "i"  ["index"]       (ReqArg ( \ f x -> x { ao_index    = f    })            "INDEX")        "index input file (binary format) to be operated on"
+          , Option "n"  ["new-index"]   (ReqArg ( \ f x -> x { ao_ixout    = f    })            "NEW-INDEX")    "new index file (binary format) to be generatet, default is index file"
+          , Option "s"  ["new-search"]  (ReqArg ( \ f x -> x { ao_ixsearch = f    })            "SEARCH-INDEX") "new search index files (binary format) ready to be used by Hayoo! search"
+          , Option "x"  ["xml-output"]  (ReqArg ( \ f x -> x { ao_xml      = f    })            "XML-FILE")     "output of final crawler state in xml format, \"-\" for stdout"
+          , Option "r"  ["resume"]      (ReqArg ( \ s x -> x { ao_resume   = Just s})           "FILE")         "resume program with file containing saved intermediate state"
+                   
+          , Option "p"  ["packages"]    (ReqArg ( \ l x -> x { ao_packages = pkgList l })       "PACKAGE-LIST") "packages to be processed, a comma separated list of package names"
+          , Option "u"  ["update"]      (NoArg  $ \   x -> x { ao_action   = UpdatePkg })                       "update packages specified by \"packages\" option"
+          , Option "d"  ["delete"]      (NoArg  $ \   x -> x { ao_action   = RemovePkg })                       "delete packages specified by \"packages\" option"
+          , Option ""   ["maxdocs"]     (ReqArg ( setOption parseInt
+                                                  (\ x i -> x { ao_crawlDoc = setMaxDocs i $
+                                                                              ao_crawlDoc x
+                                                              }
+                                                  )
+                                                )                                               "NUMBER")       "maximum # of docs to be processed"
+          , Option ""   ["maxthreads"]  (ReqArg ( setOption parseInt
+                                                  (\ x i -> x { ao_crawlDoc = setMaxThreads i $
+                                                                              ao_crawlDoc x
+                                                              }
+                                                  )
+                                                )                                               "NUMBER")       "maximum # of parallel threads, 0: sequential, 1: single thread with binary merge, else real parallel threads, default: 1"
+          , Option ""   ["maxpar"]      (ReqArg ( setOption parseInt
+                                                  (\ x i -> x { ao_crawlDoc = setMaxParDocs i $
+                                                                ao_crawlDoc x
+                                                              }
+                                                  )
+                                                )                                               "NUMBER")       "maximum # of docs indexed at once before the results are inserted into index, default: 1024"
+          , Option ""   ["valid"]       (ReqArg ( setOption parseTime
+                                                  (\ x t -> x { ao_crawlPar = setDocAge t $
+                                                                ao_crawlPar x
+                                                              }
+                                                  )
+                                                )                                               "DURATION")     "validate cache for pages older than given time, format: 10sec, 5min, 20hours, 3days, 5weeks, 1month, default is 1month"
+          , Option ""   ["latest"]      (ReqArg ( setOption parseTime
+                                                  (\ x t -> x { ao_latest   = Just t })
+                                                )                                               "DURATION")     "select latest packages newer than given time, format like in option \"valid\""
+          , Option ""   ["partition"]   (ReqArg ( setOption parseInt
+                                                  (\ x i -> x { ao_partix    = True
+                                                              , ao_crawlSav  = i
+                                                              }
+                                                  )
+                                                )                                               "NUMBER")       "partition the index into smaller chunks of given # of docs and write the index part by part"
+          , Option ""   ["merge"]       (ReqArg ( \ s x -> x { ao_action     = MergeIx
+                                                             , ao_resume     = Just s})           "FILE")         "merge chunks into final index, resume with latest crawler state"
+          , Option ""   ["save"]        (ReqArg ( setOption parseInt
+                                                  (\ x i -> x { ao_crawlSav  = i })
+                                                )                                               "NUMBER")       "save intermediate results of index, default is 5000"
+          , Option ""   ["defragment"]  (NoArg  $ \   x -> x { ao_defrag    = True })                           "defragment index after delete or update"
+          , Option ""   ["hackage"]     (NoArg  $ \   x -> x { ao_getHack   = True })                           "when processing latest packages, first update the package list from hackage"
+          , Option ""   ["ranking"]     (NoArg  $ \   x -> x { ao_pkgRank   = True })                           "when processing package index, compute package rank, default is no rank"
+                   
+          ]
+    where
+    pkgList
+        = words . map (\ x -> if x == ',' then ' ' else x)
+
+    setOption parse f s x
+        = either (\ e -> x { ao_msg  = e
+                           , ao_help = True
+                           }
+                 ) (f x) . parse $ s
 
 -- ------------------------------------------------------------

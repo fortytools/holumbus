@@ -24,7 +24,7 @@ where
 
 import           Control.DeepSeq
 import           Control.Monad                  ( foldM )
-import           Control.Monad.Trans            ( MonadIO )
+import           Control.Monad.Trans            -- ( MonadIO )
 
 import           Data.Binary                    ( Binary )
 import qualified Data.Binary                    as B
@@ -250,9 +250,10 @@ insertRawDocM                   :: ( MonadIO m
 insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
     | nullContexts              = return ixs    -- no words found in document,
                                                 -- so there are no refs in index
-                                                -- and doument is thrown away
+                                                -- and document is thrown away
     | otherwise                 = do
                                   newIx  <- foldM (insertRawContextM did) (ixs_index ixs) $ rawContexts
+                                  -- liftIO $ putStrLn("insertDoc: new docid: " ++ show did)	-- debug
                                   newIxs <- return $
                                             IndexerState { ixs_index        = newIx
                                                          , ixs_documents    = newDocs

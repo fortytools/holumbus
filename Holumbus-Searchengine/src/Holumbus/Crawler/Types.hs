@@ -52,7 +52,7 @@ type ProcessDocument	 a	= IOSArrow XmlTree a
 
 -- | The crawler action monad
 
-type CrawlerAction a r x	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r) x
+type CrawlerAction a r  	= ReaderStateIO (CrawlerConfig a r) (CrawlerState r)
 
 -- | The crawler configuration record
 
@@ -72,7 +72,7 @@ data CrawlerConfig a r		= CrawlerConfig
 				  , cc_maxParThreads	:: ! Int
 				  , cc_saveIntervall	:: ! Int
 				  , cc_savePathPrefix	:: ! String
-                                  , cc_savePreAction    :: SavePartialResults r
+                                  , cc_savePreAction    :: FilePath -> CrawlerAction a r () -- SavePartialResults r
 				  , cc_traceLevel	:: ! Priority
                                   , cc_traceLevelHxt	:: ! Priority
 				  }
@@ -85,6 +85,7 @@ data CrawlerState r		= CrawlerState
 				  , cs_robots		:: ! Robots				-- is part of the state, it will grow during crawling
 				  , cs_noOfDocs		:: ! Int				-- stop crawling when this counter reaches 0, (-1) means unlimited # of docs
                                   , cs_noOfDocsSaved    :: ! Int
+                                  , cs_listOfDocsSaved  :: ! [Int]
 				  , cs_resultAccu       :: ! r					-- evaluate accumulated result, else memory leaks show up
                                   , cs_resultInit	:: ! r					-- the initial value for folding results
 				  }
@@ -96,20 +97,23 @@ instance (NFData r) => NFData (CrawlerState r) where
                    , cs_robots           = c
                    , cs_noOfDocs         = d
                    , cs_noOfDocsSaved    = e
-                   , cs_resultAccu       = f
-                   , cs_resultInit	 = g
-                   }		= rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq` rnf e `seq` rnf f `seq` rnf g
+                   , cs_listOfDocsSaved  = f
+                   , cs_resultAccu       = g
+                   , cs_resultInit	 = h
+                   }		= rnf a `seq` rnf b `seq` rnf c `seq` rnf d `seq`
+                                  rnf e `seq` rnf f `seq` rnf g `seq` rnf h
 
 instance (XmlPickler r) => XmlPickler (CrawlerState r) where
   xpickle		= xpElem "crawler-state" $
-                          xpWrap ( \ ((d, e), (a, b, c, f, g)) -> CrawlerState a b c d e f g
-                                 , \ (CrawlerState a b c d e f g) -> ( (d, e)
-                                                                     , (a, b, c, f, g)
-                                                                     )
+                          xpWrap ( \ ((d, e, f), (a, b, c, g, h)) -> CrawlerState a b c d e f g h
+                                 , \ (CrawlerState a b c d e f g h) -> ( (d, e, f)
+                                                                       , (a, b, c, g, h)
+                                                                       )
                                  ) $
-                          xpPair ( xpPair
+                          xpPair ( xpTriple
                                    ( xpAttr "no-of-docs"       xpPrim )
                                    ( xpAttr "no-of-docs-saved" xpPrim )
+                                   ( xpAttr "list-of-docs-saved" $ xpList $ xpElem "saved-at" $ xpPrim )
                                  )
                                  ( xp5Tuple
                                    ( xpElem "to-be-processed" $
@@ -157,6 +161,9 @@ theNoOfDocs		= S cs_noOfDocs		(\ x s -> s {cs_noOfDocs = x})
 theNoOfDocsSaved	:: Selector (CrawlerState r) Int
 theNoOfDocsSaved	= S cs_noOfDocsSaved	(\ x s -> s {cs_noOfDocsSaved = x})
 
+theListOfDocsSaved	:: Selector (CrawlerState r) [Int]
+theListOfDocsSaved	= S cs_listOfDocsSaved	(\ x s -> s {cs_listOfDocsSaved = x})
+
 theResultAccu		:: Selector (CrawlerState r) r
 theResultAccu		= S cs_resultAccu	(\ x s -> s {cs_resultAccu = x})
 
@@ -192,7 +199,7 @@ theSaveIntervall	= S cc_saveIntervall	(\ x s -> s {cc_saveIntervall = x})
 theSavePathPrefix	:: Selector (CrawlerConfig a r) String
 theSavePathPrefix	= S cc_savePathPrefix	(\ x s -> s {cc_savePathPrefix = x})
 
-theSavePreAction	:: Selector (CrawlerConfig a r) (SavePartialResults r)
+theSavePreAction	:: Selector (CrawlerConfig a r) (FilePath -> CrawlerAction a r ()) -- (SavePartialResults r)
 theSavePreAction	= S cc_savePreAction	(\ x s -> s {cc_savePreAction = x})
 
 theFollowRef		:: Selector (CrawlerConfig a r) (URI -> Bool)
@@ -241,7 +248,7 @@ defaultCrawlerConfig op	op2
 			  , cc_addRobotsTxt	= const $ const return				-- do not add robots.txt evaluation
 			  , cc_saveIntervall	= (-1)						-- never save an itermediate state
 			  , cc_savePathPrefix	= "/tmp/hc-"					-- the prefix for filenames into which intermediate states are saved
-                          , cc_savePreAction    = const $ return                                -- no action before saving state
+                          , cc_savePreAction    = const $ return ()                            	-- no action before saving state
                           , cc_clickLevel       = maxBound                                      -- click level set to infinity
 			  , cc_maxNoOfDocs	= (-1)						-- maximum # of docs to be crawled, -1 means unlimited
                           , cc_maxParDocs	= 20						-- maximum # of doc crawled in parallel
@@ -312,7 +319,8 @@ setCrawlerSaveConf i f	= setS theSaveIntervall i
 
 -- | Set action performed before saving crawler state
 
-setCrawlerSaveAction	:: (FilePath -> r -> IO r) -> CrawlerConfig a r -> CrawlerConfig a r
+-- setCrawlerSaveAction	:: (FilePath -> r -> IO r) -> CrawlerConfig a r -> CrawlerConfig a r
+setCrawlerSaveAction	:: (FilePath -> CrawlerAction a r ()) -> CrawlerConfig a r -> CrawlerConfig a r
 setCrawlerSaveAction f	= setS theSavePreAction f
 
 -- | Set max # of steps (clicks) to reach a document
@@ -347,6 +355,7 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  B.put (getS theRobots s)
 			  B.put (getS theNoOfDocs s)
 			  B.put (getS theNoOfDocsSaved s)
+			  B.put (getS theListOfDocsSaved s)
 			  B.put (getS theResultAccu s)
 			  B.put (getS theResultInit s)
     get			= do
@@ -355,6 +364,7 @@ instance (Binary r) => Binary (CrawlerState r) where
 			  rbt <- B.get
 			  mxd <- B.get
                           mxs <- B.get
+                          lsd <- B.get
 			  acc <- B.get
                           ini <- B.get
 			  return $ CrawlerState
@@ -363,6 +373,7 @@ instance (Binary r) => Binary (CrawlerState r) where
 				   , cs_robots           = rbt
 				   , cs_noOfDocs         = mxd
                                    , cs_noOfDocsSaved    = mxs
+                                   , cs_listOfDocsSaved  = lsd
 				   , cs_resultAccu       = acc
 				   , cs_resultInit       = ini
 				   }
@@ -380,6 +391,7 @@ initCrawlerState r	= CrawlerState
 			  , cs_robots		= emptyRobots
 			  , cs_noOfDocs		= 0
                           , cs_noOfDocsSaved    = 0
+                          , cs_listOfDocsSaved  = []
 			  , cs_resultAccu	= r
 			  , cs_resultInit	= r
 			  }

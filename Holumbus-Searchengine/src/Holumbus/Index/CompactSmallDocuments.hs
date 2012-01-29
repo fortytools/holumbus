@@ -92,7 +92,11 @@ instance Binary a => HolDocuments SmallDocuments a where
 
   -- this is a sufficient test, but if the doc ids don't form an intervall
   -- it may be too strict
-  disjointDocs dt1 dt2          = disjoint ( minKeyDocIdMap . idToSmallDoc $ dt1
+  disjointDocs dt1 dt2
+      | nullDocs dt1
+        ||
+        nullDocs dt2            = True
+      | otherwise               = disjoint ( minKeyDocIdMap . idToSmallDoc $ dt1
                                            , maxKeyDocIdMap . idToSmallDoc $ dt1
                                            )
                                            ( minKeyDocIdMap . idToSmallDoc $ dt2
@@ -107,13 +111,22 @@ instance Binary a => HolDocuments SmallDocuments a where
       | disjointDocs dt1 dt2	= SmallDocuments
                                   { idToSmallDoc = unionDocIdMap (idToSmallDoc dt1) (idToSmallDoc dt2)
                                   }
-      | otherwise               = error "unionDocs: doctables are not disjoint"
+      | otherwise               = error $
+                                  "unionDocs: doctables are not disjoint: " ++
+                                  show (didIntervall dt1) ++ ", " ++ show (didIntervall dt2)
+      where
+{-
+       didIntervall dt          = keysDocIdMap . idToSmallDoc $ dt
+-- -}
+       didIntervall dt          = ( minKeyDocIdMap . idToSmallDoc $ dt
+                                  , maxKeyDocIdMap . idToSmallDoc $ dt
+                                  )
 
   editDocIds f d		= SmallDocuments
                                   { idToSmallDoc = newIdToDoc
                                   }
-    where
-    newIdToDoc			= foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap
+      where
+        newIdToDoc		= foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap
                                   $ idToSmallDoc d
 
   fromMap 			= SmallDocuments . CD.toDocMap
@@ -123,7 +136,6 @@ instance Binary a => HolDocuments SmallDocuments a where
   -- the others are not needed when merging or searching the doc indexes
 
   lookupByURI	 		= notImpl
-  mergeDocs	 		= notImpl
 
   insertDoc	 		= notImpl
   updateDoc	 		= notImpl

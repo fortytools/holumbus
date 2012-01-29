@@ -188,7 +188,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                                              <+>
                                                              processMethods
                                                            )
-                                      , isFunctionDecl :-> processFunctionDecl
+                                      , isFunctionDecl :-> processFunctionDiv
                                       , this           :-> none
                                       ]
 
@@ -212,12 +212,44 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
 
     isTDecl p                   = first_p_src                                   -- check the first p element found
                                   >>>
-                                  firstChildWithClass "span" "keyword"                          -- check the first keyword found
+                                  firstChildWithClass "span" "keyword"          -- check the first keyword found
                                   />
                                   hasText p
 
-    processFunctionDecl         = this += sattr "type" "function"
+    processFunctionDiv         = (mkSingleDiv $< splitMultiDiv)
+                                 += sattr "type" "function"
+        where
+          mkSingleDiv ts        = replaceChildren (constL ts)
+          splitMultiDiv         = listA getChildren
+                                  >>> arr (head &&& tail)
+                                  >>> first processFunctionSig
+                                  >>> arr (uncurry (:))
 
+    processFunctionSig          = mkSingleFct $< splitMultiFct
+        where
+          mkSingleFct ts        = replaceChildren (constL ts)
+          splitMultiFct         = listA getChildren
+                                  >>> spanA (neg $ hasText ((== "::") . stringTrim))
+                                  >>> first ( unlistA
+                                              >>> aWithClass (== "def")
+                                              >>> hasAttr "name"
+                                            ) 
+                                  >>> arr (uncurry (:))
+{- old stuff
+    processFunctionDecl         = substChild $< ( getChildren >>> (mkSingleFct $< splitMultiFct) )
+                                  += sattr "type" "function"
+
+        where
+          substChild t          = replaceChildren (constA t)
+          mkSingleFct ts        = replaceChildren (constL ts)
+          splitMultiFct         = listA getChildren
+                                  >>> spanA (hasText ((/= "::") . stringTrim) <+> isElem)
+                                  >>> first ( unlistA
+                                              >>> aWithClass (== "def")
+                                              >>> hasAttr "name"
+                                            ) 
+                                  >>> arr (uncurry (:))
+-- -}
     processTypeDecl             = this +=  attr "type" theType
 
     processConstructors srcLnk  = this
@@ -786,3 +818,64 @@ mkModuleDecl                    :: LA b XmlTree -> LA b XmlTree -> LA b XmlTree
 mkModuleDecl                    = mkDecl1 "module"
 
 -- ------------------------------------------------------------
+
+{- tests for splitting function signatures for a list of functions
+
+processFunctionSig          :: LA XmlTree XmlTree
+processFunctionSig          = mkSingleFct $< splitMultiFct
+    where
+      mkSingleFct ts        = replaceChildren (constL ts)
+      splitMultiFct         = listA getChildren
+                              >>> spanA (neg $ hasText ((== "::") . stringTrim))
+                              >>> first ( unlistA
+                                          >>> aWithClass (== "def")
+                                          >>> hasAttr "name"
+                                        ) 
+                              >>> arr (uncurry (:))
+
+processFunctionDiv         :: LA XmlTree XmlTree
+processFunctionDiv         = (mkSingleDiv $< splitMultiDiv)
+                              += sattr "type" "function"
+    where
+      mkSingleDiv ts        = replaceChildren (constL ts)
+      splitMultiDiv         = listA getChildren
+                              >>> arr (head &&& tail)
+                              >>> first processFunctionSig
+                              >>> arr (uncurry (:))
+
+x3 = concat $
+     [   "<p class=\"src\">"
+     ,     "<a name=\"v:t_xml\" class=\"def\">t_xml</a>"
+     ,     ", "
+     ,     "<a name=\"v:t_root\" class=\"def\">t_root</a>"
+     ,     " :: "
+     ,     "<a href=\"/packages/archive/base/4.4.1.0/doc/html/Data-String.html#t:String\">String</a>"
+     ,     "<a href=\"src/Text-XML-HXT-DOM-XmlKeywords.html#t_xml\" class=\"link\">Source</a>"
+     ,   "</p>"
+     ]
+
+x4 = concat $
+     [ "<div class=\"top\">"
+     , x3
+     ,   "<div class=\"doc\">"
+     ,     "<p>the predefined namespace uri for xml: &quot;http://www.w3.org/XML/1998/namespace&quot;</p>"
+     ,   "</div>"
+     , "</div>"
+     ]
+
+x2 = "<a><c></c> :: <b></b>::</a>"
+
+show3 = test this x3
+show4 = test this x4
+
+-- split a function def like "f1, f2 :: T"
+-- in two independent declarations "f1 :: T" and "f2 :: T"
+test3 = test processFunctionSig x3
+
+-- split the whole div element containing the function signature
+test4  = test processFunctionDiv x4
+
+test f x = sequence $ map putStrLn $ runLA (xread >>> f >>> xshow indentDoc) $ x
+
+
+-- -}

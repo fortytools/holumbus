@@ -81,6 +81,8 @@ instance (Binary a, HolIndex i) => HolDocIndex Documents a i where
           idMap                 = fromListDocIdMap . flip zip (map mkDocId [1..]) . keysDocIdMap . toMap $ dt
 
     unionDocIndex dt1 ix1 dt2 ix2
+        | s1 == 0               = (dt2, ix2)
+        | s2 == 0               = (dt1, ix1)
         | s1 < s2		= unionDocIndex dt2 ix2 dt1 ix1
         | otherwise		= (dt, ix)
         where
@@ -90,8 +92,10 @@ instance (Binary a, HolIndex i) => HolDocIndex Documents a i where
           dt2s 			= editDocIds    add1 dt2
           ix2s 			= updateDocIds' add1 ix2
 
-          add1 			= mkDocId . (+ (theDocId m1)) . theDocId
-          m1	 		= maxKeyDocIdMap . toMap $ dt1
+          add1 			= mkDocId . (+ disp) . theDocId
+          max1	 		= maxKeyDocIdMap . toMap $ dt1
+          min2	 		= minKeyDocIdMap . toMap $ dt2
+          disp                  = theDocId max1 + 1 - theDocId min2
 
           s1			= sizeDocs dt1
           s2			= sizeDocs dt2
@@ -126,6 +130,7 @@ instance Binary a => HolDocuments Documents a where
                                   . M.lookup  u
                                   $ docToId d
 
+{- old stuff, not in use
   mergeDocs d1 d2 		= (conflicts, Documents merged (idToDoc2docToId merged) lid)
     where
     (conflicts, merged, lid) 	= foldWithKeyDocIdMap checkDoc ([], (idToDoc d1), (lastDocId d1)) (idToDoc d2)
@@ -137,10 +142,16 @@ instance Binary a => HolDocuments Documents a where
                                   then let ni = incrDocId l in
                                        ((i, ni):c, insertDocIdMap ni doc d, ni)
                                   else (c, insertDocIdMap i doc d, max i l)
+-- -}
 
   -- this is a sufficient test, but if the doc ids don't form an intervall
-  -- it may be too strict
-  disjointDocs dt1 dt2          = disjoint ( minKeyDocIdMap . idToDoc $ dt1
+  -- it may be too restrictive
+
+  disjointDocs dt1 dt2
+      | nullDocs dt1
+        ||
+        nullDocs dt2            = True
+      | otherwise               = disjoint ( minKeyDocIdMap . idToDoc $ dt1
                                            , maxKeyDocIdMap . idToDoc $ dt1
                                            )
                                            ( minKeyDocIdMap . idToDoc $ dt2
@@ -242,10 +253,10 @@ instance (Binary a, XmlPickler a) =>
 
 instance Binary a => 		Binary (Documents a)
     where
-    put (Documents i2d _ _) 	= B.put i2d
-    get 			= do
-                                  i2d <- B.get
-                                  return (Documents i2d (idToDoc2docToId i2d) (lastId i2d))
+    put (Documents i2d _ lid) 	= B.put lid >> B.put i2d
+    get 			= do lid <- B.get
+                                     i2d <- B.get
+                                     return (Documents i2d (idToDoc2docToId i2d) lid)
 
 -- ------------------------------------------------------------
 

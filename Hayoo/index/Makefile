@@ -69,9 +69,10 @@ whole-index1	: $(indexer)
 	@echo "build an index of all haddock pages on hackage in a single run"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
-	@echo "the computation is done in 1 single run"
+	@echo "the computation is done in 1 single run, but the index is spit into chunks"
+	@echo " and written out chuck by chunk, then at the end these chunks are combined into the complete index"
 	@echo "preparing and writing the compressed index requires most of the runtime"
-	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=25000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --partition=2500 --maxpar=2500 --maxdocs=30000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
 
 whole-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
@@ -150,3 +151,15 @@ clean	:
 
 reset	:
 	rm -rf cache/* tmp/*
+
+pkglist = hxt,base
+ixx     = tix
+pxx     = tpkg
+
+test	:
+	hayooIndexer --fct-index --maxthreads=0 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist) --partition=20
+
+testpkg	:
+	hayooIndexer --pkg-index --maxthreads=0 --maxpar=250 --maxdocs=2500 --valid=1month --new-index=$(pxx) --new-search=$(pxx) --xml-output=$(pxx).xml -p $(pkglist) --partition=20
+
+testall	: test testpkg

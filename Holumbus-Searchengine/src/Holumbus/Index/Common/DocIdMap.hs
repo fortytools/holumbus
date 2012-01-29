@@ -69,6 +69,13 @@ minKeyDocIdMap          	= maybe nullDocId (fst . fst) . IM.minViewWithKey
 maxKeyDocIdMap          	:: DocIdMap v -> DocId
 maxKeyDocIdMap          	= maybe nullDocId (fst . fst) . IM.maxViewWithKey
 
+isIntervallDocIdMap		:: DocIdMap v -> Bool
+isIntervallDocIdMap m		= nullDocIdMap m
+                                  ||
+                                  ( fromEnum (theDocId (minKeyDocIdMap m) - theDocId (maxKeyDocIdMap m))
+                                    == sizeDocIdMap m
+                                  )
+
 unionDocIdMap                   :: DocIdMap v -> DocIdMap v -> DocIdMap v
 unionDocIdMap                   = IM.union
 
