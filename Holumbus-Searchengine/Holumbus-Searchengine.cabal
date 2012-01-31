@@ -3,8 +3,8 @@ version:       1.1.0
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Huebel, Uwe Schmidt
-copyright:     Copyright (c) 2007 - 2011 Uwe Schmidt, Sebastian M. Gauck and Timo B. Huebel
-maintainer:    Timo B. Huebel <tbh@holumbus.org>
+copyright:     Copyright (c) 2007 - 2012 Uwe Schmidt, Sebastian M. Gauck and Timo B. Huebel
+maintainer:    Timo B. Huebel <tbh@holumbus.org>, Uwe Schmidt <uwe@fh-wedel.de>
 stability:     experimental
 category:      Text, Data
 synopsis:      A search and indexing engine.
@@ -29,7 +29,6 @@ library
                , directory              >= 1   && < 2
                , enummapset             >= 0   && < 1
                , filepath               >= 1   && < 2
-               -- , haskell2010            >= 1   && < 2
                , hslogger               >= 1   && < 2
                , hxt                    >= 9.1 && < 10
                , hxt-cache              >= 9   && < 10
@@ -50,7 +49,6 @@ library
     Holumbus.Crawler.CacheCore
     Holumbus.Crawler.Constants
     Holumbus.Crawler.Core
-    -- Holumbus.Crawler.CrawlerAction
     Holumbus.Crawler
     Holumbus.Crawler.Html
     Holumbus.Crawler.IndexerCore
@@ -93,6 +91,6 @@ library
 
   hs-source-dirs: src
 
-  ghc-options: -Wall -funbox-strict-fields
+  ghc-options: -Wall -funbox-strict-fields -fwarn-tabs
 
   extensions:

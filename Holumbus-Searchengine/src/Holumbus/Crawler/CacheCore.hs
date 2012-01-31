@@ -7,24 +7,24 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Binary			( Binary(..) )
+import           Data.Binary                    ( Binary(..) )
 {-
-import qualified Data.Binary			as B
--}
+import qualified Data.Binary                    as B
+-- -}
 
 import           Data.Function.Selector
 
-import		 Holumbus.Crawler
+import           Holumbus.Crawler
 
-import		 Text.XML.HXT.Core
-import		 Text.XML.HXT.Curl
+import           Text.XML.HXT.Core
+import           Text.XML.HXT.Curl
 
 -- ------------------------------------------------------------
 
 type CacheCrawlerConfig         = CrawlerConfig () CacheState
-type CacheCrawlerState		= CrawlerState CacheState
+type CacheCrawlerState          = CrawlerState CacheState
 
-newtype CacheState		= CS ()
+newtype CacheState              = CS ()
 
 -- ------------------------------------------------------------
 
@@ -34,26 +34,26 @@ newtype CacheState		= CS ()
 instance NFData CacheState where
 
 instance Binary CacheState where
-    put 		= const $ return ()
-    get			= return emptyCacheState
+    put                 = const $ return ()
+    get                 = return emptyCacheState
 
 instance XmlPickler CacheState where
-    xpickle		= xpElem "cacheState" $
+    xpickle             = xpElem "cacheState" $
                           xpWrap (const emptyCacheState, const ()) $
                           xpUnit
 
 -- ------------------------------------------------------------
 
-emptyCacheState               	:: CacheState
-emptyCacheState               	= CS ()
+emptyCacheState                 :: CacheState
+emptyCacheState                 = CS ()
 
 -- ------------------------------------------------------------
 
-unionCacheStatesM		:: (Monad m) => CacheState -> CacheState -> m CacheState
-unionCacheStatesM _s1 _s2	= return emptyCacheState
+unionCacheStatesM               :: (Monad m) => CacheState -> CacheState -> m CacheState
+unionCacheStatesM _s1 _s2       = return emptyCacheState
 
-insertCacheM                   	:: (Monad m) => (URI, ()) -> CacheState -> m CacheState
-insertCacheM _ _		= return emptyCacheState
+insertCacheM                    :: (Monad m) => (URI, ()) -> CacheState -> m CacheState
+insertCacheM _ _                = return emptyCacheState
 
 -- ------------------------------------------------------------
 
@@ -81,7 +81,7 @@ cacheCrawlerConfig opts followRef
                                   addRobotsNoIndex
                                   $
                                   defaultCrawlerConfig insertCacheM unionCacheStatesM
-									        -- take the default crawler config
+                                                                                -- take the default crawler config
                                                                                 -- and set the result combining functions
     where
     defaultOpts                 = withCurl [ (curl_max_filesize,         "1000000")      -- limit document size to 1 Mbyte
@@ -105,11 +105,11 @@ cacheCrawlerConfig opts followRef
 
 -- ------------------------------------------------------------
 
-stdCacher			:: (Int, Int, Int)				-- ^ the parameters for parallel crawling 
-                                -> (Int, String)				-- ^ the save intervall and file path
-                                -> (Priority, Priority)				-- ^ the log levels for the crawler and hxt
-                                -> SysConfig					-- ^ the read attributes
-                                -> (CacheCrawlerConfig -> CacheCrawlerConfig)	-- ^ further configuration settings
+stdCacher                       :: (Int, Int, Int)                              -- ^ the parameters for parallel crawling 
+                                -> (Int, String)                                -- ^ the save intervall and file path
+                                -> (Priority, Priority)                         -- ^ the log levels for the crawler and hxt
+                                -> SysConfig                                    -- ^ the read attributes
+                                -> (CacheCrawlerConfig -> CacheCrawlerConfig)   -- ^ further configuration settings
                                 -> Maybe String                                 -- ^ resume from interrupted index run with state stored in file
                                 -> [URI]                                        -- ^ start caching with this set of uris
                                 -> (URI -> Bool) -> IO CacheCrawlerState
@@ -121,24 +121,24 @@ stdCacher (maxDocs, maxParDocs, maxParThreads)
           furtherConfigs
           resumeLoc
           startUris
-          followRef		= execCrawler action config initState
+          followRef             = execCrawler action config initState
     where
-    initState			= initCrawlerState emptyCacheState
-    action			= do
+    initState                   = initCrawlerState emptyCacheState
+    action                      = do
                                   noticeC "cacheCore" ["cache update started"]
-				  maybe (crawlDocs startUris) crawlerResume $ resumeLoc
+                                  maybe (crawlDocs startUris) crawlerResume $ resumeLoc
                                   noticeC "cacheCore" ["cache update finished"]
 
-    config			= setCrawlerMaxDocs maxDocs maxParDocs maxParThreads
-			          >>>
-			          setCrawlerSaveConf saveIntervall savePath
-			          >>>
-			          setCrawlerTraceLevel trc trcx
-			          >>>
-			          enableRobotsTxt						-- change to disableRobotsTxt, when robots.txt becomes boring
+    config                      = setCrawlerMaxDocs maxDocs maxParDocs maxParThreads
+                                  >>>
+                                  setCrawlerSaveConf saveIntervall savePath
+                                  >>>
+                                  setCrawlerTraceLevel trc trcx
+                                  >>>
+                                  enableRobotsTxt                                               -- change to disableRobotsTxt, when robots.txt becomes boring
                                   >>>
                                   furtherConfigs
-			          $
-			          cacheCrawlerConfig inpOptions followRef
+                                  $
+                                  cacheCrawlerConfig inpOptions followRef
 
 -- ------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 {- |
   Module     : Holumbus.Data.PrefixTree.Core
-  Copyright  : Copyright (C) 2009 Uwe Schmidt
+  Copyright  : Copyright (C) 2009-2012 Uwe Schmidt
   License    : MIT
 
   Maintainer : Uwe Schmidt (uwe@fh-wedel.de)
@@ -144,14 +144,14 @@ val v t                         = Val v t
 branch                          :: Sym -> PrefixTree v -> PrefixTree v -> PrefixTree v
 branch !_k  Empty        n      = n
 
-branch !k (Leaf   v   ) Empty    = LsVal  k     v
+branch !k (Leaf   v   ) Empty   = LsVal  k     v
 branch !k (LsVal  k1 v) Empty   = LsSeL (Cons k (Cons k1 Nil)) v
 branch !k (LsSeL  ks v) Empty   = LsSeL (Cons k ks) v
 branch !k (Last   k1 c) Empty   = lsseq (Cons k (Cons k1 Nil)) c
 branch !k (LsSeq  ks c) Empty   = lsseq (Cons k ks) c
 branch !k            c  Empty   = Last k c
 
-branch !k (Leaf   v   ) n        = BrVal  k     v n
+branch !k (Leaf   v   ) n       = BrVal  k     v n
 branch !k (LsVal  k1 v) n       = BrSeL (Cons k (Cons k1 Nil)) v n
 branch !k (LsSeL  ks v) n       = BrSeL (Cons k ks) v n
 branch !k (Last   k1 c) n       = brseq (Cons k (Cons k1 Nil)) c n
@@ -746,7 +746,7 @@ foldTopDown f r k0              = fo k0 . norm
     fo _ (Empty)                = r
     fo kf (Val v' t')           = let r' = f (kf []) v' r                   in foldTopDown f r' kf t'
     fo _  _                     = normError "foldTopDown"
--}
+-- -}
 
 fold'                           :: (Key -> a -> b -> b) -> b -> (Key -> Key) -> PrefixTree a -> b
 fold' f r k0                    = fo k0 . norm
@@ -847,7 +847,7 @@ instance Show a => Show (PrefixTree a) where
   showsPrec d m   = showParen (d > 10) $
     showString "fromList " . shows (toList m)
 
--}
+-- -}
 
 -- ----------------------------------------
 

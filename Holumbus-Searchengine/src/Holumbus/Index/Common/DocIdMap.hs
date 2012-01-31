@@ -63,14 +63,14 @@ insertWithDocIdMap              = IM.insertWith
 sizeDocIdMap                    :: DocIdMap v -> Int
 sizeDocIdMap                    = IM.size
 
-minKeyDocIdMap          	:: DocIdMap v -> DocId
-minKeyDocIdMap          	= maybe nullDocId (fst . fst) . IM.minViewWithKey
+minKeyDocIdMap                  :: DocIdMap v -> DocId
+minKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.minViewWithKey
 
-maxKeyDocIdMap          	:: DocIdMap v -> DocId
-maxKeyDocIdMap          	= maybe nullDocId (fst . fst) . IM.maxViewWithKey
+maxKeyDocIdMap                  :: DocIdMap v -> DocId
+maxKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.maxViewWithKey
 
-isIntervallDocIdMap		:: DocIdMap v -> Bool
-isIntervallDocIdMap m		= nullDocIdMap m
+isIntervallDocIdMap             :: DocIdMap v -> Bool
+isIntervallDocIdMap m           = nullDocIdMap m
                                   ||
                                   ( fromEnum (theDocId (minKeyDocIdMap m) - theDocId (maxKeyDocIdMap m))
                                     == sizeDocIdMap m

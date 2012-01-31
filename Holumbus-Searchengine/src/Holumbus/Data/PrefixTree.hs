@@ -4,7 +4,7 @@
 
 {- |
   Module     : Holumbus.Data.PrefixTree
-  Copyright  : Copyright (C) 2009-2010 Uwe Schmidt
+  Copyright  : Copyright (C) 2009-2012 Uwe Schmidt
   License    : MIT
 
   Maintainer : Uwe Schmidt (uwe@fh-wedel.de)
@@ -61,7 +61,7 @@ module Holumbus.Data.PrefixTree
     , space
     , keyChars
 
-    , prefixFindCaseWithKey	-- fuzzy search
+    , prefixFindCaseWithKey     -- fuzzy search
     , prefixFindNoCaseWithKey
     , prefixFindNoCase
     , lookupNoCase

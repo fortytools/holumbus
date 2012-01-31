@@ -120,18 +120,19 @@ getRobotsTxt c uri      = runX processRobotsTxt >>= (return . concat)
     where
     processRobotsTxt    =  hxtSetTraceAndErrorLogger (getS theTraceLevelHxt c)
                            >>>
-                           readDocument [ getS theSysConfig c
-                                          >>>
-                                          withParseByMimeType       yes         -- these 3 options are important for reading none XML/HTML documents
-                                          >>>
-                                          withIgnoreNoneXmlContents no
-                                          >>>
-                                          withAcceptedMimeTypes    [text_plain] -- robots.txt is plain text
-                                          >>>
-                                          withRedirect              yes         -- follow redirects for robots.txt
-                                          >>>
-                                          withoutCache
-                                        ] (getHost uri ++ "/robots.txt")
+                           readDocument
+                             [ getS theSysConfig c
+                               >>>
+                               withParseByMimeType       yes         -- these 3 options are important for reading none XML/HTML documents
+                               >>>
+                               withIgnoreNoneXmlContents no
+                               >>>
+                               withAcceptedMimeTypes    [text_plain] -- robots.txt is plain text
+                               >>>
+                               withRedirect              yes         -- follow redirects for robots.txt
+                               >>>
+                               withoutCache
+                             ] (getHost uri ++ "/robots.txt")
                            >>>
                            documentStatusOk
                            >>>
@@ -154,7 +155,15 @@ evalRobotsTxt agent t   = lines
                                    >>>
                                    takeWhile (/= ':')
                                    >>>
-                                   (`elem` ["disallow", "allow", "user-agent", "crawl-delay", "request-rate", "visit-time", "sitemap"])
+                                   (`elem` [ "disallow"
+                                           , "allow"
+                                           , "user-agent"
+                                           , "crawl-delay"
+                                           , "request-rate"
+                                           , "visit-time"
+                                           , "sitemap"
+                                           ]
+                                   )
                                  )
                           >>>
                           map ( span (/= ':')
@@ -162,10 +171,11 @@ evalRobotsTxt agent t   = lines
                                 ( stringToLower *** (drop 1 >>> stringTrim) )
                               )
                           >>>
-                          dropWhile ( \ (x, y) -> ( x /= "user-agent"
-                                                    ||
-                                                    ( y /= "*" && not (y `isPrefixOf` agent) )
-                                                  )
+                          dropWhile ( \ (x, y) ->
+                                          ( x /= "user-agent"
+                                            ||
+                                            ( y /= "*" && not (y `isPrefixOf` agent) )
+                                          )
                                     )
                           >>>
                           drop 1
@@ -176,7 +186,7 @@ evalRobotsTxt agent t   = lines
                           $
                           t
     where
-    toRestr ("disallow", uri)   = [(uri, Disallow)]                             -- other directives are currently ignored
+    toRestr ("disallow", uri)   = [(uri, Disallow)]     -- other directives are currently ignored
     toRestr ("allow",    uri)   = [(uri, Allow)]
     toRestr _                   = []
 

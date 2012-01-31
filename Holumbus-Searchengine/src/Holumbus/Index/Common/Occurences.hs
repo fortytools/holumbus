@@ -78,9 +78,10 @@ diffOccurrences          = IM.difference
 substractOccurrences    :: Occurrences -> Occurrences -> Occurrences
 substractOccurrences    = IM.differenceWith substractPositions
   where
-  substractPositions p1 p2      = if IS.null diffPos
-                                  then Nothing
-                                  else Just diffPos
+  substractPositions p1 p2
+                        = if IS.null diffPos
+                          then Nothing
+                          else Just diffPos
       where
       diffPos                   = IS.difference p1 p2
 
@@ -99,42 +100,42 @@ xpOccurrences           = xpWrap (IM.fromList, IM.toList)
 -- | The positions of the word in the document.
 type Positions                  = IS.EnumSet Position
 
-emptyPos                        :: Positions
-emptyPos                        = IS.empty
+emptyPos                :: Positions
+emptyPos                = IS.empty
 
-singletonPos                    :: Position -> Positions
-singletonPos                    = IS.singleton
+singletonPos            :: Position -> Positions
+singletonPos            = IS.singleton
 
-memberPos                       :: Position -> Positions -> Bool
-memberPos                       = IS.member
+memberPos               :: Position -> Positions -> Bool
+memberPos               = IS.member
 
-toAscListPos                    :: Positions -> [Position]
-toAscListPos                    = IS.toAscList
+toAscListPos            :: Positions -> [Position]
+toAscListPos            = IS.toAscList
 
-fromListPos                     :: [Position] -> Positions
-fromListPos                     = IS.fromList
+fromListPos             :: [Position] -> Positions
+fromListPos             = IS.fromList
 
-sizePos                         :: Positions -> Int
-sizePos                         = IS.size
+sizePos                 :: Positions -> Int
+sizePos                 = IS.size
 
-unionPos			:: Positions -> Positions -> Positions
-unionPos                        = IS.union
+unionPos                :: Positions -> Positions -> Positions
+unionPos                = IS.union
 
-foldPos                         :: (Position -> r -> r) -> r -> Positions -> r
-foldPos                         = IS.fold
+foldPos                 :: (Position -> r -> r) -> r -> Positions -> r
+foldPos                 = IS.fold
 
 -- | The XML pickler for a set of positions.
-xpPositions 			:: PU Positions
-xpPositions 			= xpWrap ( IS.fromList . (map read) . words
-                                         , unwords . (map show) . IS.toList
-                                         ) xpText
+xpPositions             :: PU Positions
+xpPositions             = xpWrap ( IS.fromList . (map read) . words
+                                 , unwords . (map show) . IS.toList
+                                 ) xpText
 
 instance (NFData v, Enum v) => NFData (IS.EnumSet v) where
-    rnf                   	= rnf . IS.toList
+    rnf                   = rnf . IS.toList
 
 instance (Binary v, Enum v) => Binary (IS.EnumSet v) where
-    put                         = B.put . IS.toList
-    get                         = B.get >>= return . IS.fromList
+    put                   = B.put . IS.toList
+    get                   = B.get >>= return . IS.fromList
 
 -- ------------------------------------------------------------
 

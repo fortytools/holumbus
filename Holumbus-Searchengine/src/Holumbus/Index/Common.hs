@@ -4,7 +4,7 @@
 
 {- |
   Module     : Holumbus.Index.Common
-  Copyright  : Copyright (C) 2007 - 2009 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
@@ -42,9 +42,9 @@ module Holumbus.Index.Common
   )
 where
 
-import Control.Monad  			( foldM )
+import Control.Monad                    ( foldM )
 
--- import Data.Binary 			( Binary (..) )
+-- import Data.Binary                   ( Binary (..) )
 -- import Data.Maybe
 
 import Holumbus.Index.Common.BasicTypes
@@ -61,72 +61,74 @@ import Holumbus.Index.Common.LoadStore
 
 class HolIndex i where
   -- | Returns the number of unique words in the index.
-  sizeWords     		:: i -> Int
+  sizeWords                     :: i -> Int
 
   -- | Returns a list of all contexts avaliable in the index.
-  contexts      		:: i -> [Context]
+  contexts                      :: i -> [Context]
 
   -- | Returns the occurrences for every word. A potentially expensive operation.
-  allWords      		:: i -> Context -> RawResult
+  allWords                      :: i -> Context -> RawResult
 
   -- | Searches for words beginning with the prefix in a given context (case-sensitive).
-  prefixCase    		:: i -> Context -> String -> RawResult
+  prefixCase                    :: i -> Context -> String -> RawResult
 
   -- | Searches for words beginning with the prefix in a given context (case-insensitive).
-  prefixNoCase  		:: i -> Context -> String -> RawResult
+  prefixNoCase                  :: i -> Context -> String -> RawResult
 
   -- | Searches for and exact word in a given context (case-sensitive).
-  lookupCase    		:: i -> Context -> String -> RawResult
+  lookupCase                    :: i -> Context -> String -> RawResult
 
   -- | Searches for and exact word in a given context (case-insensitive).
-  lookupNoCase  		:: i -> Context -> String -> RawResult
+  lookupNoCase                  :: i -> Context -> String -> RawResult
   
   -- | Insert occurrences.
-  insertOccurrences 		:: Context -> Word -> Occurrences -> i -> i
+  insertOccurrences             :: Context -> Word -> Occurrences -> i -> i
 
   -- | Delete occurrences.
-  deleteOccurrences 		:: Context -> Word -> Occurrences -> i -> i
+  deleteOccurrences             :: Context -> Word -> Occurrences -> i -> i
 
   -- | Insert a position for a single document.
-  insertPosition 		:: Context -> Word -> DocId -> Position -> i -> i
-  insertPosition c w d p i 	= insertOccurrences c w (singletonOccurrence d p) i
+  insertPosition                :: Context -> Word -> DocId -> Position -> i -> i
+  insertPosition c w d p i      = insertOccurrences c w (singletonOccurrence d p) i
 
   -- | Delete a position for a single document.
-  deletePosition 		:: Context -> Word -> DocId -> Position -> i -> i
-  deletePosition c w d p i 	= deleteOccurrences c w (singletonOccurrence d p) i
+  deletePosition                :: Context -> Word -> DocId -> Position -> i -> i
+  deletePosition c w d p i      = deleteOccurrences c w (singletonOccurrence d p) i
 
   -- | Merges two indexes. 
-  mergeIndexes  		:: i -> i -> i
+  mergeIndexes                  :: i -> i -> i
 
   -- | Substract one index from another.
-  substractIndexes 		:: i -> i -> i
+  substractIndexes              :: i -> i -> i
 
   -- | Splitting an index by its contexts.
-  splitByContexts 		:: i -> Int -> [i]
+  splitByContexts               :: i -> Int -> [i]
 
   -- | Splitting an index by its documents.
-  splitByDocuments 		:: i -> Int -> [i]
+  splitByDocuments              :: i -> Int -> [i]
 
   -- | Splitting an index by its words.
-  splitByWords 			:: i -> Int -> [i]
+  splitByWords                  :: i -> Int -> [i]
 
   -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
   -- to the same new id, the two sets of word positions will be merged if both old id's are present
   -- in the occurrences for a word in a specific context.
-  updateDocIds			:: (Context -> Word -> DocId -> DocId) -> i -> i
+  updateDocIds                  :: (Context -> Word -> DocId -> DocId) -> i -> i
 
   -- | Update document id's with a simple injective editing function.
-  updateDocIds'			:: (DocId -> DocId) -> i -> i
-  updateDocIds' f		= updateDocIds (const . const $ f)
+  updateDocIds'                 :: (DocId -> DocId) -> i -> i
+  updateDocIds' f               = updateDocIds (const . const $ f)
 
   -- Convert an Index to a list. Can be used for easy conversion between different index  
   -- implementations
-  toList   			:: i -> [(Context, Word, Occurrences)]
+
+  toList                        :: i -> [(Context, Word, Occurrences)]
   
   -- Create an Index from a list. Can be used for easy conversion between different index  
   -- implementations. Needs an empty index as first argument
-  fromList 			:: i -> [(Context, Word, Occurrences)] -> i
-  fromList e 			= foldl (\i (c,w,o) -> insertOccurrences c w o i) e
+
+  fromList                      :: i -> [(Context, Word, Occurrences)] -> i
+  fromList e                    = foldl (\i (c,w,o) -> insertOccurrences c w o i) e
 
 -- ------------------------------------------------------------
 
@@ -134,59 +136,59 @@ class HolIndex i where
 
 class (Monad m) => HolIndexM m i where
   -- | Returns the number of unique words in the index.
-  sizeWordsM    		:: i -> m Int
+  sizeWordsM                    :: i -> m Int
 
   -- | Returns a list of all contexts avaliable in the index.
-  contextsM     		:: i -> m [Context]
+  contextsM                     :: i -> m [Context]
 
   -- | Returns the occurrences for every word. A potentially expensive operation.
-  allWordsM     		:: i -> Context -> m RawResult
+  allWordsM                     :: i -> Context -> m RawResult
 
   -- | Searches for words beginning with the prefix in a given context (case-sensitive).
-  prefixCaseM   		:: i -> Context -> String -> m RawResult
+  prefixCaseM                   :: i -> Context -> String -> m RawResult
 
   -- | Searches for words beginning with the prefix in a given context (case-insensitive).
-  prefixNoCaseM 		:: i -> Context -> String -> m RawResult
+  prefixNoCaseM                 :: i -> Context -> String -> m RawResult
 
   -- | Searches for and exact word in a given context (case-sensitive).
-  lookupCaseM   		:: i -> Context -> String -> m RawResult
+  lookupCaseM                   :: i -> Context -> String -> m RawResult
 
   -- | Searches for and exact word in a given context (case-insensitive).
-  lookupNoCaseM 		:: i -> Context -> String -> m RawResult
+  lookupNoCaseM                 :: i -> Context -> String -> m RawResult
 
   -- | Insert occurrences.
-  insertOccurrencesM 		:: Context -> Word -> Occurrences -> i -> m i
+  insertOccurrencesM            :: Context -> Word -> Occurrences -> i -> m i
 
   -- | Delete occurrences.
-  deleteOccurrencesM 		:: Context -> Word -> Occurrences -> i -> m i
+  deleteOccurrencesM            :: Context -> Word -> Occurrences -> i -> m i
 
   -- | Insert a position for a single document.
-  insertPositionM 		:: Context -> Word -> DocId -> Position -> i -> m i
-  insertPositionM c w d p i 	= insertOccurrencesM c w (singletonOccurrence d p) i
+  insertPositionM               :: Context -> Word -> DocId -> Position -> i -> m i
+  insertPositionM c w d p i     = insertOccurrencesM c w (singletonOccurrence d p) i
 
   -- | Delete a position for a single document.
-  deletePositionM 		:: Context -> Word -> DocId -> Position -> i -> m i
-  deletePositionM c w d p i 	= deleteOccurrencesM c w (singletonOccurrence d p) i
+  deletePositionM               :: Context -> Word -> DocId -> Position -> i -> m i
+  deletePositionM c w d p i     = deleteOccurrencesM c w (singletonOccurrence d p) i
 
   -- | Merges two indexes. 
-  mergeIndexesM  		:: i -> i -> m i
+  mergeIndexesM                 :: i -> i -> m i
 
   -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
   -- to the same new id, the two sets of word positions will be merged if both old id's are present
   -- in the occurrences for a word in a specific context.
-  updateDocIdsM			:: (Context -> Word -> DocId -> DocId) -> i -> m i
+  updateDocIdsM                 :: (Context -> Word -> DocId -> DocId) -> i -> m i
 
   -- | Update document id's with an simple injective editing function.
-  updateDocIdsM'		:: (DocId -> DocId) -> i -> m i
+  updateDocIdsM'                :: (DocId -> DocId) -> i -> m i
 
   -- Convert an Index to a list. Can be used for easy conversion between different index  
   -- implementations
-  toListM   			:: i -> m [(Context, Word, Occurrences)]
+  toListM                       :: i -> m [(Context, Word, Occurrences)]
 
   -- Create an Index from a list. Can be used vor easy conversion between different index  
   -- implementations. Needs an empty index as first argument
-  fromListM 			:: i -> [(Context, Word, Occurrences)] -> m i
-  fromListM e 			= foldM (\i (c,w,o) -> insertOccurrencesM c w o i) e
+  fromListM                     :: i -> [(Context, Word, Occurrences)] -> m i
+  fromListM e                   = foldM (\i (c,w,o) -> insertOccurrencesM c w o i) e
 
 -- ------------------------------------------------------------
 
@@ -207,7 +209,7 @@ instance (HolIndex i) => HolIndexM IO i where
     deleteOccurrencesM c w o    = return . deleteOccurrences c w o
     mergeIndexesM i1            = return . mergeIndexes i1
     updateDocIdsM u             = return . updateDocIds u
-    updateDocIdsM' f		= return . updateDocIds (const . const $ f)
+    updateDocIdsM' f            = return . updateDocIds (const . const $ f)
     toListM                     = return . toList
 
 -- ------------------------------------------------------------
@@ -218,72 +220,60 @@ class HolDocuments d a where
   nullDocs                      = (== 0) . sizeDocs
 
   -- | Returns the number of unique documents in the table.
-  sizeDocs      		:: d a -> Int
+  sizeDocs                      :: d a -> Int
   
   -- | Lookup a document by its id.
-  lookupById    		:: Monad m => d a -> DocId -> m (Document a)
+  lookupById                    :: Monad m => d a -> DocId -> m (Document a)
 
   -- | Lookup the id of a document by an URI.
-  lookupByURI   		:: Monad m => d a -> URI -> m DocId
-
-{- old stuff, not in use, should not be done with a list, but with a function
-
-  -- | Merge two document tables. The returned tuple contains a list of id's from the second
-  -- table that were replaced with new id's to avoid collisions.
-  mergeDocs     		:: d a -> d a -> ([(DocId, DocId)], d a)
--- -}
+  lookupByURI                   :: Monad m => d a -> URI -> m DocId
 
   -- | Union of two disjoint document tables. It is assumed, that the DocIds and the document uris
   -- of both indexes are disjoint. If only the sets of uris are disjoint, the DocIds can be made
   -- disjoint by adding maxDocId of one to the DocIds of the second, e.g. with editDocIds
 
-  unionDocs			:: d a -> d a -> d a
-  unionDocs dt1			= foldDocIdMap addDoc dt1 . toMap
+  unionDocs                     :: d a -> d a -> d a
+  unionDocs dt1                 = foldDocIdMap addDoc dt1 . toMap
       where
-      addDoc d dt		= snd . insertDoc dt $ d
+      addDoc d dt               = snd . insertDoc dt $ d
 
   -- | Test whether the doc ids of both tables are disjoint
   disjointDocs                  :: d a -> d a -> Bool
 
   -- | Return an empty document table. The input parameter is taken to identify the typeclass
-  makeEmpty     		:: d a -> d a
+  makeEmpty                     :: d a -> d a
   
   -- | Insert a document into the table. Returns a tuple of the id for that document and the 
   -- new table. If a document with the same URI is already present, its id will be returned 
   -- and the table is returned unchanged.
 
-  insertDoc     		:: d a -> (Document a) -> (DocId, d a)
+  insertDoc                     :: d a -> (Document a) -> (DocId, d a)
 
   -- | Update a document with a certain DocId. 
-  updateDoc     		:: d a -> DocId -> (Document a) -> d a
+  updateDoc                     :: d a -> DocId -> (Document a) -> d a
 
   -- | Removes the document with the specified id from the table.
-  removeById     		:: d a -> DocId -> d a
+  removeById                    :: d a -> DocId -> d a
 
   -- | Removes the document with the specified URI from the table.
-  removeByURI    		:: d a -> URI -> d a
-  removeByURI ds u 		= maybe ds (removeById ds) (lookupByURI ds u)
+  removeByURI                   :: d a -> URI -> d a
+  removeByURI ds u              = maybe ds (removeById ds) (lookupByURI ds u)
 
   -- | Update documents (through mapping over all documents).
-  updateDocuments 		:: (Document a -> Document a) -> d a -> d a
+  updateDocuments               :: (Document a -> Document a) -> d a -> d a
 
-  filterDocuments 		:: (Document a -> Bool) -> d a -> d a
+  filterDocuments               :: (Document a -> Bool) -> d a -> d a
 
   -- | Create a document table from a single map.
-  fromMap 			:: DocIdMap (Document a) -> d a
+  fromMap                       :: DocIdMap (Document a) -> d a
 
   -- | Convert document table to a single map
-  toMap 			:: d a -> DocIdMap (Document a)
+  toMap                         :: d a -> DocIdMap (Document a)
 
   -- | Edit document ids
-  editDocIds			:: (DocId -> DocId) -> d a -> d a
-  editDocIds f			= fromMap . foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap . toMap
+  editDocIds                    :: (DocId -> DocId) -> d a -> d a
+  editDocIds f                  = fromMap . foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap . toMap
 
-{-
-  -- | Get maximum DocId
-  maxDocId			:: d a -> DocId
-  maxDocId			= maxKeyDocIdMap . toMap
--}
 -- ------------------------------------------------------------
 
 class HolCache c where
@@ -305,7 +295,7 @@ class HolCache c where
 class (HolDocuments d a, HolIndex i) => HolDocIndex d a i where
 
     -- | Merge two doctables and indexes together into a single doctable and index
-    unionDocIndex 		:: d a -> i -> d a -> i -> (d a, i)
+    unionDocIndex               :: d a -> i -> d a -> i -> (d a, i)
 
     -- | Defragment a doctable and index, useful when the doc ids are
     -- organized as an intervall of ints.
@@ -315,18 +305,4 @@ class (HolDocuments d a, HolIndex i) => HolDocIndex d a i where
     defragmentDocIndex          :: d a -> i -> (d a, i)
     defragmentDocIndex          = (,)
 
--- ------------------------------------------------------------
-
-{- old stuff
-
--- | Merges an index with its documents table with another index and its documents table. 
--- Conflicting id's for documents will be resolved automatically.
-
-mergeAll :: (HolDocuments d a, HolIndex i) => d a -> i -> d a -> i -> (d a, i)
-mergeAll d1 i1 d2 i2 = (md, mergeIndexes i1 (updateDocIds replaceIds i2))
-  where
-  (ud, md) = mergeDocs d1 d2
-  idTable = fromListDocIdMap ud
-  replaceIds _ _ d = fromMaybe d (lookupDocIdMap d idTable)
--}
 -- ------------------------------------------------------------

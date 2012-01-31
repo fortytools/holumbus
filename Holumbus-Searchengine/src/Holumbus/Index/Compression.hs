@@ -46,18 +46,22 @@ type CompressedPositions        = DiffList
 -- ----------------------------------------------------------------------------
 
 -- | Decompressing the occurrences by just decompressing all contained positions.
+
 inflateOcc :: CompressedOccurrences -> Occurrences
 inflateOcc = mapDocIdMap inflatePos
 
 -- | Compress the occurrences by just compressing all contained positions.
+
 deflateOcc :: Occurrences -> CompressedOccurrences
 deflateOcc = mapDocIdMap deflatePos
 
 -- | Convert the compressed differences back to a set of integers.
+
 inflatePos :: CompressedPositions -> Positions
 inflatePos = toPositions
 
 -- | Save some memory on the positions by just saving their differences and compressing these.
+
 deflatePos :: Positions -> CompressedPositions
 deflatePos = fromPositions
 

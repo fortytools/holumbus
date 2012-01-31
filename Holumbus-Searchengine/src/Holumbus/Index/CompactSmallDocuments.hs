@@ -35,11 +35,11 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Binary				( Binary )
-import qualified Data.Binary            		as B
+import           Data.Binary                            ( Binary )
+import qualified Data.Binary                            as B
 
 import           Holumbus.Index.Common
-import qualified Holumbus.Index.CompactDocuments	as CD
+import qualified Holumbus.Index.CompactDocuments        as CD
 
 import           Text.XML.HXT.Core
 
@@ -53,7 +53,7 @@ import           Text.XML.HXT.Core
 --
 -- see also 'Holumbus.Index.CompactDocuments.Documents' data type
 
-newtype SmallDocuments a	= SmallDocuments
+newtype SmallDocuments a        = SmallDocuments
                                   { idToSmallDoc   :: CD.DocMap a -- ^ A mapping from a doc id
                                                                   --   to the document itself.
                                   }
@@ -72,26 +72,27 @@ instance (Binary a, HolIndex i) => HolDocIndex SmallDocuments a i where
 -}
 
     unionDocIndex dt1 ix1 dt2 ix2
-        			= (dt, ix)
+                                = (dt, ix)
         where
-	  dt   			= unionDocs     dt1  dt2
-          ix   			= mergeIndexes  ix1  ix2
+          dt                    = unionDocs     dt1  dt2
+          ix                    = mergeIndexes  ix1  ix2
 
 -- ----------------------------------------------------------------------------
 
 instance Binary a => HolDocuments SmallDocuments a where
-  sizeDocs 			= sizeDocIdMap . idToSmallDoc
+  sizeDocs                      = sizeDocIdMap . idToSmallDoc
   
-  lookupById  d i 		= maybe (fail "") return
+  lookupById  d i               = maybe (fail "") return
                                   . fmap CD.toDocument
                                   . lookupDocIdMap i
                                   . idToSmallDoc
                                   $ d
 
-  makeEmpty _ 			= emptyDocuments
+  makeEmpty _                   = emptyDocuments
 
   -- this is a sufficient test, but if the doc ids don't form an intervall
   -- it may be too strict
+
   disjointDocs dt1 dt2
       | nullDocs dt1
         ||
@@ -108,69 +109,66 @@ instance Binary a => HolDocuments SmallDocuments a where
             | otherwise         = disjoint p2 p1
 
   unionDocs dt1 dt2
-      | disjointDocs dt1 dt2	= SmallDocuments
+      | disjointDocs dt1 dt2    = SmallDocuments
                                   { idToSmallDoc = unionDocIdMap (idToSmallDoc dt1) (idToSmallDoc dt2)
                                   }
       | otherwise               = error $
                                   "unionDocs: doctables are not disjoint: " ++
                                   show (didIntervall dt1) ++ ", " ++ show (didIntervall dt2)
       where
-{-
-       didIntervall dt          = keysDocIdMap . idToSmallDoc $ dt
--- -}
        didIntervall dt          = ( minKeyDocIdMap . idToSmallDoc $ dt
                                   , maxKeyDocIdMap . idToSmallDoc $ dt
                                   )
 
-  editDocIds f d		= SmallDocuments
+  editDocIds f d                = SmallDocuments
                                   { idToSmallDoc = newIdToDoc
                                   }
       where
-        newIdToDoc		= foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap
+        newIdToDoc              = foldWithKeyDocIdMap (insertDocIdMap . f) emptyDocIdMap
                                   $ idToSmallDoc d
 
-  fromMap 			= SmallDocuments . CD.toDocMap
-  toMap 			= CD.fromDocMap . idToSmallDoc
+  fromMap                       = SmallDocuments . CD.toDocMap
+  toMap                         = CD.fromDocMap . idToSmallDoc
 
   -- only lookup by doc id, union and defragment ops are implemented
   -- the others are not needed when merging or searching the doc indexes
 
-  lookupByURI	 		= notImpl
+  lookupByURI                   = notImpl
 
-  insertDoc	 		= notImpl
-  updateDoc	 		= notImpl
-  removeById	 		= notImpl
-  updateDocuments		= notImpl
-  filterDocuments 		= notImpl
+  insertDoc                     = notImpl
+  updateDoc                     = notImpl
+  removeById                    = notImpl
+  updateDocuments               = notImpl
+  filterDocuments               = notImpl
 
 -- ----------------------------------------------------------------------------
 
-instance NFData a => 		NFData (SmallDocuments a)
+instance NFData a =>            NFData (SmallDocuments a)
     where
-    rnf (SmallDocuments i2d)	= rnf i2d `seq` ()
+    rnf (SmallDocuments i2d)    = rnf i2d
 
 -- ----------------------------------------------------------------------------
 
 instance (Binary a, XmlPickler a) =>
-				XmlPickler (SmallDocuments a)
+                                XmlPickler (SmallDocuments a)
     where
-    xpickle 			= xpElem "documents" $
+    xpickle                     = xpElem "documents" $
                                   xpWrap convertDoctable $
-				  xpWrap (fromListDocIdMap, toListDocIdMap) $
-				  xpList xpDocumentWithId
-	where
-	convertDoctable 	= ( SmallDocuments
-				  , idToSmallDoc
+                                  xpWrap (fromListDocIdMap, toListDocIdMap) $
+                                  xpList xpDocumentWithId
+        where
+        convertDoctable         = ( SmallDocuments
+                                  , idToSmallDoc
                                   )
-	xpDocumentWithId 	= xpElem "doc" $
-				  xpPair (xpAttr "id" xpDocId) xpickle
+        xpDocumentWithId        = xpElem "doc" $
+                                  xpPair (xpAttr "id" xpDocId) xpickle
 
 -- ----------------------------------------------------------------------------
 
-instance Binary a => 		Binary (SmallDocuments a)
+instance Binary a =>            Binary (SmallDocuments a)
     where
-    put (SmallDocuments i2d) 	= B.put i2d
-    get 			= do
+    put (SmallDocuments i2d)    = B.put i2d
+    get                         = do
                                   i2d <- B.get
                                   return $ SmallDocuments i2d
 
@@ -183,18 +181,18 @@ notImpl                         = error "operation not implemented for SmallDocu
 
 -- | Create an empty table.
 
-emptyDocuments 			:: SmallDocuments a
-emptyDocuments 			= SmallDocuments emptyDocIdMap
+emptyDocuments                  :: SmallDocuments a
+emptyDocuments                  = SmallDocuments emptyDocIdMap
 
 -- | Create a document table containing a single document.
 
-singleton 			:: (Binary a) => Document a -> SmallDocuments a
-singleton d 			= SmallDocuments (singletonDocIdMap firstDocId (CD.fromDocument d))
+singleton                       :: (Binary a) => Document a -> SmallDocuments a
+singleton d                     = SmallDocuments (singletonDocIdMap firstDocId (CD.fromDocument d))
 
 -- | Convert a Compact document table into a small compact document table.
 -- Called at the end of building an index
 
-docTable2smallDocTable		:: CD.Documents a -> SmallDocuments a
-docTable2smallDocTable		=  SmallDocuments . CD.idToDoc
+docTable2smallDocTable          :: CD.Documents a -> SmallDocuments a
+docTable2smallDocTable          =  SmallDocuments . CD.idToDoc
 
 -- ------------------------------------------------------------

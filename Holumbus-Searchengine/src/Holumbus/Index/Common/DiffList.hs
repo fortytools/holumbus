@@ -36,7 +36,7 @@ module Holumbus.Index.Common.DiffList
 where
 
 import Data.List
-import Data.Word 			( Word32
+import Data.Word                        ( Word32
                                         , Word64
                                         )
 
@@ -57,23 +57,29 @@ type Diff               = Word64
 type DiffList           = [Diff]
 
 -- | Convert a set of integers into a list of difference encoded values.
+
 fromPositions           :: Positions -> DiffList
 fromPositions           = fromList . toAscListPos
 
 -- | Convert the difference encoded values to a list of integers.
+
 toPositions             :: DiffList -> Positions
 toPositions             = fromListPos . toList
 
 -- | Convert a list of positions into a list of difference encoded values.
+
 fromList                :: [Position] -> DiffList
 fromList                = crunch32 . encode . sort
 
--- | Convert the difference encoded values to a list of integers. The resulting list will be
--- sorted in ascendin
+-- | Convert the difference encoded values to a list of integers.
+-- The resulting list will be
+-- sorted in ascending order
+
 toList                  :: DiffList -> [Position]
 toList                  = decode . decrunch32
 
 -- | This is were the real work is done: Encoding a sorted list of integers.
+
 encode                  :: [Position] -> [Word32]
 encode                  = encode' 0
   where
@@ -84,6 +90,7 @@ encode                  = encode' 0
     n = fromIntegral (x - l)
 
 -- | This is were the real work is done: Decoding a difference list.
+
 decode                  :: [Word32] -> [Position]
 decode                  = decode' 0
   where
@@ -94,6 +101,7 @@ decode                  = decode' 0
     n                   = (fromIntegral x) + l 
 
 -- | Returns all differences. Used for debugging purposes.
+
 diffs                   :: DiffList -> [Word32]
 diffs                   = decrunch32
 

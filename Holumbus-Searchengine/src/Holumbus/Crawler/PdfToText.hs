@@ -38,12 +38,14 @@ pdfToTextBS inp = ( do
                     _       <- rawSystem "pdftotext" ["-q", "-enc", "UTF-8", fn1, fn2]
                     removeFile fn1
                     res     <- BS.readFile fn2
-                    BS.length res `seq` removeFile fn2
+                    BS.length res `seq`
+                      removeFile fn2
 
                     return ( fst . utf8ToUnicode . map (toEnum . fromEnum) . BS.unpack $ res )
                   ) `mycatch` ( const $ return "" )
   where
   fn d p f      = d </> (show p ++ "-" ++ f)
+
   mycatch       :: IO a -> (CE.SomeException -> IO a) -> IO a
   mycatch       = CE.catch
 

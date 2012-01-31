@@ -14,13 +14,12 @@ import           Control.Monad.State
 import           Control.Monad.ReaderStateIO
 
 import           Data.Binary                    ( Binary )
-import qualified Data.Binary                    as B                    -- else naming conflict with put and get from Monad.State
+import qualified Data.Binary                    as B    -- else naming conflict with put and get from Monad.State
 
 import           Data.Function.Selector
 
 import           Data.List
 
--- import           Holumbus.Crawler.CrawlerAction
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.Logger
 import           Holumbus.Crawler.URIs
@@ -43,7 +42,6 @@ saveCrawlerState fn             = do preSave
     where
       preSave                   = do  act <- getConf theSavePreAction
                                       act fn
-                                      -- modifyStateIO theResultAccu (act fn)
 
 loadCrawlerState                :: (Binary r) => FilePath -> CrawlerAction a r ()
 loadCrawlerState fn             = do
@@ -281,7 +279,7 @@ processDoc (uri, lev)   = do
                                    then uri'
                                    else ""
                                  , newUris
-                                 , res                                                  -- usually in case of normal processing this is a singleton list
+                                 , res                  -- usually in case of normal processing this is a singleton list
                                  )
                                                         -- and in case of an error it's an empty list
 -- ------------------------------------------------------------
@@ -290,9 +288,9 @@ processDoc (uri, lev)   = do
 
 isAllowedByRobots       :: URI -> CrawlerAction a r Bool
 isAllowedByRobots uri   = do
-                          uriAddToRobotsTxt uri                                         -- for the uri host, a robots.txt is loaded, if neccessary
+                          uriAddToRobotsTxt uri         -- for the uri host, a robots.txt is loaded, if neccessary
                           rdm <- getState theRobots
-                          if (robotsDisallow rdm uri)                                   -- check, whether uri is disallowed by host/robots.txt
+                          if (robotsDisallow rdm uri)   -- check, whether uri is disallowed by host/robots.txt
                              then do
                                   noticeC "isAllowedByRobot" ["uri rejected by robots.txt", show uri]
                                   return False
@@ -377,12 +375,16 @@ initCrawler                     = do
                                   setLogLevel "" (getS theTraceLevel conf)
                                   
 
-runCrawler                      :: CrawlerAction a r x -> CrawlerConfig a r -> CrawlerState r -> IO (x, CrawlerState r)
-runCrawler a                    = runReaderStateIO (initCrawler >> a)
+runCrawler                      :: CrawlerAction a r x ->
+                                   CrawlerConfig a r   ->
+                                   CrawlerState r      -> IO (x, CrawlerState r)
+runCrawler a                    =  runReaderStateIO (initCrawler >> a)
 
 -- run a crawler and deliver just the accumulated result value
 
-execCrawler                     :: CrawlerAction a r x -> CrawlerConfig a r -> CrawlerState r -> IO (CrawlerState r)
+execCrawler                     :: CrawlerAction a r x ->
+                                   CrawlerConfig a r   ->
+                                   CrawlerState r      -> IO (CrawlerState r)
 execCrawler cmd config initState
                                 = runCrawler cmd config initState >>= return . snd
 

@@ -69,7 +69,7 @@ parseRE                         :: String -> RE.Regex
 parseRE re                      = check . RE.parseRegex $ re
     where
     check re'
-        | RE.isZero re'		= error $ "\nsyntax error in regexp: " ++ re ++ "\n" ++ RE.errRegex re'
+        | RE.isZero re'         = error $ "\nsyntax error in regexp: " ++ re ++ "\n" ++ RE.errRegex re'
         | otherwise             = re'
 
 -- ------------------------------------------------------------

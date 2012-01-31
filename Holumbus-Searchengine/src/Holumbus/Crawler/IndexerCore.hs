@@ -65,8 +65,9 @@ data IndexerState i d c         = IndexerState
 
 instance (NFData i, NFData (d c)) => NFData (IndexerState i d c)
     where
-    rnf IndexerState { ixs_index = i, ixs_documents = d }
-                                = rnf i `seq` rnf d
+    rnf IndexerState { ixs_index     = i
+                     , ixs_documents = d
+                     }          = rnf i `seq` rnf d
 
 -- ------------------------------------------------------------
 
@@ -253,7 +254,6 @@ insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
                                                 -- and document is thrown away
     | otherwise                 = do
                                   newIx  <- foldM (insertRawContextM did) (ixs_index ixs) $ rawContexts
-                                  -- liftIO $ putStrLn("insertDoc: new docid: " ++ show did)	-- debug
                                   newIxs <- return $
                                             IndexerState { ixs_index        = newIx
                                                          , ixs_documents    = newDocs
