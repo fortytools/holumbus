@@ -1,7 +1,7 @@
 module Hayoo.HackagePackage
 where
 
-import		 Data.List
+import           Data.List
 
 import           Hayoo.URIConfig
 import           Hayoo.PackageInfo
@@ -10,42 +10,42 @@ import           Holumbus.Crawler.Html
 
 import           Text.XML.HXT.Core
   
-import		 Text.Regex.XMLSchema.String
+import           Text.Regex.XMLSchema.String
 
 -- ------------------------------------------------------------
 
-hayooGetPkgInfo			:: IOSArrow XmlTree PackageInfo
-hayooGetPkgInfo			= fromLA $
+hayooGetPkgInfo                 :: IOSArrow XmlTree PackageInfo
+hayooGetPkgInfo                 = fromLA $
                                   ( getPkgNameAndVersion
-				    &&&
-				    getPkgDependencies
-				    &&&
-				    getPkgAuthor
-				    &&&
-				    getPkgMaintainer
-				    &&&
-				    getPkgCategory
-				    &&&
-				    getPkgHomepage
-				    &&&
-				    getPkgSynopsis
-				    &&&
-				    getPkgDescr
-				  )
-				  >>^
-				  (\ ((x1, x2), (x3, (x4, (x5, (x6, (x7, (x8, x9))))))) -> mkPackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9)
+                                    &&&
+                                    getPkgDependencies
+                                    &&&
+                                    getPkgAuthor
+                                    &&&
+                                    getPkgMaintainer
+                                    &&&
+                                    getPkgCategory
+                                    &&&
+                                    getPkgHomepage
+                                    &&&
+                                    getPkgSynopsis
+                                    &&&
+                                    getPkgDescr
+                                  )
+                                  >>^
+                                  (\ ((x1, x2), (x3, (x4, (x5, (x6, (x7, (x8, x9))))))) -> mkPackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9)
 
-hayooGetPkgTitle		:: IOSArrow XmlTree String
-hayooGetPkgTitle		= fromLA $
-				  getPkgName
+hayooGetPkgTitle                :: IOSArrow XmlTree String
+hayooGetPkgTitle                = fromLA $
+                                  getPkgName
 
 -- ------------------------------------------------------------
 
-getPkgName	 		:: LA XmlTree String
-getPkgName			= getPkgNameAndVersion >>^ fst
+getPkgName                      :: LA XmlTree String
+getPkgName                      = getPkgNameAndVersion >>^ fst
 
-getPkgNameAndVersion 		:: LA XmlTree (String, String)
-getPkgNameAndVersion		= getHtmlTitle
+getPkgNameAndVersion            :: LA XmlTree (String, String)
+getPkgNameAndVersion            = getHtmlTitle
                                   >>^
                                   ( ( words >>> drop 1 >>> take 1 >>> unwords )
                                     >>>
@@ -55,8 +55,8 @@ getPkgNameAndVersion		= getHtmlTitle
                                     )
                                   )
 
-getPkgDependencies 		:: LA XmlTree [String]
-getPkgDependencies		= getProperty "Dependencies"
+getPkgDependencies              :: LA XmlTree [String]
+getPkgDependencies              = getProperty "Dependencies"
                                   >>>
                                   listA
                                   ( getChildren
@@ -72,20 +72,20 @@ getPkgDependencies		= getProperty "Dependencies"
                                   >>>
                                   arr (sort >>> nub)
 
-getPkgAuthor 			:: LA XmlTree String
-getPkgAuthor			= getAllText $ getProperty "Author(s)?"
+getPkgAuthor                    :: LA XmlTree String
+getPkgAuthor                    = getAllText $ getProperty "Author(s)?"
 
-getPkgMaintainer 		:: LA XmlTree String
-getPkgMaintainer		= getAllText $ getProperty "Maintainer(s)?"
+getPkgMaintainer                :: LA XmlTree String
+getPkgMaintainer                = getAllText $ getProperty "Maintainer(s)?"
 
-getPkgCategory 			:: LA XmlTree String
-getPkgCategory			= getAllText $ getProperty "Category"
+getPkgCategory                  :: LA XmlTree String
+getPkgCategory                  = getAllText $ getProperty "Category"
 
-getPkgHomepage	 		:: LA XmlTree String
-getPkgHomepage			= getAllText $ getProperty "Home page"
+getPkgHomepage                  :: LA XmlTree String
+getPkgHomepage                  = getAllText $ getProperty "Home page"
 
-getPkgSynopsis	 		:: LA XmlTree String
-getPkgSynopsis			= ( getAllText
+getPkgSynopsis                  :: LA XmlTree String
+getPkgSynopsis                  = ( getAllText
                                     ( getByPath ["html","body"]
                                       />
                                       isElemWithAttr "div" "id" (== "package-header")
@@ -94,10 +94,10 @@ getPkgSynopsis			= ( getAllText
                                     )
                                   )
                                   >>^
-                                  ( dropWhile (/= ':') >>> drop 1 >>> dropWhile (== ' '))	-- remove package name
+                                  ( dropWhile (/= ':') >>> drop 1 >>> dropWhile (== ' '))       -- remove package name
 
-getPkgDescr	 		:: LA XmlTree String
-getPkgDescr			= getAllText                    -- take all stuff between "h1" and next "h2" element in content
+getPkgDescr                     :: LA XmlTree String
+getPkgDescr                     = getAllText                    -- take all stuff between "h1" and next "h2" element in content
                                   ( ( getByPath ["html","body"]
                                       />
                                       isElemWithAttr "div" "id" (== "content")
@@ -116,24 +116,24 @@ getPkgDescr			= getAllText                    -- take all stuff between "h1" and
 
 -- ------------------------------------------------------------
 
-preparePkg			:: IOSArrow XmlTree XmlTree
-preparePkg			= fromLA $
+preparePkg                      :: IOSArrow XmlTree XmlTree
+preparePkg                      = fromLA $
                                   isHackagePackage
 
-isHackagePackage		:: LA XmlTree XmlTree
-isHackagePackage		= hasAttrValue transferURI (match $ hackagePackages ++ fileName)
+isHackagePackage                :: LA XmlTree XmlTree
+isHackagePackage                = hasAttrValue transferURI (match $ hackagePackages ++ fileName)
 
 -- ------------------------------------------------------------
 
-getProperties		:: LA XmlTree XmlTree
-getProperties		= single (deep (hasName "table"))		-- there should be only a single table
+getProperties           :: LA XmlTree XmlTree
+getProperties           = single (deep (hasName "table"))               -- there should be only a single table
                                                                         -- old package layout:
                                                                         -- deep ( isElemWithAttr "table" "class" (== "properties") )
                           />
                           hasName "tr"
 
-getProperty		:: String -> LA XmlTree XmlTree
-getProperty kw		= getProperties
+getProperty             :: String -> LA XmlTree XmlTree
+getProperty kw          = getProperties
                           >>>
                           ( ( getChildren
                               >>>

@@ -1,4 +1,4 @@
-{-# OPTIONS -XBangPatterns #-}
+{-# OPTIONS #-}
 
 -- ------------------------------------------------------------
 
@@ -23,25 +23,26 @@ import           Text.XML.HXT.Core
 -- records, which are unpacked when accessing the document descriptions.
 -- So there is non need for unsing bytestrings and strict fields
 
-data PackageInfo                = PackageInfo 
-                                  { p_name              :: String               -- ^ The name of the package
-                                  , p_version           :: String               -- ^ The latest package version
-                                  , p_dependencies      :: String               -- ^ The list of required packages
-                                  , p_author            :: String               -- ^ The author
-                                  , p_maintainer        :: String               -- ^ The maintainer
-                                  , p_category          :: String               -- ^ The package category
-                                  , p_homepage          :: String               -- ^ The home page
-                                  , p_synopsis          :: String               -- ^ The synopsis
-                                  , p_description       :: String               -- ^ The description of the package
-                                  , p_rank              :: Score                -- ^ The ranking
-                                  } 
-                                  deriving (Show, Eq)
+data PackageInfo
+    = PackageInfo 
+      { p_name              :: String               -- ^ The name of the package
+      , p_version           :: String               -- ^ The latest package version
+      , p_dependencies      :: String               -- ^ The list of required packages
+      , p_author            :: String               -- ^ The author
+      , p_maintainer        :: String               -- ^ The maintainer
+      , p_category          :: String               -- ^ The package category
+      , p_homepage          :: String               -- ^ The home page
+      , p_synopsis          :: String               -- ^ The synopsis
+      , p_description       :: String               -- ^ The description of the package
+      , p_rank              :: Score                -- ^ The ranking
+      } 
+    deriving (Show, Eq)
 
 mkPackageInfo                   :: String -> String -> [String] -> String -> String -> String -> String -> String -> String -> PackageInfo
 mkPackageInfo n v d a m c h y s = PackageInfo n v (unwords d) a m c h y s 1.0
 
 setPackageRank                  :: Score -> PackageInfo -> PackageInfo
-setPackageRank !r p             = p { p_rank = r }
+setPackageRank r p              = r `seq` p { p_rank = r }
 
 getPackageName                  :: PackageInfo -> String
 getPackageName                  =  p_name

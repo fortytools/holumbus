@@ -25,7 +25,8 @@ search	= $(bindir)/hayooSearch
 fastcgi	= $(bindir)/hayooFastCGI
 progs	= $(indexer) $(search) $(fastcgi)
 
-# the -A option is important for garbage collection performance, a good value is about the size of the L2 cache of the cpu
+# the -A option is important for garbage collection performance,
+# a good value is about the size of the L2 cache of the cpu
 # the default is set to 8M
 
 N       = 1
@@ -52,7 +53,7 @@ whole-cache	: $(indexer)
 	[ -d ./cache ] || mkdir cache
 	$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --valid=$(valid) --xml-output=cache.xml
 
-whole-index	: $(indexer)
+whole-index-old	: $(indexer)
 	@echo "build an index of all haddock pages on hackage"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
@@ -65,12 +66,12 @@ whole-index	: $(indexer)
 	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=17500 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000015000 --new-search=$(ix) $(OPTS)
 	@echo not yet needed: $< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=2500 --maxdocs=20000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000017500 --new-search=$(ix) $(OPTS)
 
-whole-index1	: $(indexer)
+whole-index	: $(indexer)
 	@echo "build an index of all haddock pages on hackage in a single run"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
 	@echo "the computation is done in 1 single run, but the index is spit into chunks"
-	@echo " and written out chuck by chunk, then at the end these chunks are combined into the complete index"
+	@echo " and written out chunk by chunk, then at the end these chunks are combined into the complete index"
 	@echo "preparing and writing the compressed index requires most of the runtime"
 	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --partition=2500 --maxpar=2500 --maxdocs=30000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
 
@@ -99,8 +100,9 @@ update-cache	: $(indexer)
 
 update-index	: $(indexer)
 	@echo update an existing hayoo index with all packages uploaded to hackage within the last $(latest)
-	@echo existing index is "$(ix)", result index is "$(ixn)"
-	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --maxpar=5000 --maxdocs=20000 --latest=$(latest) --defragment --index=$(ix) --new-index=$(ixn)  --new-search=$(ixn)
+	@echo with partial indexes the update becomes obsolete, the whole index is rebuild
+	@echo same as "make whole-index" but result index is "$(ixn)"
+	$(MAKE) whole-index ix=$(ixn)
 
 update-pkg	: $(indexer)
 	@echo updating a package index is not neccessary, the complete index is ready within a minute
@@ -128,13 +130,13 @@ load-cache	: $(indexer)
 	$< +RTS -N$(N) -s -K100M -RTS --cache --valid=$(valid) --packages=$(packages) --xml-output=-
 
 new2cur	: $(ixn).doc $(ixn).idx $(pxn).doc $(pxn).idx
-	mv -f $(ix) $(ix)~
-	mv -f $(px) $(px)~
-	mv    $(ixn)     $(ix)
+	mv -f $(ix) $(ix)~ || true
+	mv -f $(px) $(px)~ || true
+	mv    $(ixn)     $(ix) || true
 	mv    $(ixn).doc $(ix).doc
 	mv    $(ixn).idx $(ix).idx
 	rm -f tmp/ix*
-	mv    $(pxn)     $(px)
+	mv    $(pxn)     $(px) || true
 	mv    $(pxn).doc $(px).doc
 	mv    $(pxn).idx $(px).idx
 	mv    $(pxn).xml $(px).xml
@@ -152,14 +154,27 @@ clean	:
 reset	:
 	rm -rf cache/* tmp/*
 
-pkglist = hxt,base
-ixx     = tix
-pxx     = tpkg
+pkglist = hxt-filter
+ixx     = hxt-ix
+pxx     = hxt-pkg
 
-test	:
-	hayooIndexer --fct-index --maxthreads=0 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist) --partition=20
+testix	:
+	hayooIndexer --fct-index --maxthreads=1 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist)
+
+#	hayooIndexer --fct-index --maxthreads=1 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist) --partition=20
 
 testpkg	:
-	hayooIndexer --pkg-index --maxthreads=0 --maxpar=250 --maxdocs=2500 --valid=1month --new-index=$(pxx) --new-search=$(pxx) --xml-output=$(pxx).xml -p $(pkglist) --partition=20
+	hayooIndexer --pkg-index --maxthreads=0 --maxpar=250 --maxdocs=2500 --valid=1month --new-index=$(pxx) --new-search=$(pxx) --xml-output=$(pxx).xml -p $(pkglist)
 
-testall	: test testpkg
+test	: testix testpkg
+
+search	:
+	hayooSnap +RTS -s -RTS &
+
+.PHONY	: all force \
+	whole whole-cache whole-index whole-pkg \
+	update update-cache update-index update-pkg \
+	new2cur install-index \
+	clean reset \
+	test testpkg testix \
+	search

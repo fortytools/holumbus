@@ -105,7 +105,10 @@ isHaddock28                     = getPath "html/body/div/p"
                                   /> hasName "a"
                                   /> hasText (== "Haddock")
     hasVersionGE28              = this
-                                  /> hasText (match ".* [2-9][.]([1-9][0-9]+|[8-9])([.][0-9]+)*")
+                                  /> hasText matchVersionGE28
+
+matchVersionGE28                :: String -> Bool
+matchVersionGE28                = match ".* [2-9][.]([1-9][0-9]+|[8-9])([.][0-9]+)*"
 
 prepareHaddock28                :: IOSArrow XmlTree XmlTree
 prepareHaddock28                = fromLA $
@@ -235,21 +238,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                               >>> hasAttr "name"
                                             ) 
                                   >>> arr (uncurry (:))
-{- old stuff
-    processFunctionDecl         = substChild $< ( getChildren >>> (mkSingleFct $< splitMultiFct) )
-                                  += sattr "type" "function"
 
-        where
-          substChild t          = replaceChildren (constA t)
-          mkSingleFct ts        = replaceChildren (constL ts)
-          splitMultiFct         = listA getChildren
-                                  >>> spanA (hasText ((/= "::") . stringTrim) <+> isElem)
-                                  >>> first ( unlistA
-                                              >>> aWithClass (== "def")
-                                              >>> hasAttr "name"
-                                            ) 
-                                  >>> arr (uncurry (:))
--- -}
     processTypeDecl             = this +=  attr "type" theType
 
     processConstructors srcLnk  = this
@@ -879,3 +868,5 @@ test f x = sequence $ map putStrLn $ runLA (xread >>> f >>> xshow indentDoc) $ x
 
 
 -- -}
+
+-- ------------------------------------------------------------

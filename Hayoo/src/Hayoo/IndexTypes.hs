@@ -33,11 +33,23 @@ import           Holumbus.Crawler.IndexerCore
 
 import qualified Holumbus.Data.PrefixTree       as PT
 
-import           Holumbus.Index.Common      {-    ( Document(..)
+import           Holumbus.Index.Common          ( Document(..)
                                                 , Occurrences
-                                                , toList, fromList
-                                                , custom, editDocIds, removeById, toMap, updateDocIds', updateDocuments
-                                                )-}
+                                                , custom
+                                                , defragmentDocIndex
+                                                , elemsDocIdMap
+                                                , emptyDocIdMap
+                                                , emptyPos
+                                                , foldWithKeyDocIdMap
+                                                , fromList
+                                                , insertDocIdMap
+                                                , keysDocIdMap
+                                                , removeById
+                                                , toList
+                                                , toMap
+                                                , updateDocuments
+                                                )
+
 import           Holumbus.Index.CompactDocuments
                                                 ( Documents(..)
                                                 , emptyDocuments
@@ -63,7 +75,7 @@ import           Holumbus.Query.Result          ( Score )
 
 import           Holumbus.Index.Inverted.PrefixMem
 
--}
+-- -}
 -- ------------------------------------------------------------
 
 {- .2: indirect use of prefix tree with simple-9 encoded occurences via InvertedCompressed
@@ -78,9 +90,11 @@ type Inverted                   = PM.InvertedCompressed
 
 emptyInverted                   :: Inverted
 emptyInverted                   = PM.emptyInvertedCompressed
--}
+
+-- -}
 
 -- ------------------------------------------------------------
+-- {-
 
 {- .3: indirect prefix tree without compression of position sets
 
@@ -89,7 +103,7 @@ emptyInverted                   = PM.emptyInvertedCompressed
    implementations with serializations become much more inefficient
    in runtime and are not worth to be considered
 -}
- 
+
 import qualified Holumbus.Index.Inverted.CompressedPrefixMem    as PM
 
 type Inverted                   = PM.Inverted0
@@ -108,6 +122,7 @@ emptyCompactInverted            = PM.emptyInvertedOSerialized
 inverted2compactInverted        :: Inverted -> CompactInverted
 inverted2compactInverted        = fromList PM.emptyInvertedOSerialized . toList
 
+-- -}
 -- ------------------------------------------------------------
 
 type HayooState  di             = IndexerState       Inverted Documents di
@@ -137,7 +152,8 @@ getPkgNamePkg                   = p_name . fromJust . custom
 -- ------------------------------------------------------------
 
 removePackages'                 :: (Binary di, NFData di) =>
-                                   (Document di -> String) -> String -> [String] -> Bool -> IO (HayooState di)
+                                   (Document di -> String) -> String ->
+                                   [String] -> Bool -> IO (HayooState di)
 removePackages' pkgName ixName pkgList defragment
                                 = do
                                   ix <- decodeFile ixName
@@ -145,7 +161,8 @@ removePackages' pkgName ixName pkgList defragment
                                   let ix2  = if defragment
                                              then defragmentIndex ix1
                                              else ix1
-                                  rnf ix2 `seq` return ix2
+                                  rnf ix2 `seq`
+                                      return ix2
 
 -- ------------------------------------------------------------
 
@@ -187,12 +204,7 @@ defragmentIndex IndexerState
                                   }
     where
     (dt', ix')                  = defragmentDocIndex dt ix
-{-
-    ix'                         = updateDocIds' editId ix
-    ds'                         = editDocIds editId ds
-    idMap                       = fromListDocIdMap . flip zip (map mkDocId [1..]) . keysDocIdMap . toMap $ ds
-    editId i                    = fromJust . lookupDocIdMap i $ idMap
--}
+
 -- ------------------------------------------------------------
 
 -- | package ranking is implemented by the following algorithm
@@ -229,7 +241,7 @@ packageRanking ixs@(IndexerState { ixs_documents = ds })
 traceNothing d
     | isJust . custom $ d       = d
     | otherwise                 = traceShow d $ d
--}
+-- -}
 
 -- ------------------------------------------------------------
 

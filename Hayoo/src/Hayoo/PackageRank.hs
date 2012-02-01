@@ -12,9 +12,9 @@ import qualified Data.Map       as M
 import           Data.Maybe
 import           Data.Set       ( Set )
 import qualified Data.Set       as S
-
--- import           Debug.Trace
-
+{-
+import           Debug.Trace
+-- -}
 -- ------------------------------------------------------------
 
 type DAG a                      = Map a (Set a)
@@ -122,5 +122,5 @@ d1 = dagFromList [(1,[2,3])
                  ,(2,[3,4])
                  ,(3,[]),(4,[])
                  ]
--}
+-- -}
 -- ------------------------------------------------------------

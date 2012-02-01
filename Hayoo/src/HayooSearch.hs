@@ -2,7 +2,7 @@
 
 {- |
   Module     : Main
-  Copyright  : Copyright (C) 2010-2011 Timo B. Huebel
+  Copyright  : Copyright (C) 2011 Timo B. Huebel
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
@@ -26,7 +26,7 @@ import Hack.Handler.SimpleServer
 
 -- | Maybe read these from the command line ... somewhen
 ixBase :: FilePath
-ixBase		= "./lib"
+ixBase          = "./lib"
 
 -- | The main application, fire up the server here!
 main :: IO ()
