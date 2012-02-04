@@ -294,6 +294,7 @@ mergeAndWritePartialRes ps
     where
       id' :: SmallDocuments PageInfo -> SmallDocuments PageInfo
       id' = id
+
 -- ------------------------------------------------------------
 
 writeResults :: (XmlPickler a, Binary a) => a -> HIO ()
@@ -309,7 +310,7 @@ writeResults v
 -- ------------------------------------------------------------
 
 notice :: MonadIO m => [String] -> m ()
-notice = noticeC "hayoo"
+notice = noticeC "w3w"
 
 -- ------------------------------------------------------------
 

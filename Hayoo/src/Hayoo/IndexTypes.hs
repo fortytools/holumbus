@@ -4,14 +4,10 @@
 
 module Hayoo.IndexTypes
     ( module Hayoo.IndexTypes
-    , Document
-    , Documents
-    , SmallDocuments
+    , module Holumbus.Index.CompactIndex
     , FunctionInfo(..)
     , PackageInfo(..)
     , Score
-
-    , docTable2smallDocTable
     )
 where
 
@@ -30,117 +26,21 @@ import           Hayoo.PackageRank
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
-
 import qualified Holumbus.Data.PrefixTree       as PT
-
 import           Holumbus.Index.Common          ( Document(..)
-                                                , Occurrences
                                                 , custom
-                                                , defragmentDocIndex
                                                 , elemsDocIdMap
                                                 , emptyDocIdMap
                                                 , emptyPos
                                                 , foldWithKeyDocIdMap
-                                                , fromList
                                                 , insertDocIdMap
                                                 , keysDocIdMap
                                                 , removeById
-                                                , toList
                                                 , toMap
                                                 , updateDocuments
                                                 )
-
-import           Holumbus.Index.CompactDocuments
-                                                ( Documents(..)
-                                                , emptyDocuments
-                                                )
-
-import           Holumbus.Index.CompactSmallDocuments
-                                                ( SmallDocuments(..)
-                                                , docTable2smallDocTable
-                                                )
-import qualified Holumbus.Index.CompactSmallDocuments
-                                                as CSD
-
+import           Holumbus.Index.CompactIndex
 import           Holumbus.Query.Result          ( Score )
-
--- import           Debug.Trace
-
--- ------------------------------------------------------------
-
-{- .1: direct use of prefix tree with simple-9 encoded occurences
-
-   concerning efficiency this implementation is about the same as the 2. one,
-   space and time are minimally better, the reason could be less code working with classes
-
-import           Holumbus.Index.Inverted.PrefixMem
-
--- -}
--- ------------------------------------------------------------
-
-{- .2: indirect use of prefix tree with simple-9 encoded occurences via InvertedCompressed
-
-   minimal overhead compared to .1
-   but less efficient in time (1598s / 1038s) and space
-   total mem use (2612MB / 2498MB) than .3
-
-import qualified Holumbus.Index.Inverted.CompressedPrefixMem    as PM
-
-type Inverted                   = PM.InvertedCompressed
-
-emptyInverted                   :: Inverted
-emptyInverted                   = PM.emptyInvertedCompressed
-
--- -}
-
--- ------------------------------------------------------------
--- {-
-
-{- .3: indirect prefix tree without compression of position sets
-
-   best of these 3 implementations
-
-   implementations with serializations become much more inefficient
-   in runtime and are not worth to be considered
--}
-
-import qualified Holumbus.Index.Inverted.CompressedPrefixMem    as PM
-
-type Inverted                   = PM.Inverted0
-
-emptyInverted                   :: Inverted
-emptyInverted                   = PM.emptyInverted0
-
-removeDocIdsInverted            :: Occurrences -> Inverted -> Inverted
-removeDocIdsInverted            = PM.removeDocIdsInverted
-
-type CompactInverted            = PM.InvertedOSerialized
-
-emptyCompactInverted            :: CompactInverted
-emptyCompactInverted            = PM.emptyInvertedOSerialized
-
-inverted2compactInverted        :: Inverted -> CompactInverted
-inverted2compactInverted        = fromList PM.emptyInvertedOSerialized . toList
-
--- -}
--- ------------------------------------------------------------
-
-type HayooState  di             = IndexerState       Inverted Documents di
-type HayooConfig di             = IndexCrawlerConfig Inverted Documents di
-
-type HayooCrawlerState di       = CrawlerState (HayooState di)
-
-emptyHayooState                 :: HayooState di
-emptyHayooState                 = emptyIndexerState emptyInverted emptyDocuments
-
-flushHayooState                 :: HayooState di -> HayooState di
-flushHayooState hs              = hs { ixs_index     = emptyInverted
-                                     , ixs_documents = emptyDocuments
-                                                       { lastDocId = lastDocId . ixs_documents $ hs }
-                                     }
-
-emptySmallDocuments             :: SmallDocuments a
-emptySmallDocuments             = CSD.emptyDocuments
 
 -- ------------------------------------------------------------
 
@@ -154,13 +54,13 @@ getPkgNamePkg                   = p_name . fromJust . custom
 
 removePackages'                 :: (Binary di, NFData di) =>
                                    (Document di -> String) -> String ->
-                                   [String] -> Bool -> IO (HayooState di)
+                                   [String] -> Bool -> IO (HolumbusState di)
 removePackages' pkgName ixName pkgList defragment
                                 = do
                                   ix <- decodeFile ixName
                                   let ix1  = removePack' pkgName pkgList ix
                                   let ix2  = if defragment
-                                             then defragmentIndex ix1
+                                             then defragmentHolumbusState ix1
                                              else ix1
                                   rnf ix2 `seq`
                                       return ix2
@@ -169,7 +69,7 @@ removePackages' pkgName ixName pkgList defragment
 
 removePack'                     :: (Binary di) =>
                                    (Document di -> String) -> [String] ->
-                                   HayooState di -> HayooState di
+                                   HolumbusState di -> HolumbusState di
 removePack' pkgName ps IndexerState
               { ixs_index     = ix
               , ixs_documents = ds
@@ -191,20 +91,6 @@ removePack' pkgName ps IndexerState
 
                                                         -- restrict document table
     ds'                         = foldl' removeById ds $ keysDocIdMap docIds
-
--- ------------------------------------------------------------
-
-defragmentIndex                 :: (Binary di) =>
-                                   HayooState di -> HayooState di
-defragmentIndex IndexerState
-              { ixs_index     = ix
-              , ixs_documents = dt
-              }                 = IndexerState
-                                  { ixs_index     = ix'
-                                  , ixs_documents = dt'
-                                  }
-    where
-    (dt', ix')                  = defragmentDocIndex dt ix
 
 -- ------------------------------------------------------------
 
@@ -262,17 +148,16 @@ buildRankTable                  = toMap
 
 -- ------------------------------------------------------------
 
-type HayooIndexerState                  = HayooState   FunctionInfo
-type HayooIndexerConfig                 = HayooConfig  FunctionInfo
+type HayooIndexerState                  = HolumbusState   FunctionInfo
+type HayooIndexerConfig                 = HolumbusConfig  FunctionInfo
 
 type HayooIndexerCrawlerState           = CrawlerState HayooIndexerState
 
 -- ------------------------------------------------------------
 
-type HayooPkgIndexerState               = HayooState   PackageInfo
-type HayooPkgIndexerConfig              = HayooConfig  PackageInfo
+type HayooPkgIndexerState               = HolumbusState   PackageInfo
+type HayooPkgIndexerConfig              = HolumbusConfig  PackageInfo
 
 type HayooPkgIndexerCrawlerState        = CrawlerState HayooPkgIndexerState
 
 -- ------------------------------------------------------------
-
