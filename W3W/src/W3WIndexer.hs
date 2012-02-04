@@ -7,10 +7,9 @@ where
 
 import           Codec.Compression.BZip ( compress, decompress )
 
-import           Control.DeepSeq
 import           Control.Monad.Reader
 
-import qualified Data.Binary                    as B
+import           Data.Binary
 import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
@@ -25,7 +24,6 @@ import           Holumbus.Crawler
 import           Holumbus.Crawler.CacheCore
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.PdfToText
-import           Holumbus.Index.Common
 
 import           System.Console.GetOpt
 import           System.Environment
@@ -34,7 +32,6 @@ import           System.IO
 
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Cache
-import           Text.XML.HXT.HTTP()
 import           Text.XML.HXT.Curl
 
 -- ------------------------------------------------------------
@@ -45,24 +42,24 @@ data AppAction
 
 data AppOpts
     = AO
-      { ao_progname :: String
-      , ao_index    :: String
-      , ao_ixout    :: String
-      , ao_ixsearch :: String
-      , ao_xml      :: String
-      , ao_help     :: Bool
-      , ao_action   :: AppAction
-      , ao_defrag   :: Bool
-      , ao_partix   :: Bool
-      , ao_resume   :: Maybe String
-      , ao_msg      :: String
-      , ao_crawlDoc :: (Int, Int, Int)
-      , ao_crawlSav :: Int
-      , ao_crawlSfn :: String
-      , ao_crawlLog :: (Priority, Priority)
-      , ao_crawlPar :: SysConfig
-      , ao_crawlFct :: W3WIndexerConfig    -> W3WIndexerConfig
-      , ao_crawlCch :: CacheCrawlerConfig  -> CacheCrawlerConfig
+      { ao_progname  :: String
+      , ao_index     :: String
+      , ao_ixout     :: String
+      , ao_ixsearch  :: String
+      , ao_xml       :: String
+      , ao_help      :: Bool
+      , ao_action    :: AppAction
+      , ao_defrag    :: Bool
+      , ao_partix    :: Bool
+      , ao_resume    :: Maybe String
+      , ao_msg       :: String
+      , ao_crawlDoc  :: (Int, Int, Int)
+      , ao_crawlSav  :: Int
+      , ao_crawlSfn  :: String
+      , ao_crawlLog  :: (Priority, Priority)
+      , ao_crawlPar  :: SysConfig
+      , ao_crawlFct  :: W3WIndexerConfig    -> W3WIndexerConfig
+      , ao_crawlCch  :: CacheCrawlerConfig  -> CacheCrawlerConfig
       , ao_uriConfig :: UriConfig
       }
 
@@ -184,8 +181,6 @@ indexPkg
     = do notice ["indexing all w3w pages"]
          getS (theResultAccu .&&&. theListOfDocsSaved) `fmap` w3wIndexer
 
--- ------------------------------------------------------------
-
 mainCache :: HIO ()
 mainCache
     = do rs <- asks ao_resume
@@ -234,34 +229,6 @@ w3wIndexer
 
 -- ------------------------------------------------------------
 
-writePartialIndex               :: Bool -> FilePath -> CrawlerAction a W3WIndexerState ()
-writePartialIndex xout fn       = modifyStateIO
-                                  (theResultAccu .&&&. theResultInit)
-                                  (\ (r, _i) -> do r' <- writePartialIndex' xout fn r
-                                                   return (r', r')
-                                  )
-{- the above code is a bit tricky:
-   when crawling is done in parallel, then initial result is used as a unit value,
-   when merging results. When a partial index is written out, the document id count
-   must not be set back to its initial value, to avoid renumbering when merging then
-   partial indexes. As a consequence, not only the result accu must be changed
-   but also the initial value.
-
-   When this is not done, the indexer runs fine when using the sequential merge,
-   but when running the parallel one, the index ids will overlap.
--}
-
-writePartialIndex'              :: Bool -> FilePath -> W3WIndexerState -> IO W3WIndexerState
-writePartialIndex' xout out ixs = do writeSearchBin out ixs
-                                     if xout
-                                        then writeXml (out ++ ".xml") ixs
-                                        else return ()
-                                     let ixs' = flushW3WState ixs
-                                     rnf ixs' `seq`
-                                         return ixs'
-
--- ------------------------------------------------------------
-
 checkTransferStatus :: IOSArrow XmlTree XmlTree
 checkTransferStatus
     = ( ( getAttrValue transferStatus
@@ -270,6 +237,8 @@ checkTransferStatus
         )
         `guards` this
       )
+
+-- ------------------------------------------------------------
 
 preDocumentFilter :: IOSArrow XmlTree XmlTree
 preDocumentFilter
@@ -304,11 +273,18 @@ w3wCacher
 -- ------------------------------------------------------------
 
 writePartialRes :: (W3WIndexerState, [Int]) -> HIO ()
-writePartialRes (x, ps)
+writePartialRes (s, ps)
     = do part <- asks ao_partix
          if part
             then mergeAndWritePartialRes ps
-            else writeRes x
+            else writeRes s
+    where
+      writeRes s'
+          = writeSearchBin' s' >> writeResults s'
+
+      writeSearchBin' s'
+          = do out <- asks ao_ixsearch
+               writeSearchBin out s'
 
 mergeAndWritePartialRes :: [Int] -> HIO ()
 mergeAndWritePartialRes ps
@@ -318,50 +294,9 @@ mergeAndWritePartialRes ps
     where
       id' :: SmallDocuments PageInfo -> SmallDocuments PageInfo
       id' = id
-
-mergeAndWritePartialRes' :: (MonadIO m, NFData i, B.Binary i) =>
-                            (SmallDocuments i -> SmallDocuments i) -> [String] -> String -> m ()
-mergeAndWritePartialRes' id' pxs out
-    = do notice $ ["merge partial doctables from"] ++ pxs
-         mdocs <- mergeSmallDocs $ map (++ ".doc") pxs
-         notice $ ["write merged doctable to", out ++ ".doc"]
-         liftIO $ B.encodeFile (out ++ ".doc") (id' mdocs)
-         notice $ ["merge partial indexes from"] ++ pxs
-         mixs  <- mergeCompactIxs $ map (++ ".idx") pxs
-         notice $ ["write merged indexes to", out ++ ".idx"]
-         liftIO $ B.encodeFile (out ++ ".idx") mixs
-         notice $ ["merge partial doctables and indexes done"]
-
-mergeW3WSmallDocs :: (MonadIO m) => [String] -> m (SmallDocuments PageInfo)
-mergeW3WSmallDocs = mergeSmallDocs
-
-mergeSmallDocs :: (MonadIO m, NFData i, B.Binary i) => [String] -> m (SmallDocuments i)
-mergeSmallDocs []
-    = return emptySmallDocuments
-mergeSmallDocs (x : xs)
-    = do docs <- mergeSmallDocs xs
-         notice ["merge small documents from file", x]
-         doc1 <- liftIO $ B.decodeFile x
-         rnf doc1 `seq`
-                 (return $ unionDocs docs doc1)
-
-mergeCompactIxs :: (MonadIO m) => [String] -> m CompactInverted
-mergeCompactIxs []
-    = return emptyCompactInverted
-mergeCompactIxs (x : xs)
-    = do ixs <- mergeCompactIxs xs
-         notice ["merge compact index from file", x]
-         ix1 <- liftIO $ B.decodeFile x
-         rnf ix1 `seq`
-                 (return $ mergeIndexes ix1 ixs)
-
 -- ------------------------------------------------------------
 
-writeRes :: (B.Binary c, XmlPickler c) => IndexerState Inverted Documents c -> HIO ()
-writeRes x
-    = writeSearchBin' x >> writeResults x
-
-writeResults :: (XmlPickler a, B.Binary a) => a -> HIO ()
+writeResults :: (XmlPickler a, Binary a) => a -> HIO ()
 writeResults v
     = do (xf, of') <- asks (ao_xml &&& (ao_ixout &&& ao_index))
          writeXml xf  v
@@ -370,52 +305,6 @@ writeResults v
       out (bf, bi)
           | null bf     = bi
           | otherwise   = bf
-      
-writeXml :: (MonadIO m, XmlPickler a) => FilePath -> a -> m ()
-writeXml xf v
-    | xmlOut
-        = do notice ["writing into XML file", xmlFile]
-             liftIO $ runX (constA v
-                            >>> hxtSetTraceAndErrorLogger WARNING
-                            >>> xpickleDocument xpickle [withIndent yes] xmlFile
-                           )
-                        >> return ()
-             notice ["writing XML finished"]
-    | otherwise
-        = notice ["no XML output"]
-    where
-    (xmlOut, xmlFile)
-        | null xf               = (False, xf)
-        | xf == "-"             = (True,  "")
-        | otherwise             = (True,  xf)
-
-writeBin :: (MonadIO m, B.Binary a) => FilePath -> a -> m ()
-writeBin out v
-    | null out
-        = notice ["no binary output"]
-    | otherwise
-        = do notice ["writing into binary file", out]
-             liftIO $ B.encodeFile out v
-             notice ["writing binary data finished"]
-
-writeSearchBin' :: (B.Binary a) => (IndexerState Inverted Documents a) -> HIO ()
-writeSearchBin' state
-    = do out <- asks ao_ixsearch
-         writeSearchBin out state
-
-writeSearchBin :: (B.Binary c, MonadIO m) => FilePath -> IndexerState Inverted Documents c -> m ()
-writeSearchBin out state
-    | null out
-        = notice ["no search index written"]
-    | otherwise
-        = do notice ["writing small document table into binary file", docFile]
-             liftIO $ B.encodeFile docFile (docTable2smallDocTable . ixs_documents $ state)
-             notice ["writing compressed inverted index into binary file", idxFile]
-             liftIO $ B.encodeFile idxFile (inverted2compactInverted . ixs_index $ state)
-             notice ["writing search index files finished"]
-    where
-      docFile = out ++ ".doc"
-      idxFile = out ++ ".idx"
 
 -- ------------------------------------------------------------
 
@@ -441,6 +330,8 @@ evalOptions pn args
         | otherwise  = \ x -> x { ao_help   = True
                                 , ao_msg = "wrong program arguments: " ++ unwords ns
                                 }
+
+-- ------------------------------------------------------------
 
 w3wOptDescr :: [OptDescr (AppOpts -> AppOpts)]
 w3wOptDescr
