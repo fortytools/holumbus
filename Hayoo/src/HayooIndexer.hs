@@ -74,10 +74,6 @@ data AppOpts
 
 -- ------------------------------------------------------------
 
-withCache' :: Int -> XIOSysState -> XIOSysState
-withCache' sec
-    = withCache "./cache" sec yes
-
 initAppOpts :: AppOpts
 initAppOpts
     = AO
@@ -142,6 +138,9 @@ initAppOpts
       editPackageURIs
           = chgS theProcessRefs (>>> arr editLatestPackage)
 
+withCache' :: Int -> XIOSysState -> XIOSysState
+withCache' sec
+    = withCache "./cache" sec yes
 
 -- ------------------------------------------------------------
 
@@ -634,6 +633,7 @@ evalOptions pn args
         | otherwise             = \ x -> x { ao_help   = True
                                            , ao_msg = "wrong program arguments: " ++ unwords ns
                                            }
+-- ------------------------------------------------------------
 
 hayooOptDescr :: [OptDescr (AppOpts -> AppOpts)]
 hayooOptDescr
@@ -669,13 +669,13 @@ hayooOptDescr
                                                 )                                               "NUMBER")       "maximum # of parallel threads, 0: sequential, 1: single thread with binary merge, else real parallel threads, default: 1"
           , Option ""   ["maxpar"]      (ReqArg ( setOption parseInt
                                                   (\ x i -> x { ao_crawlDoc = setMaxParDocs i $
-                                                                ao_crawlDoc x
+                                                                              ao_crawlDoc x
                                                               }
                                                   )
                                                 )                                               "NUMBER")       "maximum # of docs indexed at once before the results are inserted into index, default: 1024"
           , Option ""   ["valid"]       (ReqArg ( setOption parseTime
                                                   (\ x t -> x { ao_crawlPar = setDocAge t $
-                                                                ao_crawlPar x
+                                                                              ao_crawlPar x
                                                               }
                                                   )
                                                 )                                               "DURATION")     "validate cache for pages older than given time, format: 10sec, 5min, 20hours, 3days, 5weeks, 1month, default is 1month"

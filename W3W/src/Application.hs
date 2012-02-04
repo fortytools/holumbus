@@ -1,3 +1,5 @@
+{-# OPTIONS -XTypeSynonymInstances -XMultiParamTypeClasses #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |
@@ -66,3 +68,4 @@ applicationInitializer = do
     w3w <- w3wInitializer
     return $ ApplicationState heist w3w
 
+------------------------------------------------------------------------------

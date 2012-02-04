@@ -6,7 +6,6 @@
   Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
 
   Parsers for Strings containing date-expressions and functions to normalize them
   or convert normalized dates back to human-readable dates.
@@ -750,7 +749,7 @@ dateRep2stringWithTransformedDates dateRep = do
 
 
 
-------------------------------------------------------------------------------
+-- ----------------------------------------------------------------------------
 -- | takes normalized Date-String (e.g. "****-**-03-12-**") and returns human readable
 -- | date representation (e.g. "März, 12 Uhr")
 unNormalizeDate :: String -> String
@@ -776,3 +775,5 @@ unNormalizeDate = unNormalizeDate' . (_split '-')
           where
             _elem = array !! index
         monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
+
+-- ----------------------------------------------------------------------------

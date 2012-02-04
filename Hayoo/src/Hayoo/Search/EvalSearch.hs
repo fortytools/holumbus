@@ -292,7 +292,7 @@ msgSuccess fr pr        = if sd + sp == 0
                           else "Found " ++ (show sd) ++ " " ++ ds ++ ", " ++ (show sp) ++ " " ++ ps ++ " and " ++ (show sw) ++ " " ++ cs ++ "."
     where
     sd                  = sizeDocHits fr
-    sp      = sizeDocHits pr
+    sp      		= sizeDocHits pr
     sw                  = sizeWordHits fr + sizeWordHits pr
     ds                  = if sd == 1 then "function" else "functions"
     ps                  = if sp == 1 then "package" else "packages"

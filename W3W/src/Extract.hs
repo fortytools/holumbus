@@ -6,7 +6,6 @@
   Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
 
   Helper functions and arrows for building the index.
   
@@ -46,6 +45,7 @@ getHeadlines                    = fromLA     $
 -- ----------------------------------------------------------------------------
 -- | Combine two IOSLA-arrows. The result is the tuple of the two result lists.
 -- | Used in getCalenderInfo to combine dates and times placed in different html nodes.
+
 (&&&&)               :: IOSLA t t1 t2 -> IOSLA t t1 t3 -> IOSLA t t1 ([t2], [t3])
 IOSLA f &&&& IOSLA g =  IOSLA $ \ s x -> do
                                          (s1, ys1) <- f s  x
@@ -56,6 +56,7 @@ IOSLA f &&&& IOSLA g =  IOSLA $ \ s x -> do
 -- | Data-Type describing the information found on "http://www.fh-wedel.de/online-campus/termine/".
 -- | A List of dates and a List of times is associated to a url of a link and the text of the link:
 -- | (([date], [time]), (href, text))
+
 type CalenderInfo = (([String], [String]), (String, String))
 
 
@@ -142,6 +143,7 @@ getCalenderInfo =
 -- | - one date, two times  : this is the start date with the start and stop time of the event
 -- | - two dates, no times  : this is the start date and stop date of the event. This needs to be indexed twice (start adn stop date).
 -- | - two dates, two times : this is the start date and time and stop date and time of the event. This needs to be indexed twice (start adn stop date).
+
 calenderInfo2Context                                  :: CalenderInfo -> [[String]] -- [[href, date, teaserText]]
 calenderInfo2Context ((dates, times), (href, teaser)) = mkCalenderEntry (length dates) (length times)
   where
@@ -174,11 +176,13 @@ calenderInfo2Context ((dates, times), (href, teaser)) = mkCalenderEntry (length 
 -- | ((["2011-12-01-**-**", "2012-01-06-**-**"], ["12:00", "23:59"]), ("online-campus/termine/...", "Klausuran-/abmeldungen"))
 -- | ->
 -- | "01. Dezember 2011 12:00 - 06. Januar 2012 23:59"
+
 calenderInfo2NormDates         :: CalenderInfo -> String
 calenderInfo2NormDates calInfo = concat . concat $ [map (head . tail) $ calenderInfo2Context calInfo]
 
 -- ----------------------------------------------------------------------------
 -- | Extract all text of an html or pdf document
+
 getContentText :: IOSArrow XmlTree String
 getContentText =  choiceA
                   [ isHtmlContents :-> getHtmlText
@@ -188,11 +192,13 @@ getContentText =  choiceA
        
 -- ----------------------------------------------------------------------------
 -- | Extract all text of an html document
+
 getHtmlText :: IOSArrow XmlTree String
 getHtmlText = getRelevantNodes >>> extractText
 
 -- ----------------------------------------------------------------------------
 -- | Find all text nodes, concatenate their contents, return a String
+
 extractText :: IOSArrow XmlTree String
 extractText = (
                 ( fromLA $ deep getText )
@@ -206,6 +212,7 @@ extractText = (
 -- | For some sites these are special nodes to ignore "useless" content (e.g. footers),
 -- | for all other sites its simply the html-body node.
 -- | This list could be further continued in future work.
+
 getRelevantNodes                :: IOSArrow XmlTree XmlTree 
 getRelevantNodes                = choiceA
                                   [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
@@ -240,6 +247,7 @@ getRelevantNodes                = choiceA
 
 -- ------------------------------------------------------------
 -- | Select the URI of the actual document
+
 getURI                          :: ArrowXml a => a XmlTree String
 getURI                          = fromLA $ getAttrValue transferURI
 
@@ -252,6 +260,7 @@ getURI                          = fromLA $ getAttrValue transferURI
 -- ------------------------------------------------------------
 -- | Filter sites of a certain layout.
 -- | This list of functions could be further continued in future work.
+
 isXxxLayout                     :: ArrowXml a => String -> a XmlTree XmlTree
 isXxxLayout xxx                 = fromLA $
                                   getLink  -- hack
@@ -351,6 +360,9 @@ isAllowedWordChar c = isXmlLetter c
 
 -- ------------------------------------------------------------
 -- | tokenize a uri string
+
 uri2Words                       :: String -> [String]
 uri2Words                       = tokenize "[^:/#?=.]+"
+
+-- ------------------------------------------------------------
 

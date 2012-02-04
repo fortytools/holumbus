@@ -25,3 +25,4 @@ import Site
 main :: IO ()
 main = quickHttpServe applicationInitializer site
 
+-- ----------------------------------------------------------------------------

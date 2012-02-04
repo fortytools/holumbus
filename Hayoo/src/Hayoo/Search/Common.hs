@@ -23,8 +23,16 @@ import Holumbus.Query.Result    ( Result )
 
 import Hayoo.IndexTypes         ( FunctionInfo, PackageInfo )
 
+-- ----------------------------------------------------------------------------
+
 -- Status information of query processing (status message, result, top modules, top packages).
 
-type StatusResult               = (String, Result FunctionInfo, Result PackageInfo, [(String, Int)], [(String, Int)])
+type StatusResult
+    = ( String
+      , Result FunctionInfo
+      , Result PackageInfo
+      , [(String, Int)]
+      , [(String, Int)]
+      )
 
 -- ----------------------------------------------------------------------------

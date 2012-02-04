@@ -138,6 +138,7 @@ flushHayooState hs              = hs { ixs_index     = emptyInverted
                                      , ixs_documents = emptyDocuments
                                                        { lastDocId = lastDocId . ixs_documents $ hs }
                                      }
+
 emptySmallDocuments             :: SmallDocuments a
 emptySmallDocuments             = CSD.emptyDocuments
 

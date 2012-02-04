@@ -16,6 +16,7 @@ import           Data.List
 import           Holumbus.Crawler
 
 -- ------------------------------------------------------------
+
 data UriConfig                  = UCTestIndex | UCFullIndex | UCDebugIndex
                                   deriving (Eq, Show)
 
@@ -46,6 +47,7 @@ fhwStart UCFullIndex            =  fhwURIs [ ""                 -- fhw start pag
                                    ++
                                    ptlURIs [ ""                 -- ptl start page
                                            ]
+
 fhwStart UCTestIndex            =  fhwURIs [
                                            ""                 -- fhw start page
                                            , "~eg/"             -- Martin Egge's home

@@ -6,7 +6,6 @@
   Maintainer : Thorben Guelck, Tobias Lueders, Mathias Leonhardt, Uwe Schmidt
   Stability  : experimental
   Portability: portable
-  Version    : 0.1
 
   Some helpers that don't fit into other modules
 -}
@@ -15,23 +14,28 @@
 
 module Helpers
 where
-import List as L
-import qualified Data.Text as T
-import qualified Text.XmlHtml as X
-import Text.JSON
 
+import Data.List                as L
+import qualified Data.Text      as T
+
+import Text.JSON
+import qualified Text.XmlHtml   as X
+
+-- ----------------------------------------------------------------------------
 
 fhWedelPrefix :: String
 fhWedelPrefix = "http://www.fh-wedel.de/"
 
 -- ----------------------------------------------------------------------------
 -- | Make an one-item-List      
+
 box :: a -> [a]
 box x = [x]
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | convert a String to an Int.
 -- | returns defaultValue if conversion fails
+
 strToInt :: Int -> String -> Int
 strToInt defaultValue str
   | (length readsResult > 0) = fst $ head readsResult
@@ -44,8 +48,9 @@ saveHead :: [a] -> a -> a
 saveHead [] x = x
 saveHead (x:_) _   = x
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML List-Item with css-class-attribute
+
 htmlList :: String -> [X.Node] -> X.Node
 htmlList cssClass xNodes =
   X.Element (T.pack $ "ul")
@@ -56,8 +61,9 @@ htmlList cssClass xNodes =
     )
     xNodes
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML List-Item with css-class-attribute
+
 htmlListItem :: String -> X.Node -> X.Node
 htmlListItem cssClass xNode =
   X.Element (T.pack $ "li")
@@ -69,9 +75,11 @@ htmlListItem cssClass xNode =
     [xNode]
 
 data DateContextType = DateInStdContent | DateInCalender
-------------------------------------------------------------------------------
+
+-- ------------------------------------------------------------------------------
 -- | creates a HTML List-Item.
 -- | Takes the left Date-Context, the Date itself and the right Date-Context
+
 htmlListItemDate :: DateContextType -> String -> String -> String -> String -> X.Node
 htmlListItemDate DateInCalender _ leftContext date rightContext =
   htmlLink' "" (fhWedelPrefix ++ leftContext) $
@@ -96,13 +104,15 @@ htmlListItemDate DateInStdContent linkUrl leftContext date rightContext =
         ]
       ]
 
- ------------------------------------------------------------------------------
+ -- ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node
+
 htmlTextNode :: String -> X.Node
 htmlTextNode text = X.TextNode $ T.pack $ text
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node in a <span class="???"></span> element
+
 htmlSpanTextNode :: String -> String -> X.Node
 htmlSpanTextNode cssClass text =
   X.Element (T.pack $ "span")
@@ -113,15 +123,16 @@ htmlSpanTextNode cssClass text =
     )
     [htmlTextNode text]
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML Txt Node in a <p></p> element
+
 htmlParaTextNode :: String -> X.Node
 htmlParaTextNode text =
   X.Element (T.pack $ "p")
     []
     [htmlTextNode text]
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML Info Node
 
 htmlLink :: String -> String -> String -> X.Node
@@ -138,7 +149,7 @@ htmlLink cssClass href text =
     )
     [htmlTextNode text]
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML Info Node
 
 htmlLink' :: String -> String -> X.Node -> X.Node
@@ -156,7 +167,7 @@ htmlLink' cssClass href xNode =
     [xNode]
 
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | convert the contexts of a date to html-list-items
 -- | i.e. given a JSON-String of Date Contexts (date1,date2,date3,date4,...)
 -- | and a listOfMatchedPositions = [0,2]
@@ -166,14 +177,15 @@ htmlLink' cssClass href xNode =
 -- | or, if it's a date-context:
 -- | <li class="dates"><a href="link-to-calender-event">...date3...</a></li>
 -- | ...
-mkDateContexts :: String -> String -> [Int] -> DateContextType -> String -> [X.Node]
+
+mkDateContexts :: (Show i, Enum i) => String -> String -> [i] -> DateContextType -> String -> [X.Node]
 mkDateContexts _ _ [] _ _ = []
 mkDateContexts _ "" _ _ _ = []
 mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct _ =
   (map str2htmlListItem listOfMatchedContexts)
     where
       str2htmlListItem (leftContext,theDate,rightContext) = htmlListItemDate dct linkUrl leftContext theDate rightContext
-      listOfMatchedContexts = map getDateContextAt listOfMatchedPositions
+      listOfMatchedContexts = map (getDateContextAt . fromEnum) listOfMatchedPositions
       getDateContextAt position =
         if (position') > ((L.length listOfDateContexts) - 1)
           then ( "", "bad index: " ++ (show position') ++ " in: " ++ (show listOfDateContexts) ++ " where list is: <" ++ (L.unwords $ map show listOfMatchedPositions) ++ ">", "")
@@ -192,13 +204,14 @@ mkDateContexts linkUrl stringOfDateContexts listOfMatchedPositions dct _ =
       fromJson (Error s) = [[s]]
 
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | creates a HTML Link used in the Pager Splice
 -- |   query: the search-query
 -- |   number: Number displayed in the Pager-Link (the text node of the link)
 -- |   takeHits: Number of Hits to be displayed per Site
 -- |   dropHits: Number of Hits to be dropped from the Result of all Document-Hits
 -- | i.e. for Pager-Link No. 4, searching for "Wedel": <a href="/querypage?query=Wedel&takeHits=10&dropHits=30"> 4 </a>
+
 mkPagerLink :: String -> Int -> Int -> X.Node
 mkPagerLink query actPage number =
   htmlLink cssClass
@@ -211,8 +224,9 @@ mkPagerLink query actPage number =
                   else ""
 
 
-------------------------------------------------------------------------------
+-- ------------------------------------------------------------------------------
 -- | The help-text rendered when no results are found
+
 examples :: X.Node
 examples =
       X.Element (T.pack $ "div")
@@ -298,3 +312,5 @@ examples =
               ]
             ]
         ]
+
+-- ------------------------------------------------------------------------------
