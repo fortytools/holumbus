@@ -204,33 +204,33 @@ getModified =
 -- | select the author of a document.
 
 getAuthor :: IOSArrow XmlTree String
-getAuthor = fromLA (getAuthorFromURI)
-            `orElse`
-            getAuthorFromContent
-  where
-    -- authors are identified by URIs, if they are formed like ".../~xy/..."
-    getAuthorFromURI =
-      single
-      ( getURI
-        >>>
-        arrL uri2Words
-        >>>
-        isA ("~" `isPrefixOf`)
-        >>>
-        arr short2Name
-        >>>
-        isA (not . null)
-      )
-    -- authors are identified by a certain html-node containing their name, if they used a common typo3-template
-    getAuthorFromContent =
-      getRelevantNodes
-      >>>
-      deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "fhwmitarbeiterinfos_contentleft"))
-      >>>
-      deep (isElem >>> hasName "h1" >>> hasAttrValue "class" (== "csc-firstHeader"))
-      >>>
-      extractText
-
+getAuthor
+    = fromLA (getAuthorFromURI)
+      `orElse`
+      getAuthorFromContent
+    where
+      -- authors are identified by URIs, if they are formed like ".../~xy/..."
+      getAuthorFromURI
+          = single
+            ( getURI
+              >>>
+              arrL uri2Words
+              >>>
+              isA ("~" `isPrefixOf`)
+              >>>
+              arr short2Name
+              >>>
+              isA (not . null)
+            )
+      -- authors are identified by a certain html-node containing their name, if they used a common typo3-template
+      getAuthorFromContent
+          = getRelevantNodes
+            >>>
+            deep (isElem >>> hasName "div" >>> hasAttrValue "class" (== "fhwmitarbeiterinfos_contentleft"))
+            >>>
+            deep (isElem >>> hasName "h1" >>> hasAttrValue "class" (== "csc-firstHeader"))
+            >>>
+            extractText
 
 getContextInfoPageCont :: IOSArrow XmlTree String
 getContextInfoPageCont =

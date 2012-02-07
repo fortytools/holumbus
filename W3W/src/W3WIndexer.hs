@@ -119,7 +119,7 @@ initAppOpts
       }
     where
       editPackageURIs
-          = id -- chgS theProcessRefs (>>> arr rewriteURIs)
+          = chgS theProcessRefs (>>> arr editTilde)
 
 withCache'                      :: Int -> XIOSysState -> XIOSysState
 withCache' sec                  = withCache "./cache" sec yes

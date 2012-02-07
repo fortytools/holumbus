@@ -8,6 +8,7 @@ module URIConfig
     , w3wRefs
     , fileName
     , htmlFiles
+    , editTilde
     )
 where
 
@@ -110,6 +111,11 @@ fhwRefs UCDebugIndex            = simpleFollowRef'
                                   [ fhwHome ++ "http://www.fh-wedel.de/mitarbeiter/ehemalige/her/"
                                   ]
                                   ([])
+
+-- ------------------------------------------------------------
+
+editTilde			:: String -> String
+editTilde			= sed (("/~" ++) . drop 4) "/%7[Ee]"
 
 -- ------------------------------------------------------------
 

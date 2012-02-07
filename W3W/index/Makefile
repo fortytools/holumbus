@@ -51,6 +51,16 @@ whole-cache	: $(indexer)
 # --test-index
 
 whole-index	: $(indexer)
+	@echo "build an index of all haddock pages on hackage in a single run"
+	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
+	@echo 'the result index is "$(ix)"'
+	@echo "the computation is done in 1 single run, but the index is spit into chunks"
+	@echo " and written out chunk by chunk, then at the end these chunks are combined into the complete index"
+	@echo "preparing and writing the compressed index requires most of the runtime"
+	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --partition=1000 --maxpar=1000 --maxdocs=30000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+
+
+whole-index1	: $(indexer)
 	@echo "build an index of all fhw and ptl pages"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'

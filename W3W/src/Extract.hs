@@ -17,17 +17,21 @@
 
 module Extract
 where
-import            Data.Char.Properties.XMLCharProps
+import            Data.Char.Properties.XMLCharProps    ( isXmlLetter
+                                                       , isXmlDigit
+                                                       )
 import            Data.Char                            ( toLower )
 import            Data.List                            ( isPrefixOf )
-import            Holumbus.Crawler
-import            Text.XML.HXT.Core
-import            Date
-import qualified  Text.XML.HXT.DOM.XmlNode as XN
 
+import            Date
+
+import            Holumbus.Crawler
+
+import            Text.XML.HXT.Core
 
 -- ----------------------------------------------------------------------------
 -- | Extract text of all h1-h6 tags.
+
 getHeadlines                    :: ArrowXml a => a XmlTree String
 getHeadlines                    = fromLA     $
                                   getAllText $
@@ -200,8 +204,7 @@ getHtmlText = getRelevantNodes >>> extractText
 -- | Find all text nodes, concatenate their contents, return a String
 
 extractText :: IOSArrow XmlTree String
-extractText = (
-                ( fromLA $ deep getText )
+extractText = ( ( fromLA $ deep getText )
                 >>^
                 (" " ++)            -- text parts are separated by a space
               )
@@ -214,36 +217,40 @@ extractText = (
 -- | This list could be further continued in future work.
 
 getRelevantNodes                :: IOSArrow XmlTree XmlTree 
-getRelevantNodes                = choiceA
-                                  [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
-                                                          >>>
-                                                          deep (hasDivWithId "col3_content")
-                                                        )
-                                  , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
-                                                          >>>
-                                                          (
-                                                            ((deep (hasDivWithId "ContentHeaderDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
-                                                            &&&
-                                                            ((deep (hasDivWithId "ContentOutlineDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
-                                                            &&&
-                                                            ((deep (hasDivWithId "ContentBodyDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
-                                                            &&&
-                                                            ((deep (hasDivWithId "SiteNavigationDiv")) `orElse` (arr $ \ _ -> XN.mkText ""))
-                                                          ) >>^ (\ (a, (b, (c, d))) -> XN.mkRoot [] [a, b, c, d])
-                                                        )
-                                  , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
-                                                          >>>
-                                                          deep (hasDivWithId "col2_content")
-                                                        )
-                                  , isPtlLayout     :-> ( traceMsg 1 "ptl layout found"
-                                                          >>>
-                                                          deep (hasDivWithId "col2_content")
-                                                        )
-                                  , this            :-> ( traceMsg 1 "unknown layout found"
-                                                          >>>
-                                                          getByPath ["html", "body"]
-                                                        )
-                                  ]
+getRelevantNodes
+    = choiceA
+      [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
+                              >>>
+                              deep (hasDivWithId "col3_content")
+                            )
+      , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
+                              >>>
+                              ( deep (hasDivWithId "ContentHeaderDiv")
+                                <+>
+                                deep (hasDivWithId "ContentOutlineDiv")
+                                <+>
+                                deep (hasDivWithId "ContentBodyDiv")
+                                <+>
+                                deep (hasDivWithId "SiteNavigationDiv")
+                              )
+                            )
+      , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
+                              >>>
+                              deep (hasDivWithId "col2_content")
+                            )
+      , isKiLayout      :-> ( traceMsg 1 "Thorstern's layout"
+                              >>>
+                              deep (hasDivWithId "main")
+                            )
+      , isPtlLayout     :-> ( traceMsg 1 "ptl layout found"
+                              >>>
+                              deep (hasDivWithId "col2_content")
+                            )
+      , this            :-> ( traceMsg 1 "unknown layout found"
+                              >>>
+                              getByPath ["html", "body"]
+                            )
+      ]
 
 -- ------------------------------------------------------------
 -- | Select the URI of the actual document
@@ -288,6 +295,14 @@ isSiLayout                      = fromLA $
                                   ( getMetaAttr "keywords"          -- hack: there should be a meta elem for author
                                     >>>
                                     isA ("Uwe Schmidt" `isPrefixOf`)
+                                  )
+                                  `guards` this
+
+isKiLayout                      :: ArrowXml a => a XmlTree XmlTree
+isKiLayout                      = fromLA $
+                                  ( getMetaAttr "author"
+                                    >>>
+                                    isA ("Thorsten Kirch" `isPrefixOf`)
                                   )
                                   `guards` this
 

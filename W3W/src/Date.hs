@@ -23,14 +23,27 @@ module Date
   , prepareNormDateForCompare
   , dateRep2stringWithTransformedDates
   , unNormalizeDate
+  , cmpDate
   )
 where
 
-import Control.Arrow                                   ( second )
-import Data.Char                                       ( toLower
-                                                       , toUpper
-                                                       )
-import Data.List                                       ( isPrefixOf )
+import Control.Arrow                    ( second )
+
+import Control.Monad                    ( liftM )
+
+import Data.Char                        ( toLower
+                                        , toUpper
+                                        )
+import Data.List                        ( isPrefixOf )
+
+import System.Time                      ( formatCalendarTime
+                                        , toUTCTime
+                                        , addToClockTime
+                                        , noTimeDiff
+                                        , tdDay
+                                        , getClockTime
+                                        )
+import System.Locale                    ( defaultTimeLocale )
 
 import Text.Parsec
 import Text.Regex.XMLSchema.String
@@ -38,8 +51,8 @@ import Text.Regex.XMLSchema.String
 import Data.Time.Clock
 import Data.Time.Calendar
 import Data.Time.Calendar.WeekDate
+
 import Helpers
-import Monad                                            (liftM)
 
 -- ------------------------------------------------------------
 
@@ -56,6 +69,9 @@ opt            = (++ "?") . pars
 
 dot :: String -> String
 dot            = (++ "\\.")
+
+optDot :: String -> String
+optDot         = (++ "(\\.)?")
 
 pars :: String -> String
 pars           = ("(" ++) . (++ ")")
@@ -112,7 +128,7 @@ year' :: String
 year'          = "'" ++ year2
 
 dayD :: String
-dayD           = dot day
+dayD           = optDot day
 
 monthD :: String
 monthD         = dot month
@@ -139,8 +155,12 @@ dayOfWeekA :: String
 dayOfWeekA     = alt . map dot $
                  [ "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
+dayOfWeekU :: String
+dayOfWeekU     = altNC
+                 [ "mon", "tue", "wed", "thu", "fri", "sat", "son"]
+
 dayOfWeek :: String
-dayOfWeek      = dayOfWeekL `orr` dayOfWeekA
+dayOfWeek      = dayOfWeekL `orr` dayOfWeekA `orr` dayOfWeekU
 
 monthL :: String
 monthL         = altNC
@@ -159,12 +179,13 @@ monthL         = altNC
                  ]
 
 monthA :: String
-monthA         = altNC . map dot $ map snd monthAbr
+monthA         = altNC . map optDot $ map snd monthAbr
 
-monthAbr :: [(Integer, String)]
-monthAbr       = (9, "sept") :
-                 zip [1..12]
-                 [ "jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
+monthAbr :: [(Int, String)]
+monthAbr       = (3, "mar") : (5, "may") : (9, "sept") : (10, "oct") : (12, "dec") :
+                 ( zip [1..12]
+                   [ "jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
+                 )
 
 monthN :: String
 monthN         = pars $ monthL `orr` monthA
@@ -200,6 +221,7 @@ dateAlias      = alt $ map fst dateAliasFunc
 -- | r.e.s for date aliases are expanded to Lists of Dates by "scanDateAlias" (see below).
 -- | The second value of a tuple is a function that is applied to the actual date ("today").
 -- | The Result of this function is the List of dates corresponding to the date-alias String.
+
 dateAliasFunc :: [(String, Day -> [Day])]
 dateAliasFunc = [ ("heute",           box)
                 , ("Heute",           box)
@@ -271,22 +293,27 @@ data DateRep       = DR { _p ::   String
 -- ------------------------------------------------------------
 
 -- return a function representing an empty string
+
 emptyText       :: TextFunc
 emptyText       = id
 
 -- return a function representing a string
+
 mkText          :: String -> TextFunc
 mkText          = (++)
 
 -- return a function representing a concatenation of two strings
+
 concText        :: TextFunc -> TextFunc -> TextFunc
 concText        = (.)
 
 -- evaluate a function representing a string to the represented string
+
 textToString    :: TextFunc -> String
 textToString    = ($ [])
 
 -- initialize a date representation
+
 emptyDateVal    :: DateVal
 emptyDateVal    = DT { _year   = -1
                      , _month  = -1
@@ -296,6 +323,7 @@ emptyDateVal    = DT { _year   = -1
                      }
 
 -- initialize the parse-result of a string                     
+
 emptyDateParse  :: DateParse
 emptyDateParse  = DP { _pre = emptyText
                      , _rep = emptyText
@@ -303,15 +331,18 @@ emptyDateParse  = DP { _pre = emptyText
                      }
 
 -- append a string to the _pre-part of a DateParse
+
 appPre          :: String -> DateParse -> DateParse
 appPre s d      = d { _pre = (_pre d) `concText` (mkText s) }
 
 -- append a string to the _rep-part of a DateParse
+
 appRep          :: String -> DateParse -> DateParse
 appRep s d      = d { _rep = (_rep d) `concText` (mkText s) }
 
 -- assign values to a DateVal.
 -- year-values like e.g. "7" are expanded to "2007"
+
 setDateVal      :: Int -> Int -> Int -> Int -> Int -> DateVal -> DateVal
 setDateVal j m t s i (DT j' m' t' s' i' )
                 = DT j'' m'' t'' s'' i''
@@ -325,14 +356,17 @@ setDateVal j m t s i (DT j' m' t' s' i' )
       i''             = i `max` i'
 
 -- set the day in the _dat-part of a DateParse
+
 setDay          :: Int -> Int -> Int -> (DateParse -> DateParse)
 setDay j m t d  = d { _dat = setDateVal j m t (-1) (-1) (_dat d) }
 
 -- set the hour in the _dat-part of a DateParse
+
 setHour         :: Int -> Int -> DateParse -> DateParse
 setHour h m d   = d { _dat = setDateVal (-1) (-1) (-1) h m (_dat d) }
 
 -- evaluate the TextFuncs to strings in a DateParse
+
 datePToDateRep  :: DateParse -> DateRep
 datePToDateRep dp
                 = DR { _p = textToString $ _pre dp
@@ -344,6 +378,7 @@ datePToDateRep dp
 -- all date parsers thread a state to the subparsers to accumulate
 -- the parts of a date, the context, the external representation and
 -- the pure data, year, month, day, ...
+
 dateParser      :: DateParse -> DateParser DateParse
 dateParser d    = ( do
                     s <- fillTok                -- delTok <|> wordTok
@@ -368,6 +403,7 @@ dateSearch'     = map datePToDateRep .
 
 -- look for a sequence of date specs, the last entry in the list
 -- does not contain a valid date, but just the context behind the last real date
+
 dateSearch      :: TokenStream -> [DateParse]
 dateSearch ts   = either (const []) id .
                   parse (many (dateParser emptyDateParse)) "" $
@@ -568,11 +604,13 @@ digits numDigits number = if (number < 0)
 
 -- ----------------------------------------------------------------------------
 -- | take the first n words of a string
+
 takeFirstNWords :: Int -> String -> String
 takeFirstNWords n str = unwords . (take n) . words $ str
 
 -- ----------------------------------------------------------------------------
 -- | take the last n words of a string
+
 takeLastNWords :: Int -> String -> String
 takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
 
@@ -585,6 +623,7 @@ takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
 -- |  DR {_p = " gibts Fisch", _r = "", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}}]
 -- | Words recognized as Dates are contained in the _r-fileds. Their interpretation is contained in th _d-fields. "Heute" is a special keyword
 -- | ("date-alias") that can be expanded to the actual date by scanDateAlias.
+
 extractDateRep :: String -> [DateRep]
 extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
 
@@ -597,6 +636,7 @@ extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
 -- | Examples:
 -- | 1) DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}} -> ("2003-07-10-**-**", "10.7.2003")
 -- | 2) DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}} -> ("****-**-**-**-**", "Heute")
+
 normalizeDate :: DateRep -> (String, String)
 normalizeDate d = (normalizedDateString, _dateAlias)
   where
@@ -615,6 +655,7 @@ normalizeDate d = (normalizedDateString, _dateAlias)
 -- |  DR {_p = " ist der ", _r = "10.7.2003", _d = DT {_year = 2003, _month = 7, _day = 10, _hour = -1, _min = -1}}]
 -- | ->
 -- | ["****-**-**-**-**", "2003-07-10-**-**"]
+
 dateRep2NormalizedDates :: [DateRep] -> [String]
 dateRep2NormalizedDates = map (fst . normalizeDate) . filter (\ x -> (_r x) /= "")
 
@@ -630,6 +671,7 @@ dateRep2NormalizedDates = map (fst . normalizeDate) . filter (\ x -> (_r x) /= "
 -- | [["","Heute","ist der"],["ist der","10.7.2003","und am"],["und am","Freitag, den 11.7.2003 um 13:00 Uhr","gibts Fisch"]]
 -- |
 -- | Result: One list item of the Result is formed like [leftContext, theDate, rightContext]
+
 dateRep2DatesContext          :: [DateRep] -> [[String]] 
 dateRep2DatesContext []       = []
 dateRep2DatesContext (x:[])   = if not . null $ _r x then [[takeLastNWords 5 $ _p x , _r x, ""]] else []
@@ -650,6 +692,7 @@ dateRep2DatesContext (x:y:xs) = [[takeLastNWords 5 $ _p x , _r x , takeFirstNWor
 -- |    "2011-10-31 OR 2011-11-01 OR 2011-11-02 OR 2011-11-03 OR 2011-11-04 OR 2011-11-05 OR 2011-11-06 OR (\"diese Woche\")"
 -- | 2) ("****-03-04-**-**", "3. April") ->
 -- |    "2011-03-04"
+
 prepareNormDateForCompare :: (String, String) -> IO String
 prepareNormDateForCompare normDate = do
   (isDateAlias, dateAliasResult) <- scanDateAlias $ snd normDate
@@ -682,6 +725,7 @@ prepareNormDateForCompare normDate = do
 -- | concatenated by "OR".
 -- | If it is not, return false and an empty String.
 -- | Helper function for prepareNormDateForCompare.
+
 scanDateAlias :: String -> IO (Bool, String)
 scanDateAlias s = runIfDefined $ lookup s dateAliasFunc
   where
@@ -695,6 +739,7 @@ scanDateAlias s = runIfDefined $ lookup s dateAliasFunc
 -- ----------------------------------------------------------------------------
 -- | Input: start-day and end-day of an interval of days
 -- | Output: the list containing all days from start-day til end-day
+
 mkListOfDays :: Day -> Day -> [Day]
 mkListOfDays dFrom dTo = map ModifiedJulianDay [dayFrom..dayTo]
   where
@@ -704,6 +749,7 @@ mkListOfDays dFrom dTo = map ModifiedJulianDay [dayFrom..dayTo]
 -- ----------------------------------------------------------------------------
 -- | Input: a day
 -- | Output: list of all days of the week containing the input-day
+
 extractWeek :: Day -> [Day]
 extractWeek d = mkListOfDays (setToMonday weekDate) (setToSunday weekDate)
   where
@@ -714,6 +760,7 @@ extractWeek d = mkListOfDays (setToMonday weekDate) (setToSunday weekDate)
 -- ----------------------------------------------------------------------------
 -- | Input: a day
 -- | Output: list of all days of the month containing the input-day
+
 extractMonth :: Day -> [Day]
 extractMonth d = mkListOfDays (setToFirst date) (setToLast date)
   where
@@ -724,6 +771,7 @@ extractMonth d = mkListOfDays (setToFirst date) (setToLast date)
 -- ----------------------------------------------------------------------------
 -- | Input: a day
 -- | Output: the day after a month, where the length of the month is dependent of the input-day
+
 addMonth :: Day -> Day
 addMonth d = addDays (fromIntegral $ gregorianMonthLength y m) d
   where
@@ -732,6 +780,7 @@ addMonth d = addDays (fromIntegral $ gregorianMonthLength y m) d
 -- ----------------------------------------------------------------------------
 -- | Input: parse result of a String that may contain multiple dates
 -- | Result: IO (String with transformed dates, number of transformations made)
+
 dateRep2stringWithTransformedDates :: [DateRep] -> IO (String, Int)
 dateRep2stringWithTransformedDates dateRep = do
   listOfStrWithNum <- mapM (\ dr -> conc (_p dr) (transformDate dr)) $ dateRep
@@ -752,6 +801,7 @@ dateRep2stringWithTransformedDates dateRep = do
 -- ----------------------------------------------------------------------------
 -- | takes normalized Date-String (e.g. "****-**-03-12-**") and returns human readable
 -- | date representation (e.g. "März, 12 Uhr")
+
 unNormalizeDate :: String -> String
 unNormalizeDate = unNormalizeDate' . (_split '-')
   where
@@ -776,4 +826,16 @@ unNormalizeDate = unNormalizeDate' . (_split '-')
             _elem = array !! index
         monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
 
+-- ------------------------------------------------------------
+
+cmpDate :: (String -> String -> Bool) -> Int -> String -> IO Bool
+cmpDate (.>.) ageInDays date'
+    = do deadline <- fmap ( formatCalendarTime defaultTimeLocale "%Y-%m-%d" .
+                            toUTCTime .
+                            addToClockTime (noTimeDiff {tdDay = 0 - ageInDays})
+                          ) getClockTime
+         return $ match "\\d{4}-\\d{2}-\\d{2}.*" date'
+                  &&
+                  (date' .>. deadline)
+ 
 -- ----------------------------------------------------------------------------
