@@ -14,6 +14,7 @@ threads = 1
 
 ix	= ix.bin
 ixn	= new-$(ix)
+ixt     = test-$(ix)
 
 bindir  = $(HOME)/.cabal/bin
 
@@ -107,6 +108,9 @@ ixdir	= ./lib
 install-index	: $(ix).doc $(ix).idx
 	[ -d $(ixdir) ] || mkdir $(ixdir)
 	cp -v $(ix).doc $(ix).idx
+
+test-index	: $(indexer)
+	$< $(RUNOPTS) --test-index --maxthreads=$(threads) --partition=100 --maxpar=100 --maxdocs=500 --valid=$(validix) --new-index=$(ixt) --new-search=$(ixt) --xml-output=$(ixt).xml $(OPTS)
 
 clean	:
 	rm -f *.o *.hi $(progs) *.out

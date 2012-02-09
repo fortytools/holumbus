@@ -84,12 +84,12 @@ type RankTable  = [(Context, Score)]
 
 defaultRankTable :: RankTable
 defaultRankTable
-    = [ ("title",           1.0)
-      , ("headlines",       1.0)
-      , ("contentContext",  0.5)
-      , ("uri",             0.1)
-      , ("datesContext",    1.0)
-      , ("calenderContext", 2.0)
+    = [ ("headline", 1.0)
+      , ("content",  0.5)
+      , ("uri",      0.2)
+      , ("dates",    1.0)
+      , ("calender", 2.0)
+      , ("archive",  0.2)
       ]
 
 defaultRankCfg :: RankConfig a

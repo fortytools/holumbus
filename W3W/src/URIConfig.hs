@@ -43,79 +43,93 @@ ptlURIs                         :: [URI] -> [URI]
 ptlURIs                         = map (ptlHome ++)
 
 fhwStart                        :: UriConfig -> [URI]
-fhwStart UCFullIndex            =  fhwURIs [ ""                 -- fhw start page
-                                           ]
-                                   ++
-                                   ptlURIs [ ""                 -- ptl start page
-                                           ]
+fhwStart UCFullIndex
+    =  fhwURIs
+       [ ""                 -- fhw start page
+       ]
+       ++
+       ptlURIs
+       [ ""                 -- ptl start page
+       ]
 
-fhwStart UCTestIndex            =  fhwURIs [
-                                           ""                 -- fhw start page
-                                           , "~eg/"             -- Martin Egge's home
-                                           , "~si/"             -- si's home
-                                           , "online-campus/termine/aktuelles-semester/"
-                                           ]
-                                    ++
-                                    ptlURIs [ ""                 -- ptl start page
-                                            ]
+fhwStart UCTestIndex
+    =  fhwURIs
+       [ ""                 -- fhw start page
+       , "~eg/"             -- Martin Egge's home
+       , "~si/"             -- si's home
+       , "mitarbeiter/wol/" -- wol's home
+       , "online-campus/termine/aktuelles-semester/"
+       ]
+       ++
+       ptlURIs
+       [ ""                 -- ptl start page
+       ]
 
-fhwStart UCDebugIndex            =  fhwURIs [
-                                             "mitarbeiter/ehemalige/her/"
-                                            ]
+fhwStart UCDebugIndex
+    =  fhwURIs
+       [ "mitarbeiter/ehemalige/her/"
+       ]
 
-fhwRefs                         :: UriConfig -> URI -> Bool
-fhwRefs UCFullIndex             = simpleFollowRef'
-                                  [ fhwHome ++
-                                            alternatives
-                                            [ htmlPaths
-                                            ]
-                                  , ptlHome ++
-                                            alternatives
-                                            [ htmlPaths
-                                            ]
-                                  , cgHome ++
-                                            alternatives
-                                            [ htmlPaths
-                                            ]
+fhwRefs :: UriConfig -> URI -> Bool
+fhwRefs UCFullIndex
+    = simpleFollowRef'
+      [ fhwHome ++
+                alternatives
+                [ htmlPaths
+                ]
+      , ptlHome ++
+                alternatives
+                [ htmlPaths
+                ]
+      , cgHome ++
+               alternatives
+               [ htmlPaths
+               ]
+      ]
+      ( [ ".*[?].*"                                     -- no URIs with parameters
+        , fhwHome ++ "~si/vorlesungen/.*/welcome.html" 	-- no welcome pages from si
+        , fhwHome ++ "~si/vortraege/.*"                 -- no old talks from si
+        ]
+      )
 
-                                  ]
-                                  ( [ ".*[?].*"                 -- no URIs with parameters
-                                    ]
-                                  )
-fhwRefs UCTestIndex             = simpleFollowRef'
-                                  [ fhwHome ++
-                                            alternatives
-                                            [
-                                             ""                        -- the homepage
-                                             , htmlFiles                 -- all top level fhw pages
-                                             , "~si/" ++                 -- si's pages with dates
-                                                     alternatives
-                                                     [ "termine/" ++ htmlFiles
-                                                     , "praktika/SoftwarePraktikum/index.html"
-                                                     , "praktika/SoftwarePraktikum/20[1-9][0-9][sw]s/index.html"
-                                                     , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
-                                                     ]
-                                            , "~eg/" ++ htmlPaths       -- Martin Egges pages
-                                            , "online-campus/termine/aktuelles-semester/"  ++ htmlPaths -- kalender
-                                            ]
-                                  , ptlHome ++
-                                            alternatives
-                                            [ ".*/news/" ++ htmlPaths   -- for test: the ptl news pages added
-                                            ]
-                                  ]
-                                  ( [ ".*[?].*"                         -- no URIs with parameters
-                                    ]
-                                  )
+fhwRefs UCTestIndex
+    = simpleFollowRef'
+      [ fhwHome ++
+                alternatives
+                [ ""                        -- the homepage
+                , htmlFiles                 -- all top level fhw pages
+                , "~si/" ++                 -- si's pages with dates
+                         alternatives
+                         [ "termine/" ++ htmlFiles
+                         , "praktika/SoftwarePraktikum/index.html"
+                         , "praktika/SoftwarePraktikum/20[1-9][0-9][sw]s/index.html"
+                         , "seminare/[sw]s[0-9][0-9]/Termine/" ++ htmlFiles
+                         , "vorlesungen/internet/" ++ htmlPaths
+                         ]
+                , "~eg/" ++ htmlPaths       -- Martin Egges pages
+                , "mitarbeiter/wol/" ++ htmlPaths
+                , "online-campus/termine/aktuelles-semester/"  ++ htmlPaths -- kalender
+                ]
+      , ptlHome ++
+                alternatives
+                [ ".*/news/" ++ htmlPaths   -- for test: the ptl news pages added
+                ]
+      ]
+      ( [ ".*[?].*"                         		-- no URIs with parameters
+        , fhwHome ++ "~si/vorlesungen/.*/welcome.html" 	-- no welcome pages from si
+        ]
+      )
 
-fhwRefs UCDebugIndex            = simpleFollowRef'
-                                  [ fhwHome ++ "http://www.fh-wedel.de/mitarbeiter/ehemalige/her/"
-                                  ]
-                                  ([])
+fhwRefs UCDebugIndex
+    = simpleFollowRef'
+      [ fhwHome ++ "http://www.fh-wedel.de/mitarbeiter/ehemalige/her/"
+      ]
+      ([])
 
 -- ------------------------------------------------------------
 
-editTilde			:: String -> String
-editTilde			= sed (("/~" ++) . drop 4) "/%7[Ee]"
+editTilde                       :: String -> String
+editTilde                       = sed (("/~" ++) . drop 4) "/%7[Ee]"
 
 -- ------------------------------------------------------------
 

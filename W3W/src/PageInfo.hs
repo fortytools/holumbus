@@ -116,7 +116,10 @@ w3wGetTitle = fromLA $
 
 w3wGetPageInfo :: IOSArrow XmlTree PageInfo
 w3wGetPageInfo =
-                ( fromLA (getModified `withDefault` "")
+                ( ( fromLA ( getModifiedAttr
+                           >>^
+                           normalizeDateModified
+                         ) `withDefault` "")
                   &&&
                   (getAuthor `withDefault` "")
                   &&&
@@ -126,6 +129,8 @@ w3wGetPageInfo =
                   &&&
                   (getContextInfoCalender `withDefault` "") -- For dates found in the FH Wedel-calender, the context-info consists of the href-information (the link and the text node of an anchor tag) associated with that date.
                 )
+                >>>
+                traceValue 2 (("w3wGetPageInfo: " ++) . show) 
                 >>^
                 (\ (m, (a, (c, (d, x)))) -> mkPageInfo m a c d x)
 
@@ -136,32 +141,31 @@ w3wGetPageInfo =
 -- | Other authors are found by seeking for a certain tag containing their name (see PageInfo.hs/getAuthor).
 
 short2Name      :: String -> String
-short2Name sn                   = fromMaybe "" . lookup (drop 1 sn) $
-                                  [ ("rb", "Ulrich Raubach")
-                                  , ("ur", "Sven Urbanski")
-                                  , ("eg", "Martin Egge")
-                                  , ("si", "Uwe Schmidt")
-                                  , ("ahr", "Dirk Ahrens")
-                                  , ("an", "Michael Anders")
-                                  , ("bd", "Rene Bodaine")
-                                  , ("ce", "Michael Ceyp")
-                                  , ("ge", "Hans-Detlef Gerhardt")
-                                  , ("hs", "Andreas Häuslein")
-                                  , ("uh", "Ulrich Hoffmann")
-                                  , ("iw", "Sebastian Iwanowski")
-                                  , ("kal", "Ilja Kaleck")
-                                  , ("rb", "Ulrich Raubach")
-                                  , ("uw", "Wolfgang Uelzmann")
-                                  , ("bos", "Timm Borstelmann")
-                                  , ("eg", "Martin Egge")
-                                  , ("klk", "Gerit Kaleck")
-                                  , ("kar", "Helga Karafiat")
-                                  , ("ki", "Thorsten Kirch")
-                                  , ("ne", "Lars Neumann")
-                                  , ("op", "Dieter Opitz")
-                                  , ("uhl", "Christian Uhlig")
-                                  ]
-
+short2Name sn
+    = fromMaybe "" . lookup (drop 1 sn) $
+      [ ("ahr", "Dirk Ahrens")
+      , ("an", "Michael Anders")
+      , ("bd", "Rene Bodaine")
+      , ("bos", "Timm Borstelmann")
+      , ("ce", "Michael Ceyp")
+      , ("eg", "Martin Egge")
+      , ("eg", "Martin Egge")
+      , ("ge", "Hans-Detlef Gerhardt")
+      , ("hs", "Andreas Häuslein")
+      , ("iw", "Sebastian Iwanowski")
+      , ("kal", "Ilja Kaleck")
+      , ("kar", "Helga Karafiat")
+      , ("ki", "Thorsten Kirch")
+      , ("klk", "Gerit Kaleck")
+      , ("ne", "Lars Neumann")
+      , ("op", "Dieter Opitz")
+      , ("rb", "Ulrich Raubach")
+      , ("si", "Uwe Schmidt")
+      , ("ue", "Wolfgang Uelzmann")
+      , ("uhl", "Christian Uhlig")
+      , ("uh", "Ulrich Hoffmann")
+      , ("ur", "Sven Urbanski")
+      ]
 
 -- ------------------------------------------------------------
 -- | Normalize the modified-dates to human readable representations.
@@ -173,7 +177,8 @@ normalizeDateModified rawDate
       then head normalizedDates
       else rawDate
     where
-      normalizedDates = (map unNormalizeDate) . dateRep2NormalizedDates . extractDateRep $ rawDate
+      normalizedDates
+          = map unNormalizeDate . dateRep2NormalizedDates . extractDateRep $ rawDate
 
 -- ------------------------------------------------------------
 -- | like unwords but with a limited number of words (appends "...")
@@ -184,21 +189,6 @@ unwordsCont mx ws
     | otherwise                 = unwords                       $ ws'
     where
     ws'                         = take (mx + 1) ws
-
--- ------------------------------------------------------------
--- | select the modified date of a document and put it in a
--- | normalized form (if recognized by date parser, see Date.hs)
-
-getModified :: LA XmlTree String
-getModified =
-  ( getAttrValue0 "http-last-modified"          -- HTTP header
-    `orElse`
-    ( getMetaAttr "date" >>> isA (not . null) ) -- meta tag date (typo3)
-    `orElse`
-    getAttrValue0 "http-date"                   -- HTTP server time and date
-  )
-  >>^
-  normalizeDateModified
 
 -- ------------------------------------------------------------
 -- | select the author of a document.

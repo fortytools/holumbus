@@ -29,21 +29,10 @@ where
 
 import Control.Arrow                    ( second )
 
-import Control.Monad                    ( liftM )
-
 import Data.Char                        ( toLower
                                         , toUpper
                                         )
 import Data.List                        ( isPrefixOf )
-
-import System.Time                      ( formatCalendarTime
-                                        , toUTCTime
-                                        , addToClockTime
-                                        , noTimeDiff
-                                        , tdDay
-                                        , getClockTime
-                                        )
-import System.Locale                    ( defaultTimeLocale )
 
 import Text.Parsec
 import Text.Regex.XMLSchema.String
@@ -59,160 +48,200 @@ import Helpers
 -- some little helpers for building r.e.s
 
 star :: String -> String
-star           = (++ "*") . pars
+star
+    = (++ "*") . pars
 
 plus :: String -> String
-plus           = (++ "+") . pars
+plus
+    = (++ "+") . pars
 
 opt :: String -> String
-opt            = (++ "?") . pars
+opt
+    = (++ "?") . pars
 
 dot :: String -> String
-dot            = (++ "\\.")
+dot
+    = (++ "\\.")
 
 optDot :: String -> String
-optDot         = (++ "(\\.)?")
+optDot
+    = (++ alt [ws,"\\."])
 
 pars :: String -> String
-pars           = ("(" ++) . (++ ")")
+pars
+    = ("(" ++) . (++ ")")
 
 orr :: String -> String -> String
-orr x y        = pars $ pars x ++ "|" ++ pars y
+orr x y
+    = pars $ pars x ++ "|" ++ pars y
 
 xor :: String -> String -> String
-xor x y        = pars $ pars x ++ "{|}" ++ pars y
+xor x y
+    = pars $ pars x ++ "{|}" ++ pars y
 
 nocase :: String -> String
-nocase []      = []
-nocase (x:xs)  = '[' : toUpper x : toLower x : ']' : xs
+nocase []
+    = []
+nocase (x:xs)
+    = '[' : toUpper x : toLower x : ']' : xs
 
 alt :: [String] -> String
-alt            = pars . foldr1 orr
+alt
+    = pars . foldr1 orr
 
 altNC :: [String] -> String
-altNC          = pars . alt . map nocase
+altNC
+    = pars . alt . map nocase
 
 subex :: String -> String -> String
-subex n e      = pars $ "{" ++ n ++ "}" ++ pars e
+subex n e
+    = pars $ "{" ++ n ++ "}" ++ pars e
 
 ws :: String
-ws             = "\\s"
+ws = "\\s"
 
 ws0 :: String
-ws0            = star ws
+ws0 = star ws
 
 ws1 :: String
-ws1            = plus ws
+ws1 = plus ws
 
 s0 :: String -> String -> String
-s0 x y         = x ++ ws0 ++ y
+s0 x y
+    = x ++ ws0 ++ y
 
 -- the date and time r.e.s
 
 day :: String
-day            = "(0?[1-9]|[12][0-9]|3[01])"
+day
+    = "(0?[1-9]|[12][0-9]|3[01])"
 
 month :: String
-month          = "(0?[1-9]|1[0-2])"
+month
+    = "(0?[1-9]|1[0-2])"
 
 year2 :: String
-year2          = "[0-5][0-9]"
+year2
+    = "[0-5][0-9]"
 
 year4 :: String
-year4          = "20" ++ year2
+year4
+    = alt ["19\\d{2}", "20" ++ year2]
 
 year :: String
-year           = year4 `orr` year2 -- ! orr year' ?
+year
+    = year4 `orr` year2 -- ! orr year' ?
 
 year' :: String
-year'          = "'" ++ year2
+year'
+    = "'" ++ year2
 
 dayD :: String
-dayD           = optDot day
+dayD
+    = optDot day
 
 monthD :: String
-monthD         = dot month
+monthD
+    = dot month
 
 dayMonthYear :: String
-dayMonthYear   = dayD `s0` monthD `s0` year
+dayMonthYear
+    = dayD `s0` monthD `s0` year
 
 dayMonth :: String
-dayMonth       = dayD `s0` monthD
+dayMonth
+    = dayD `s0` monthD
 
 dayOfWeekL :: String
-dayOfWeekL     = altNC
-                 [ "montag"
-                 , "dienstag"
-                 , "mittwoch"
-                 , "donnerstag"
-                 , "freitag"
-                 , "samstag"
-                 , "sonnabend"
-                 , "sonntag"
-                 ]
+dayOfWeekL
+    = altNC
+      [ "montag"
+      , "dienstag"
+      , "mittwoch"
+      , "donnerstag"
+      , "freitag"
+      , "samstag"
+      , "sonnabend"
+      , "sonntag"
+      ]
 
 dayOfWeekA :: String
-dayOfWeekA     = alt . map dot $
-                 [ "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+dayOfWeekA
+    = alt . map dot $
+      [ "Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 dayOfWeekU :: String
-dayOfWeekU     = altNC
-                 [ "mon", "tue", "wed", "thu", "fri", "sat", "son"]
+dayOfWeekU
+    = altNC
+      [ "mon", "tue", "wed", "thu", "fri", "sat", "son"]
 
 dayOfWeek :: String
-dayOfWeek      = dayOfWeekL `orr` dayOfWeekA `orr` dayOfWeekU
+dayOfWeek
+    = dayOfWeekL `orr` dayOfWeekA `orr` dayOfWeekU
 
 monthL :: String
-monthL         = altNC
-                 [ "januar"
-                 , "februar"
-                 , "märz"
-                 , "april"
-                 , "mai"
-                 , "juni"
-                 , "juli"
-                 , "august"
-                 , "september"
-                 , "oktober"
-                 , "november"
-                 , "dezember"
-                 ]
+monthL
+    = altNC
+      [ "januar"
+      , "februar"
+      , "märz"
+      , "april"
+      , "mai"
+      , "juni"
+      , "juli"
+      , "august"
+      , "september"
+      , "oktober"
+      , "november"
+      , "dezember"
+      ]
 
 monthA :: String
-monthA         = altNC . map optDot $ map snd monthAbr
+monthA
+    = altNC . map optDot $ map snd monthAbr
 
 monthAbr :: [(Int, String)]
-monthAbr       = (3, "mar") : (5, "may") : (9, "sept") : (10, "oct") : (12, "dec") :
-                 ( zip [1..12]
-                   [ "jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
-                 )
+monthAbr
+    = (3, "mar") : (5, "may") : (9, "sept") : (10, "oct") : (12, "dec") :
+      ( zip [1..12]
+        [ "jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
+      )
 
 monthN :: String
-monthN         = pars $ monthL `orr` monthA
+monthN
+    = pars $ monthL `orr` monthA
 
 hour :: String
-hour           = pars "([0-1]?[0-9])|(2[0-4])"
+hour
+    = pars "([0-1]?[0-9])|(2[0-4])"
 
 minute :: String
-minute         = pars "(0?[0-9])|([1-5][0-9])"
+minute
+    = pars "(0?[0-9])|([1-5][0-9])"
 
 uhr :: String
-uhr            = ws0 ++ nocase "uhr"
+uhr
+    = ws0 ++ nocase "uhr"
 
 hourMin :: String
-hourMin        = hour ++ ":" ++ minute ++ opt uhr
+hourMin
+    = hour ++ ":" ++ minute ++ opt uhr
 
 wsyear :: String
-wsyear         = year ++ "/[0-9]{2}"
+wsyear
+    = year ++ "/[0-9]{2}"
 
 wsem :: String
-wsem           = ("Wi?Se?" `orr` nocase "Wintersemester") ++ ws0 ++ wsyear
+wsem
+    = ("Wi?Se?" `orr` nocase "Wintersemester") ++ ws0 ++ wsyear
 
 ssem :: String
-ssem           = ("So?Se?" `orr` nocase "Sommersemester") ++ ws0 ++ year
+ssem
+    = ("So?Se?" `orr` nocase "Sommersemester") ++ ws0 ++ year
 
 num :: String
-num            = "\\d+"
+num
+    = "\\d+"
 
 dateAlias :: String
 dateAlias      = alt $ map fst dateAliasFunc
@@ -223,43 +252,45 @@ dateAlias      = alt $ map fst dateAliasFunc
 -- | The Result of this function is the List of dates corresponding to the date-alias String.
 
 dateAliasFunc :: [(String, Day -> [Day])]
-dateAliasFunc = [ ("heute",           box)
-                , ("Heute",           box)
-                , ("morgen",          box . addDays 1)
-                , ("Morgen",          box . addDays 1)
-                , ("diese Woche",     extractWeek)
-                , ("Diese Woche",     extractWeek)
-                , ("nächste Woche",   extractWeek . addDays 7)
-                , ("Nächste Woche",   extractWeek . addDays 7)
-                , ("dieser Monat",    extractMonth)
-                , ("Dieser Monat",    extractMonth)
-                , ("nächster Monat",  extractMonth . addMonth)
-                , ("Nächster Monat",  extractMonth . addMonth)
-                , ("übernächster Monat", extractMonth . addMonth . addMonth)
-                , ("Übernächster Monat", extractMonth . addMonth . addMonth)
-                ]
+dateAliasFunc
+    = [ ("heute",           box)
+      , ("Heute",           box)
+      , ("morgen",          box . addDays 1)
+      , ("Morgen",          box . addDays 1)
+      , ("diese Woche",     extractWeek)
+      , ("Diese Woche",     extractWeek)
+      , ("nächste Woche",   extractWeek . addDays 7)
+      , ("Nächste Woche",   extractWeek . addDays 7)
+      , ("dieser Monat",    extractMonth)
+      , ("Dieser Monat",    extractMonth)
+      , ("nächster Monat",  extractMonth . addMonth)
+      , ("Nächster Monat",  extractMonth . addMonth)
+      , ("übernächster Monat", extractMonth . addMonth . addMonth)
+      , ("Übernächster Monat", extractMonth . addMonth . addMonth)
+      ]
 
 -- the token types
 tokenRE :: String
-tokenRE = foldr1 xor $
-                 map (uncurry subex) $
-                 [ ( "ddmmyyyy",     dayMonthYear )
-                 , ( "ddMonthyyyy",  dayD `s0` monthN `s0` (year `orr` year') )
-                 , ( "monthyyyy",    monthN `s0` (year `orr` year') )
-                 , ( "ddmm",         dayMonth)
-                 , ( "ddMonth",      dayD `s0` monthN )
-                 , ( "yyyymmdd",     year ++ "[-/]" ++ month ++ "[-/]" ++ day )
-                 , ( "yyyy",         year4 `orr` ("'" ++ year2) )
-                 , ( "month",        monthN )
-                 , ( "weekday",      dayOfWeek )
-                 , ( "HHMM",         hourMin ++ opt uhr )
-                 , ( "HH",           hour    ++ uhr )
-                 , ( "wsem",         wsem)
-                 , ( "ssem",         ssem)
-                 , ( "dateAlias",    dateAlias)
-                 , ( "word",         "[\\w\\d]+")
-                 , ( "del",          "[^\\w\\d]+")
-                 ]
+tokenRE
+    = foldr1 xor $
+      map (uncurry subex) $
+              [ ( "ddmmyyyy",     dayMonthYear )
+              , ( "ddMonthyyyy",  dayD `s0` monthN `s0` (year `orr` year') )
+              , ( "monthyyyy",    monthN `s0` (year `orr` year') )
+              , ( "ddmm",         dayMonth)
+              , ( "ddMonth",      dayD `s0` monthN )
+              , ( "yyyymmdd",     year ++ "[-/]" ++ month ++ "[-/]" ++ day )
+              , ( "yyyy",         year4 `orr` ("'" ++ year2) )
+              , ( "month",        monthN )
+              , ( "weekday",      dayOfWeek )
+              , ( "HHMM",         hourMin ++ opt uhr )
+              , ( "HH",           hour    ++ uhr )
+              , ( "wsem",         wsem)
+              , ( "ssem",         ssem)
+              , ( "dateAlias",    dateAlias)
+              , ( "word",         "[\\w\\d]+")
+              , ( "del",          "[^\\w\\d]+")
+              ]
 
 type Token         = (String, String)
 type TokenStream   = [Token]
@@ -269,26 +300,29 @@ type DateParser a  = Parsec [(String, String)] () a
 type TextFunc          = String -> String   -- represent Strings as functions for fast concatenation
 
 -- representation of a parsed date
-data DateVal       = DT { _year   :: ! Int -- "!": strictness flag
-                        , _month  :: ! Int
-                        , _day    :: ! Int
-                        , _hour   :: ! Int
-                        , _min    :: ! Int
-                        }
-                     deriving (Eq, Show)
+data DateVal
+    = DT { _year   :: ! Int -- "!": strictness flag
+         , _month  :: ! Int
+         , _day    :: ! Int
+         , _hour   :: ! Int
+         , _min    :: ! Int
+         }
+      deriving (Eq, Show)
 
 -- | parse-result of text containing a date.
-data DateParse     = DP { _pre    ::   TextFunc     -- This is the text that precedes the date.
-                        , _rep    ::   TextFunc     -- This is the text that was recognized as a date.
-                        , _dat    :: ! DateVal      -- This is the representation of the parsed date.
-                        }
+data DateParse
+    = DP { _pre    ::   TextFunc     -- This is the text that precedes the date.
+         , _rep    ::   TextFunc     -- This is the text that was recognized as a date.
+         , _dat    :: ! DateVal      -- This is the representation of the parsed date.
+         }
 
 -- | just a helper for result output of DateParse.
-data DateRep       = DR { _p ::   String
-                        , _r ::   String
-                        , _d :: ! DateVal
-                        }
-                     deriving (Eq, Show)
+data DateRep
+    = DR { _p ::   String
+         , _r ::   String
+         , _d :: ! DateVal
+         }
+      deriving (Eq, Show)
 
 -- ------------------------------------------------------------
 
@@ -314,31 +348,35 @@ textToString    = ($ [])
 
 -- initialize a date representation
 
-emptyDateVal    :: DateVal
-emptyDateVal    = DT { _year   = -1
-                     , _month  = -1
-                     , _day    = -1
-                     , _hour   = -1
-                     , _min    = -1
-                     }
+emptyDateVal :: DateVal
+emptyDateVal
+    = DT { _year   = -1
+         , _month  = -1
+         , _day    = -1
+         , _hour   = -1
+         , _min    = -1
+         }
 
 -- initialize the parse-result of a string                     
 
 emptyDateParse  :: DateParse
-emptyDateParse  = DP { _pre = emptyText
-                     , _rep = emptyText
-                     , _dat = emptyDateVal
-                     }
+emptyDateParse
+    = DP { _pre = emptyText
+         , _rep = emptyText
+         , _dat = emptyDateVal
+         }
 
 -- append a string to the _pre-part of a DateParse
 
-appPre          :: String -> DateParse -> DateParse
-appPre s d      = d { _pre = (_pre d) `concText` (mkText s) }
+appPre :: String -> DateParse -> DateParse
+appPre s d
+    = d { _pre = (_pre d) `concText` (mkText s) }
 
 -- append a string to the _rep-part of a DateParse
 
-appRep          :: String -> DateParse -> DateParse
-appRep s d      = d { _rep = (_rep d) `concText` (mkText s) }
+appRep :: String -> DateParse -> DateParse
+appRep s d
+    = d { _rep = (_rep d) `concText` (mkText s) }
 
 -- assign values to a DateVal.
 -- year-values like e.g. "7" are expanded to "2007"
@@ -715,9 +753,11 @@ prepareNormDateForCompare normDate = do
     fillNormDate' _normDate@(x:xs) (y:ys)
       | (x == '*' || x == '-') = y:(fillNormDate' xs ys)
       | otherwise = _normDate
-    currentTimeStr = do
-      today <- liftM utctDay getCurrentTime
-      return (showGregorian today)
+
+currentTimeStr :: IO String
+currentTimeStr
+    = do today <- fmap utctDay getCurrentTime
+         return (showGregorian today)
 
 -- ----------------------------------------------------------------------------
 -- | Check if input string is a date-alias (heute, diese Woche, ...).
@@ -731,7 +771,7 @@ scanDateAlias s = runIfDefined $ lookup s dateAliasFunc
   where
     runIfDefined Nothing  = return (False, "")
     runIfDefined (Just f) = do
-                              today <- liftM utctDay getCurrentTime
+                              today <- fmap utctDay getCurrentTime
                               return (True, toDays . f $ today)
     toDays [x] = showGregorian x
     toDays xs  = foldl1 (\ a b -> a ++ " OR " ++ b) $ map showGregorian xs
@@ -828,14 +868,18 @@ unNormalizeDate = unNormalizeDate' . (_split '-')
 
 -- ------------------------------------------------------------
 
-cmpDate :: (String -> String -> Bool) -> Int -> String -> IO Bool
+cmpDate :: (String -> String -> Bool) -> Integer -> String -> IO Bool
 cmpDate (.>.) ageInDays date'
-    = do deadline <- fmap ( formatCalendarTime defaultTimeLocale "%Y-%m-%d" .
-                            toUTCTime .
-                            addToClockTime (noTimeDiff {tdDay = 0 - ageInDays})
-                          ) getClockTime
-         return $ match "\\d{4}-\\d{2}-\\d{2}.*" date'
-                  &&
-                  (date' .>. deadline)
- 
+    = do deadline <- fmap ( showGregorian .
+                            utctDay .
+                            addUTCTime (fromInteger (-60*60*24*ageInDays))
+                          ) getCurrentTime
+         let res = match "\\d{4}-\\d{2}-\\d{2}.*" ndate
+                   &&
+                   (ndate .>. deadline)
+         -- putStrLn $ unwords ["cmpDate:", "match doc modified", ndate, "("++date'++")", "with", deadline, show res]
+         return res
+    where
+      ndate = head . (++ [""]) . dateRep2NormalizedDates . extractDateRep $ date'
+
 -- ----------------------------------------------------------------------------

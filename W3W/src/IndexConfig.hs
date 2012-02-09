@@ -36,6 +36,7 @@ w3wIndexConfig
       , ixDates
       , ixContent
       , ixCalender
+      , ixArchive
       ]
     where
     ixDefault
@@ -75,16 +76,38 @@ w3wIndexConfig
     ixDates
         = ixDefault
           { ixc_name            = "dates"
-          , ixc_collectText     = getContentText
+          , ixc_collectText     = isNewerThan aYear
+                                  `guards`
+                                  ( neg isWolterJunk -- just abas tables filled with dates
+                                    `guards`
+                                    getContentText
+                                  )
           , ixc_textToWords     = D.dateRep2NormalizedDates . D.extractDateRep
           , ixc_boringWord      = null
           }
+        where
+          aYear = 365 -- days
 
     -- index for all words found in any site
     ixContent
         = ixDefault
           { ixc_name            = "content"
-          , ixc_collectText     = getContentText
+          , ixc_collectText     = neg isOutOfDate
+                                  `guards`
+                                  getContentText
           }
+
+    -- index for all words found in old document od archive(s)
+    -- this index is ranked lower
+    ixArchive
+        = ixDefault
+          { ixc_name            = "archive"
+          , ixc_collectText     = isOutOfDate
+                                  `guards`
+                                  getContentText
+          }
+
+    isOutOfDate
+        = isOldStuff (5 * 365) -- 5 or more years not modified
 
 -- -----------------------------------------------------------------------------

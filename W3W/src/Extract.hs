@@ -218,38 +218,37 @@ extractText = ( ( fromLA $ deep getText )
 
 getRelevantNodes                :: IOSArrow XmlTree XmlTree 
 getRelevantNodes
-    = choiceA
-      [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
-                              >>>
-                              deep (hasDivWithId "col3_content")
-                            )
-      , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
-                              >>>
-                              ( deep (hasDivWithId "ContentHeaderDiv")
-                                <+>
-                                deep (hasDivWithId "ContentOutlineDiv")
-                                <+>
-                                deep (hasDivWithId "ContentBodyDiv")
-                                <+>
-                                deep (hasDivWithId "SiteNavigationDiv")
+    = selem "div"
+      [ choiceA
+        [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
+                                >>>
+                                deep (hasDivWithId "col3_content")
                               )
-                            )
-      , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
-                              >>>
-                              deep (hasDivWithId "col2_content")
-                            )
-      , isKiLayout      :-> ( traceMsg 1 "Thorstern's layout"
-                              >>>
-                              deep (hasDivWithId "main")
-                            )
-      , isPtlLayout     :-> ( traceMsg 1 "ptl layout found"
-                              >>>
-                              deep (hasDivWithId "col2_content")
-                            )
-      , this            :-> ( traceMsg 1 "unknown layout found"
-                              >>>
-                              getByPath ["html", "body"]
-                            )
+        , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
+                                >>>
+                                ( deep (hasDivWithId "ContentHeaderDiv")
+                                  <+> deep (hasDivWithId "ContentOutlineDiv")
+                                  <+> deep (hasDivWithId "ContentBodyDiv")
+                                -- <+> deep (hasDivWithId "SiteNavigationDiv")
+                                )
+                              )
+        , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
+                                >>>
+                                deep (hasDivWithId "col2_content")
+                              )
+        , isKiLayout      :-> ( traceMsg 1 "Thorstern's layout"
+                                >>>
+                                deep (hasDivWithId "main")
+                              )
+        , isPtlLayout     :-> ( traceMsg 1 "ptl layout found"
+                                >>>
+                                deep (hasDivWithId "col2_content")
+                              )
+        , this            :-> ( traceMsg 1 "unknown layout found"
+                                >>>
+                                getByPath ["html", "body"]
+                              )
+        ]
       ]
 
 -- ------------------------------------------------------------
@@ -257,6 +256,21 @@ getRelevantNodes
 
 getURI                          :: ArrowXml a => a XmlTree String
 getURI                          = fromLA $ getAttrValue transferURI
+
+-- ------------------------------------------------------------
+-- | select the modified date of a document
+
+getModifiedAttr :: LA XmlTree String
+getModifiedAttr
+    = single
+      ( getAttrValue0 "http-last-modified"          -- HTTP header
+        <+>
+        ( getMetaAttr "date" >>> isA (not . null) ) -- meta tag date (typo3)
+        <+>
+        getAttrValue0 "http-date"                   -- HTTP server time and date
+        <+>
+        constA ""
+      )
 
 -- ------------------------------------------------------------
 -- 
@@ -308,6 +322,53 @@ isKiLayout                      = fromLA $
 
 -- ------------------------------------------------------------
 --
+-- predicate filter with document age
+
+hasDocumentAgeWith:: (String -> String -> Bool) -> Int -> IOSArrow XmlTree XmlTree
+hasDocumentAgeWith cmp ageInDays
+    = ( fromLA getModifiedAttr
+        >>>
+        ( arrIO $ cmpDate cmp (toInteger ageInDays) )
+        >>>
+        isA id
+      )
+      `guards` this
+
+isNewerThan :: Int -> IOSArrow XmlTree XmlTree
+isNewerThan ageInDays
+    = hasDocumentAgeWith (>=) ageInDays
+      >>>
+      traceMsg 0 ("document as new classified (modified within the last " ++ show ageInDays ++ " days)")
+
+isOldStuff :: Int -> IOSArrow XmlTree XmlTree
+isOldStuff ageInDays
+    = ( hasDocumentAgeWith (<) ageInDays
+        `orElse`
+        isArchiveDoc
+      )
+      >>>
+      traceMsg 0 ("document as old stuff classified (older than " ++ show ageInDays ++ " days) or in archive")
+
+isArchiveDoc :: IOSArrow XmlTree XmlTree
+isArchiveDoc
+    = ( getURI >>> isA (match ".*/(veranstaltungs)?[Aa]rchiv(e)?/.*") )
+      `guards`
+      ( this
+        >>>
+        traceMsg 0 "archive document found"
+      )
+
+isWolterJunk :: IOSArrow XmlTree XmlTree
+isWolterJunk
+    = ( getURI >>> isA (match ".*/wol/.*/(BESCHAFF|PLANK).*\\.pdf") )
+      `guards`
+      ( this
+        >>>
+        traceMsg 0 ("Birger Wolters Abas Junk with lot of useless dates found")
+      )
+
+-- ------------------------------------------------------------
+--
 -- mothers little helpers
 --
 -- ------------------------------------------------------------
@@ -350,6 +411,7 @@ boringURIpart                   = ( `elem`
                                     [ ""
                                     , "http", "www", "wwwab", "fh-wedel", "ptl", "de"
                                     , "html", "pdf"
+                                    , "mitarbeiter", "fileadmin"
                                     ]
                                   )
 
@@ -376,8 +438,19 @@ isAllowedWordChar c = isXmlLetter c
 -- ------------------------------------------------------------
 -- | tokenize a uri string
 
-uri2Words                       :: String -> [String]
-uri2Words                       = tokenize "[^:/#?=.]+"
+uri2Words :: String -> [String]
+uri2Words s
+    = tildeMitarbeiter s
+      ++
+      tokenize "[^:/#?=.]+" s
+
+tildeMitarbeiter :: String -> [String]
+tildeMitarbeiter
+    = map ("~" ++) .
+      drop 1 .
+      tokenize "[a-z]+" .
+      concat .
+      tokenize "/mitarbeiter/[a-z]{2,3}/"
 
 -- ------------------------------------------------------------
 
