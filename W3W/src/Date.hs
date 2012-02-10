@@ -24,10 +24,12 @@ module Date
   , dateRep2stringWithTransformedDates
   , unNormalizeDate
   , cmpDate
+  , matchDateAlias
   )
 where
 
 import Control.Arrow                    ( second )
+import Control.Monad
 
 import Data.Char                        ( toLower
                                         , toUpper
@@ -84,6 +86,10 @@ nocase []
     = []
 nocase (x:xs)
     = '[' : toUpper x : toLower x : ']' : xs
+
+suffix :: String -> String
+suffix
+    = foldr (\ x xs -> "(" ++ x : xs ++ ")?") ""
 
 alt :: [String] -> String
 alt
@@ -184,7 +190,7 @@ monthL
     = altNC
       [ "januar"
       , "februar"
-      , "märz"
+      , "m\228rz"
       , "april"
       , "mai"
       , "juni"
@@ -204,7 +210,7 @@ monthAbr :: [(Int, String)]
 monthAbr
     = (3, "mar") : (5, "may") : (9, "sept") : (10, "oct") : (12, "dec") :
       ( zip [1..12]
-        [ "jan", "feb", "mär", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
+        [ "jan", "feb", "m\228r", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "dez"]
       )
 
 monthN :: String
@@ -244,7 +250,8 @@ num
     = "\\d+"
 
 dateAlias :: String
-dateAlias      = alt $ map fst dateAliasFunc
+dateAlias
+    = alt $ map fst dateAliasFunc
 
 -- -----------------------------------------------------------------
 -- | r.e.s for date aliases are expanded to Lists of Dates by "scanDateAlias" (see below).
@@ -254,20 +261,70 @@ dateAlias      = alt $ map fst dateAliasFunc
 dateAliasFunc :: [(String, Day -> [Day])]
 dateAliasFunc
     = [ ("heute",           box)
-      , ("Heute",           box)
       , ("morgen",          box . addDays 1)
       , ("Morgen",          box . addDays 1)
       , ("diese Woche",     extractWeek)
       , ("Diese Woche",     extractWeek)
-      , ("nächste Woche",   extractWeek . addDays 7)
-      , ("Nächste Woche",   extractWeek . addDays 7)
+      , ("n\228chste Woche",   extractWeek . addDays 7)
+      , ("N\228chste Woche",   extractWeek . addDays 7)
       , ("dieser Monat",    extractMonth)
       , ("Dieser Monat",    extractMonth)
-      , ("nächster Monat",  extractMonth . addMonth)
-      , ("Nächster Monat",  extractMonth . addMonth)
-      , ("übernächster Monat", extractMonth . addMonth . addMonth)
-      , ("Übernächster Monat", extractMonth . addMonth . addMonth)
+      , ("n\228chster Monat",  extractMonth . addMonth)
+      , ("N\228chster Monat",  extractMonth . addMonth)
+      -- , ("\252bern\228chster Monat", extractMonth . addMonth . addMonth)
+      -- , ("\220bern\228chster Monat", extractMonth . addMonth . addMonth)
       ]
+
+dateAliasMatch :: [(String, String -> Bool)]
+dateAliasMatch
+    = map (second match) $
+      [ ( "heute"
+        , nocase "heu" ++
+          suffix "te"
+        )
+      , ( "morgen"
+        , nocase "mor" ++
+          suffix "gen"
+        )
+      , ( "diese Woche"
+        , nocase "di" ++
+          suffix "ese" ++
+          ws0 ++
+          nocase "wo" ++
+          suffix "che"
+        )
+      , ( "n\228chste Woche"
+        , nocase "n(ae?|\228)" ++
+          suffix "chste" ++
+          ws0 ++
+          nocase "wo" ++
+          suffix "che"
+        )
+      , ( "dieser Monat"
+        , nocase "di" ++
+          suffix "eser" ++
+          ws0 ++
+          nocase "mo" ++
+          suffix "nat"
+        )
+      , ( "n\228chster Monat"
+        , nocase "n(ae?|\228)" ++
+          suffix "chste" ++
+          ws0 ++
+          nocase "mo" ++
+          suffix "nat"
+        )
+      ]
+
+matchDateAlias :: String -> Maybe String
+matchDateAlias s
+    = foldr (\ x xs -> match' s x `mplus` xs) mzero dateAliasMatch
+    where
+      match' s' (res, mf)
+          | mf s'
+              = Just res
+          | otherwise
+              = Nothing
 
 -- the token types
 tokenRE :: String
@@ -663,7 +720,14 @@ takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
 -- | ("date-alias") that can be expanded to the actual date by scanDateAlias.
 
 extractDateRep :: String -> [DateRep]
-extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
+extractDateRep s
+    = extractDateRep' .                                -- extract the date reps
+      maybe s (\ s' -> "\"" ++ s' ++ "\" OR " ++ s) .  -- expand query into an OR expr
+      matchDateAlias $ s                               -- match an abr. date spec, e.g "di wo" for "diese Woche"
+
+extractDateRep' :: String -> [DateRep]
+extractDateRep'
+    = dateSearch' . tokenizeSubex tokenRE
 
 -- ----------------------------------------------------------------------------
 -- | a DateRep-Item is transformed into a normalized Date (i.e. "Juni 2010 um 12:00" -> "****-06-02-12-00")
@@ -676,15 +740,16 @@ extractDateRep s = dateSearch' . tokenizeSubex tokenRE $ s
 -- | 2) DR {_p = "", _r = "Heute", _d = DT {_year = -1, _month = -1, _day = -1, _hour = -1, _min = -1}} -> ("****-**-**-**-**", "Heute")
 
 normalizeDate :: DateRep -> (String, String)
-normalizeDate d = (normalizedDateString, _dateAlias)
-  where
-    _dateAlias = _r d
-    normalizedDateString =
-      (digits 4 $ _year $ _d d) ++ "-" ++
-      (digits 2 $ _month $ _d d) ++ "-" ++
-      (digits 2 $ _day $ _d d) ++ "-" ++
-      (digits 2 $ _hour $ _d d) ++ "-" ++
-      (digits 2 $ _min $ _d d)
+normalizeDate d
+    = (normalizedDateString, _dateAlias)
+    where
+      _dateAlias = _r d
+      normalizedDateString
+          = (digits 4 $ _year  $ _d d) ++ "-" ++
+            (digits 2 $ _month $ _d d) ++ "-" ++
+            (digits 2 $ _day   $ _d d) ++ "-" ++
+            (digits 2 $ _hour  $ _d d) ++ "-" ++
+            (digits 2 $ _min   $ _d d)
 
 -- ----------------------------------------------------------------------------
 -- | The list of Date-Parse.Results is transformed into a list of normalized dates
@@ -732,27 +797,34 @@ dateRep2DatesContext (x:y:xs) = [[takeLastNWords 5 $ _p x , _r x , takeFirstNWor
 -- |    "2011-03-04"
 
 prepareNormDateForCompare :: (String, String) -> IO String
-prepareNormDateForCompare normDate = do
-  (isDateAlias, dateAliasResult) <- scanDateAlias $ snd normDate
-  if isDateAlias
-     then return $ dateAliasResult ++ " OR (\"" ++ (snd normDate) ++ "\")"
-     else do
-      s <- fillNormDate $ fst normDate
-      return $ truncNormDate s
-  where
-    truncNormDate = reverse . truncNormDate' . reverse
-    truncNormDate' [] = []
-    truncNormDate' _normDate@(x:xs)
-      | (x == '*' || x == '-') = truncNormDate' xs
-      | otherwise = _normDate
-    fillNormDate d = do
-      curr <- currentTimeStr
-      return $ fillNormDate' d curr
-    fillNormDate' [] _ = []
-    fillNormDate' _ [] = []
-    fillNormDate' _normDate@(x:xs) (y:ys)
-      | (x == '*' || x == '-') = y:(fillNormDate' xs ys)
-      | otherwise = _normDate
+prepareNormDateForCompare (normDate, aliasDate)
+    = do dateAliasResult <- scanDateAlias $ aliasDate
+         case dateAliasResult of
+           Just res
+             -> return $ res ++ " OR (\"" ++ aliasDate ++ "\")"
+           Nothing
+             -> fmap truncNormDate (fillNormDate normDate)
+    where
+      truncNormDate = reverse . truncNormDate' . reverse
+
+      truncNormDate' []
+          = []
+      truncNormDate' _normDate@(x:xs)
+          | (x == '*' || x == '-')
+              = truncNormDate' xs
+          | otherwise = _normDate
+
+      fillNormDate d
+          = do curr <- currentTimeStr
+               return $ fillNormDate' d curr
+
+      fillNormDate' [] _ = []
+      fillNormDate' _ [] = []
+      fillNormDate' _normDate@(x:xs) (y:ys)
+          | (x == '*' || x == '-')
+              = y:(fillNormDate' xs ys)
+          | otherwise
+              = _normDate
 
 currentTimeStr :: IO String
 currentTimeStr
@@ -760,62 +832,74 @@ currentTimeStr
          return (showGregorian today)
 
 -- ----------------------------------------------------------------------------
--- | Check if input string is a date-alias (heute, diese Woche, ...).
--- | If it is, return True and the list of normalized days representing the date-alias,
--- | concatenated by "OR".
--- | If it is not, return false and an empty String.
+-- | Check if input string is a date alias (heute, diese Woche, ...).
+-- | If it is, return Just the list of normalized days representing the date-alias,
+-- | concatenated by "OR" and the fully expanded date alias
+-- | If it is not, return Nothing.
 -- | Helper function for prepareNormDateForCompare.
 
-scanDateAlias :: String -> IO (Bool, String)
-scanDateAlias s = runIfDefined $ lookup s dateAliasFunc
-  where
-    runIfDefined Nothing  = return (False, "")
-    runIfDefined (Just f) = do
-                              today <- fmap utctDay getCurrentTime
-                              return (True, toDays . f $ today)
-    toDays [x] = showGregorian x
-    toDays xs  = foldl1 (\ a b -> a ++ " OR " ++ b) $ map showGregorian xs
+scanDateAlias :: String -> IO (Maybe String)
+scanDateAlias s
+    = runIfDefined $ lookup s dateAliasFunc
+    where
+      runIfDefined Nothing
+          = return Nothing
+      runIfDefined (Just f)
+          = fmap (Just . toDays . f  . utctDay) getCurrentTime
+
+      toDays [x] = showGregorian x
+      toDays xs  = foldl1 (\ a b -> a ++ " OR " ++ b) $ map showGregorian xs
 
 -- ----------------------------------------------------------------------------
 -- | Input: start-day and end-day of an interval of days
 -- | Output: the list containing all days from start-day til end-day
 
 mkListOfDays :: Day -> Day -> [Day]
-mkListOfDays dFrom dTo = map ModifiedJulianDay [dayFrom..dayTo]
-  where
-    dayFrom = toModifiedJulianDay dFrom
-    dayTo = toModifiedJulianDay dTo
+mkListOfDays dFrom dTo
+    = map ModifiedJulianDay [dayFrom..dayTo]
+    where
+      dayFrom = toModifiedJulianDay dFrom
+      dayTo   = toModifiedJulianDay dTo
 
 -- ----------------------------------------------------------------------------
 -- | Input: a day
 -- | Output: list of all days of the week containing the input-day
 
 extractWeek :: Day -> [Day]
-extractWeek d = mkListOfDays (setToMonday weekDate) (setToSunday weekDate)
-  where
-    weekDate = toWeekDate d
-    setToMonday (y,w,_) = fromWeekDate y w 1
-    setToSunday (y,w,_) = fromWeekDate y w 7
+extractWeek d
+    = mkListOfDays (setToMonday weekDate) (setToSunday weekDate)
+    where
+      weekDate
+          = toWeekDate d
+      setToMonday (y,w,_)
+          = fromWeekDate y w 1
+      setToSunday (y,w,_)
+          = fromWeekDate y w 7
 
 -- ----------------------------------------------------------------------------
 -- | Input: a day
 -- | Output: list of all days of the month containing the input-day
 
 extractMonth :: Day -> [Day]
-extractMonth d = mkListOfDays (setToFirst date) (setToLast date)
-  where
-    date = toGregorian d
-    setToFirst (y,m,_) = fromGregorian y m 1
-    setToLast (y,m,_) = addDays (-1) $ if (m == 12) then fromGregorian (y+1) 1 1 else fromGregorian y (m+1) 1
+extractMonth d
+    = mkListOfDays (setToFirst date) (setToLast date)
+    where
+      date
+          = toGregorian d
+      setToFirst (y,m,_)
+          = fromGregorian y m 1
+      setToLast (y,m,_)
+          = addDays (-1) $ if (m == 12) then fromGregorian (y+1) 1 1 else fromGregorian y (m+1) 1
     
 -- ----------------------------------------------------------------------------
 -- | Input: a day
 -- | Output: the day after a month, where the length of the month is dependent of the input-day
 
 addMonth :: Day -> Day
-addMonth d = addDays (fromIntegral $ gregorianMonthLength y m) d
-  where
-    (y, m, _) = toGregorian d
+addMonth d
+    = addDays (fromIntegral $ gregorianMonthLength y m) d
+    where
+      (y, m, _) = toGregorian d
 
 -- ----------------------------------------------------------------------------
 -- | Input: parse result of a String that may contain multiple dates
@@ -840,7 +924,7 @@ dateRep2stringWithTransformedDates dateRep = do
 
 -- ----------------------------------------------------------------------------
 -- | takes normalized Date-String (e.g. "****-**-03-12-**") and returns human readable
--- | date representation (e.g. "März, 12 Uhr")
+-- | date representation (e.g. "M\228rz, 12 Uhr")
 
 unNormalizeDate :: String -> String
 unNormalizeDate = unNormalizeDate' . (_split '-')
@@ -864,7 +948,21 @@ unNormalizeDate = unNormalizeDate' . (_split '-')
           | otherwise = ""
           where
             _elem = array !! index
-        monthNames = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember", "???"]
+        monthNames
+            = [ "Januar"
+              , "Februar"
+              , "M\228rz"
+              , "April"
+              , "Mai"
+              , "Juni"
+              , "Juli"
+              , "August"
+              , "September"
+              , "Oktober"
+              , "November"
+              , "Dezember"
+              , "???"
+              ]
 
 -- ------------------------------------------------------------
 

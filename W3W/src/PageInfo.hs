@@ -116,10 +116,10 @@ w3wGetTitle = fromLA $
 
 w3wGetPageInfo :: IOSArrow XmlTree PageInfo
 w3wGetPageInfo =
-                ( ( fromLA ( getModifiedAttr
+                ( fromLA ( getModifiedAttr
                            >>^
                            normalizeDateModified
-                         ) `withDefault` "")
+                         )
                   &&&
                   (getAuthor `withDefault` "")
                   &&&

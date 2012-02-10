@@ -95,7 +95,7 @@ initAppOpts
                                             ]
                       >>>
                       withCurl [ (curl_location,             v_1)            -- automatically follow redirects
-                               , (curl_max_redirects,        "0")            -- but limit # of redirects to 3
+                               , (curl_max_redirects,        "3")            -- but limit # of redirects to 3
                                ]
                       >>>
                       withRedirect no
