@@ -220,11 +220,11 @@ getRelevantNodes                :: IOSArrow XmlTree XmlTree
 getRelevantNodes
     = selem "div"
       [ choiceA
-        [ isFhwLayout     :-> ( traceMsg 1 "fhw layout found"
+        [ isFhwLayout     :-> ( traceMsg 1 "extract contents out of layout from FHW"
                                 >>>
                                 deep (hasDivWithId "col3_content")
                               )
-        , isEgLayout      :-> ( traceMsg 1 "MartinEgge's layout found"
+        , isEgLayout      :-> ( traceMsg 1 "extract contents out of layout from Martin Egge"
                                 >>>
                                 ( deep (hasDivWithId "ContentHeaderDiv")
                                   <+> deep (hasDivWithId "ContentOutlineDiv")
@@ -232,19 +232,31 @@ getRelevantNodes
                                 -- <+> deep (hasDivWithId "SiteNavigationDiv")
                                 )
                               )
-        , isSiLayout      :-> ( traceMsg 1 "Uwe's layout found"
+        , isSiLayout      :-> ( traceMsg 1 "extract contents out of layout from Uwe"
                                 >>>
                                 deep (hasDivWithId "col2_content")
                               )
-        , isKiLayout      :-> ( traceMsg 1 "Thorstern's layout"
+        , isSiLectureLayout
+                          :-> ( traceMsg 1 "extract contents out of lecture layout from Uwe"
+                                >>>
+                                processTopDown
+                                ( none
+                                  `when`
+                                  ( isElemWithAttr "div" "class" (== "navigate")
+                                    <+>
+                                    isElemWithAttr "table" "class" (== "fullwidth")
+                                  )
+                                )
+                              )
+        , isKiLayout      :-> ( traceMsg 1 "extract contents out of layout from Thorsten Kirch"
                                 >>>
                                 deep (hasDivWithId "main")
                               )
-        , isPtlLayout     :-> ( traceMsg 1 "ptl layout found"
+        , isPtlLayout     :-> ( traceMsg 1 "extract contents out of layout from PTL"
                                 >>>
                                 deep (hasDivWithId "col2_content")
                               )
-        , this            :-> ( traceMsg 1 "unknown layout found"
+        , this            :-> ( traceMsg 1 "extract contents out of layout from unknown layout"
                                 >>>
                                 getByPath ["html", "body"]
                               )
@@ -312,6 +324,19 @@ isSiLayout                      = fromLA $
                                   )
                                   `guards` this
 
+isSiLectureLayout               :: ArrowXml a => a XmlTree XmlTree
+isSiLectureLayout               = fromLA $
+                                  ( getMetaAttr "author"
+                                    >>>
+                                    isA (== "Uwe Schmidt")
+                                  ) `guards`
+                                  ( ( getByPath ["html", "body"]
+                                      >>>
+                                      hasAttrValue "id" (== "lecture")
+                                    ) 
+                                    `guards` this
+                                  )
+
 isKiLayout                      :: ArrowXml a => a XmlTree XmlTree
 isKiLayout                      = fromLA $
                                   ( getMetaAttr "author"
@@ -360,11 +385,11 @@ isArchiveDoc
 
 isWolterJunk :: IOSArrow XmlTree XmlTree
 isWolterJunk
-    = ( getURI >>> isA (match ".*/wol/.*/(BESCHAFF|PLANK).*\\.pdf") )
+    = ( getURI >>> isA (match ".*/wol/.*/(BESCHAFFUNG|PLANKARTE).*\\.pdf") )
       `guards`
       ( this
         >>>
-        traceMsg 0 ("Birger Wolters Abas Junk with lot of useless dates found")
+        traceMsg 0 ("Birger Wolters Abas Junk with lots of useless dates found")
       )
 
 -- ------------------------------------------------------------
@@ -375,10 +400,10 @@ isWolterJunk
 
 hasNameWithId                   :: ArrowXml a => String -> String -> a XmlTree XmlTree
 hasNameWithId ename eid         = isElem
-                            >>>
-                            hasName ename
-                            >>>
-                            hasAttrValue "id" (== eid)
+                                  >>>
+                                  hasName ename
+                                  >>>
+                                  hasAttrValue "id" (== eid)
 
 hasDivWithId                    :: ArrowXml a => String -> a XmlTree XmlTree
 hasDivWithId                    = hasNameWithId "div"

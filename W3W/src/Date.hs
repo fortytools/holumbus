@@ -16,7 +16,8 @@
 -- ----------------------------------------------------------------------------
 
 module Date
-  ( extractDateRep
+  ( extractDateRepM
+  , extractDateRep
   , normalizeDate
   , dateRep2NormalizedDates
   , dateRep2DatesContext
@@ -24,7 +25,6 @@ module Date
   , dateRep2stringWithTransformedDates
   , unNormalizeDate
   , cmpDate
-  , matchDateAlias
   )
 where
 
@@ -35,6 +35,7 @@ import Data.Char                        ( toLower
                                         , toUpper
                                         )
 import Data.List                        ( isPrefixOf )
+import Data.Maybe                       ( fromMaybe )
 
 import Text.Parsec
 import Text.Regex.XMLSchema.String
@@ -185,22 +186,25 @@ dayOfWeek :: String
 dayOfWeek
     = dayOfWeekL `orr` dayOfWeekA `orr` dayOfWeekU
 
+monthNames :: [String]
+monthNames
+    = [ "Januar"
+      , "Februar"
+      , "M\228rz"
+      , "April"
+      , "Mai"
+      , "Juni"
+      , "Juli"
+      , "August"
+      , "September"
+      , "Oktober"
+      , "November"
+      , "Dezember"
+      ]
+
 monthL :: String
 monthL
-    = altNC
-      [ "januar"
-      , "februar"
-      , "m\228rz"
-      , "april"
-      , "mai"
-      , "juni"
-      , "juli"
-      , "august"
-      , "september"
-      , "oktober"
-      , "november"
-      , "dezember"
-      ]
+    = altNC monthNames
 
 monthA :: String
 monthA
@@ -325,6 +329,34 @@ matchDateAlias s
               = Just res
           | otherwise
               = Nothing
+
+monthAliasMatch :: [(Int, String -> Bool)]
+monthAliasMatch
+    = zip [1..12] . map toFct $ monthNames
+      where
+        toFct
+            = (match $) . uncurry mkRE . splitAt 3
+            where
+              mkRE x y
+                  = nocase x ++ suffix y
+
+matchMonthAlias :: Int -> Int -> String -> Maybe String
+matchMonthAlias thisYear thisMonth s
+    = fmap format $ month'
+    where
+      format m
+          = (monthNames !! (m - 1)) ++ " " ++ show (thatYear m)
+      thatYear m
+          | m >= thisMonth = thisYear
+          | otherwise      = thisYear + 1
+      month'
+          = foldr (\x xs -> match' s x `mplus` xs) mzero monthAliasMatch
+          where
+            match' s' (i, mf)
+                | mf s'
+                    = Just i
+                | otherwise
+                    = Nothing
 
 -- the token types
 tokenRE :: String
@@ -721,13 +753,32 @@ takeLastNWords n str = unwords . reverse . (take n) . reverse . words $ str
 
 extractDateRep :: String -> [DateRep]
 extractDateRep s
-    = extractDateRep' .                                -- extract the date reps
-      maybe s (\ s' -> "\"" ++ s' ++ "\" OR " ++ s) .  -- expand query into an OR expr
-      matchDateAlias $ s                               -- match an abr. date spec, e.g "di wo" for "diese Woche"
+    = extractDateRep' .                        -- extract the date reps
+      fromMaybe s .                            -- expand query into an OR expr
+      fmap mkOr .
+      matchDateAlias $ s
+    where
+      mkOr s'
+          = s' ++ " OR " ++ quote s
+      quote s'
+          | ' ' `elem` s'
+              = "\"" ++ s' ++ "\""
+          | otherwise
+              = s'
 
 extractDateRep' :: String -> [DateRep]
 extractDateRep'
     = dateSearch' . tokenizeSubex tokenRE
+
+-- | adds the abriviations for the current months
+
+extractDateRepM :: String -> IO [DateRep]
+extractDateRepM s
+    = do (y, m, _) <- fmap (toGregorian . utctDay) getCurrentTime
+         return .
+             extractDateRep .
+             fromMaybe s .
+             matchMonthAlias (fromInteger y) m $ s      -- match an abr. date spec, e.g "di wo" for "diese Woche"
 
 -- ----------------------------------------------------------------------------
 -- | a DateRep-Item is transformed into a normalized Date (i.e. "Juni 2010 um 12:00" -> "****-06-02-12-00")
@@ -927,57 +978,60 @@ dateRep2stringWithTransformedDates dateRep = do
 -- | date representation (e.g. "M\228rz, 12 Uhr")
 
 unNormalizeDate :: String -> String
-unNormalizeDate = unNormalizeDate' . (_split '-')
-  where
-    _split _ [] = [""]
-    _split delim (c:cs)
-      | c == delim = "" : rest
-      | otherwise = (c : head rest) : tail rest
-      where
-        rest = _split delim cs
-    unNormalizeDate' parts =
-      ("" `maybeDay` ". ") ++ _month ++ (" " `maybeYear` "") ++ (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
-      where
-        maybeYear = getIfNotEmpty 0 parts
-        _month = monthNames !! ((strToInt 13 (parts !! 1)) - 1) -- month should always be part of a date expression
-        maybeDay = getIfNotEmpty 2 parts
-        maybeHours = getIfNotEmpty 3 parts
-        maybeMins = getIfNotEmpty 4 parts
-        getIfNotEmpty index array _pred _succ
-          | (head _elem /= '*') = _pred ++ _elem ++ _succ
-          | otherwise = ""
+unNormalizeDate
+    = unNormalizeDate' . (split' '-')
+    where
+      split' _ [] = [""]
+      split' delim (c:cs)
+          | c == delim = "" : rest
+          | otherwise = (c : head rest) : tail rest
           where
-            _elem = array !! index
-        monthNames
-            = [ "Januar"
-              , "Februar"
-              , "M\228rz"
-              , "April"
-              , "Mai"
-              , "Juni"
-              , "Juli"
-              , "August"
-              , "September"
-              , "Oktober"
-              , "November"
-              , "Dezember"
-              , "???"
-              ]
+            rest = split' delim cs
+      unNormalizeDate' parts
+          = ("" `maybeDay` ". ") ++
+            month' ++
+            (" " `maybeYear` "") ++
+            (", " `maybeHours`  ((":" `maybeMins` "") ++ " Uhr"))
+          where
+            maybeYear
+                = getIfNotEmpty 0 parts
+            month'
+                = monthNames' !! ((strToInt 13 (parts !! 1)) - 1)
+                  -- month should always be part of a date expression
+            maybeDay
+                = getIfNotEmpty 2 parts
+            maybeHours
+                = getIfNotEmpty 3 parts
+            maybeMins
+                = getIfNotEmpty 4 parts
+            getIfNotEmpty index array pred' succ'
+                | (head elem' /= '*')
+                    = pred' ++ elem' ++ succ'
+                | otherwise = ""
+                where
+                  elem' = array !! index
+            monthNames'
+                = monthNames ++ ["???"]
 
 -- ------------------------------------------------------------
 
 cmpDate :: (String -> String -> Bool) -> Integer -> String -> IO Bool
 cmpDate (.>.) ageInDays date'
-    = do deadline <- fmap ( showGregorian .
-                            utctDay .
-                            addUTCTime (fromInteger (-60*60*24*ageInDays))
-                          ) getCurrentTime
-         let res = match "\\d{4}-\\d{2}-\\d{2}.*" ndate
-                   &&
-                   (ndate .>. deadline)
-         -- putStrLn $ unwords ["cmpDate:", "match doc modified", ndate, "("++date'++")", "with", deadline, show res]
-         return res
+    = fmap cmp getCurrentTime
     where
-      ndate = head . (++ [""]) . dateRep2NormalizedDates . extractDateRep $ date'
+      cmp ct
+          = match "\\d{4}-\\d{2}-\\d{2}.*" ndate
+            &&
+            (ndate .>. deadline)
+          where
+            deadline
+                = showGregorian .
+                  utctDay .
+                  addUTCTime (fromInteger (-60*60*24*ageInDays)) $ ct
+            ndate
+                = head .
+                  (++ [""]) .
+                  dateRep2NormalizedDates .
+                  extractDateRep $ date'
 
 -- ----------------------------------------------------------------------------

@@ -267,8 +267,8 @@ frontpage
 
 processquery :: Application ()
 processquery = do
-  query <- getQueryStringParam "query"
-  let dateRep = extractDateRep query
+  query   <- getQueryStringParam "query"
+  dateRep <- liftIO $ extractDateRepM query
   (transformedQuery, numOfTransforms) <-liftIO $ dateRep2stringWithTransformedDates dateRep
   let hasDate = (numOfTransforms > 0)
   -- liftIO $ P.putStrLn $ "<" ++ transformedQuery ++ ">" -- print debug info to console

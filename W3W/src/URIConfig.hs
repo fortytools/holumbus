@@ -86,9 +86,18 @@ fhwRefs UCFullIndex
                [ htmlPaths
                ]
       ]
-      ( [ ".*[?].*"                                     -- no URIs with parameters
-        , fhwHome ++ "~si/vorlesungen/.*/welcome.html" 	-- no welcome pages from si
-        , fhwHome ++ "~si/vortraege/.*"                 -- no old talks from si
+      ( [ ".*" ++
+               alternatives
+               [ "[?]"                                  -- no URIs with parameters
+               , "/javadoc/"                            -- no javadoc
+               ]
+               ++ ".*"
+        , fhwHome ++
+                  alternatives
+                  [ "~si/vorlesungen/.*/welcome.html"   -- no welcome pages from si
+                  , "~si/vortraege/.*"                  -- no old talks from si
+                  , "archiv/wol/htmlbaum/.*"            -- no junk from wol
+                  ]
         ]
       )
 
@@ -115,8 +124,8 @@ fhwRefs UCTestIndex
                 [ ".*/news/" ++ htmlPaths   -- for test: the ptl news pages added
                 ]
       ]
-      ( [ ".*[?].*"                         		-- no URIs with parameters
-        , fhwHome ++ "~si/vorlesungen/.*/welcome.html" 	-- no welcome pages from si
+      ( [ ".*([?]|/javadoc/).*"                         -- no URIs with parameters, no javadoc
+        , fhwHome ++ "~si/vorlesungen/.*/welcome.html"  -- no welcome pages from si
         ]
       )
 
