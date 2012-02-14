@@ -3,7 +3,7 @@ version:       1.2.0
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
-copyright:     Copyright (c) 2007 - 2011 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Huebel
+copyright:     Copyright (c) 2007 - 2012 Uwe Schmidt, Sebastian M. Schlatt and Timo B. Kranz
 maintainer:    Timo B. Huebel <tbh@holumbus.org>
 stability:     experimental
 category:      Text, Data
@@ -14,24 +14,24 @@ description:   The Hayoo! search engine based no the Holumbus framework provides
                as well as a query interface for these indexes.
 cabal-version: >=1.6
 build-type:    Simple
--- tested-with:   ghc-6.12.1 and ghc-7.0.3
+-- tested-with:  ghc-7.0.3
 
 extra-source-files:
     README
-    index/lib/hayoo.css
-    index/lib/fhw.gif
-    index/lib/loader.gif
-    index/lib/favicon.ico
-    index/lib/content.js
-    index/lib/hayoo.js
-    index/lib/prototype.js
-    index/lib/ft.png
-    index/lib/hayoo.png
-    index/lib/hol.png
-    index/lib/holumbus.png
-    index/lib/minus.png
-    index/lib/plus.png
-    index/lib/opensearch.xml
+    index/hayoo/hayoo.css
+    index/hayoo/fhw.gif
+    index/hayoo/loader.gif
+    index/hayoo/favicon.ico
+    index/hayoo/content.js
+    index/hayoo/hayoo.js
+    index/hayoo/prototype.js
+    index/hayoo/ft.png
+    index/hayoo/hayoo.png
+    index/hayoo/hol.png
+    index/hayoo/holumbus.png
+    index/hayoo/minus.png
+    index/hayoo/plus.png
+    index/hayoo/opensearch.xml
 
 -- ------------------------------------------------------------
 
@@ -123,54 +123,12 @@ executable hayooSearch
 
 -- ------------------------------------------------------------
 
-executable hayooFastGCI
- if impl( ghc >= 7.0.3)
-  main-is:      Dummy.hs
- else
-  main-is:      HayooFastCGI.hs
-
-  other-modules:  Hayoo.FunctionInfo
-                , Hayoo.IndexTypes
-                , Hayoo.PackageInfo
-                , Hayoo.PackageRank
-                , Hayoo.Search.Application
-                , Hayoo.Search.Common
-                , Hayoo.Search.EvalSearch
-                , Hayoo.Search.HTML
-                , Hayoo.Search.JSON
-                , Hayoo.Search.Pages.Static
-                , Hayoo.Search.Pages.Template
-                , Hayoo.Search.Parser
-                , Hayoo.Signature
-
-  build-depends:  base                      >= 4   && < 5
-                , Holumbus-Searchengine     >= 1   && < 2
-                , hack                      >= 2009.10.30
-                , hack-contrib              >= 2010.9.28
-                , hack-handler-fastcgi      >= 0.2 && < 1
-                , hslogger                  >= 1   && < 2
-                , hxt-unicode               >= 9   && < 10
-                , json                      >= 0.4 && < 1
-                , text                      >= 0.7 && < 1
-                , xhtml-combinators         >= 0.2 && < 1
-
- hs-source-dirs: src
-
- if impl( ghc >= 7 )
-   ghc-options: -threaded -Wall -funbox-strict-fields -fwarn-tabs -rtsopts
- else
-   ghc-options: -threaded -Wall -funbox-strict-fields
-
- extensions:
-
--- ------------------------------------------------------------
-
 Flag hayooSnap
   Description: Build Hayoo! search with Snap server
   Default: True
 
 executable hayooSnap
- if flag(hayooSnap)
+ -- if flag(hayooSnap)
   main-is:      HayooSnap.hs
 
   other-modules:  Hayoo.FunctionInfo
@@ -203,11 +161,11 @@ executable hayooSnap
                 , text                      >= 0.11  && < 1
                 , transformers              >= 0.2.2 && < 0.3
                 , xhtml-combinators         >= 0.2   && < 1
- else
+ -- else
   -- hayooSnap is currently only tested with ghc-7.0.3, with ghc-6.12 you will run into cabal package hell
   -- with ghc-6.12 there is a mess with hack-handler-simpleserver, which wants old versions of network, web-encodings and text
   -- so this is a dummy
-  main-is:      Dummy.hs
+  -- main-is:      Dummy.hs
 
  hs-source-dirs: src
 

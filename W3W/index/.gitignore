@@ -5,3 +5,5 @@ ix.bin.idx
 ix.bin.doc
 ix.bin.xml
 
+whole-*.out
+*.xml

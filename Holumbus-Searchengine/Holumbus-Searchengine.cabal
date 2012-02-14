@@ -3,7 +3,7 @@ version:       1.2.0
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Huebel, Uwe Schmidt
-copyright:     Copyright (c) 2007 - 2012 Uwe Schmidt, Sebastian M. Gauck and Timo B. Huebel
+copyright:     Copyright (c) 2007 - 2012 Uwe Schmidt, Sebastian M. Gauck and Timo B. Kranz
 maintainer:    Timo B. Huebel <tbh@holumbus.org>, Uwe Schmidt <uwe@fh-wedel.de>
 stability:     experimental
 category:      Text, Data
