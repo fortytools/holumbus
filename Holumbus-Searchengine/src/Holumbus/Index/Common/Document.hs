@@ -24,8 +24,6 @@ import Control.Monad                    ( liftM3 )
 import Control.DeepSeq
 
 import Data.Binary                      ( Binary (..) )
-import qualified
-       Data.Binary                      as B
 
 import Holumbus.Index.Common.BasicTypes
 

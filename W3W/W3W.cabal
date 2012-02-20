@@ -1,5 +1,5 @@
 name:          W3W
-version:       1.2.1
+version:       1.2.2
 license:       MIT
 license-file:  LICENSE
 author:        Thorben Gülck, Mathias Leonhardt, Tobias Lüders, Uwe Schmidt
@@ -28,8 +28,6 @@ executable w3wIndexer
                , binary                 >= 0.5  && < 1
                , bytestring             >= 0.9  && < 1
                , bzlib                  >= 0.4  && < 1
-               , containers             >= 0.2  && < 1
-               , deepseq                >= 1.1  && < 2
                , filepath               >= 1    && < 2
                , haskell98              >= 1    && < 2
                , hxt                    >= 9.1  && < 10
@@ -45,7 +43,20 @@ executable w3wIndexer
                , tar                    >= 0.3  && < 1
                , zlib                   >= 0.5  && < 1 
 
-  ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -rtsopts
+  if impl( ghc < 7.4 )
+    build-depends:
+                 containers             >= 0.2 && < 0.4.2
+               , deepseq                >= 1.1 && < 1.2
+  else
+    build-depends:
+                 containers             >= 0.4.2
+               , deepseq                >= 1.2
+
+  ghc-options: -threaded
+               -rtsopts
+               -Wall
+               -fwarn-tabs
+               -funbox-strict-fields
 
 -- ------------------------------------------------------------
 
@@ -58,8 +69,6 @@ executable w3wServer
                , base                       >= 4     && < 5
                , binary                     == 0.5.0.*
                , bytestring                 >= 0.9.1 && < 0.10
-               , containers                 == 0.4.0.*
-               , deepseq                    == 1.1.0.*
                , filepath                   == 1.2.0.*
                , heist                      >= 0.5   && < 0.6
                , Holumbus-Searchengine      >= 1.2
@@ -79,9 +88,23 @@ executable w3wServer
                , xhtml-combinators          == 0.2.*
                , xmlhtml                    == 0.1.*
 
+  if impl( ghc < 7.4 )
+    build-depends:
+                 containers             >= 0.2 && < 0.4.2
+               , deepseq                >= 1.1 && < 1.2
+  else
+    build-depends:
+                 containers             >= 0.4.2
+               , deepseq                >= 1.2
+
   extensions: TypeSynonymInstances MultiParamTypeClasses
 
-  ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2
-               -fno-warn-orphans -fno-warn-unused-do-bind
+  ghc-options: -threaded
+               -O2
+               -Wall
+               -fwarn-tabs
+               -funbox-strict-fields
+               -fno-warn-orphans
+               -fno-warn-unused-do-bind
 
 -- ------------------------------------------------------------

@@ -110,7 +110,7 @@ install-index	: $(ix).doc $(ix).idx
 	cp -v $(ix).doc $(ix).idx
 
 test-index	: $(indexer)
-	$< $(RUNOPTS) --test-index --maxthreads=$(threads) --partition=100 --maxpar=100 --maxdocs=500 --valid=$(validix) --new-index=$(ixt) --new-search=$(ixt) --xml-output=$(ixt).xml $(OPTS)
+	$< $(RUNOPTS) --test-index --maxthreads=$(threads) --maxpar=100 --maxdocs=500 --valid=$(validix) --new-index=$(ixt) --new-search=$(ixt) --xml-output=$(ixt).xml $(OPTS)
 
 clean	:
 	rm -f *.o *.hi $(progs) *.out

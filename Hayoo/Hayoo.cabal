@@ -1,5 +1,5 @@
 name:          Hayoo
-version:       1.2.0
+version:       1.2.1
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
@@ -14,7 +14,7 @@ description:   The Hayoo! search engine based no the Holumbus framework provides
                as well as a query interface for these indexes.
 cabal-version: >=1.6
 build-type:    Simple
--- tested-with:  ghc-7.0.3
+-- tested-with:  ghc-7.0.3 and ghc-7.4
 
 extra-source-files:
     README
@@ -47,14 +47,12 @@ executable hayooIndexer
                 , Hayoo.IndexConfig
 
   build-depends:  base                   >= 4   && < 5
-                , Holumbus-Searchengine  >= 1.2 && < 2
                 , binary                 >= 0.5 && < 1
                 , bytestring             >= 0.9 && < 1
                 , bzlib                  >= 0.4 && < 1
-                , containers             >= 0.2 && < 1
-                , deepseq                >= 1.1 && < 2
                 , enummapset             >= 0   && < 1
                 , filepath               >= 1   && < 2
+                , Holumbus-Searchengine  >= 1.2 && < 2
                 , hxt                    >= 9.1 && < 10
                 , hxt-cache              >= 9   && < 10
                 , hxt-charproperties     >= 9   && < 10
@@ -69,68 +67,38 @@ executable hayooIndexer
                 , tar                    >= 0.3 && < 1
                 , zlib                   >= 0.5 && < 1 
 
+  -- instance NFData (Map k v) has moved from deepseq into containers (dependency hell)
+  if impl( ghc < 7.4 )
+    build-depends: containers             >= 0.2 && < 0.4.2
+                 , deepseq                >= 1.1 && < 1.2
+  else
+    build-depends: containers             >= 0.4.2
+                 , deepseq                >= 1.2
+
   hs-source-dirs: src
 
+  ghc-options:   -threaded
+                 -Wall
+                 -funbox-strict-fields
+
   if impl( ghc >= 7 )
-    ghc-options: -threaded -Wall -funbox-strict-fields -fwarn-tabs -rtsopts
-  else
-    ghc-options: -threaded -Wall -funbox-strict-fields
+    ghc-options: -rtsopts
+                 -fwarn-tabs
 
   extensions:
 
 -- ------------------------------------------------------------
 
-executable hayooSearch
-  main-is:      HayooSearch.hs
-
-  other-modules:  Hayoo.FunctionInfo
-                , Hayoo.IndexTypes
-                , Hayoo.PackageInfo
-                , Hayoo.PackageRank
-                , Hayoo.Search.Application
-                , Hayoo.Search.Common
-                , Hayoo.Search.EvalSearch
-                , Hayoo.Search.HTML
-                , Hayoo.Search.JSON
-                , Hayoo.Search.Pages.Static
-                , Hayoo.Search.Pages.Template
-                , Hayoo.Search.Parser
-                , Hayoo.Signature
-
-  build-depends:  base                      >= 4   && < 5
-                , Holumbus-Searchengine     >= 1   && < 2
-                , hack                      >= 2009.10.30
-                , hack-contrib              >= 2010.9.28
-                , hslogger                  >= 1   && < 2
-                , hxt-unicode               >= 9   && < 10
-                , json                      >= 0.4 && < 1
-                , text                      >= 0.7 && < 1
-                , xhtml-combinators         >= 0.2 && < 1
-
-  if impl( ghc >= 7.0.3 )
-    build-depends: hack-handler-simpleserver >= 0.2.0.2 && < 1
-  else
-    build-depends: hack-handler-simpleserver >= 0.2.0.1
-
-  hs-source-dirs: src
-
-  if impl( ghc >= 7 )
-    ghc-options: -threaded -Wall -funbox-strict-fields -fwarn-tabs -rtsopts
-  else
-    ghc-options: -threaded -Wall -funbox-strict-fields
-
-  extensions:
-
--- ------------------------------------------------------------
-
-Flag hayooSnap
-  Description: Build Hayoo! search with Snap server
+Flag hayooSnap4
+  Description: Build Hayoo! search with Snap server version 4 or version 7
   Default: True
 
-executable hayooSnap
- -- if flag(hayooSnap)
-  main-is:      HayooSnap.hs
-
+Executable hayooSnap
+  if flag(hayooSnap4)
+    main-is: HayooSnap.hs
+  else
+    main-is: HayooSnap7.hs
+  
   other-modules:  Hayoo.FunctionInfo
                 , Hayoo.IndexTypes
                 , Hayoo.PackageInfo
@@ -143,38 +111,52 @@ executable hayooSnap
                 , Hayoo.Search.Pages.Template
                 , Hayoo.Search.Parser
                 , Hayoo.Signature
-                , Hayoo.Snap.Application
-                , Hayoo.Snap.Extension.HayooState
-                , Hayoo.Snap.Site
 
-  build-depends:  base                      >= 4     && < 5
-                , bytestring                >= 0.9.1 && < 0.10
-                , Holumbus-Searchengine     >= 1.2   && < 2
-                , hslogger                  >= 1     && < 2
-                , hxt-unicode               >= 9     && < 10
-                , json                      >= 0.4   && < 1
-                , MonadCatchIO-transformers >= 0.2.1 && < 0.3
-                , mtl                       >= 2     && < 3
-                , snap                      == 0.4.*
-                , snap-core                 == 0.4.*
-                , snap-server               == 0.4.*
-                , text                      >= 0.11  && < 1
-                , transformers              >= 0.2.2 && < 0.3
-                , xhtml-combinators         >= 0.2   && < 1
- -- else
-  -- hayooSnap is currently only tested with ghc-7.0.3, with ghc-6.12 you will run into cabal package hell
-  -- with ghc-6.12 there is a mess with hack-handler-simpleserver, which wants old versions of network, web-encodings and text
-  -- so this is a dummy
-  -- main-is:      Dummy.hs
+  if flag(hayooSnap4)
+    other-modules: Hayoo.Snap.Application
+                 , Hayoo.Snap.Extension.HayooState
+                 , Hayoo.Snap.Site
+  else
+    other-modules:
+
+  build-depends:   base                  >= 4 && < 5
+                 , bytestring                >= 0.9.1 && < 0.10
+                 , Holumbus-Searchengine     >= 1.2   && < 2
+                 , hxt                       >= 9     && < 10
+                 , hxt-unicode               >= 9     && < 10
+                 , json                      >= 0.4   && < 1
+                 , MonadCatchIO-transformers >= 0.2.1 && < 0.3
+                 , mtl                       >= 2     && < 3
+                 , text                      >= 0.11  && < 1
+                 , transformers              >= 0.2.2 && < 0.3
+                 , xhtml-combinators         >= 0.2.2 && < 0.3
+
+  if flag(hayooSnap4)
+    build-depends: base                      >= 4     && < 5
+                 , snap                      >= 0.4   && < 0.6
+                 , snap-core                 >= 0.4   && < 0.6
+                 , snap-server               >= 0.4   && < 0.6
+  else
+    build-depends: containers
+                 , data-lens                 >= 2
+                 , data-lens-template        >= 2.1   && < 2.2
+                 , filepath
+                 , heist                     >= 0.7   && < 0.9
+                 , snap                      >= 0.7   && <0.8
+                 , snap-core                 >= 0.7   && <0.8
+                 , snap-server               >= 0.7   && <0.8
 
  hs-source-dirs: src
 
+ ghc-options:   -threaded
+                -Wall
+                -funbox-strict-fields
+                -fno-warn-orphans
+
  if impl( ghc >= 7 )
-  ghc-options: -threaded -Wall -funbox-strict-fields -fwarn-tabs -rtsopts
-               -fno-warn-orphans -fno-warn-unused-do-bind
- else
-  ghc-options: -threaded -Wall -funbox-strict-fields -fwarn-tabs
-               -fno-warn-orphans -fno-warn-unused-do-bind
+   ghc-options: -rtsopts
+                -fwarn-tabs
+                -fno-warn-unused-do-bind
 
  extensions: TypeSynonymInstances MultiParamTypeClasses
 

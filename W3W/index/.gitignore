@@ -7,3 +7,5 @@ ix.bin.xml
 
 whole-*.out
 *.xml
+*.out
+test-ix.bin*

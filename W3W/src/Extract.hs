@@ -435,8 +435,7 @@ boringURIpart                   :: String -> Bool
 boringURIpart                   = ( `elem`
                                     [ ""
                                     , "http", "www", "wwwab", "fh-wedel", "ptl", "de"
-                                    , "html", "pdf"
-                                    , "mitarbeiter", "fileadmin"
+                                    , "html", "htm", "pdf"
                                     ]
                                   )
 

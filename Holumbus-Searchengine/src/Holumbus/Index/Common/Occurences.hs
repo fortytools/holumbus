@@ -26,7 +26,6 @@ import Data.Binary              ( Binary (..) )
 import qualified
        Data.Binary              as B
 
-import qualified Data.EnumMap   as IM
 import qualified Data.EnumSet   as IS
 
 import Holumbus.Index.Common.BasicTypes
@@ -44,39 +43,40 @@ type Occurrences        = DocIdMap Positions
 
 -- | Create an empty set of positions.
 emptyOccurrences        :: Occurrences
-emptyOccurrences        = IM.empty
+emptyOccurrences        = emptyDocIdMap
 
 -- | Create an empty set of positions.
 singletonOccurrence     :: DocId -> Position -> Occurrences
-singletonOccurrence d p = insertOccurrence d p IM.empty
+singletonOccurrence d p = insertOccurrence d p emptyDocIdMap
 
 -- | Test on empty set of positions.
 nullOccurrences         :: Occurrences -> Bool
-nullOccurrences         = IM.null
+nullOccurrences         = nullDocIdMap
 
 -- | Determine the number of positions in a set of occurrences.
 sizeOccurrences         :: Occurrences -> Int
-sizeOccurrences         = IM.fold ((+) . IS.size) 0
+sizeOccurrences         = foldDocIdMap ((+) . IS.size) 0
 
 insertOccurrence        :: DocId -> Position -> Occurrences -> Occurrences
-insertOccurrence d p    = IM.insertWith IS.union d (singletonPos p)
+insertOccurrence d p    = insertWithDocIdMap IS.union d (singletonPos p)
 
 deleteOccurrence        :: DocId -> Position -> Occurrences -> Occurrences
-deleteOccurrence d p    = substractOccurrences (IM.singleton d (singletonPos p))
+deleteOccurrence d p    = substractOccurrences (singletonDocIdMap d (singletonPos p))
 
 updateOccurrences       :: (DocId -> DocId) -> Occurrences -> Occurrences
-updateOccurrences f     = IM.foldWithKey (\ d ps res -> IM.insertWith IS.union (f d) ps res) emptyOccurrences
+updateOccurrences f     = foldWithKeyDocIdMap
+                          (\ d ps res -> insertWithDocIdMap IS.union (f d) ps res) emptyOccurrences
 
 -- | Merge two occurrences.
 mergeOccurrences        :: Occurrences -> Occurrences -> Occurrences
-mergeOccurrences        = IM.unionWith IS.union
+mergeOccurrences        = unionWithDocIdMap IS.union
 
 diffOccurrences         :: Occurrences -> Occurrences -> Occurrences
-diffOccurrences          = IM.difference
+diffOccurrences          = differenceDocIdMap
 
 -- | Substract occurrences from some other occurrences.
 substractOccurrences    :: Occurrences -> Occurrences -> Occurrences
-substractOccurrences    = IM.differenceWith substractPositions
+substractOccurrences    = differenceWithDocIdMap substractPositions
   where
   substractPositions p1 p2
                         = if IS.null diffPos
@@ -88,7 +88,7 @@ substractOccurrences    = IM.differenceWith substractPositions
 -- | The XML pickler for the occurrences of a word.
 
 xpOccurrences           :: PU Occurrences
-xpOccurrences           = xpWrap (IM.fromList, IM.toList)
+xpOccurrences           = xpWrap (fromListDocIdMap, toListDocIdMap)
                                  (xpList xpOccurrence)
   where
   xpOccurrence          = xpElem "doc" $

@@ -1,4 +1,4 @@
-{-# OPTIONS #-} {-XMultiParamTypeClasses -XFlexibleContexts -XFlexibleInstances -XGeneralizedNewtypeDeriving -XTypeSynonymInstances -fno-warn-orphans #-}
+{-# OPTIONS #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -19,8 +19,6 @@
 
 module Holumbus.Index.Common.RawResult
 where
-
-import qualified Data.EnumMap   as IM
 
 import           Data.Map       (Map)
 import qualified Data.Map       as M
@@ -46,7 +44,7 @@ resultByWord c
 resultByDocument :: Context -> RawResult -> DocIdMap (Map Context (Map Word Positions))
 resultByDocument c os
     = mapDocIdMap transform $
-      IM.unionsWith (flip $ (:) . head) (map insertWords os)
+      unionsWithDocIdMap (flip $ (:) . head) (map insertWords os)
     where
       insertWords (w, o) = mapDocIdMap (\p -> [(w, p)]) o   
       transform w        = M.singleton c (M.fromList w)

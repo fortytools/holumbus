@@ -1,10 +1,16 @@
-{-# OPTIONS -XMultiParamTypeClasses -XFlexibleContexts -XFlexibleInstances -XGeneralizedNewtypeDeriving -XTypeSynonymInstances -fno-warn-orphans #-}
+{-# OPTIONS -fno-warn-orphans #-}
+
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 -- ----------------------------------------------------------------------------
 
 {- |
   Module     : Holumbus.Index.Common
-  Copyright  : Copyright (C) 2007 Sebastian M. Schlatt, Timo B. Huebel
+  Copyright  : Copyright (C) 2007-2012 Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)

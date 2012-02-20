@@ -1,3 +1,5 @@
+{-# OPTIONS #-}
+
 -- ----------------------------------------------------------------------------
 
 {- |
@@ -19,8 +21,6 @@
 -}
 
 -- ----------------------------------------------------------------------------
-
-{-# OPTIONS -XTypeSynonymInstances -XFlexibleInstances -XMultiParamTypeClasses #-}
 
 module Holumbus.Index.Inverted.PrefixMem 
     (

@@ -12,3 +12,8 @@ hxt-ix.doc
 hxt-ix.idx
 hxt-ix.xml
 whole-*.out
+new-ix.bin.*
+new-pkg.bin.*
+*.out
+new-pkg.bin
+Types-Data-Num-Decimal-Literals.html

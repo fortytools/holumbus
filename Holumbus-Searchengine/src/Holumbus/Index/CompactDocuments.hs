@@ -1,4 +1,5 @@
-{-# OPTIONS -XFlexibleInstances -XMultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- ----------------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-{-# OPTIONS -XGeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- ----------------------------------------------------------------------------
 

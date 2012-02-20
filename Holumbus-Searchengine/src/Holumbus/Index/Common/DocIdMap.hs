@@ -1,10 +1,10 @@
-{-# OPTIONS -XTypeSynonymInstances -fno-warn-orphans #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- ----------------------------------------------------------------------------
 
 {- |
   Module     : Holumbus.Index.Common.DocIdMap
-  Copyright  : Copyright (C) 2011 Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
+  Copyright  : Copyright (C) 2012 Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
   License    : MIT
 
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
@@ -18,56 +18,92 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Index.Common.DocIdMap
+    ( DocIdMap
+    , emptyDocIdMap
+    , singletonDocIdMap
+    , nullDocIdMap
+    , memberDocIdMap
+    , lookupDocIdMap
+    , insertDocIdMap
+    , deleteDocIdMap
+    , insertWithDocIdMap
+    , sizeDocIdMap
+    , minKeyDocIdMap
+    , maxKeyDocIdMap
+    , isIntervallDocIdMap
+    , unionDocIdMap
+    , differenceDocIdMap
+    , unionWithDocIdMap
+    , intersectionWithDocIdMap
+    , differenceWithDocIdMap
+    , unionsWithDocIdMap
+    , mapDocIdMap
+    , filterDocIdMap
+    , filterWithKeyDocIdMap
+    , mapWithKeyDocIdMap
+    , foldDocIdMap
+    , foldWithKeyDocIdMap
+    , fromListDocIdMap
+    , toListDocIdMap
+    , keysDocIdMap
+    , elemsDocIdMap
+    )
 where
 
 import Control.DeepSeq
 
-import Data.Binary              ( Binary (..) )
-import qualified
-       Data.Binary              as B
-import qualified
-       Data.EnumMap             as IM
+import           Data.Binary              ( Binary (..) )
+import qualified Data.Binary              as B
+import qualified Data.EnumMap             as IM
+import           Data.Foldable
 
 import Holumbus.Index.Common.DocId
 
--- import Text.XML.HXT.Core
-
 -- ------------------------------------------------------------
 
-type DocIdMap v                 = IM.EnumMap DocId v
+newtype DocIdMap v              = DIM { unDIM :: IM.EnumMap DocId v }
+                                  deriving (Eq, Show, Foldable)
+
+liftDIM                         :: (IM.EnumMap DocId v -> IM.EnumMap DocId r) ->
+                                   (DocIdMap v -> DocIdMap r)
+liftDIM f                       = DIM . f . unDIM
+
+liftDIM2                        :: (IM.EnumMap DocId v -> IM.EnumMap DocId v -> IM.EnumMap DocId v) ->
+                                   (DocIdMap v -> DocIdMap v -> DocIdMap v)
+liftDIM2 f x y                  = DIM $ f (unDIM x) (unDIM y)
 
 emptyDocIdMap                   :: DocIdMap v
-emptyDocIdMap                   = IM.empty
+emptyDocIdMap                   = DIM $ IM.empty
 
 singletonDocIdMap               :: DocId -> v -> DocIdMap v
 singletonDocIdMap d v           = insertDocIdMap d v emptyDocIdMap
 
 nullDocIdMap                    :: DocIdMap v -> Bool
-nullDocIdMap                    = IM.null
+nullDocIdMap                    = IM.null . unDIM
 
 memberDocIdMap                  :: DocId -> DocIdMap v -> Bool
-memberDocIdMap                  = IM.member
+memberDocIdMap x                = IM.member x . unDIM
 
 lookupDocIdMap                  :: DocId -> DocIdMap v -> Maybe v
-lookupDocIdMap                  = IM.lookup
+lookupDocIdMap x                = IM.lookup x . unDIM
 
 insertDocIdMap                  :: DocId -> v -> DocIdMap v -> DocIdMap v
-insertDocIdMap                  = IM.insert
+insertDocIdMap x y              = liftDIM $ IM.insert x y
 
 deleteDocIdMap                  :: DocId -> DocIdMap v -> DocIdMap v
-deleteDocIdMap                  = IM.delete
+deleteDocIdMap x                = liftDIM $ IM.delete x
 
 insertWithDocIdMap              :: (v -> v -> v) -> DocId -> v -> DocIdMap v -> DocIdMap v
-insertWithDocIdMap              = IM.insertWith
+insertWithDocIdMap f x y        = liftDIM $ IM.insertWith f x y
 
 sizeDocIdMap                    :: DocIdMap v -> Int
-sizeDocIdMap                    = IM.size
+sizeDocIdMap                    = IM.size . unDIM
 
 minKeyDocIdMap                  :: DocIdMap v -> DocId
-minKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.minViewWithKey
+minKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.minViewWithKey . unDIM
 
 maxKeyDocIdMap                  :: DocIdMap v -> DocId
-maxKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.maxViewWithKey
+maxKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.maxViewWithKey . unDIM
 
 isIntervallDocIdMap             :: DocIdMap v -> Bool
 isIntervallDocIdMap m           = nullDocIdMap m
@@ -77,55 +113,92 @@ isIntervallDocIdMap m           = nullDocIdMap m
                                   )
 
 unionDocIdMap                   :: DocIdMap v -> DocIdMap v -> DocIdMap v
-unionDocIdMap                   = IM.union
+unionDocIdMap                   = liftDIM2 $ IM.union
 
 differenceDocIdMap              :: DocIdMap v -> DocIdMap v -> DocIdMap v
-differenceDocIdMap              = IM.difference
+differenceDocIdMap              = liftDIM2 $ IM.difference
 
 unionWithDocIdMap               :: (v -> v -> v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
-unionWithDocIdMap               = IM.unionWith
+unionWithDocIdMap f             = liftDIM2 $ IM.unionWith f
 
 intersectionWithDocIdMap        :: (v -> v -> v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
-intersectionWithDocIdMap        = IM.intersectionWith
+intersectionWithDocIdMap f      = liftDIM2 $ IM.intersectionWith f
+
+differenceWithDocIdMap          :: (v -> v -> Maybe v) -> DocIdMap v -> DocIdMap v -> DocIdMap v
+differenceWithDocIdMap f        = liftDIM2 $ IM.differenceWith f
 
 unionsWithDocIdMap              :: (v -> v -> v) -> [DocIdMap v] -> DocIdMap v
-unionsWithDocIdMap              = IM.unionsWith
+unionsWithDocIdMap f            = DIM . IM.unionsWith f . map unDIM
 
 mapDocIdMap                     :: (v -> r) -> DocIdMap v -> DocIdMap r
-mapDocIdMap                     = IM.map
+mapDocIdMap f                   = liftDIM $ IM.map f
 
 filterDocIdMap                  :: (v -> Bool) -> DocIdMap v -> DocIdMap v
-filterDocIdMap                  = IM.filter
+filterDocIdMap p                = liftDIM $ IM.filter p
 
 filterWithKeyDocIdMap           :: (DocId -> v -> Bool) -> DocIdMap v -> DocIdMap v
-filterWithKeyDocIdMap           = IM.filterWithKey
+filterWithKeyDocIdMap p         = liftDIM $ IM.filterWithKey p
 
 mapWithKeyDocIdMap              :: (DocId -> v -> r) -> DocIdMap v -> DocIdMap r
-mapWithKeyDocIdMap              = IM.mapWithKey
+mapWithKeyDocIdMap f            = liftDIM $ IM.mapWithKey f
 
 foldDocIdMap                    :: (v -> b -> b) -> b -> DocIdMap v -> b
-foldDocIdMap                    = IM.fold
+foldDocIdMap f u                = IM.fold f u . unDIM
 
 foldWithKeyDocIdMap             :: (DocId -> v -> b -> b) -> b -> DocIdMap v -> b
-foldWithKeyDocIdMap             = IM.foldWithKey
+foldWithKeyDocIdMap f u         = IM.foldWithKey f u . unDIM
 
 fromListDocIdMap                :: [(DocId, v)] -> DocIdMap v
-fromListDocIdMap                = IM.fromList
+fromListDocIdMap                = DIM . IM.fromList
 
 toListDocIdMap                  :: DocIdMap v -> [(DocId, v)]
-toListDocIdMap                  = IM.toList
+toListDocIdMap                  = IM.toList . unDIM
 
 keysDocIdMap                    :: DocIdMap v -> [DocId]
-keysDocIdMap                    = IM.keys
+keysDocIdMap                    = IM.keys . unDIM
 
 elemsDocIdMap                    :: DocIdMap v -> [v]
-elemsDocIdMap                    = IM.elems
+elemsDocIdMap                    = IM.elems . unDIM
 
 instance NFData v => NFData (DocIdMap v) where
-    rnf m                       = rnf (IM.toList m)
+    rnf                         = rnf . toListDocIdMap
 
 instance Binary v => Binary (DocIdMap v) where
-    put                         = B.put . IM.toList
-    get                         = B.get >>= return . IM.fromList
+    put                         = B.put . toListDocIdMap
+    get                         = B.get >>= return . fromListDocIdMap
+
+
+-- ------------------------------------------------------------
+
+{-# INLINE liftDIM #-}
+{-# INLINE liftDIM2 #-}
+{-# INLINE emptyDocIdMap #-}
+{-# INLINE singletonDocIdMap #-}
+{-# INLINE nullDocIdMap #-}
+{-# INLINE memberDocIdMap #-}
+{-# INLINE lookupDocIdMap #-}
+{-# INLINE insertDocIdMap #-}
+{-# INLINE deleteDocIdMap #-}
+{-# INLINE insertWithDocIdMap #-}
+{-# INLINE sizeDocIdMap #-}
+{-# INLINE minKeyDocIdMap #-}
+{-# INLINE maxKeyDocIdMap #-}
+{-# INLINE isIntervallDocIdMap #-}
+{-# INLINE unionDocIdMap #-}
+{-# INLINE differenceDocIdMap #-}
+{-# INLINE unionWithDocIdMap #-}
+{-# INLINE intersectionWithDocIdMap #-}
+{-# INLINE differenceWithDocIdMap #-}
+{-# INLINE unionsWithDocIdMap #-}
+{-# INLINE mapDocIdMap #-}
+{-# INLINE filterDocIdMap #-}
+{-# INLINE filterWithKeyDocIdMap #-}
+{-# INLINE mapWithKeyDocIdMap #-}
+{-# INLINE foldDocIdMap #-}
+{-# INLINE foldWithKeyDocIdMap #-}
+{-# INLINE fromListDocIdMap #-}
+{-# INLINE toListDocIdMap #-}
+{-# INLINE keysDocIdMap #-}
+{-# INLINE elemsDocIdMap #-}
 
 -- ------------------------------------------------------------

@@ -309,7 +309,7 @@ examples
           , htmlLink "" "querypage?query=di%20wo&button=Suchen" "di wo"
           , htmlSpanTextNode "" " oder "
           , htmlLink "" "querypage?query=diwo&button=Suchen" "diwo"
-          , htmlSpanTextNode "" "werden wie "
+          , htmlSpanTextNode "" " werden wie "
           , htmlLink "" "querypage?query=diese%20Woche&button=Suchen" "diese Woche"
           , htmlSpanTextNode "" " interpretiert."
           , htmlSpanTextNode "" "Termine für bestimmte Monate können ebenfalls abgekürzt gesucht werden. Bei einer Eingabe von "
