@@ -2,7 +2,7 @@
 
 action	= install
 
-all	: install
+all		: install
 
 clean		: ; $(MAKE) target action=clean
 configure	: ; $(MAKE) target action=configure

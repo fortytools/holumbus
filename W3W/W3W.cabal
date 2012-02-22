@@ -67,7 +67,7 @@ executable w3wServer
 
   build-depends: ghc                        >= 7
                , base                       >= 4     && < 5
-               , binary                     == 0.5.0.*
+               , binary                     >= 0.5
                , bytestring                 >= 0.9.1 && < 0.10
                , filepath                   == 1.2.0.*
                , heist                      >= 0.5   && < 0.6
@@ -79,7 +79,7 @@ executable w3wServer
                , json                       >= 0.4   && < 1
                , MonadCatchIO-transformers  >= 0.2.1 && < 0.3
                , mtl                        >= 2     && < 3
-               , network                    == 2.3.0.*
+               , network                    >= 2.3
                , snap                       == 0.4.*
                , snap-core                  == 0.4.*
                , snap-server                == 0.4.*
@@ -90,21 +90,20 @@ executable w3wServer
 
   if impl( ghc < 7.4 )
     build-depends:
-                 containers             >= 0.2 && < 0.4.2
-               , deepseq                >= 1.1 && < 1.2
+                 containers                 >= 0.2 && < 0.4.2
+               , deepseq                    >= 1.1 && < 1.2
   else
     build-depends:
-                 containers             >= 0.4.2
-               , deepseq                >= 1.2
+                 containers                 >= 0.4.2
+               , deepseq                    >= 1.2
 
-  extensions: TypeSynonymInstances MultiParamTypeClasses
+  extensions:    TypeSynonymInstances MultiParamTypeClasses
 
   ghc-options: -threaded
                -O2
                -Wall
                -fwarn-tabs
                -funbox-strict-fields
-               -fno-warn-orphans
                -fno-warn-unused-do-bind
 
 -- ------------------------------------------------------------

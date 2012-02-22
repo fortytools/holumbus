@@ -105,6 +105,7 @@ appInit = makeSnaplet "snap-website" description Nothing $ do
 
     addRoutes [ ("/",             ifTop hayooHtml)       -- map to /hayoo.html
               , ("/hayoo.html",   hayooHtml)
+              , ("/hayoo.json",   hayooJson)
               , ("/help.html",    serveStatic P.help)
               , ("/about.html",   serveStatic P.about)
               , ("/api.html",     serveStatic P.api)
