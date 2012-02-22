@@ -377,6 +377,7 @@ tokenRE
               , ( "wsem",         wsem)
               , ( "ssem",         ssem)
               , ( "dateAlias",    dateAlias)
+              , ( "href",         "href:[^\\s]+")
               , ( "word",         "[\\w\\d]+")
               , ( "del",          "[^\\w\\d]+")
               ]
@@ -384,7 +385,7 @@ tokenRE
 type Token         = (String, String)
 type TokenStream   = [Token]
 
-type DateParser a  = Parsec [(String, String)] () a
+type DateParser a  = Parsec TokenStream () a
 
 type TextFunc          = String -> String   -- represent Strings as functions for fast concatenation
 
@@ -681,7 +682,17 @@ textTok         = isTokType (const True)
 
 -- a word
 wordTok         :: DateParser String
-wordTok         = isTokType (== "word")
+wordTok         = isTokType (== "word") <|> hrefTok
+
+-- a href token
+--
+-- this will be transformed into a phrase searched in the "uri" context
+hrefTok         :: DateParser String
+hrefTok         = isTokType (== "href")
+                  >>=
+                  return . href2uri
+    where
+      href2uri  = ("uri:\"" ++) . (++ "\"") . unwords . tokenize "[^/]+" . drop 5
 
 -- a delimiter, whitespace is normalized, sequences are reduced to a single space char
 delTok          :: DateParser String

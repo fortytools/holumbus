@@ -266,7 +266,7 @@ examples
         , htmlListItem "" $
           X.Element (T.pack $ "div")
           [ (T.pack $ "class", T.pack $ "example") ]
-          [ htmlLink "" "querypage?query=Seminar%20Mai%202011&button=Suchen" "Seminar Mai 2011"
+          [ htmlLink "" "querypage?query=Seminar%20Juni%202011&button=Suchen" "Seminar Juni 2011"
           , htmlSpanTextNode "" " sucht nach allen Vorkommen des Textes "
           , htmlSpanTextNode "green" "Seminar"
           , htmlSpanTextNode "" " und einem Datum des Monats Juni im Jahr 2011. Gefunden werden Seiten, die Daten wie "
@@ -305,14 +305,22 @@ examples
           , htmlLink "" "querypage?query=nächstes%20Jahr&button=Suchen" "nächstes Jahr"
           -- -}
           , htmlSpanTextNode "" "."
-          , htmlSpanTextNode "" "Die Eingaben der Terminsuche können abgekürzt werden: "
+          ]
+        , htmlListItem "" $
+          X.Element (T.pack $ "div")
+          [ (T.pack $ "class", T.pack $ "example") ]
+          [ htmlSpanTextNode "" "Die Eingaben der Terminsuche können abgekürzt werden: "
           , htmlLink "" "querypage?query=di%20wo&button=Suchen" "di wo"
           , htmlSpanTextNode "" " oder "
           , htmlLink "" "querypage?query=diwo&button=Suchen" "diwo"
           , htmlSpanTextNode "" " werden wie "
           , htmlLink "" "querypage?query=diese%20Woche&button=Suchen" "diese Woche"
           , htmlSpanTextNode "" " interpretiert."
-          , htmlSpanTextNode "" "Termine für bestimmte Monate können ebenfalls abgekürzt gesucht werden. Bei einer Eingabe von "
+          ]
+        , htmlListItem "" $
+          X.Element (T.pack $ "div")
+          [ (T.pack $ "class", T.pack $ "example") ]
+          [ htmlSpanTextNode "" "Termine für bestimmte Monate können ebenfalls abgekürzt gesucht werden. Bei einer Eingabe von "
           , htmlLink "" "querypage?query=September&button=Suchen" "September"
           , htmlSpanTextNode "" " oder "
           , htmlLink "" "querypage?query=sep&button=Suchen" "sep"
@@ -322,7 +330,18 @@ examples
           X.Element (T.pack $ "div")
           [ (T.pack $ "class", T.pack $ "example") ]
           [ htmlLink "" "querypage?query=Kalender%20dieser Monat&button=Suchen" "Kalender dieser Monat"
-          , htmlSpanTextNode "" " findet unter anderem die gesuchten Daten im FH Wedel Kalender. Die dort aufgelisteten Daten können direkt angeklickt werden um zu den entsprechenden Unterseiten zu gelangen."
+          , htmlSpanTextNode "" " findet unter anderem die gesuchten Daten im FH Wedel Kalender. Die dort aufgelisteten Daten k\246nnen direkt angeklickt werden um zu den entsprechenden Unterseiten zu gelangen."
+          ]
+        , htmlListItem "" $
+          X.Element (T.pack $ "div")
+          [ (T.pack $ "class", T.pack $ "example") ]
+          [ htmlSpanTextNode "" "Die Suche kann auf bestimmte URLs eingeschränkt werden: "
+          , htmlLink "" "querypage?query=href:vorlesungen/java%20AND%20Stack&button=Suchen" "href:vorlesungen/java AND Stack"
+          , htmlSpanTextNode "" " sucht in allen Dokumenten, deren URL den Teilpfad "
+          , htmlSpanTextNode "green" "vorlesungen/java"
+          , htmlSpanTextNode ""      " enthält, nach dem Wort "
+          , htmlSpanTextNode "green" "Stack"
+          , htmlSpanTextNode ""      ". Hiermit kann die Suche zum Beispiel auf Unterlagen zu einer bestimmten Vorlesung eingeschr\228nkt werden."
           ]
         ]
       ]
