@@ -40,18 +40,13 @@ sudo cabal install
 
 1.3 Installation des W3W-Projekts
 
-Das Projekt kann über folgenden Befehl als Read-Only-Version ausgecheckt werden:
-
-git clone git://github.com/fhsearch/W3W.git
-
-Möchte man am Projekt weiterarbeiten, bekommt man mit folgendem Befehl eine RW-Version,
-hierzu muss jedoch der eigene SSH-Key im Projekt-Repository eingetragen sein:
-
-git clone git@github.com:fhsearch/W3W.git
-
-Die Kompilation des Projekts erfolgt über den Befehl:
+Das W3W-Projekt befindet sich im Unterverzeichnis W3W. Dort muss wie bei dem Holumbus-Searchengine
+System der Befehl
 
 sudo cabal install
+
+ausgeführt werden. Damit vwerden die beiden auführbaren Programme
+w3wIndexer und w3wServer erzeugt und im Verzeichnis ~/.cabal/bin installiert.
 
 2. Benutzung des W3W-Projekts
 
@@ -76,7 +71,12 @@ w3wServer -p 80
 
 2.3 Cronjob einrichten
 
-Im Projektverzeichnis befindet sich das Shellskript installCronjob.sh, welches das Cronfile des Systems mit dem im 
-Projektverzeichnis befindlichen cronfile überschreibt. Nach unserer Voreinstellung wird so ein Cronjob konfiguriert,
-der jede Nacht um 2 Uhr eine Aktualisierung des Indexes anstößt und nach Beendigung des Vorgangs den Webserver neu
-startet. Der Cronjob protokolliert seine Arbeit in der Datei indexJob.log im log-Unterverzeichnis des Projekts.
+Im Projektverzeichnis befindet sich ein Shell-Skript genScripts.sh.
+Wen dieses ausgeführt wird, werden einige Dateien und Skripte für die
+Konfiguration eines Cronjobs generiert, unter anderem das Skript installCronjob.sh.
+
+Beim Aufruf dieses Skripts wird in das cron-System der in der Datei cronfile angegebene
+job installiert. Dieser ist so konfiguriert, dass jede Nacht um 2 Uhr
+eine Aktualisierung des Indexes angestoßen wird und nach Beendigung des Vorgangs der Webserver neu
+gestartet wird. Der Cronjob protokolliert seine Arbeit in der Datei indexJob.log im
+log-Unterverzeichnis des Projekts.
