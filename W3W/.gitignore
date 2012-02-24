@@ -1,1 +1,4 @@
 log/
+cronfile
+indexJob.sh
+installCronjob.sh
