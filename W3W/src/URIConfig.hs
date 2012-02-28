@@ -66,9 +66,8 @@ fhwStart UCTestIndex
        ]
 
 fhwStart UCDebugIndex
-    =  fhwURIs
-       [ "mitarbeiter/ehemalige/her/"
-       ]
+    = [ "http://www.ptl.de/~ki/splan/automation/Vortrag.pdf"
+      ]
 
 fhwRefs :: UriConfig -> URI -> Bool
 fhwRefs UCFullIndex
@@ -132,6 +131,7 @@ fhwRefs UCTestIndex
 fhwRefs UCDebugIndex
     = simpleFollowRef'
       [ fhwHome ++ "http://www.fh-wedel.de/mitarbeiter/ehemalige/her/"
+      , "http://www.ptl.de/~ki/splan/automation/Vortrag.pdf"
       ]
       ([])
 

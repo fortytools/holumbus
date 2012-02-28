@@ -1,5 +1,5 @@
 name:          W3W
-version:       1.2.2
+version:       1.2.3
 license:       MIT
 license-file:  LICENSE
 author:        Thorben Gülck, Mathias Leonhardt, Tobias Lüders, Uwe Schmidt
@@ -24,7 +24,7 @@ executable w3wIndexer
 
   build-depends: ghc                    >= 7
                , base                   >= 4    && < 5
-               , Holumbus-Searchengine  >= 1.2  && < 2
+               , Holumbus-Searchengine  >= 1.2.2  && < 2
                , binary                 >= 0.5  && < 1
                , bytestring             >= 0.9  && < 1
                , bzlib                  >= 0.4  && < 1

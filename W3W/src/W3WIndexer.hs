@@ -106,6 +106,8 @@ initAppOpts
                       withParseHTML no
                       >>>
                       withParseByMimeType yes
+                      >>>
+                      withMimeTypeHandler application_pdf extractPdfText
 
       , ao_crawlFct = ( editPackageURIs                                     -- configure URI rewriting
                         >>>
@@ -243,16 +245,19 @@ checkTransferStatus
 preDocumentFilter :: IOSArrow XmlTree XmlTree
 preDocumentFilter
     = choiceA
-      [ isHtmlContents  :-> this                        -- do nothing
-      , isPdfContents   :-> extractPdfText              -- extract the text from a pdf
-      , this            :-> replaceChildren none        -- throw away any contents
+      [ isHtmlContents  :-> this                  -- do nothing
+      , isPdfContents   :-> this                  -- extractPdfText is already done in readDocument
+   -- , isPdfContents   :-> extractPdfText        -- extract the text from a pdf
+      , this            :-> replaceChildren none  -- throw away any contents
       ]
-    where
-      extractPdfText  = traceDoc "Indexer: extractPdfText: start"
-                        >>>
-                        processChildren ( deep getText >>> pdfToTextA >>> mkText )
-                        >>>
-                        traceDoc "Indexer: extractPdfText: result"
+
+extractPdfText :: IOSArrow XmlTree XmlTree
+extractPdfText
+    = traceDoc "Indexer: extractPdfText: start"
+      >>>
+      processChildren ( deep getText >>> pdfToTextA >>> mkText )
+      >>>
+      traceDoc "Indexer: extractPdfText: result"
         
 
 -- ------------------------------------------------------------
