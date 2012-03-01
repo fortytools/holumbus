@@ -22,7 +22,7 @@
 module Holumbus.Query.Result 
   (
   -- * Result data types
-  Result (..)
+    Result (..)
   , DocHits
   , DocContextHits
   , DocWordHits
@@ -54,23 +54,21 @@ module Holumbus.Query.Result
   )
 where
 
-import Prelude                  hiding (null)
+import           Prelude                hiding (null)
 
-import Control.DeepSeq
-import Control.Monad            ( liftM2 )
+import           Control.DeepSeq
+import           Control.Monad  	( liftM2 )
 
-import Data.Binary              ( Binary (..) )
-import Data.Function
-import Data.Map (Map)
-import qualified
-       Data.Map as M
-import qualified
-       Data.List as L
+import           Data.Binary    	( Binary (..) )
+import           Data.Function
+import           Data.Map       	( Map )
+import qualified Data.Map       	as M
+import qualified Data.List      	as L
 
-import Holumbus.Utility
-import Holumbus.Index.Common
+import           Holumbus.Utility
+import           Holumbus.Index.Common
 
-import Text.XML.HXT.Core
+import           Text.XML.HXT.Core
 
 -- ----------------------------------------------------------------------------
 

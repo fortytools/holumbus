@@ -19,49 +19,47 @@
 {-# OPTIONS #-}
 
 module Holumbus.Query.Intermediate 
-(
-  -- * The intermediate result type.
-  Intermediate 
+    (
+    -- * The intermediate result type.
+       Intermediate 
 
-  -- * Construction
-  , emptyIntermediate
+    -- * Construction
+    , emptyIntermediate
 
-  -- * Query
-  , null
-  , sizeIntermediate
+    -- * Query
+    , null
+    , sizeIntermediate
 
-  -- * Combine
-  , union
-  , difference
-  , intersection  
-  , unions
+    -- * Combine
+    , union
+    , difference
+    , intersection  
+    , unions
   
-  -- * Conversion
-  , fromList
-  , toResult
-)
+    -- * Conversion
+    , fromList
+    , toResult
+    )
 where
 
-import Prelude                  hiding (null)
+import qualified Data.List                as L
+import           Data.Map                 ( Map )
+import qualified Data.Map                 as M
+import           Data.Maybe
 
-import Data.Maybe
-
-import qualified Data.List      as L
-
-import Data.Map (Map)
-import qualified Data.Map       as M
-
-import Holumbus.Query.Result    hiding (null)
-
-import Holumbus.Index.Common    hiding (toList, fromList)
+import           Holumbus.Query.Result    hiding ( null )
+import           Holumbus.Index.Common    hiding ( toList
+                                                 , fromList
+                                                 )
+import           Prelude                  hiding ( null )
 
 -- ----------------------------------------------------------------------------
 
 -- | The intermediate result used during query processing.
 
-type Intermediate               = DocIdMap IntermediateContexts
+type Intermediate               = DocIdMap    IntermediateContexts
 type IntermediateContexts       = Map Context IntermediateWords
-type IntermediateWords          = Map Word (WordInfo, Positions)
+type IntermediateWords          = Map Word    (WordInfo, Positions)
 
 -- ----------------------------------------------------------------------------
 
@@ -102,9 +100,14 @@ difference                      = differenceDocIdMap
 
 -- | Create an intermediate result from a list of words and their occurrences.
 
-fromList :: Word -> Context -> RawResult -> Intermediate
+fromList                        :: Word -> Context -> RawResult -> Intermediate
+fromList t                      = genResultByDocument $
+                                  \ p -> (WordInfo [t] 0.0, p)
+{-
 -- Beware! This is extremly optimized and will not work for merging arbitrary intermediate results!
--- Based on resultByDocument from Holumbus.Index.Common
+-- Based on resultByDocument from Holumbus.Index.Common.RawResult
+--
+-- and now also implemented by resultByDocument (uwe)
 
 fromList t c os                 = mapDocIdMap transform $
                                   unionsWithDocIdMap (flip $ (:) . head)
@@ -112,6 +115,7 @@ fromList t c os                 = mapDocIdMap transform $
   where
   insertWords (w, o)            = mapDocIdMap (\p -> [(w, (WordInfo [t] 0.0 , p))]) o   
   transform w                   = M.singleton c (M.fromList w)
+-- -}
 
 -- | Convert to a @Result@ by generating the 'WordHits' structure.
 
@@ -122,26 +126,27 @@ toResult d im                   = Result (createDocHits d im) (createWordHits im
 
 createDocHits                   :: HolDocuments d c => d c -> Intermediate -> DocHits c
 createDocHits d im              = mapWithKeyDocIdMap transformDocs im
-  where
-  transformDocs did ic          = let doc = fromMaybe (Document "" "" Nothing) (lookupById d did) in
+    where
+      transformDocs did ic      = let doc = fromMaybe (Document "" "" Nothing) (lookupById d did) in
                                   (DocInfo doc 0.0, M.map (M.map (\(_, p) -> p)) ic)
 
 -- | Create the word hits structure from an intermediate result.
 
 createWordHits :: Intermediate -> WordHits
 createWordHits im               = foldWithKeyDocIdMap transformDoc M.empty im
-  where
-  transformDoc d ic wh          = M.foldrWithKey transformContext wh ic
     where
-    transformContext c iw wh'   = M.foldrWithKey insertWord wh' iw
-      where
-      insertWord w (wi, pos) wh''
+      transformDoc d ic wh      = M.foldrWithKey transformContext wh ic
+          where
+            transformContext c iw wh'
+                                = M.foldrWithKey insertWord wh' iw
+                where
+                  insertWord w (wi, pos) wh''
                                 = if terms wi == [""]
                                   then wh'' 
                                   else M.insertWith combineWordHits
-                                           w
-                                           (wi, M.singleton c (singletonDocIdMap d pos))
-                                           wh''
+                                       w
+                                       (wi, M.singleton c (singletonDocIdMap d pos))
+                                       wh''
 
 -- | Combine two tuples with score and context hits.
 
@@ -156,20 +161,20 @@ combineWordHits (i1, c1) (i2, c2)
 
 combineContexts                 :: IntermediateContexts -> IntermediateContexts -> IntermediateContexts
 combineContexts                 = M.unionWith (M.unionWith merge)
-  where
-  merge (i1, p1) (i2, p2)       = ( combineWordInfo i1 i2
+    where
+      merge (i1, p1) (i2, p2)   = ( combineWordInfo i1 i2
                                   , unionPos p1 p2
                                   )
 
 -- | Combine two word informations.
 
-combineWordInfo         :: WordInfo -> WordInfo -> WordInfo
+combineWordInfo                 :: WordInfo -> WordInfo -> WordInfo
 combineWordInfo (WordInfo t1 s1) (WordInfo t2 s2)
-                        = WordInfo (t1 ++ t2) (combineScore s1 s2)
+                                = WordInfo (t1 ++ t2) (combineScore s1 s2)
 
 -- | Combine two scores (just average between them).
 
-combineScore            :: Score -> Score -> Score
-combineScore s1 s2      = (s1 + s2) / 2.0
+combineScore                    :: Score -> Score -> Score
+combineScore s1 s2              = (s1 + s2) / 2.0
 
 -- ----------------------------------------------------------------------------

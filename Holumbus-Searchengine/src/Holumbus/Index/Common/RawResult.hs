@@ -42,12 +42,19 @@ resultByWord c
 -- | Transform the raw result into a tree structure ordered by document.
 
 resultByDocument :: Context -> RawResult -> DocIdMap (Map Context (Map Word Positions))
-resultByDocument c os
+resultByDocument = genResultByDocument id
+
+-- | Generic transform of a raw result into a tree structure ordered by document.
+
+genResultByDocument :: (Positions -> v) ->
+                       Context -> RawResult -> DocIdMap (Map Context (Map Word v))
+genResultByDocument f c os
     = mapDocIdMap transform $
       unionsWithDocIdMap (flip $ (:) . head) (map insertWords os)
     where
-      insertWords (w, o) = mapDocIdMap (\p -> [(w, p)]) o   
+      insertWords (w, o) = mapDocIdMap (\ p -> [(w, f p)]) o   
       transform w        = M.singleton c (M.fromList w)
 
--- ------------------------------------------------------------
+{-# INLINE genResultByDocument #-}
 
+-- ------------------------------------------------------------
