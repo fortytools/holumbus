@@ -4,7 +4,11 @@
 
 module Hayoo.IndexTypes
     ( module Hayoo.IndexTypes
+#if hashedIndex
+    , module Holumbus.Index.HashedIndex
+#else
     , module Holumbus.Index.CompactIndex
+#endif
     , FunctionInfo(..)
     , PackageInfo(..)
     , Score
@@ -39,7 +43,12 @@ import           Holumbus.Index.Common          ( Document(..)
                                                 , toMap
                                                 , updateDocuments
                                                 )
+#if hashedIndex
+import           Holumbus.Index.HashedIndex
+#else
 import           Holumbus.Index.CompactIndex
+#endif
+
 import           Holumbus.Query.Result          ( Score )
 
 -- ------------------------------------------------------------

@@ -51,15 +51,19 @@ makeHead = head_ $ do
   script' "text/javascript" [A.src "hayoo/hayoo.js"] "&nbsp;"
 
   -- Piwik tracking stuff
-  script "text/javascript" 
-    "var pkBaseURL = (('https:' == document.location.protocol) ? 'https://piwik.hayoo.info/' : 'http://piwik.hayoo.info/'); \
-    \document.write(unescape(\"%3Cscript src='\" + pkBaseURL + \"piwik.js' type='text/javascript'%3E%3C/script%3E\"));"
-  script "text/javascript"
-    "try {\
-      \var piwikTracker = Piwik.getTracker(pkBaseURL + \"piwik.php\", 3);\
-      \piwikTracker.trackPageView();\
-      \piwikTracker.enableLinkTracking();\
-    \} catch( err ) {}"
+  script "text/javascript" $ T.pack $
+    unwords
+    [ "var pkBaseURL = (('https:' == document.location.protocol) ? 'https://piwik.hayoo.info/' : 'http://piwik.hayoo.info/');"
+    , "document.write(unescape(\"%3Cscript src='\" + pkBaseURL + \"piwik.js' type='text/javascript'%3E%3C/script%3E\"));"
+    ]
+  script "text/javascript" $ T.pack $
+    unwords
+    [ "try {"
+    , "var piwikTracker = Piwik.getTracker(pkBaseURL + \"piwik.php\", 3);"
+    , "piwikTracker.trackPageView();"
+    , "piwikTracker.enableLinkTracking();"
+    , "} catch( err ) {}"
+    ]
 
 makeInfo :: XHtml FlowContent
 makeInfo = div' [A.id_ "info"] $ do
@@ -102,7 +106,7 @@ makeCredits = div' [A.id_ "credits"] $ do
       a' [A.href "mailto:hayoo@holumbus.org"] $ text "hayoo@holumbus.org"
     div' [A.id_ "copyright"] $ do
       text "Hayoo! beta 2.2 © 2010 "
-      span' [A.class_ "author"] $ a' [A.href "http://tbh.github.com"] $ text "Timo B. Hübel"
+      span' [A.class_ "author"] $ a' [A.href "http://tbh.github.com"] $ text "Timo B. Kranz"
       text ", "
       span' [A.class_ "author"] $ text "Sebastian M. Gauck"
       text " & "

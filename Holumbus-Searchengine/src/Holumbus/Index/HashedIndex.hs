@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module Holumbus.Index.CompactIndex
+module Holumbus.Index.HashedIndex
     ( Document
     , Documents
     , SmallDocuments
@@ -37,32 +37,21 @@ import           Control.Monad.Reader
 
 import           Data.Binary
 
-import           Data.Function.Selector         ( (.&&&.) )
-
 import           Holumbus.Crawler.Types
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.Logger
 
 import           Holumbus.Index.Common          ( Document(..)
                                                 , Occurrences
-                                                , defragmentDocIndex
                                                 , fromList
                                                 , toList
                                                 , unionDocs
                                                 , mergeIndexes
                                                 )
 
-import           Holumbus.Index.CompactDocuments
-                                                ( Documents(..)
+import           Holumbus.Index.HashedDocuments ( Documents(..)
                                                 , emptyDocuments
                                                 )
-
-import           Holumbus.Index.CompactSmallDocuments
-                                                ( SmallDocuments(..)
-                                                , docTable2smallDocTable
-                                                )
-import qualified Holumbus.Index.CompactSmallDocuments
-                                                as CSD
 
 import           Text.XML.HXT.Core
 
@@ -94,7 +83,7 @@ emptyInverted                   = PM.emptyInvertedCompressed
 -- -}
 
 -- ------------------------------------------------------------
--- {-
+-- {- remove "--" to coment out region
 
 {- .3: indirect prefix tree without compression of position sets
 
@@ -131,50 +120,37 @@ type HolumbusConfig di          = IndexCrawlerConfig Inverted Documents di
 emptyHolumbusState              :: HolumbusState di
 emptyHolumbusState              = emptyIndexerState emptyInverted emptyDocuments
 
-flushHolumbusState              :: HolumbusState di -> HolumbusState di
-flushHolumbusState hs           = hs { ixs_index     = emptyInverted
-                                     , ixs_documents = emptyDocuments
-                                                       { lastDocId = lastDocId . ixs_documents $ hs }
-                                     }
+type SmallDocuments             = Documents
 
 emptySmallDocuments             :: SmallDocuments a
-emptySmallDocuments             = CSD.emptyDocuments
+emptySmallDocuments             = emptyDocuments
 
 -- ------------------------------------------------------------
 
-defragmentHolumbusState         :: (Binary di) =>
-                                   HolumbusState di -> HolumbusState di
-defragmentHolumbusState IndexerState
-              { ixs_index     = ix
-              , ixs_documents = dt
-              }                 = IndexerState
-                                  { ixs_index     = ix'
-                                  , ixs_documents = dt'
-                                  }
-    where
-    (dt', ix')                  = defragmentDocIndex dt ix
+defragmentHolumbusState :: (Binary di) => HolumbusState di -> HolumbusState di
+defragmentHolumbusState = id
 
 -- ------------------------------------------------------------
 
 mergeAndWritePartialRes' :: (MonadIO m, NFData i, Binary i) =>
                             (SmallDocuments i -> SmallDocuments i) -> [String] -> String -> m ()
 mergeAndWritePartialRes' id' pxs out
-    = do notice $ ["merge partial doctables from"] ++ pxs
+    = do notice $ ["merge hashed partial doctables from"] ++ pxs
          mdocs <- mergeSmallDocs $ map (++ ".doc") pxs
-         notice $ ["write merged doctable to", out ++ ".doc"]
+         notice $ ["write merged hashed doctable to", out ++ ".doc"]
          liftIO $ encodeFile (out ++ ".doc") (id' mdocs)
-         notice $ ["merge partial indexes from"] ++ pxs
+         notice $ ["merge hashed partial indexes from"] ++ pxs
          mixs  <- mergeCompactIxs $ map (++ ".idx") pxs
-         notice $ ["write merged indexes to", out ++ ".idx"]
+         notice $ ["write merged hashed indexes to", out ++ ".idx"]
          liftIO $ encodeFile (out ++ ".idx") mixs
-         notice $ ["merge partial doctables and indexes done"]
+         notice $ ["merge partial hashed doctables and indexes done"]
 
 mergeSmallDocs :: (MonadIO m, NFData i, Binary i) => [String] -> m (SmallDocuments i)
 mergeSmallDocs []
     = return emptySmallDocuments
 mergeSmallDocs (x : xs)
     = do docs <- mergeSmallDocs xs
-         notice ["merge small documents from file", x]
+         notice ["merge hashed documents from file", x]
          doc1 <- liftIO $ decodeFile x
          rnf doc1 `seq`
                  (return $ unionDocs docs doc1)
@@ -184,7 +160,7 @@ mergeCompactIxs []
     = return emptyCompactInverted
 mergeCompactIxs (x : xs)
     = do ixs <- mergeCompactIxs xs
-         notice ["merge compact index from file", x]
+         notice ["merge compact hashed index from file", x]
          ix1 <- liftIO $ decodeFile x
          rnf ix1 `seq`
                  (return $ mergeIndexes ix1 ixs)
@@ -223,11 +199,11 @@ writeSearchBin out state
     | null out
         = notice ["no search index written"]
     | otherwise
-        = do notice ["writing small document table into binary file", docFile]
-             liftIO $ encodeFile docFile (docTable2smallDocTable . ixs_documents $ state)
-             notice ["writing compressed inverted index into binary file", idxFile]
+        = do notice ["writing hashed document table into binary file", docFile]
+             liftIO $ encodeFile docFile (ixs_documents state)
+             notice ["writing hashed compressed inverted index into binary file", idxFile]
              liftIO $ encodeFile idxFile (inverted2compactInverted . ixs_index $ state)
-             notice ["writing search index files finished"]
+             notice ["writing hashed search index files finished"]
     where
       docFile = out ++ ".doc"
       idxFile = out ++ ".idx"
@@ -238,21 +214,8 @@ writePartialIndex :: (NFData c, XmlPickler c, Binary c) =>
                      Bool -> FilePath -> CrawlerAction a (HolumbusState c) ()
 writePartialIndex xout fn
     = modifyStateIO
-      (theResultAccu .&&&. theResultInit)
-      (\ (r, _i) -> do r' <- writePartialIndex' xout fn r
-                       return (r', r')
-      )
-
-{- the above code is a bit tricky:
-   when crawling is done in parallel, then initial result is used as a unit value,
-   when merging results. When a partial index is written out, the document id count
-   must not be set back to its initial value, to avoid renumbering when merging then
-   partial indexes. As a consequence, not only the result accu must be changed
-   but also the initial value.
-
-   When this is not done, the indexer runs fine when using the sequential merge,
-   but when running the parallel one, the index ids will overlap.
--}
+      theResultAccu
+      (writePartialIndex' xout fn)
 
 writePartialIndex' :: (NFData c, XmlPickler c, Binary c) =>
                       Bool -> FilePath -> HolumbusState c -> IO (HolumbusState c)
@@ -261,13 +224,11 @@ writePartialIndex' xout out ixs
          if xout
             then writeXml (out ++ ".xml") ixs
             else return ()
-         let ixs' = flushHolumbusState ixs
-         rnf ixs' `seq`
-             return ixs'
+         return emptyHolumbusState
 
 -- ------------------------------------------------------------
 
 notice :: MonadIO m => [String] -> m ()
-notice = noticeC "compactIndex"
+notice = noticeC "hashedIndex"
 
 -- ------------------------------------------------------------

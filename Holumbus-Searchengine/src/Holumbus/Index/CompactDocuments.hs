@@ -10,7 +10,6 @@
 
   Maintainer : Uwe Schmidt (uwe@fh-wedel.de)
   Stability  : experimental
-  Portability: MultiParamTypeClasses FlexibleInstances
 
   A more space efficient substitute for Holumbus.Index.Documents
 -}
@@ -94,10 +93,10 @@ instance (Binary a, HolIndex i) => HolDocIndex Documents a i where
           dt2s                  = editDocIds    add1 dt2
           ix2s                  = updateDocIds' add1 ix2
 
-          add1                  = mkDocId . (+ disp) . theDocId
+          add1                  = addDocId disp 
           max1                  = maxKeyDocIdMap . toMap $ dt1
           min2                  = minKeyDocIdMap . toMap $ dt2
-          disp                  = theDocId max1 + 1 - theDocId min2
+          disp                  = incrDocId $ subDocId max1 min2
 
           s1                    = sizeDocs dt1
           s2                    = sizeDocs dt2
@@ -168,16 +167,21 @@ instance Binary a => HolDocuments Documents a where
 
   insertDoc ds d                = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri d))
     where
-    reallyInsert                = (newId, Documents newIdToDoc newDocToId newId)
+    d'                          = fromDocument d
+    reallyInsert                = rnf d' `seq`                  -- force document compression
+                                  (newId, Documents newIdToDoc newDocToId newId)
       where
-      newIdToDoc                = insertDocIdMap newId (fromDocument d) (idToDoc ds)
-      newDocToId                = M.insert (uri d) newId (docToId ds)
+      newIdToDoc                = insertDocIdMap newId d' (idToDoc ds)
+      newDocToId                = M.insert (uri d) newId  (docToId ds)
       newId                     = incrDocId (lastDocId ds)
 
-  updateDoc ds i d              = ds 
-                                  { idToDoc = insertDocIdMap i (fromDocument d) (idToDoc ds)
+  updateDoc ds i d              = rnf d' `seq`                  -- force document compression
+                                  ds 
+                                  { idToDoc = insertDocIdMap i d' (idToDoc ds)
                                   , docToId = M.insert (uri d) i (docToId (removeById ds i))
                                   }
+      where
+        d'                      = fromDocument d
 
   removeById ds d               = maybe ds reallyRemove (lookupById ds d)
     where
@@ -283,10 +287,13 @@ emptyDocuments                  = Documents emptyDocIdMap M.empty nullDocId
 -- | Create a document table containing a single document.
 
 singleton                       :: (Binary a) => Document a -> Documents a
-singleton d                     = Documents
-                                  (singletonDocIdMap firstDocId (fromDocument d))
+singleton d                     = rnf d' `seq`
+                                  Documents
+                                  (singletonDocIdMap firstDocId d')
                                   (M.singleton (uri d) firstDocId)
                                   firstDocId
+    where
+      d'                        = fromDocument d
 
 -- | Simplify a document table by transforming the custom information into a string.
 

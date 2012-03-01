@@ -32,6 +32,7 @@ module Holumbus.Index.Common.DocIdMap
     , maxKeyDocIdMap
     , isIntervallDocIdMap
     , unionDocIdMap
+    , intersectionDocIdMap
     , differenceDocIdMap
     , unionWithDocIdMap
     , intersectionWithDocIdMap
@@ -50,14 +51,14 @@ module Holumbus.Index.Common.DocIdMap
     )
 where
 
-import Control.DeepSeq
+import           Control.DeepSeq
 
 import           Data.Binary              ( Binary (..) )
 import qualified Data.Binary              as B
 import qualified Data.EnumMap             as IM
 import           Data.Foldable
 
-import Holumbus.Index.Common.DocId
+import           Holumbus.Index.Common.DocId
 
 -- ------------------------------------------------------------
 
@@ -108,12 +109,15 @@ maxKeyDocIdMap                  = maybe nullDocId (fst . fst) . IM.maxViewWithKe
 isIntervallDocIdMap             :: DocIdMap v -> Bool
 isIntervallDocIdMap m           = nullDocIdMap m
                                   ||
-                                  ( fromEnum (theDocId (minKeyDocIdMap m) - theDocId (maxKeyDocIdMap m))
-                                    == sizeDocIdMap m
+                                  ( fromEnum (theDocId (maxKeyDocIdMap m)) - fromEnum (theDocId (minKeyDocIdMap m))
+                                    == sizeDocIdMap m - 1
                                   )
 
 unionDocIdMap                   :: DocIdMap v -> DocIdMap v -> DocIdMap v
 unionDocIdMap                   = liftDIM2 $ IM.union
+
+intersectionDocIdMap            :: DocIdMap v -> DocIdMap v -> DocIdMap v
+intersectionDocIdMap            = liftDIM2 $ IM.intersection
 
 differenceDocIdMap              :: DocIdMap v -> DocIdMap v -> DocIdMap v
 differenceDocIdMap              = liftDIM2 $ IM.difference
