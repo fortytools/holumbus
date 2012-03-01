@@ -1,6 +1,7 @@
 # build Holumbus-Searchengine, Hayoo and W3W
 
-action	= install
+action		= install
+hayooFlags	= --flags="hashedIndex hayooSnap4"
 
 all		: install
 
@@ -11,7 +12,7 @@ install		: ; $(MAKE) target action=install
 
 target	:
 	( cd Holumbus-Searchengine && cabal $(action) )
-	( cd Hayoo                 && cabal $(action) )
+	( cd Hayoo                 && cabal $(action) $(hayooFlags) )
 	( cd W3W                   && cabal $(action) )
 
 .PHONY	: target clean configure build install all
