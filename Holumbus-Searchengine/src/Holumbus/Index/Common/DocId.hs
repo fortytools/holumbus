@@ -25,7 +25,7 @@ import Control.DeepSeq
 import Data.Binary              ( Binary (..) )
 import qualified
        Data.Binary              as B
-import Data.Word                ( Word64 )
+import Data.Int                ( Int64 )
 
 import Text.XML.HXT.Core
 
@@ -34,20 +34,27 @@ import Text.XML.HXT.Core
 -- | The unique identifier of a document
 -- (created upon insertion into the document table).
 
-newtype DocId                   = DocId { theDocId :: Word64 }
-                                  deriving (Eq, Ord, Enum)
+newtype DocId                   = DocId { theDocId :: Int64 }
+                                  deriving (Eq, Ord, Enum, NFData)
+
 instance Show DocId where
     show                        = show . theDocId
-
-instance NFData DocId where
-    rnf (DocId i)               = rnf i
+    {-# INLINE show #-}
 
 instance Binary DocId where
     put                         = B.put . theDocId
     get                         = B.get >>= return . DocId
+    {-# INLINE put #-}
+    {-# INLINE get #-}
 
 incrDocId                       :: DocId -> DocId
 incrDocId                       = DocId . (1+) . theDocId
+
+addDocId                        :: DocId -> DocId -> DocId
+addDocId id1 id2                = DocId $ theDocId id1 + theDocId id2
+
+subDocId                        :: DocId -> DocId -> DocId
+subDocId id1 id2                = DocId $ theDocId id1 - theDocId id2
 
 nullDocId                       :: DocId
 nullDocId                       = DocId 0
@@ -55,10 +62,17 @@ nullDocId                       = DocId 0
 firstDocId                      :: DocId
 firstDocId                      = DocId 1
 
-mkDocId                         :: Word64 -> DocId
-mkDocId                         = DocId
+mkDocId                         :: Integer -> DocId
+mkDocId                         = DocId . fromIntegral
 
 xpDocId                         :: PU DocId
 xpDocId                         = xpWrap (DocId, theDocId) xpPrim
+
+{-# INLINE incrDocId #-}
+{-# INLINE addDocId #-}
+{-# INLINE subDocId #-}
+{-# INLINE nullDocId #-}
+{-# INLINE firstDocId #-}
+{-# INLINE mkDocId #-}
 
 -- ------------------------------------------------------------

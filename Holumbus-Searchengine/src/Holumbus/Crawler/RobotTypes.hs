@@ -35,9 +35,7 @@ type AddRobotsAction    = URI -> Robots -> IO Robots
 
 instance Binary RobotAction where
     put                 = B.put . fromEnum
-    get                 = do
-                          b <- B.get
-                          return (toEnum b)
+    get                 = B.get >>= return . toEnum
 
 instance NFData RobotAction where
     rnf x               = x `seq` ()
