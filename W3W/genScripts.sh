@@ -17,6 +17,8 @@ echo "created: ./installCronjob.sh" 1>&2
 cat > ./indexJob.sh <<EOF
 #! /bin/bash
 
+set -x
+
 cd $pwd
 [ -d "log" ] || mkdir log
 
@@ -28,11 +30,10 @@ make whole 2>&1 >> ../log/indexJob.log
 cd ..
 
 echo "Restarting webserver: "\$(date) >> log/indexJob.log
-sudo killall apache2
 
-sudo killall w3wServer
+killall w3wServer
 sleep 2
-sudo $HOME/.cabal/bin/w3wServer -p $port > log/out.log 2> log/err.log &
+nohup $HOME/.cabal/bin/w3wServer -p $port > log/out.log 2> log/err.log < /dev/null &
 EOF
 chmod a+x ./indexJob.sh
 echo "created: ./indexJob.sh" 1>&2
