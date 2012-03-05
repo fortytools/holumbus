@@ -54,7 +54,7 @@ function restart() {
     echo "indexing skipped"
   fi
   restart
-} > log/indexJob.log 2>&1
+} >> log/indexJob.log 2>&1
 EOF
 chmod a+x ./indexJob.sh
 echo "created: ./indexJob.sh" 1>&2

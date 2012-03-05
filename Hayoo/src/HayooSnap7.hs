@@ -2,9 +2,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
-module Main where
+{-# LANGUAGE    BangPatterns #-}
+{-# LANGUAGE    CPP #-}
+{-# LANGUAGE    DeriveDataTypeable #-}
+{-# LANGUAGE    ExistentialQuantification #-}
+{-# LANGUAGE    FlexibleContexts #-}
+{-# LANGUAGE    FlexibleInstances #-}
+{-# LANGUAGE    GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE    MultiParamTypeClasses #-}
+{-# LANGUAGE    NoMonomorphismRestriction #-}
+{-# LANGUAGE    OverloadedStrings #-}
+{-# LANGUAGE    PackageImports #-}
+{-# LANGUAGE    Rank2Types #-}
+{-# LANGUAGE    ScopedTypeVariables #-}
+{-# LANGUAGE    TemplateHaskell #-}
+{-# LANGUAGE    TypeFamilies #-}
+{-# LANGUAGE    TypeOperators #-}
+{-# LANGUAGE    TypeSynonymInstances #-}
 
+module HayooSnap7 where
+
+import           Control.Category               ( (>>>) )
 import           Control.Applicative
 import           Control.Exception              ( SomeException )
 import           Control.Monad
@@ -47,10 +68,7 @@ import           Hayoo.Search.Pages.Template    ( makeTemplate
 import qualified Hayoo.Search.Pages.Static      as P
 
 import           Holumbus.Index.Common          ( sizeDocs )
-{-
-import           Data.Time.Clock.POSIX
-import           Foreign.C.Types
--- -}
+
 import           Prelude                        hiding (catch)
 
 import           Snap.Http.Server
@@ -71,12 +89,15 @@ import qualified Text.XHtmlCombinators          as X
 
 ------------------------------------------------------------------------------
 
-type HayooState = Core
+newtype HayooState
+    = HayooState { _hayooCore :: Core }
+
+makeLenses [''HayooState]
 
 data App
     = App
       { _heist      :: Snaplet (Heist App)
-      , _hayooState :: HayooState
+      , _hayooState :: Snaplet HayooState
       }
 
 makeLenses [''App]
@@ -86,26 +107,17 @@ instance HasHeist App where
 
 ------------------------------------------------------------------------------
 
-{- snap website example stuff
-
-epochTime :: IO CTime
-epochTime = do
-    t <- getPOSIXTime
-    return $ fromInteger $ truncate t
--- -}
-
 description :: Text
-description = "The snapframework.com website"
-
+description = "The Hayoo! Search Engine"
 
 appInit :: SnapletInit App App
-appInit = makeSnaplet "snap-website" description Nothing $ do
+appInit = makeSnaplet "hayoo" description Nothing $ do
     hs <- nestSnaplet "" heist $ heistInit "templates"
-    hy <- liftIO $ getHayooInitialState
+    hy <- nestSnaplet "" hayooState $ hayooStateInit "./lib"
 
-    addRoutes [ ("/",             ifTop hayooHtml)       -- map to /hayoo.html
-              , ("/hayoo.html",   hayooHtml)
-              , ("/hayoo.json",   hayooJson)
+    addRoutes [ ("/",             ifTop $ with hayooState hayooHtml)       -- map to /hayoo.html
+              , ("/hayoo.html",   with hayooState hayooHtml)
+              , ("/hayoo.json",   with hayooState hayooJson)
               , ("/help.html",    serveStatic P.help)
               , ("/about.html",   serveStatic P.about)
               , ("/api.html",     serveStatic P.api)
@@ -138,18 +150,18 @@ serveHayooStatic = do
 
 serveStatic :: X.XHtml X.FlowContent -> Handler App App ()
 serveStatic pg
-  = do
-    core <- hayooCore
-    modifyResponse htmlResponse
-    writeText (X.render $ (template core) pg) 
+  = with hayooState $
+    do core <- getHayooCore
+       modifyResponse htmlResponse
+       writeText (X.render $ (template core) pg) 
 
 ------------------------------------------------------------------------------
 -- | Render JSON page
 
-hayooJson :: Handler App App ()
+hayooJson :: Handler App HayooState ()
 hayooJson
     = do pars <- getParams
-         core <- hayooCore
+         core <- getHayooCore
          modifyResponse jsonResponse
          writeText (T.pack $ evalJsonQuery (toStringMap pars) core)
     where
@@ -181,10 +193,10 @@ evalJsonQuery p idct
 ------------------------------------------------------------------------------
 -- | Render HTML page
 
-hayooHtml :: Handler App App ()
+hayooHtml :: Handler App HayooState ()
 hayooHtml
     = do pars <- getParams
-         core <- hayooCore
+         core <- getHayooCore
          modifyResponse htmlResponse
          writeText $ evalHtmlQuery (toStringMap pars) core
     where
@@ -230,25 +242,11 @@ jsonResponse
     = setContentType "application/json; charset=utf-8"
       . setResponseCode 200
 
-hayooCore :: Handler App App HayooState
-hayooCore
-    = gets $ getL hayooState
+getHayooCore :: Handler App HayooState Core
+getHayooCore
+    = getL (snapletValue >>> hayooCore) <$> getSnapletState
 
 ------------------------------------------------------------------------------
-
-{- snap website example stuff
-
-setCache :: MonadSnap m => m a -> m ()
-setCache act = do
-    pinfo <- liftM rqPathInfo getRequest
-    act
-    when ("media" `B.isPrefixOf` pinfo) $ do
-       expTime <- liftM (+604800) $ liftIO epochTime
-       s       <- liftIO $ formatHttpTime expTime
-       modifyResponse $
-          setHeader "Cache-Control" "public, max-age=604800" .
-          setHeader "Expires" s
--- -}
 
 catch500 :: MonadSnap m => m a -> m ()
 catch500 m = (m >> return ()) `catch` \(e::SomeException) -> do
@@ -275,11 +273,13 @@ main = serveSnaplet defaultConfig appInit
 
 ------------------------------------------------------------------------------
 
-ixBase          :: FilePath
-ixBase          = "./lib"
+hayooStateInit :: String -> SnapletInit App HayooState
+hayooStateInit ixBase
+    = makeSnaplet "hayooState" "The Hayoo! index state snaplet" Nothing $
+      getHayooInitialState ixBase
 
-getHayooInitialState    :: MonadIO m => m Core
-getHayooInitialState
+getHayooInitialState    :: MonadIO m => String -> m HayooState
+getHayooInitialState ixBase
     = liftIO $
       do idx  <- loadIndex     hayooIndex
          infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
@@ -300,7 +300,7 @@ getHayooInitialState
 
          tpl  <- return $ makeTemplate (sizeDocs pdoc) (sizeDocs doc)
 
-         return $ Core
+         return $ HayooState $ Core
                     { index      = idx
                     , documents  = doc
                     , pkgIndex   = pidx
