@@ -32,7 +32,10 @@
       </tr>
     </table>
     <div class="footer">
-      &copy;&nbsp;FH&nbsp;Wedel
+      Powered by
+      <a class="footerHref" href="http://www.haskell.org">Haskell</a>,
+      <a class="footerHref" href="https://github.com/fortytools/holumbus">Holumbus</a> &amp;
+      <a class="footerHref" href="https://github.com/UweSchmidt/hxt">HXT</a>
     </div>
   </body>
 </html>

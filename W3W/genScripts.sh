@@ -17,23 +17,44 @@ echo "created: ./installCronjob.sh" 1>&2
 cat > ./indexJob.sh <<EOF
 #! /bin/bash
 
-set -x
+# set -x
+
+index=1
+[ "\$1" == "-r" ] && index=0
 
 cd $pwd
 [ -d "log" ] || mkdir log
 
-echo "Creating index: "\$(date) >> log/indexJob.log
-cd index
-[ -d "cache" ] || mkdir cache
-[ -d "tmp"   ] || mkdir tmp
-make whole 2>&1 >> ../log/indexJob.log
-cd ..
+function indexing() {
+  ( echo "Creating index: "\$(date)
+    cd index
+    [ -d "cache" ] || mkdir cache
+    [ -d "tmp"   ] || mkdir tmp
+    make whole
+  ) 1>&2
+}
 
-echo "Restarting webserver: "\$(date) >> log/indexJob.log
+function restart() {
+  ( echo "Restarting webserver: "\$(date)
+    # apache2 is started at boot time
+    sudo killall apache2   || echo "no apache2   process killed"
+    sudo killall w3wServer || echo "no w3wServer process killed"
+    sleep 2
+    ps axf | egrep -e '(apache2|w3wServer)'
+    sudo nohup /home/theo/.cabal/bin/w3wServer -p $port 1>&2 < /dev/null &
+    sleep 2
+    ps axf | egrep -e 'w3wServer'
+  ) 1>&2
+}
 
-killall w3wServer
-sleep 2
-nohup $HOME/.cabal/bin/w3wServer -p $port > log/out.log 2> log/err.log < /dev/null &
+{ if [[ "\$index" -eq "1" ]]
+    then
+    indexing
+  else
+    echo "indexing skipped"
+  fi
+  restart
+} > log/indexJob.log 2>&1
 EOF
 chmod a+x ./indexJob.sh
 echo "created: ./indexJob.sh" 1>&2

@@ -236,7 +236,7 @@ ul, li
 .footer
 {
   background-color: #1E326F;
-  color: #FFFFFF;
+  color: #AAAAAA;
   font-size: 9pt;
   padding-right: 10px;
   text-align: right;
@@ -246,4 +246,9 @@ ul, li
   border-left: 1px solid #777777;
   border-right: 1px solid #777777;
   border-bottom: 1px solid #777777;
+}
+
+.footerHref
+{
+  color: #FFFFFF;
 }
