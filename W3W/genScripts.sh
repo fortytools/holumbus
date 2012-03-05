@@ -41,7 +41,7 @@ function restart() {
     sudo killall w3wServer || echo "no w3wServer process killed"
     sleep 2
     ps axf | egrep -e '(apache2|w3wServer)'
-    sudo nohup /home/theo/.cabal/bin/w3wServer -p $port 1>&2 < /dev/null &
+    sudo nohup \$HOME/.cabal/bin/w3wServer -p $port 1>&2 < /dev/null &
     sleep 2
     ps axf | egrep -e 'w3wServer'
   ) 1>&2
