@@ -1,0 +1,491 @@
+html {
+	height:100%;
+}
+
+body {
+	font-family:Tahoma,Verdana,sans-serif;
+	margin:0px;
+	font-size:11px;
+	height:100%;
+}
+
+table, tr, td {
+	font-family:Tahoma,Verdana,sans-serif;
+	font-size:11px;
+  margin:0;
+  padding:0;
+}
+
+p {
+  margin:0;
+}
+
+a {
+	font-weight:bold;
+	color:gray;
+}
+a:link {
+	text-decoration:none;
+}
+a:hover {
+	text-decoration:none;
+	color:silver;
+}
+a:visited {
+	text-decoration:none;
+}
+a:active {
+	text-decoration:none;
+}
+
+img.logo { border: none; }
+
+span.query {
+	font-style: italic;
+}
+
+div.clear {
+  clear:both !important;
+}
+
+#throbber { 
+	vertical-align:text-bottom;
+}
+
+#copyright .author {
+	font-weight: bold;
+}
+
+#info {
+	float:right;
+	color:gray;
+	padding:5px;
+}
+
+#shutter {
+	background-color: #000000;
+	height: 100%;
+	width: 100%;
+	left: 0pt;
+	top: 0pt;
+	position: fixed;
+	opacity:0.5;
+	z-index:1000;
+}
+
+.text {
+	color:gray;
+	padding:20px;
+}
+
+.box {
+	margin-left: auto;
+	margin-right: auto;
+	margin-bottom: auto;
+	margin-top: 71px;
+	background-color: white;
+	visibility: visible;
+	opacity:1.0;
+	width: 720px;
+	height: 540px;
+	padding:10px;
+	z-index:1004;
+	color:gray;
+	text-align:left;
+	padding-left:20px;
+	padding-right:20px;
+}
+
+#examples {
+  width:80%;
+  margin-left:auto;
+  margin-right:auto;
+  background-color:#F4F4F4;
+  border:1px solid silver;
+  padding:20px;
+}
+
+.example a {
+	font-weight: normal;
+	color: #DD0000;
+	text-decoration: underline;
+}
+
+#container {
+	min-height:100%;
+	position:relative;
+}
+
+#sponsors {
+	margin-top:20px;
+	width: 100%;
+	text-align:center;
+}
+
+#fhw {
+	display: inline;
+}
+
+#hol {
+	display: inline;
+}
+
+#ft {
+	margin: 0px 50px;
+	display: inline;
+}
+
+#result {
+	padding-bottom:80px;
+}
+
+#credits {
+	border-top:1px solid silver;
+	border-bottom:1px solid silver;
+	margin-top:10px;
+	margin-bottom:10px;
+	color:gray;
+	padding-top:10px;
+	padding-bottom:5px;
+	background-color:#F4F4F4;
+	bottom:0;
+	position:absolute;
+	width:100%;
+}
+
+#powered {
+	margin-left:10px;
+	float:left;
+	vertical-align: middle;
+}
+
+#libs {
+	float: left;
+	padding-top: 10px;
+	margin-right:5px;
+}
+
+#authors {
+	text-align:right;
+	margin-right:10px;
+	float:right;
+}
+
+#feedback {
+	margin-bottom: 5px;
+}
+
+#logo {
+	float:left;
+}
+
+#status {
+	border-top:1px solid silver;
+	border-bottom:1px solid silver;
+	background-color:#F4F4F4;
+	clear:both;
+	color:gray;
+	font-weight:bold;
+	vertical-align:middle;
+	padding:2px;
+	padding-left:5px;
+}
+
+#aggregation {
+  margin:20px;
+	float:right;
+	background-color:#F4F4F4;
+	border:1px solid silver;
+}
+
+div.headline {
+  color:gray;
+  font-weight:bold;
+  margin-bottom:5px;
+}
+
+#modules {
+	padding:10px;
+}
+
+#packages {
+	padding:10px;
+}
+
+#hackage {
+  float:left;
+  margin:20px;
+	background-color:#F4F4F4;
+	border:1px solid silver;
+  width:350px;
+  padding:10px;
+}
+
+#hackage a {
+  font-weight:normal
+}
+
+#hackage a:hover {
+  text-decoration:underline;
+}
+
+#hackage div.package {
+  margin-bottom:10px;
+}
+
+#hackage a.category {
+  color:#DD0000;
+}
+
+#hackage a.name {
+  font-weight:bold;
+  color:#0700C3;
+}
+  
+#hackage div.author {
+  color:#25CA00;
+  font-weight:bold;
+  font-size:9px; 
+}
+
+#hackage span.synopsis {
+  color:gray;
+	font-weight:bold;
+}
+
+#hackage div.description {
+  font-size:9px;
+  color:gray;
+}
+
+#words {
+	padding-left: 10px;
+	padding-right: 10px;
+	margin-top: 25px;
+	margin-bottom: 5px;
+	text-align:center;
+	word-spacing: 1.5em;
+}
+
+a.rootModuleName {
+	color:#DD0000;
+  font-weight:normal;
+}
+
+.rootModuleCount {
+	color:grey;
+}
+
+a.packageLink {
+	color:#25CA00;
+  font-weight:normal;
+}
+
+.packageCount {
+	color:grey;
+}
+
+#documents {
+	padding:10px;
+}
+
+tr.details td {
+  padding-bottom:15px;
+}
+
+td.module {
+	text-align: right;
+	vertical-align: top;
+}
+
+td.description > div {
+  max-height:1.4em;
+  overflow:hidden;
+  color: gray;
+  text-align: left;
+  float:left;
+  margin-left:5px;
+  width:100%;
+}
+
+td.description > div.unfold {
+	max-height:none;
+}
+
+td.description div.description {
+  overflow-x:auto;
+  float:left;
+  max-width:80%;
+}
+
+td.description pre {
+  white-space:pre-wrap;
+}
+
+td.signature {
+  color: black;
+  margin-left:5px;
+  width:100%;
+}
+
+td.package {
+	text-align: right;
+	vertical-align: top;
+}
+
+td.name {
+  vertical-align:top;
+  width:auto;
+}
+
+span.source {
+  margin-left:5px;
+}
+
+a.module {
+	font-weight: normal;
+	color: #DD0000;
+	text-decoration: none;
+}
+
+a.module:hover {
+	text-decoration: underline;
+}
+
+a.function {
+	color: #0700C3;
+	font-weight: bold;
+}
+
+a.function:hover {
+	text-decoration: underline;
+}
+
+a.package {
+	color: #25CA00;
+	font-weight: bold;
+}
+
+a.package:hover {
+	text-decoration: underline;
+}
+
+a.source {
+	color: #F0DE00;
+	font-weight: bold;
+}
+
+a.source:hover {
+	text-decoration: underline;
+}
+
+.unfold a.toggleFold {
+  background-position:-10px;
+  background:url(minus.png);
+}
+
+a.toggleFold {
+	float:left;
+	margin-right:3px;
+	cursor:pointer;
+  display:block;
+  width:10px;
+  height:10px;
+  background:url(plus.png);
+  margin-top:2px;
+}
+
+#queryinterface {
+	height:25px;
+	padding-top:30px;
+	padding-left:300px;
+}
+
+#query {
+	color:gray;
+	margin:0px;
+}
+
+#querytext {
+	margin-top:5px;
+	border-color:silver;
+	border-width:1px;
+	border-style:solid;
+	width:300px;
+}
+
+#querybutton {
+	margin-top:5px;
+	border-color:silver;
+	border-width:1px;
+	border-style:solid;
+	background-color:#F4F4F4;
+	margin-left:5px;
+	margin-right:5px;
+}
+
+#pager {
+	text-align:center;
+	width:100%;
+	margin-top:5px;
+	margin-bottom:5px;
+}
+
+a.page {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+.current {
+	font-weight:bold;
+	color:silver;
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.next {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.previous {
+	padding-left:5px;
+	padding-right:5px;
+}
+
+a.cloud {
+	font-weight:normal;
+}
+
+.cloud1 { font-size:10px; }
+.cloud2 { font-size:13px; }
+.cloud3 { font-size:16px; }
+.cloud4 { font-size:19px; }
+.cloud5 { font-size:22px; }
+.cloud6 { font-size:25px; }
+.cloud7 { font-size:28px; }
+.cloud8 { font-size:31px; }
+.cloud9 { font-size:33px; }
+
+.link { color:navy; }
+.link:hover { 
+	color:navy; 
+	text-decoration:underline;
+}
+
+.title { font-size:10pt; }
+.contexts { color:gray; }
+.context { font-weight:bold; }
+.uri { color:green; }
+.declaration { font-style: italic; }
+
+div.stats {
+  font-size:80%;
+  font-style:italic;
+}
+
+.example p {
+  margin:10px 0px;
+}
+
+

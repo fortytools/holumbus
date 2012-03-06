@@ -146,7 +146,7 @@ type RankTable                  = PT.PrefixTree Score
 lookupRankTable                 :: String -> RankTable -> Score
 lookupRankTable p               = fromMaybe 1.0 . PT.lookup p
 
-buildRankTable                  :: SmallDocuments PackageInfo -> RankTable
+buildRankTable                  :: HayooPkgDocuments -> RankTable
 buildRankTable                  = toMap
                                   >>> elemsDocIdMap
                                   >>> map ( custom
@@ -157,12 +157,18 @@ buildRankTable                  = toMap
 
 -- ------------------------------------------------------------
 
+type HayooFctDocuments                  = SmallDocuments  FunctionInfo
+type HayooFctIndex                      = CompactInverted
+
 type HayooIndexerState                  = HolumbusState   FunctionInfo
 type HayooIndexerConfig                 = HolumbusConfig  FunctionInfo
 
 type HayooIndexerCrawlerState           = CrawlerState HayooIndexerState
 
 -- ------------------------------------------------------------
+
+type HayooPkgDocuments                  = SmallDocuments  PackageInfo
+type HayooPkgIndex                      = CompactInverted
 
 type HayooPkgIndexerState               = HolumbusState   PackageInfo
 type HayooPkgIndexerConfig              = HolumbusConfig  PackageInfo

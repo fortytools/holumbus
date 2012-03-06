@@ -21,6 +21,7 @@ module Hayoo.Search.EvalSearch
 
     , parseQuery
     , genResult
+    , genResult'
     , emptyRes
 
     , renderEmpty
@@ -40,6 +41,7 @@ module Hayoo.Search.EvalSearch
 
     , loadIndex
     , loadDocuments
+    , loadPkgIndex
     , loadPkgDocs
     )
 where
@@ -90,12 +92,12 @@ import Text.XML.HXT.Core
 -- ------------------------------------------------------------
 
 data Core = Core
-          { index     :: !  CompactInverted
-          , documents :: ! (SmallDocuments FunctionInfo)
-          , pkgIndex  :: !  CompactInverted
-          , pkgDocs   :: ! (SmallDocuments PackageInfo)
-          , template  :: !  Template
-          , packRank  :: !  RankTable
+          { index     :: ! HayooFctIndex
+          , documents :: ! HayooFctDocuments
+          , pkgIndex  :: ! HayooPkgIndex
+          , pkgDocs   :: ! HayooPkgDocuments
+          , template  :: ! Template
+          , packRank  :: ! RankTable
           }
 
 -- ------------------------------------------------------------
@@ -115,15 +117,18 @@ contextWeights          = [ ("name",        0.9)
 -- ------------------------------------------------------------
 
 -- | Just an alias with explicit type.
-loadIndex       :: FilePath -> IO CompactInverted
+loadIndex       :: FilePath -> IO HayooFctIndex
 loadIndex       = loadFromFile
 
+loadPkgIndex    :: FilePath -> IO HayooPkgIndex
+loadPkgIndex    = loadFromFile
+
 -- | Just an alias with explicit type.
-loadDocuments   :: FilePath -> IO (SmallDocuments FunctionInfo)
+loadDocuments   :: FilePath -> IO HayooFctDocuments
 loadDocuments   = loadFromFile
 
 -- | Just an alias with explicit type.
-loadPkgDocs     :: FilePath -> IO (SmallDocuments PackageInfo)
+loadPkgDocs     :: FilePath -> IO (HayooPkgDocuments)
 loadPkgDocs     = loadFromFile
 
 -- ------------------------------------------------------------
@@ -270,10 +275,18 @@ emptyRes msg            = ( tail . dropWhile ((/=) ':') $ msg
                           )
 
 genResult ::  Core -> Query -> StatusResult
-genResult idc q
-      = let (fctRes, pkgRes) = curry makeQuery q idc in
-        let (fctCfg, pkgCfg) = ( RankConfig (hayooFctRanking (packRank idc) contextWeights (extractTerms q)) wordRankByCount
-                               , RankConfig (hayooPkgRanking (packRank idc))                                 wordRankByCount
+genResult c q
+    = genResult' q (index c) (documents c) (pkgIndex c) (pkgDocs c) (packRank c)
+
+genResult' :: Query
+           -> HayooFctIndex -> HayooFctDocuments
+           -> HayooPkgIndex -> HayooPkgDocuments
+           -> RankTable
+           -> StatusResult
+genResult' q fx fd px pd pr
+      = let (fctRes, pkgRes) = makeQuery q fx fd px pd in
+        let (fctCfg, pkgCfg) = ( RankConfig (hayooFctRanking pr contextWeights (extractTerms q)) wordRankByCount
+                               , RankConfig (hayooPkgRanking pr)                                 wordRankByCount
                                ) in
         let (fctRnk, pkgRnk) = ( rank fctCfg fctRes
                                , rank pkgCfg pkgRes
@@ -300,15 +313,22 @@ msgSuccess fr pr        = if sd + sp == 0
 
 -- | This is where the magic happens! This helper function really calls the
 -- processing function which executes the query.
-makeQuery               :: (Query, Core) -> (Result FunctionInfo, Result PackageInfo)
-makeQuery (q, c)        = (processQuery cfg (index c) (documents c) q, processQuery cfg (pkgIndex c) (pkgDocs c) q)
+
+makeQuery :: Query ->
+             HayooFctIndex -> HayooFctDocuments ->
+             HayooPkgIndex -> HayooPkgDocuments ->
+             (Result FunctionInfo, Result PackageInfo)
+makeQuery q index_c documents_c pkgIndex_c pkgDocs_c
+    = ( processQuery cfg (index_c) (documents_c) q
+      , processQuery cfg (pkgIndex_c) (pkgDocs_c) q
+      )
     where
-    cfg                 = ProcessConfig
-                          { fuzzyConfig   = FuzzyConfig False True 1.0 []
-                          , optimizeQuery = True
-                          , wordLimit     = 50
-                          , docLimit      = 500
-                          }
+      cfg = ProcessConfig
+            { fuzzyConfig   = FuzzyConfig False True 1.0 []
+            , optimizeQuery = True
+            , wordLimit     = 50
+            , docLimit      = 500
+            }
 
 -- | Generate a list of modules from a result
 genModules              :: Result FunctionInfo -> [(String, Int)]

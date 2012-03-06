@@ -39,34 +39,28 @@ import           Data.Lens.Template
 import           Data.Map                       ( toList )
 import           Data.Maybe
 
-import           Data.Text (Text)
+import           Data.Text                      ( Text )
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as T
 
-import           Hayoo.IndexTypes               ( buildRankTable
-                                                )
-import           Hayoo.Search.EvalSearch        ( Core(..)
-                                                , emptyRes
-                                                , examples
+import           Hayoo.IndexTypes
+import           Hayoo.Search.EvalSearch        ( emptyRes
                                                 , filterStatusResult
-                                                , genResult
+                                                , genResult'
                                                 , getValDef
                                                 , loadDocuments
                                                 , loadIndex
                                                 , loadPkgDocs
+                                                , loadPkgIndex
                                                 , parseQuery
                                                 , readDef
                                                 , renderEmptyJson
                                                 , renderJson
-                                                , template
                                                 )
-import           Hayoo.Search.HTML              ( RenderState(..)
+import           Hayoo.Search.XmlHtml           ( RenderState(..)
                                                 , result
+                                                , renderXmlHtml
                                                 )
-import           Hayoo.Search.Pages.Template    ( makeTemplate
-                                                )
-import qualified Hayoo.Search.Pages.Static      as P
-
 import           Holumbus.Index.Common          ( sizeDocs )
 
 import           Prelude                        hiding (catch)
@@ -76,21 +70,38 @@ import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
 import           Snap.Util.FileServe
-{-
+-- {-
 import           Snap.Util.GZip
 -- -}
 import           System.FilePath                ( (</>) )
-import           System.IO                      ( stderr
-                                                , hPutStrLn
-                                                )
+
 import           Text.Templating.Heist
 
-import qualified Text.XHtmlCombinators          as X
+------------------------------------------------------------------------------
+
+data DocIndex a
+    = DocIndex
+      { _docIx :: ! CompactInverted
+      , _docTb :: ! (SmallDocuments a)
+      }
+
+makeLenses [''DocIndex]
+
+data HayooCore
+    = HayooCore
+      { _fctDocIx :: ! (DocIndex FunctionInfo)
+      , _pkgDocIx :: ! (DocIndex PackageInfo)
+      , _sizeFct  :: ! Int
+      , _sizePkg  :: ! Int
+      , _pkgRank  :: ! RankTable
+      }
+
+makeLenses [''HayooCore]
 
 ------------------------------------------------------------------------------
 
 newtype HayooState
-    = HayooState { _hayooCore :: Core }
+    = HayooState { _hayooCore :: HayooCore }
 
 makeLenses [''HayooState]
 
@@ -112,21 +123,24 @@ description = "The Hayoo! Search Engine"
 
 appInit :: SnapletInit App App
 appInit = makeSnaplet "hayoo" description Nothing $ do
-    hs <- nestSnaplet "" heist $ heistInit "templates"
+    hs <- nestSnaplet "" heist $ heistInit "resources/templates"
     hy <- nestSnaplet "" hayooState $ hayooStateInit "./lib"
 
-    addRoutes [ ("/",             ifTop $ with hayooState hayooHtml)       -- map to /hayoo.html
+    addRoutes [ ("/",             render "examples")
               , ("/hayoo.html",   with hayooState hayooHtml)
               , ("/hayoo.json",   with hayooState hayooJson)
-              , ("/help.html",    serveStatic P.help)
-              , ("/about.html",   serveStatic P.about)
-              , ("/api.html",     serveStatic P.api)
+              , ("/examples.html", render "examples")
+              , ("/help.html",    render "help")
+              , ("/about.html",   render "about")
+              , ("/api.html",     render "api")
               , ("/hayoo/:stuff", serveHayooStatic)
+              , ("/:stuff",       render "examples")
               ]
     addSplices [ ("snap-version", serverVersion)
                , ("feed-autodiscovery-link", liftHeist $ textSplice "")
+               , ("packages-searched", packagesSearched $ getL (snapletValue >>> hayooCore) hy)
                ]
-    wrapHandlers catch500
+    wrapHandlers $ catch500 . withCompression
 
     {- snap website example stuff: compress html and set headers for caching static pages
 
@@ -135,26 +149,42 @@ appInit = makeSnaplet "hayoo" description Nothing $ do
     -- -}
     return $ App hs hy
 
+packagesSearched :: HayooCore -> SnapletSplice b v
+packagesSearched c
+    = liftHeist $ textSplice $ T.pack $ unwords $
+      [ "Concurrently search more than", show $ _sizePkg c
+      , "packages and more than", show $ _sizeFct c
+      , "functions!"
+      ]
+      
+------------------------------------------------------------------------------
+
+hayooMain :: Handler App App ()
+hayooMain
+    = -- heistLocal (bindSplices [("result", liftHandler $ render "examples")]) $
+      render "main"
+
 ------------------------------------------------------------------------------
 -- | Deliver Hayoo files
 
 serveHayooStatic :: Handler App App ()
 serveHayooStatic = do
     relPath <- decodedParam "stuff"
-    serveFile $ "hayoo" </> B.unpack relPath
+    serveFile $ "resources/static" </> B.unpack relPath
   where
     decodedParam p = fromMaybe "" <$> getParam p
 
+{- old stuff
 ------------------------------------------------------------------------------
 -- | Deliver static Hayoo pages
 
 serveStatic :: X.XHtml X.FlowContent -> Handler App App ()
 serveStatic pg
   = with hayooState $
-    do core <- getHayooCore
+    do core <- toCore <$> getHayooCore
        modifyResponse htmlResponse
        writeText (X.render $ (template core) pg) 
-
+-- -}
 ------------------------------------------------------------------------------
 -- | Render JSON page
 
@@ -171,12 +201,15 @@ hayooJson
                         , concatMap (T.unpack . T.decodeUtf8) $ a
                         )
 
-evalJsonQuery :: [(String, String)] -> Core -> String
-evalJsonQuery p idct
+evalJsonQuery :: [(String, String)] -> HayooCore -> String
+evalJsonQuery p c
     | null request      = renderEmptyJson
     | otherwise         = renderResult
     where
-    request =               getValDef p "query"  ""
+    (DocIndex fx fd) = _fctDocIx c
+    (DocIndex px pd) = _pkgDocIx c
+    rt               = _pkgRank  c
+    request          = getValDef p "query"  ""
 
     {- not used for json output
 
@@ -185,10 +218,10 @@ evalJsonQuery p idct
     tmpl    = template idct
     -- -}
 
-    renderResult        = renderJson
-                          . either emptyRes (genResult idct)
-                          . parseQuery
-                          $ request
+    renderResult     = renderJson
+                       . either emptyRes (\ q -> genResult' q fx fd px pd rt)
+                       . parseQuery
+                       $ request
 
 ------------------------------------------------------------------------------
 -- | Render HTML page
@@ -197,8 +230,7 @@ hayooHtml :: Handler App HayooState ()
 hayooHtml
     = do pars <- getParams
          core <- getHayooCore
-         modifyResponse htmlResponse
-         writeText $ evalHtmlQuery (toStringMap pars) core
+         evalHtmlQuery (toStringMap pars) core
     where
       toStringMap   = map (uncurry tos) . toList
           where
@@ -206,29 +238,37 @@ hayooHtml
                       , concatMap (T.unpack . T.decodeUtf8) $ a
                       )
 
-evalHtmlQuery :: [(String, String)] -> Core -> T.Text
-evalHtmlQuery p idct
+evalHtmlQuery :: [(String, String)] -> HayooCore -> Handler App HayooState ()
+evalHtmlQuery p c
     | null request      = renderEmptyHtml
     | otherwise         = renderResult
     where
-      request =               getValDef p "query"  ""
-      start   = readDef 0    (getValDef p "start"  "")
-      static  = readDef True (getValDef p "static" "")
-      tmpl    = template idct
+      (DocIndex fx fd) = _fctDocIx c
+      (DocIndex px pd) = _pkgDocIx c
+      rt               = _pkgRank  c
 
-      renderEmptyHtml     = X.render $ tmpl examples
+      request          =               getValDef p "query"  ""
+      start            = readDef 0    (getValDef p "start"  "")
+      static           = readDef True (getValDef p "static" "")
 
-      renderResult        = applyTemplate (RenderState request start static)
-                            . filterStatusResult request
-                            . either emptyRes (genResult idct)
-                            . parseQuery
-                            $ request
+      renderEmptyHtml
+          = render "examples"
+
+      renderRes tpl ns
+          = heistLocal (bindSplices [("results", return ns)]) $
+            render tpl
+
+      renderResult
+          = applyTemplate (RenderState request start static) $
+            filterStatusResult request $
+            either emptyRes (\ q -> genResult' q fx fd px pd rt) $
+            parseQuery $
+            request
           where
             applyTemplate rs sr
-                | rsStatic rs   = X.render $ tmpl rr
-                | otherwise     = X.render $      rr
-                where
-                  rr            = result rs sr
+                = renderRes (if rsStatic rs then "results-stat" else "results-dyn") $
+                  renderXmlHtml $
+                  result rs sr
 
 ------------------------------------------------------------------------------
 
@@ -242,7 +282,7 @@ jsonResponse
     = setContentType "application/json; charset=utf-8"
       . setResponseCode 200
 
-getHayooCore :: Handler App HayooState Core
+getHayooCore :: Handler App HayooState HayooCore
 getHayooCore
     = getL (snapletValue >>> hayooCore) <$> getSnapletState
 
@@ -278,35 +318,31 @@ hayooStateInit ixBase
     = makeSnaplet "hayooState" "The Hayoo! index state snaplet" Nothing $
       getHayooInitialState ixBase
 
-getHayooInitialState    :: MonadIO m => String -> m HayooState
+getHayooInitialState    :: String -> Initializer b v HayooState
 getHayooInitialState ixBase
-    = liftIO $
-      do idx  <- loadIndex     hayooIndex
+    = do fidx  <- liftIO $ loadIndex     hayooIndex
          infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
                
-         doc  <- loadDocuments hayooDocs
+         fdoc  <- liftIO $ loadDocuments hayooDocs
          infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
-         infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs doc) ++ " functions and types")
+         infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs fdoc) ++ " functions and types")
 
-         pidx <- loadIndex     hackageIndex
+         pidx <- liftIO $ loadPkgIndex     hackageIndex
          infoM "Hayoo.Main" ("Hackage index loaded from file " ++ show hackageIndex)
 
-         pdoc <- loadPkgDocs   hackageDocs
+         pdoc <- liftIO $ loadPkgDocs   hackageDocs
          infoM "Hayoo.Main" ("Hackage docs  loaded from file " ++ show hackageDocs)
          infoM "Hayoo.Main" ("Hackage docs contains " ++ show (sizeDocs pdoc) ++ " packages")
 
          prnk <- return $ buildRankTable pdoc
          infoM "Hayoo.Main" ("Hackage package rank table computed")
 
-         tpl  <- return $ makeTemplate (sizeDocs pdoc) (sizeDocs doc)
-
-         return $ HayooState $ Core
-                    { index      = idx
-                    , documents  = doc
-                    , pkgIndex   = pidx
-                    , pkgDocs    = pdoc
-                    , template   = tpl
-                    , packRank   = prnk
+         return $ HayooState $ HayooCore
+                    { _fctDocIx = DocIndex fidx fdoc
+                    , _pkgDocIx = DocIndex pidx pdoc
+                    , _sizeFct  = sizeDocs fdoc
+                    , _sizePkg  = sizeDocs pdoc
+                    , _pkgRank  = prnk
                     }
     where
       hayooIndex      = ixBase ++ "/ix.bin.idx"
@@ -314,6 +350,6 @@ getHayooInitialState ixBase
       hackageIndex    = ixBase ++ "/pkg.bin.idx"
       hackageDocs     = ixBase ++ "/pkg.bin.doc"
 
-      infoM m msg     = hPutStrLn stderr $ m ++ ": " ++ msg
+      infoM m msg     = printInfo $ T.pack $ m ++ ": " ++ msg
 
 ------------------------------------------------------------------------------
