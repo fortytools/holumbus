@@ -5,25 +5,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-{-# LANGUAGE    BangPatterns #-}
-{-# LANGUAGE    CPP #-}
-{-# LANGUAGE    DeriveDataTypeable #-}
-{-# LANGUAGE    ExistentialQuantification #-}
-{-# LANGUAGE    FlexibleContexts #-}
-{-# LANGUAGE    FlexibleInstances #-}
-{-# LANGUAGE    GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE    MultiParamTypeClasses #-}
-{-# LANGUAGE    NoMonomorphismRestriction #-}
-{-# LANGUAGE    OverloadedStrings #-}
-{-# LANGUAGE    PackageImports #-}
-{-# LANGUAGE    Rank2Types #-}
-{-# LANGUAGE    ScopedTypeVariables #-}
-{-# LANGUAGE    TemplateHaskell #-}
-{-# LANGUAGE    TypeFamilies #-}
-{-# LANGUAGE    TypeOperators #-}
-{-# LANGUAGE    TypeSynonymInstances #-}
+-- ------------------------------------------------------------
 
-module HayooSnap7 where
+module Main where
 
 import           Control.Category               ( (>>>) )
 import           Control.Applicative
@@ -85,7 +69,7 @@ data DocIndex a
       , _docTb :: ! (SmallDocuments a)
       }
 
-makeLenses [''DocIndex]
+-- makeLenses [''DocIndex]
 
 data HayooCore
     = HayooCore
@@ -118,36 +102,37 @@ instance HasHeist App where
 
 ------------------------------------------------------------------------------
 
+main :: IO ()
+main = serveSnaplet defaultConfig appInit
+
 description :: Text
-description = "The Hayoo! Search Engine"
+description
+    = "The Hayoo! Search Engine"
 
 appInit :: SnapletInit App App
-appInit = makeSnaplet "hayoo" description Nothing $ do
-    hs <- nestSnaplet "" heist $ heistInit "resources/templates"
-    hy <- nestSnaplet "" hayooState $ hayooStateInit "./lib"
+appInit
+    = makeSnaplet "hayoo" description Nothing $
+      do hs <- nestSnaplet "" heist $ heistInit "resources/templates"
+         hy <- nestSnaplet "" hayooState $ hayooStateInit "./lib"
 
-    addRoutes [ ("/",             render "examples")
-              , ("/hayoo.html",   with hayooState hayooHtml)
-              , ("/hayoo.json",   with hayooState hayooJson)
-              , ("/examples.html", render "examples")
-              , ("/help.html",    render "help")
-              , ("/about.html",   render "about")
-              , ("/api.html",     render "api")
-              , ("/hayoo/:stuff", serveHayooStatic)
-              , ("/:stuff",       render "examples")
-              ]
-    addSplices [ ("snap-version", serverVersion)
-               , ("feed-autodiscovery-link", liftHeist $ textSplice "")
-               , ("packages-searched", packagesSearched $ getL (snapletValue >>> hayooCore) hy)
-               ]
-    wrapHandlers $ catch500 . withCompression
-
-    {- snap website example stuff: compress html and set headers for caching static pages
-
-    wrapHandlers (\h -> catch500 $ withCompression $
-                        h <|> setCache (serveDirectory "static"))
-    -- -}
-    return $ App hs hy
+         addRoutes [ ("/",              render "examples")
+                   , ("/hayoo.html",    with hayooState hayooHtml)
+                   , ("/hayoo.json",    with hayooState hayooJson)
+                   , ("/examples.html", render "examples")
+                   , ("/help.html",     render "help")
+                   , ("/about.html",    render "about")
+                   , ("/api.html",      render "api")
+                   , ("/hayoo/:stuff",  serveHayooStatic)
+                   , ("/:stuff",        render "examples")  -- default handler
+                   ]
+         addSplices [ ("snap-version", serverVersion)
+                    , ( "packages-searched"
+                      , packagesSearched $
+                        getL (snapletValue >>> hayooCore) hy
+                      )
+                    ]
+         wrapHandlers $ catch500 . withCompression      -- add compression and internal server error
+         return $ App hs hy
 
 packagesSearched :: HayooCore -> SnapletSplice b v
 packagesSearched c
@@ -158,33 +143,15 @@ packagesSearched c
       ]
       
 ------------------------------------------------------------------------------
-
-hayooMain :: Handler App App ()
-hayooMain
-    = -- heistLocal (bindSplices [("result", liftHandler $ render "examples")]) $
-      render "main"
-
-------------------------------------------------------------------------------
 -- | Deliver Hayoo files
 
 serveHayooStatic :: Handler App App ()
-serveHayooStatic = do
-    relPath <- decodedParam "stuff"
-    serveFile $ "resources/static" </> B.unpack relPath
-  where
-    decodedParam p = fromMaybe "" <$> getParam p
+serveHayooStatic
+    = do relPath <- decodedParam "stuff"
+         serveFile $ "resources/static" </> B.unpack relPath
+    where
+      decodedParam p = fromMaybe "" <$> getParam p
 
-{- old stuff
-------------------------------------------------------------------------------
--- | Deliver static Hayoo pages
-
-serveStatic :: X.XHtml X.FlowContent -> Handler App App ()
-serveStatic pg
-  = with hayooState $
-    do core <- toCore <$> getHayooCore
-       modifyResponse htmlResponse
-       writeText (X.render $ (template core) pg) 
--- -}
 ------------------------------------------------------------------------------
 -- | Render JSON page
 
@@ -206,22 +173,21 @@ evalJsonQuery p c
     | null request      = renderEmptyJson
     | otherwise         = renderResult
     where
-    (DocIndex fx fd) = _fctDocIx c
-    (DocIndex px pd) = _pkgDocIx c
-    rt               = _pkgRank  c
-    request          = getValDef p "query"  ""
+      (DocIndex fx fd) = _fctDocIx c
+      (DocIndex px pd) = _pkgDocIx c
+      rt               = _pkgRank  c
+      request          = getValDef p "query"  ""
+      renderResult
+          = renderJson
+            . either emptyRes (\ q -> genResult' q fx fd px pd rt)
+            . parseQuery
+            $ request
 
     {- not used for json output
 
     start   = readDef 0    (getValDef p "start"  "")
     static  = readDef True (getValDef p "static" "")
-    tmpl    = template idct
     -- -}
-
-    renderResult     = renderJson
-                       . either emptyRes (\ q -> genResult' q fx fd px pd rt)
-                       . parseQuery
-                       $ request
 
 ------------------------------------------------------------------------------
 -- | Render HTML page
@@ -289,27 +255,25 @@ getHayooCore
 ------------------------------------------------------------------------------
 
 catch500 :: MonadSnap m => m a -> m ()
-catch500 m = (m >> return ()) `catch` \(e::SomeException) -> do
---    let t = T.pack $ show e
-    putResponse r
-    writeBS "<html><head><title>Internal Server Error</title></head>"
-    writeBS "<body><h1>Internal Server Error</h1>"
-    writeBS "<p>A web handler threw an exception. Details:</p>"
-    writeBS "<pre>\n"
---    writeText $ X.escape t
-    writeBS "\n</pre></body></html>"
+catch500 m
+    = (m >> return ()) `catch`
+      \ (e::SomeException) -> do
+        --    let t = T.pack $ show e
+        putResponse r
+        writeBS "<html><head><title>Internal Server Error</title></head>"
+        writeBS "<body><h1>Internal Server Error</h1>"
+        writeBS "<p>A web handler threw an exception.</p>"
+        writeBS "</body></html>"
 
-    logError $ B.concat [ "caught exception: ", B.pack $ show e ]
-  where
-    r = setContentType "text/html" $
-        setResponseStatus 500 "Internal Server Error" emptyResponse
+        logError $ B.concat [ "caught exception: ", B.pack $ show e ]
+    where
+      r = setContentType "text/html" $
+          setResponseStatus 500 "Internal Server Error" emptyResponse
 
 
 serverVersion :: SnapletSplice b v
-serverVersion = liftHeist $ textSplice $ T.decodeUtf8 snapServerVersion
-
-main :: IO ()
-main = serveSnaplet defaultConfig appInit
+serverVersion
+    = liftHeist $ textSplice $ T.decodeUtf8 snapServerVersion
 
 ------------------------------------------------------------------------------
 

@@ -17,21 +17,14 @@
 -- ----------------------------------------------------------------------------
 
 module Hayoo.Search.EvalSearch
-    ( Core(..)
-
-    , parseQuery
-    , genResult
+    ( parseQuery
     , genResult'
     , emptyRes
-
-    , renderEmpty
-    , renderResult
 
     , isJson
     , renderJson
     , renderEmptyJson
 
-    , examples
     , filterStatusResult
 
     , decode
@@ -43,19 +36,22 @@ module Hayoo.Search.EvalSearch
     , loadDocuments
     , loadPkgIndex
     , loadPkgDocs
+
+#if hayooSnap4
+    , Core(..)
+    , examples
+    , genResult
+    , renderEmpty
+    , renderResult
+#endif
     )
 where
 
-import Data.ByteString.Lazy.Char8       ( ByteString
-                                        , pack
-                                        , fromChunks
-                                        )
 import Data.Function
 import Data.Maybe
 
 import qualified Data.List              as L
 import qualified Data.Map               as M
-import qualified Data.Text.Encoding     as T
 
 import Data.String.Unicode
 
@@ -74,23 +70,32 @@ import Hayoo.Signature
 
 import Hayoo.Search.Common
 import Hayoo.Search.JSON
-import Hayoo.Search.HTML
 import Hayoo.Search.Parser
-
-import Hayoo.Search.Pages.Template
-import Hayoo.Search.Pages.Static
 
 import Network.URI                      ( unEscapeString )
 
 import System.FilePath                  ( takeExtension )
 
+import Text.XML.HXT.Core
+
+#if hayooSnap4
+import Data.ByteString.Lazy.Char8       ( ByteString
+                                        , pack
+                                        , fromChunks
+                                        )
+import qualified Data.Text.Encoding     as T
+
+import Hayoo.Search.HTML
+import Hayoo.Search.Pages.Template
+import Hayoo.Search.Pages.Static
+
 import qualified
        Text.XHtmlCombinators            as X
-
-import Text.XML.HXT.Core
+#endif
 
 -- ------------------------------------------------------------
 
+#if hayooSnap4
 data Core = Core
           { index     :: ! HayooFctIndex
           , documents :: ! HayooFctDocuments
@@ -99,6 +104,49 @@ data Core = Core
           , template  :: ! Template
           , packRank  :: ! RankTable
           }
+
+-- | Just render an empty page/JSON answer
+
+renderEmpty                     :: Bool -> Core -> ByteString
+renderEmpty j idct
+    | j                         = writeJson
+    | otherwise                 = writeHtml
+    where
+    writeJson                   = pack $ renderEmptyJson
+    writeHtml                   = fromChunks [T.encodeUtf8 $ X.render $ (template idct) examples]
+
+-- | Parse the query and generate a result or an error depending on the parse result.
+
+renderResult :: (String, Int, Bool, Template) -> Bool -> Core  -> ByteString
+renderResult (r, s, i, t) j idct
+                        = decode
+                          >>>
+                          parseQuery
+                          >>>
+                          either emptyRes (genResult idct)
+                          >>>
+                          ( if j
+                            then pack . renderJson
+                            else writeHtml (RenderState r s i)
+                          )
+                          $ r
+      where
+      writeHtml rs      = filterStatusResult r
+                          >>>
+                          arr (applyTemplate rs)
+      applyTemplate rs sr
+                        = fromChunks [T.encodeUtf8 markup]
+          where
+          markup        = let rr = result rs sr in 
+                          if rsStatic rs
+                          then X.render $ t rr
+                          else X.render $ rr
+
+genResult ::  Core -> Query -> StatusResult
+genResult c q
+    = genResult' q (index c) (documents c) (pkgIndex c) (pkgDocs c) (packRank c)
+
+#endif
 
 -- ------------------------------------------------------------
 
@@ -160,43 +208,6 @@ filterStatusResult q (s, r@(Result dh wh), h, m, p)
   filteredResult
       | isSignature q           = r
       | otherwise               = Result dh (M.filterWithKey (\x _y -> not . isSignature $ x) wh)
-
--- | Just render an empty page/JSON answer
-
-renderEmpty                     :: Bool -> Core -> ByteString
-renderEmpty j idct
-    | j                         = writeJson
-    | otherwise                 = writeHtml
-    where
-    writeJson                   = pack $ renderEmptyJson
-    writeHtml                   = fromChunks [T.encodeUtf8 $ X.render $ (template idct) examples]
-
--- | Parse the query and generate a result or an error depending on the parse result.
-
-renderResult :: (String, Int, Bool, Template) -> Bool -> Core  -> ByteString
-renderResult (r, s, i, t) j idct
-                        = decode
-                          >>>
-                          parseQuery
-                          >>>
-                          either emptyRes (genResult idct)
-                          >>>
-                          ( if j
-                            then pack . renderJson
-                            else writeHtml (RenderState r s i)
-                          )
-                          $ r
-      where
-      writeHtml rs      = filterStatusResult r
-                          >>>
-                          arr (applyTemplate rs)
-      applyTemplate rs sr
-                        = fromChunks [T.encodeUtf8 markup]
-          where
-          markup        = let rr = result rs sr in 
-                          if rsStatic rs
-                          then X.render $ t rr
-                          else X.render $ rr
 
 -- Check requested path for JSON
 isJson                  :: FilePath -> Bool
@@ -273,10 +284,6 @@ emptyRes msg            = ( tail . dropWhile ((/=) ':') $ msg
                           , []
                           , []
                           )
-
-genResult ::  Core -> Query -> StatusResult
-genResult c q
-    = genResult' q (index c) (documents c) (pkgIndex c) (pkgDocs c) (packRank c)
 
 genResult' :: Query
            -> HayooFctIndex -> HayooFctDocuments
