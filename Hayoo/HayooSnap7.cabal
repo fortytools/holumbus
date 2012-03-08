@@ -148,6 +148,10 @@ Executable hayooSnap
   build-depends:   base                      >= 4     && < 5
                  , binary                    >= 0.5   && < 1
                  , bytestring                >= 0.9.1 && < 0.10
+                 , data-lens                 >= 2
+                 , data-lens-template        >= 2.1   && < 2.2
+                 , filepath                  >= 1     && < 2
+                 , heist                     >= 0.7   && < 0.9
                  , Holumbus-Searchengine     >= 1.2.3 && < 2
                  , hxt                       >= 9     && < 10
                  , hxt-unicode               >= 9     && < 10
@@ -155,17 +159,14 @@ Executable hayooSnap
                  , MonadCatchIO-transformers >= 0.2.1 && < 0.3
                  , mtl                       >= 2     && < 3
                  , network                   >= 2
+                 , old-locale                >= 1     && < 2
+                 , old-time                  >= 1     && < 2
                  , parsec                    >= 2     && < 4
-                 , text                      >= 0.11  && < 1
-                 , transformers              >= 0.2.2 && < 0.3
-
-                 , data-lens                 >= 2
-                 , data-lens-template        >= 2.1   && < 2.2
-                 , filepath
-                 , heist                     >= 0.7   && < 0.9
                  , snap                      >= 0.7   && < 0.9
                  , snap-core                 >= 0.7   && < 0.9
                  , snap-server               >= 0.7   && < 0.9
+                 , text                      >= 0.11  && < 1
+                 , transformers              >= 0.2.2 && < 0.3
                  , xmlhtml                   >= 0.1   && < 0.2
 
   if impl( ghc < 7.4 )

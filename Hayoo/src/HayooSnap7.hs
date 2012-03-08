@@ -57,7 +57,14 @@ import           Snap.Util.FileServe
 -- {-
 import           Snap.Util.GZip
 -- -}
+import           System.Directory               ( getModificationTime )
 import           System.FilePath                ( (</>) )
+import           System.Locale                  ( defaultTimeLocale
+                                                , rfc822DateFormat
+                                                )
+import           System.Time                    ( toUTCTime
+                                                , formatCalendarTime
+                                                )
 
 import           Text.Templating.Heist
 
@@ -78,6 +85,7 @@ data HayooCore
       , _sizeFct  :: ! Int
       , _sizePkg  :: ! Int
       , _pkgRank  :: ! RankTable
+      , _modTime  :: ! String
       }
 
 makeLenses [''HayooCore]
@@ -140,6 +148,7 @@ packagesSearched c
       [ "Concurrently search more than", show $ _sizePkg c
       , "packages and more than", show $ _sizeFct c
       , "functions!"
+      , "(Index generated: ", _modTime c, ")"
       ]
       
 ------------------------------------------------------------------------------
@@ -280,15 +289,18 @@ serverVersion
 hayooStateInit :: String -> SnapletInit App HayooState
 hayooStateInit ixBase
     = makeSnaplet "hayooState" "The Hayoo! index state snaplet" Nothing $
-      getHayooInitialState ixBase
+      getHayooInitialState printInfo ixBase
 
-getHayooInitialState    :: String -> Initializer b v HayooState
-getHayooInitialState ixBase
+getHayooInitialState    :: MonadIO m => (Text -> m ()) -> String -> m HayooState
+getHayooInitialState printInfo ixBase
     = do fidx  <- liftIO $ loadIndex     hayooIndex
          infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
                
          fdoc  <- liftIO $ loadDocuments hayooDocs
          infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
+
+         mtim  <- liftIO $ getModificationTime hayooIndex
+
          infoM "Hayoo.Main" ("Hayoo docs contains " ++ show (sizeDocs fdoc) ++ " functions and types")
 
          pidx <- liftIO $ loadPkgIndex     hackageIndex
@@ -307,8 +319,10 @@ getHayooInitialState ixBase
                     , _sizeFct  = sizeDocs fdoc
                     , _sizePkg  = sizeDocs pdoc
                     , _pkgRank  = prnk
+                    , _modTime  = formatDate mtim
                     }
     where
+      formatDate      = formatCalendarTime defaultTimeLocale rfc822DateFormat . toUTCTime
       hayooIndex      = ixBase ++ "/ix.bin.idx"
       hayooDocs       = ixBase ++ "/ix.bin.doc"
       hackageIndex    = ixBase ++ "/pkg.bin.idx"
