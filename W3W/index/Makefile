@@ -26,10 +26,9 @@ progs	= $(indexer) # $(search)
 # the -A option is important for garbage collection performance,
 # a good value is about the size of the L2 cache of the cpu
 # the default is set to 8M
-# value of H reduced from 500 to 100, else out of memory on w3w
 
 N       = 1
-H       = 100
+H       = 500
 A       = 8
 K       = 100
 RUNOPTS =+RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS

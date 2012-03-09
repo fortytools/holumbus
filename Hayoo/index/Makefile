@@ -28,20 +28,20 @@ progs	= $(indexer) $(search) $(fastcgi)
 # the -A option is important for garbage collection performance,
 # a good value is about the size of the L2 cache of the cpu
 # the default is set to 8M
-# value of H reduced from 500 to 100, else out of memory on w3w
 
 N       = 1
-H       = 100
+H       = 500
 A       = 8
-K       = 100
+K       = 200
 RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 
 # partition: size of partial indexes build with whole-index
+#            if size >= 1000, there occur "out of memory" errors when writing partial indexes
 # maxpar:    maximum of docs indexed and merged in paralled ( <= partition )
 # maxdocs:   upper limit of # of docs, hackage has about 21000 docs (2012-03-09)
 
-partition =1000
-maxpar    =1000
+partition =500
+maxpar    =500
 maxdocs   =30000
 
 all	:
