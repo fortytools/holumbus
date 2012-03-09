@@ -28,12 +28,21 @@ progs	= $(indexer) $(search) $(fastcgi)
 # the -A option is important for garbage collection performance,
 # a good value is about the size of the L2 cache of the cpu
 # the default is set to 8M
+# value of H reduced from 500 to 100, else out of memory on w3w
 
 N       = 1
-H       = 500
+H       = 100
 A       = 8
 K       = 100
 RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
+
+# partition: size of partial indexes build with whole-index
+# maxpar:    maximum of docs indexed and merged in paralled ( <= partition )
+# maxdocs:   upper limit of # of docs, hackage has about 21000 docs (2012-03-09)
+
+partition =1000
+maxpar    =1000
+maxdocs   =30000
 
 all	:
 	cd .. && cabal configure && cabal build && cabal install
@@ -73,12 +82,12 @@ whole-index	: $(indexer)
 	@echo "the computation is done in 1 single run, but the index is spit into chunks"
 	@echo " and written out chunk by chunk, then at the end these chunks are combined into the complete index"
 	@echo "preparing and writing the compressed index requires most of the runtime"
-	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --partition=2500 --maxpar=2500 --maxdocs=30000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --partition=$(partition) --maxpar=$(maxpar) --maxdocs=$(maxdocs) --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
 
 whole-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)", an XML version is stored in "$(px).xml" 
-	$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --maxpar=5000 --valid=$(validix) --new-index=$(px) --xml-output=$(px).xml --new-search=$(px) $(OPTS)
+	$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --maxpar=$(maxpar) --valid=$(validix) --new-index=$(px) --xml-output=$(px).xml --new-search=$(px) $(OPTS)
 
 whole	:
 	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
@@ -96,7 +105,7 @@ update-cache	: $(indexer)
 	@echo the list of loaded pages is written into file "cache.xml"
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --maxpar=5000 --latest=$(latest) --xml-output=cache.xml
+	$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --maxpar=$(maxpar) --latest=$(latest) --xml-output=cache.xml
 
 update-index	: $(indexer)
 	@echo update an existing hayoo index with all packages uploaded to hackage within the last $(latest)

@@ -23,14 +23,24 @@ search	= $(bindir)/w3wSearch
 
 progs	= $(indexer) # $(search)
 
-# the -A option is important for garbage collection performance, a good value is about the size of the L2 cache of the cpu
+# the -A option is important for garbage collection performance,
+# a good value is about the size of the L2 cache of the cpu
 # the default is set to 8M
+# value of H reduced from 500 to 100, else out of memory on w3w
 
 N       = 1
-H       = 500
+H       = 100
 A       = 8
 K       = 100
 RUNOPTS =+RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
+
+# partition: size of partial indexes build with whole-index
+# maxpar:    maximum of docs indexed and merged in paralled ( <= partition )
+# maxdocs:   upper limit of # of docs, hackage has about 21000 docs (2012-03-09)
+
+partition =1000
+maxpar    =1000
+maxdocs   =30000
 
 all	:
 	cd .. && cabal configure && cabal build && cabal install
@@ -44,12 +54,12 @@ force	:
 	$(MAKE) all
 
 whole-cache	: $(indexer)
-	@echo "load w3w cache from fh-wedel.de and ptl.de, all pages are (re-)loaded, parsed and stored in binary form in subdir cache"
+	@echo "load w3w cache from fh-wedel.de and ptl.de, all pages are (re-)loaded,"
+	@echo " parsed and stored in binary form in subdir cache"
 	@echo 'the list of loaded pages is written into file "cache.xml"'
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
 	$< $(RUNOPTS) --build-cache --maxthreads=$(threads) --valid=$(valid) --xml-output=cache.xml
-# --test-index
 
 whole-index	: $(indexer)
 	@echo "build an index of all haddock pages on hackage in a single run"
@@ -58,35 +68,16 @@ whole-index	: $(indexer)
 	@echo "the computation is done in 1 single run, but the index is spit into chunks"
 	@echo " and written out chunk by chunk, then at the end these chunks are combined into the complete index"
 	@echo "preparing and writing the compressed index requires most of the runtime"
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --partition=1000 --maxpar=1000 --maxdocs=30000 --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+	$< $(RUNOPTS) --build-index \
+		--maxthreads=$(threads) \
+		--partition=$(partition) \
+		--maxpar=$(maxpar) \
+		--maxdocs=$(maxdocs) \
+		--valid=$(validix) \
+		--new-index=$(ix) \
+		--new-search=$(ix) \
+		$(OPTS)
 
-
-whole-index1	: $(indexer)
-	@echo "build an index of all fhw and ptl pages"
-	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
-	@echo 'the result index is "$(ix)"'
-	@echo 'the result as xml is "$(ix).xml"'
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=01000 --valid=$(validix) --new-index=$(ix)-01000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=02000 --valid=$(validix) --new-index=$(ix)-02000 --resume=tmp/ix-0000001000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=03000 --valid=$(validix) --new-index=$(ix)-03000 --resume=tmp/ix-0000002000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=04000 --valid=$(validix) --new-index=$(ix)-04000 --resume=tmp/ix-0000003000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=05000 --valid=$(validix) --new-index=$(ix)-05000 --resume=tmp/ix-0000004000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=06000 --valid=$(validix) --new-index=$(ix)-06000 --resume=tmp/ix-0000005000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=07000 --valid=$(validix) --new-index=$(ix)-07000 --resume=tmp/ix-0000006000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=08000 --valid=$(validix) --new-index=$(ix)-08000 --resume=tmp/ix-0000007000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=09000 --valid=$(validix) --new-index=$(ix)-09000 --resume=tmp/ix-0000008000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=10000 --valid=$(validix) --new-index=$(ix)-10000 --resume=tmp/ix-0000009000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=11000 --valid=$(validix) --new-index=$(ix)-11000 --resume=tmp/ix-0000010000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=1000 --maxdocs=12000 --valid=$(validix) --new-index=$(ix)-12000 --resume=tmp/ix-0000011000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=0500 --maxdocs=12500 --valid=$(validix) --new-index=$(ix)-12500 --resume=tmp/ix-0000012000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=0500 --maxdocs=13000 --valid=$(validix) --new-index=$(ix)-13000 --resume=tmp/ix-0000012500 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=0500 --maxdocs=13500 --valid=$(validix) --new-index=$(ix)-13500 --resume=tmp/ix-0000013000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=0500 --maxdocs=14000 --valid=$(validix) --new-index=$(ix)-14000 --resume=tmp/ix-0000013500 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=0500 --maxdocs=14500 --valid=$(validix) --new-index=$(ix)-14500 --resume=tmp/ix-0000014000 $(OPTS)
-	$< $(RUNOPTS) --build-index --maxthreads=$(threads) --maxpar=0500 --maxdocs=15000 --valid=$(validix) --new-index=$(ix)       --resume=tmp/ix-0000014500 --new-search=$(ix) $(OPTS) 
-
-# --test-index
-# --xml-output=$(ix).xml
 
 whole	:
 	@echo "update cache for all pages, this may run about 1 to 2 hours"
@@ -110,7 +101,13 @@ install-index	: $(ix).doc $(ix).idx
 	cp -v $(ix).doc $(ix).idx
 
 test-index	: $(indexer)
-	$< $(RUNOPTS) --test-index --maxthreads=$(threads) --maxpar=100 --maxdocs=500 --valid=$(validix) --new-index=$(ixt) --new-search=$(ixt) --xml-output=$(ixt).xml $(OPTS)
+	$< $(RUNOPTS) --test-index --maxthreads=$(threads) \
+		--maxpar=100 --maxdocs=500 \
+		--valid=$(validix) \
+		--new-index=$(ixt) \
+		--new-search=$(ixt) \
+		--xml-output=$(ixt).xml \
+		$(OPTS)
 
 clean	:
 	rm -f *.o *.hi $(progs) *.out
