@@ -292,7 +292,7 @@ hayooStateInit ixBase
       getHayooInitialState printInfo ixBase
 
 getHayooInitialState    :: MonadIO m => (Text -> m ()) -> String -> m HayooState
-getHayooInitialState printInfo ixBase
+getHayooInitialState printInfo' ixBase
     = do fidx  <- liftIO $ loadIndex     hayooIndex
          infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
                
@@ -328,6 +328,6 @@ getHayooInitialState printInfo ixBase
       hackageIndex    = ixBase ++ "/pkg.bin.idx"
       hackageDocs     = ixBase ++ "/pkg.bin.doc"
 
-      infoM m msg     = printInfo $ T.pack $ m ++ ": " ++ msg
+      infoM m msg     = printInfo' $ T.pack $ m ++ ": " ++ msg
 
 ------------------------------------------------------------------------------

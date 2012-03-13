@@ -150,6 +150,7 @@ Executable hayooSnap
                  , bytestring                >= 0.9.1 && < 0.10
                  , data-lens                 >= 2
                  , data-lens-template        >= 2.1   && < 2.2
+                 , directory                 >= 1     && < 2
                  , filepath                  >= 1     && < 2
                  , heist                     >= 0.7   && < 0.9
                  , Holumbus-Searchengine     >= 1.2.3 && < 2

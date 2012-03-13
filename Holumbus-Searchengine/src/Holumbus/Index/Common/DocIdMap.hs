@@ -161,8 +161,8 @@ toListDocIdMap                  = IM.toList . unDIM
 keysDocIdMap                    :: DocIdMap v -> [DocId]
 keysDocIdMap                    = IM.keys . unDIM
 
-elemsDocIdMap                    :: DocIdMap v -> [v]
-elemsDocIdMap                    = IM.elems . unDIM
+elemsDocIdMap                   :: DocIdMap v -> [v]
+elemsDocIdMap                   = IM.elems . unDIM
 
 instance NFData v => NFData (DocIdMap v) where
     rnf                         = rnf . toListDocIdMap

@@ -60,7 +60,12 @@ whole-cache	: $(indexer)
 	@echo 'the list of loaded pages is written into file "cache.xml"'
 	[ -d ./tmp ]   || mkdir tmp
 	[ -d ./cache ] || mkdir cache
-	$< $(RUNOPTS) --cache --hackage --maxthreads=$(threads) --valid=$(valid) --xml-output=cache.xml
+	$< $(RUNOPTS) --cache \
+		--hackage \
+		--maxthreads=$(threads) \
+		--valid=$(valid) \
+		--xml-output=cache.xml
+	ls -l cache.xml
 
 whole-index-old	: $(indexer)
 	@echo "build an index of all haddock pages on hackage"
@@ -82,22 +87,43 @@ whole-index	: $(indexer)
 	@echo "the computation is done in 1 single run, but the index is spit into chunks"
 	@echo " and written out chunk by chunk, then at the end these chunks are combined into the complete index"
 	@echo "preparing and writing the compressed index requires most of the runtime"
-	$< $(RUNOPTS) --fct-index --maxthreads=$(threads) --partition=$(partition) --maxpar=$(maxpar) --maxdocs=$(maxdocs) --valid=$(validix) --new-index=$(ix) --new-search=$(ix) $(OPTS)
+	rm -f tmp/ix-*
+	$< $(RUNOPTS) --fct-index \
+		--maxthreads=$(threads) \
+		--partition=$(partition) \
+		--maxpar=$(maxpar) \
+		--maxdocs=$(maxdocs) \
+		--valid=$(validix) \
+		--new-index=$(ix) \
+		--new-search=$(ix) \
+		$(OPTS)
+	ls -l $(ix)*
 
 whole-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)", an XML version is stored in "$(px).xml" 
-	$< $(RUNOPTS) --pkg-index --ranking --maxthreads=$(threads) --maxpar=$(maxpar) --valid=$(validix) --new-index=$(px) --xml-output=$(px).xml --new-search=$(px) $(OPTS)
+	rm -f tmp/pkg-*
+	$< $(RUNOPTS) --pkg-index \
+		--ranking \
+		--maxthreads=$(threads) \
+		--maxpar=$(maxpar) \
+		--valid=$(validix) \
+		--new-index=$(px) \
+		--xml-output=$(px).xml \
+		--new-search=$(px) \
+		$(OPTS)
+	ls -l $(px)*
 
 whole	:
+	[ -d ./log ]   || mkdir log
 	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
-	$(MAKE) whole-cache 2> whole-cache.out
+	$(MAKE) whole-cache > log/whole-cache.out 2>&1
 	@echo "create index for all haddock pages"
-	$(MAKE) whole-index 2> whole-ix.out
+	$(MAKE) whole-index > log/whole-index.out 2>&1
 	@echo "create index for hackage packages, this needs just a few minutes, output is $(px), xml output pkg.xml, log file is pkg.out"
-	$(MAKE) whole-pkg 2> whole-pkg.out
+	$(MAKE) whole-pkg   > log/whole-pkg.out   2>&1
 	@echo look at the following files
-	@ls -l *.bin *.out
+	@ls -l *.bin* log/whole-*.out
 
 
 update-cache	: $(indexer)

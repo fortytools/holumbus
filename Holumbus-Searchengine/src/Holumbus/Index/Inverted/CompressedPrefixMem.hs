@@ -39,6 +39,7 @@ where
 
 import qualified Codec.Compression.BZip as BZ
 
+import           Control.Arrow          ( second )
 import           Control.DeepSeq
 
 import qualified Data.ByteString.Lazy   as BS
@@ -57,7 +58,18 @@ import           Holumbus.Index.Compression
 
 import qualified Holumbus.Data.PrefixTree       as PT
 
-import           Text.XML.HXT.Core
+import           Text.XML.HXT.Core      ( PU
+                                        , XmlPickler
+                                        , xpickle
+                                        , xpAttr
+                                        , xpElem
+                                        , xpList
+                                        , xpPair
+                                        , xpText
+                                        , xpWrap
+                                        )
+
+-- import           Debug.Trace            ( trace )
 
 -- ----------------------------------------------------------------------------
 
