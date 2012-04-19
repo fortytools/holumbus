@@ -120,7 +120,7 @@ description
 appInit :: SnapletInit App App
 appInit
     = makeSnaplet "hayoo" description Nothing $
-      do hs <- nestSnaplet "" heist $ heistInit "resources/templates"
+      do hs <- nestSnaplet "" heist $ heistInit "templates" -- !! templates are located in snaplets/heist/templates
          hy <- nestSnaplet "" hayooState $ hayooStateInit "./lib"
 
          addRoutes [ ("/",              render "examples")
