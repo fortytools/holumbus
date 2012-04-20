@@ -57,13 +57,13 @@ where
 import           Prelude                hiding (null)
 
 import           Control.DeepSeq
-import           Control.Monad  	( liftM2 )
+import           Control.Monad          ( liftM2 )
 
-import           Data.Binary    	( Binary (..) )
+import           Data.Binary            ( Binary (..) )
 import           Data.Function
-import           Data.Map       	( Map )
-import qualified Data.Map       	as M
-import qualified Data.List      	as L
+import           Data.Map               ( Map )
+import qualified Data.Map               as M
+import qualified Data.List              as L
 
 import           Holumbus.Utility
 import           Holumbus.Index.Common

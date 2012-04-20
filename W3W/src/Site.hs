@@ -26,15 +26,16 @@ import W3WState
 import Control.Applicative
 import Control.Monad.Trans
 
-import Data.List                as L
-import Data.Map                 as M
-import Data.Maybe
-import Data.Text                as T
-import Data.Text.Encoding       as E
+import qualified Data.List                as L
+import qualified Data.Map                 as M
+import           Data.Maybe
+import qualified Data.Text                as T
+import qualified Data.Text.Encoding       as E
 
 import Holumbus.Index.Common
 import Holumbus.Query.Language.Grammar
 import Holumbus.Query.Result
+import Holumbus.Utility         ( strip )
 
 import Prelude                  as P
 
@@ -97,8 +98,8 @@ queryFunction = do
 getQueryStringParam :: String -> Application String
 getQueryStringParam param = do
   let decodedParam p = fromMaybe "" <$> getParam p
-  query <- decodedParam $ encodeUtf8 $ T.pack param
-  return $ T.unpack (E.decodeUtf8 query)
+  query <- decodedParam $ E.encodeUtf8 $ T.pack param
+  return . strip . T.unpack . E.decodeUtf8 $ query
 
 -- ------------------------------------------------------------------------------
 -- | creates a HTML List-Item containing a List with the link to the document found, the teasertext and the ranking-score
