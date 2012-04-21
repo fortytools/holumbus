@@ -52,17 +52,17 @@
       <div id="sponsors">
         <div id="hol">
           <a href="http://holumbus.fh-wedel.de">
-            <img src="hayoo/hol.png" alt="Holumbus logo" class="logo"/>
+            <img src="/hayoo/hol.png" alt="Holumbus logo" class="logo"/>
           </a>
         </div>
         <div id="ft">
           <a href="http://www.fortytools.com">
-            <img src="hayoo/ft.png" alt="fortytools logo" class="logo"/>
+            <img src="/hayoo/ft.png" alt="fortytools logo" class="logo"/>
           </a>
         </div>
         <div id="fhw">
           <a href="http://www.fh-wedel.de">
-            <img src="hayoo/fhw.gif" alt="FH-Wedel logo" class="logo"/>
+            <img src="/hayoo/fhw.gif" alt="FH-Wedel logo" class="logo"/>
           </a>
         </div>
       </div>

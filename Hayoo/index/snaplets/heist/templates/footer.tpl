@@ -7,7 +7,7 @@
       and
     </div>
     <a href="http://holumbus.fh-wedel.de">
-      <img src="hayoo/holumbus.png" alt="Holumbus logo" class="logo" />
+      <img src="/hayoo/holumbus.png" alt="Holumbus logo" class="logo" />
     </a>
   </div>
   <div id="authors">

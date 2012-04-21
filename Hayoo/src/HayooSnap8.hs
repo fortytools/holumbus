@@ -123,15 +123,19 @@ appInit
       do hs <- nestSnaplet "" heist $ heistInit "templates" -- !! templates are located in snaplets/heist/templates
          hy <- nestSnaplet "" hayooState $ hayooStateInit "./lib"
 
-         addRoutes [ ("/",              render "examples")
-                   , ("/hayoo.html",    with hayooState hayooHtml)
-                   , ("/hayoo.json",    with hayooState hayooJson)
-                   , ("/examples.html", render "examples")
-                   , ("/help.html",     render "help")
-                   , ("/about.html",    render "about")
-                   , ("/api.html",      render "api")
-                   , ("/hayoo/:stuff",  serveHayooStatic)
-                   , ("/:stuff",        render "examples")  -- default handler
+         addRoutes [ ("/hayoo/hayoo.html",    with hayooState hayooHtml)
+                   , ("/hayoo/hayoo.json",    with hayooState hayooJson)
+                   , ("/hayoo/examples.html", render "examples")
+                   , ("/hayoo/help.html",     render "help")
+                   , ("/hayoo/about.html",    render "about")
+                   , ("/hayoo/api.html",      render "api")
+                   , ("/hayoo/:stuff",        catch404 serveHayooStatic)
+                   , ("/hayoo/",              redirect "/hayoo/hayoo.html")
+                   , ("/:stuff",              redirect "/hayoo/hayoo.html")
+                   , ("/",                    redirect "/hayoo/hayoo.html")
+                   -- , ("/",                    writeBS "root")     -- test
+                   -- , ("/:stuff",              servePong)          -- test
+                   -- , ("/:stuff",              render "examples")  -- default handler
                    ]
          addSplices [ ("snap-version", serverVersion)
                     , ( "packages-searched"
@@ -160,7 +164,13 @@ serveHayooStatic
          serveFile $ "resources/static" </> B.unpack relPath
     where
       decodedParam p = fromMaybe "" <$> getParam p
-
+{-
+servePong :: Handler App App ()
+servePong
+    = do relPath <- fromMaybe "???" <$> getParam "stuff"
+         writeBS $ "path="
+         writeBS $ relPath
+--}
 ------------------------------------------------------------------------------
 -- | Render JSON page
 
@@ -279,6 +289,17 @@ catch500 m
       r = setContentType "text/html" $
           setResponseStatus 500 "Internal Server Error" emptyResponse
 
+catch404 :: MonadSnap m => m a -> m ()
+catch404 m
+    = (m >> return ()) `catch`
+      \ (_e::SomeException) -> do
+        putResponse r
+        writeBS "<html><head><title>Page not found</title></head>"
+        writeBS "<body><h1>Page not found</h1>"
+        writeBS "</body></html>"
+    where
+      r = setContentType "text/html" $
+          setResponseStatus 404 "Not Found" emptyResponse
 
 serverVersion :: SnapletSplice b v
 serverVersion

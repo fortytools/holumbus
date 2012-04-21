@@ -61,7 +61,7 @@ whole-cache	: $(indexer)
 	$< $(RUNOPTS) --build-cache --maxthreads=$(threads) --valid=$(valid) --xml-output=cache.xml
 
 whole-index	: $(indexer)
-	@echo "build an index of all haddock pages on hackage in a single run"
+	@echo "build an index of all FH Wedel pages in a single run"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
 	@echo 'the result index is "$(ix)"'
 	@echo "the computation is done in 1 single run, but the index is spit into chunks"
@@ -84,7 +84,7 @@ whole	:
 	@echo "create index for all pages"
 	$(MAKE) whole-index 2> whole-ix.out
 	@echo "look at the following files"
-	@ls -l *.bin *.out
+	@ls -l $(ix).* *.out || true
 
 new2cur	: $(ixn).doc $(ixn).idx $(pxn).doc $(pxn).idx
 	mv -f $(ix) $(ix)~
@@ -113,3 +113,4 @@ clean	:
 
 reset	:
 	rm -rf cache/* tmp/*
+
