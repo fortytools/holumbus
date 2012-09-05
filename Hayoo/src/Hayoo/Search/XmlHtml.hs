@@ -13,15 +13,16 @@ import           Control.Monad
 import           Control.Monad.Writer
 
 
-import           Data.Char      ( toLower
-                                , isSpace
-                                )
+import qualified Data.ByteString.Char8  as C
+import           Data.Char              ( toLower
+                                        , isSpace
+                                        )
 import           Data.Function
-import qualified Data.List      as L
-import qualified Data.Map       as M
+import qualified Data.List              as L
+import qualified Data.Map               as M
 import           Data.Maybe
 import           Data.Monoid
-import           Data.Text      (Text, pack)
+import           Data.Text              (Text, pack)
 
 import           Holumbus.Utility hiding (escape, join)
 import           Holumbus.Index.Common
@@ -80,7 +81,10 @@ type Attr  = (Text, Text)
 type Attrs = [Attr]
 
 tellNode :: Node -> XHtml ()
-tellNode n = X () (Full $ \ xs -> xs ++ [n])
+tellNode = tellNodes . (:[])
+
+tellNodes :: [Node] -> XHtml ()
+tellNodes ns = X () (Full $ \ xs -> xs ++ ns)
 
 empty :: XHtml ()
 empty = return ()
@@ -124,6 +128,19 @@ div_, table, tbody :: XHtml () -> XHtml ()
 div_      = elem0 "div"
 table     = elem0 "table"
 tbody     = elem0 "tbody"
+
+-- ------------------------------------------------------------
+
+xhtml :: String -> XHtml ()
+xhtml s
+    | L.null s
+        = ndg
+    | otherwise
+        = case parseXML "" . C.pack $ s of
+            Left _  -> ndg
+            Right d -> tellNodes . docContent $ d
+    where
+      ndg = text "No description."
 
 -- ------------------------------------------------------------
 
@@ -293,8 +310,7 @@ functionInfo (_, (DocInfo (Document t u (Just fi)) r, _))
                     a' [a_class_ "package", a_href $ pack (pkgLink $ package fi)] $ text (package fi)
                 td' [a_class_ "description", a_colspan "2"] $
                     div_ $ do a' [a_class_ "toggleFold", onclick "toggleFold(this);"] $ empty
-                              div' [a_class_ "description"] $ let f = fctDescr fi in
-                                   if L.null f then text "No description." else text f
+                              div' [a_class_ "description"] $ xhtml $ fctDescr fi
                               let c = sourceURI fi
                               if L.null c
                                  then empty
