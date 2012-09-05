@@ -9,7 +9,7 @@ module Hayoo.Search.XmlHtml
     , renderXmlHtml
     )
 where
-import           Control.Monad
+import           Control.Monad          ()
 import           Control.Monad.Writer
 
 
@@ -21,7 +21,7 @@ import           Data.Function
 import qualified Data.List              as L
 import qualified Data.Map               as M
 import           Data.Maybe
-import           Data.Monoid
+import           Data.Monoid            ()
 import           Data.Text              (Text, pack)
 
 import           Holumbus.Utility hiding (escape, join)
