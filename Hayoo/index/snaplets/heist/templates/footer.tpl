@@ -3,7 +3,8 @@
     <div id="libs">
       Powered by
       <a class="credits" href="http://www.haskell.org">Haskell</a>,
-      <a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>
+      <a class="credits" href="http://www.fh-wedel.de/~si/HXmlToolbox/">HXT</a>,
+      <a class="credits" href="http://www.snapframework.com">Snap</a>,
       and
     </div>
     <a href="http://holumbus.fh-wedel.de">
@@ -16,7 +17,7 @@
       <a href="mailto:hayoo@holumbus.org">hayoo@holumbus.org</a>
     </div>
     <div id="copyright">
-      Hayoo! beta 2.3 © 2012
+      Hayoo! beta 2.4 © 2012
       <span class="author"><a href="http://tbh.github.com">Timo B. Kranz</a></span>,
       <span class="author">Sebastian M. Gauck</span> &
       <span class="author">Uwe Schmidt</span>

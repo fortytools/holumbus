@@ -98,7 +98,6 @@ function displayResult (result, query) {
   if (refreshRequired) {
     refreshRequired = false;
     $("result").replace(result);
-    $("querytext").defaultValue = query;
   }
   $("throbber").hide();
 }
