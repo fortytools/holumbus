@@ -21,9 +21,11 @@ pxn	= new-$(px)
 bindir  = $(HOME)/.cabal/bin
 
 indexer	= $(bindir)/hayooIndexer
-search	= $(bindir)/hayooSearch
-fastcgi	= $(bindir)/hayooFastCGI
-progs	= $(indexer) $(search) $(fastcgi)
+snap	= $(bindir)/hayooSnap
+# search	= $(bindir)/hayooSearch
+# fastcgi	= $(bindir)/hayooFastCGI
+
+progs	= $(indexer) $(snap)
 
 # the -A option is important for garbage collection performance,
 # a good value is about the size of the L2 cache of the cpu
@@ -64,7 +66,8 @@ whole-cache	: $(indexer)
 		--hackage \
 		--maxthreads=$(threads) \
 		--valid=$(valid) \
-		--xml-output=cache.xml
+		--xml-output=cache.xml \
+                $(OPTS)
 	ls -l cache.xml
 
 whole-index-old	: $(indexer)
@@ -204,7 +207,7 @@ testpkg	:
 test	: testix testpkg
 
 search	:
-	hayooSnap +RTS -s -RTS &
+	$(snap) +RTS -s -RTS &
 
 .PHONY	: all force \
 	whole whole-cache whole-index whole-pkg \
