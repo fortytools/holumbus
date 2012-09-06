@@ -300,28 +300,39 @@ functionInfo (_, (DocInfo (Document t u (Just fi)) r, _))
     = tbody $
       do tr' [a_class_ "function"] $
              do td' [a_class_ "module"] $
-                    a' [a_class_ "module", a_href $ pack (modLink u)] $ text (moduleName fi ++ ".")
+                    a' [a_class_ "module", a_href $ pack modLink] $ text (moduleName fi ++ ".")
                 td' [a_class_ "name"] $
-                    a' [a_class_ "function", a_href $ pack u, a_title $ pack ("Score: " ++ show r)] $ text t
+                    a' [a_class_ "function", a_href $ pack u, a_title $ pack $ "Score: " ++ show r] $ text t
                 td' [a_class_ "signature"] $
                     sigDecl (signature fi)
          tr' [a_class_ "details"] $
              do td' [a_class_ "package"] $
-                    a' [a_class_ "package", a_href $ pack (pkgLink $ package fi)] $ text (package fi)
+                    a' [a_class_ "package", a_href $ pack pkgLink] $ text $ package fi
                 td' [a_class_ "description", a_colspan "2"] $
                     div_ $ do a' [a_class_ "toggleFold", onclick "toggleFold(this);"] $ empty
                               div' [a_class_ "description"] $ xhtml $ fctDescr fi
-                              let c = sourceURI fi
-                              if L.null c
+                              let src = sourceURI fi
+                              if L.null src
                                  then empty
                                  else span' [a_class_ "source"] $
-                                      a' [a_class_ "source", a_href $ pack c] $
+                                      a' [a_class_ "source", a_href $ pack $ srcLink src] $
                                       text "Source"
     where
       modLink
-          = takeWhile ((/=) '#')
+          = takeWhile ((/=) '#') u
+
+      baseLink
+          = reverse . dropWhile (/= '/') . reverse $ modLink
+
       pkgLink
-          = (++) "http://hackage.haskell.org/package/"
+          = "http://hackage.haskell.org/package/" ++ package fi
+
+      srcLink l'
+          | "src/" `L.isPrefixOf` l'    -- relative source link to .../<modname>/latest/doc/html/src/...
+              = baseLink ++ l'
+          | otherwise
+              = l'
+
       sigDecl s'
           | s' `elem` ["data", "type", "newtype", "class", "module"]
               = span' [a_class_ "declaration"] $ text s
