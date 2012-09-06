@@ -45,7 +45,9 @@ dagFromList l                   = -- traceShow l $
                                   foldl (flip insEdges) M.empty $ l
 
 insEdges                        :: (Ord a, Show a) => (a, Set a) -> DAG a -> DAG a
-insEdges (x, ys) g              = S.fold insEdge' g $ ys
+insEdges (x, ys) g
+    | S.null ys                 = M.insertWith S.union x ys g
+    | otherwise                 = S.fold insEdge' g $ ys
     where
     insEdge' y' g'              = insertEdge x y' g'
 
