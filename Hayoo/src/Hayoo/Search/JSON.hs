@@ -61,7 +61,7 @@ renderJson (msg, res, _, mods, pkgs)
                           ]
 
 buildDocHits            :: DocHits FunctionInfo -> JSValue
-buildDocHits dh         = JSArray $ map buildDoc $ reverse $ L.sortBy (compare `on` (docScore . fst. snd)) $ toListDocIdMap dh
+buildDocHits dh         = JSArray $ map buildDoc $ reverse $ take 100 $ L.sortBy (compare `on` (docScore . fst. snd)) $ toListDocIdMap dh
 
 buildDoc                :: (DocId, (DocInfo FunctionInfo, DocContextHits)) -> JSValue
 buildDoc (_, (DocInfo (Document t u (Just fi)) _, _))
@@ -76,7 +76,7 @@ buildDoc (_, (DocInfo (Document t u (Just fi)) _, _))
 buildDoc _              = error "Expected custom function info"
 
 buildWordHits           :: WordHits -> JSValue
-buildWordHits wh        = JSArray $ map buildWord (L.sortBy (compare `on` (wordScore . fst . snd)) $ M.toList wh)
+buildWordHits wh        = JSArray $ map buildWord (take 500 $ L.sortBy (compare `on` (wordScore . fst . snd)) $ M.toList wh)
 
 buildWord               :: (Word, (WordInfo, WordContextHits)) -> JSValue
 buildWord (w, (WordInfo _ s, _))
