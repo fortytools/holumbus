@@ -4,7 +4,7 @@
     <div id="container">
       <apply template="info" />
       <apply template="query" />
-      <content />
+      <apply-content />
       <apply template="footer" />
     </div>
   </body>

@@ -1,72 +1,52 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveDataTypeable   #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 -- ------------------------------------------------------------
 
 module Main where
 
-import           Control.Category               ( (>>>) )
 import           Control.Applicative
-import           Control.Exception              ( SomeException )
-import           Control.Monad
-import           Control.Monad.CatchIO          ( catch )
+import           Control.Exception       (SomeException)
+import           Control.Lens
+import           Control.Monad           ()
+import qualified Control.Monad.CatchIO   as C (catch)
 import           Control.Monad.State
 
-import qualified Data.ByteString.Char8          as B
-
-import           Data.Lens.Common
-import           Data.Lens.Template
-import           Data.Map                       ( toList )
+import qualified Data.ByteString.Char8   as B
+import           Data.Map                (toList)
 import           Data.Maybe
-
-import           Data.Text                      ( Text )
-import qualified Data.Text                      as T
-import qualified Data.Text.Encoding             as T
+import           Data.Text               (Text)
+import qualified Data.Text               as T
+import qualified Data.Text.Encoding      as T
+import           Data.Time.Format        (formatTime)
 
 import           Hayoo.IndexTypes
-import           Hayoo.Search.EvalSearch        ( emptyRes
-                                                , filterStatusResult
-                                                , genResult'
-                                                , getValDef
-                                                , loadDocuments
-                                                , loadIndex
-                                                , loadPkgDocs
-                                                , loadPkgIndex
-                                                , parseQuery
-                                                , readDef
-                                                , renderEmptyJson
-                                                , renderJson
-                                                )
-import           Hayoo.Search.XmlHtml           ( RenderState(..)
-                                                , result
-                                                , renderXmlHtml
-                                                )
-import           Holumbus.Index.Common          ( sizeDocs )
+import           Hayoo.Search.EvalSearch (emptyRes, filterStatusResult,
+                                          genResult', getValDef, loadDocuments,
+                                          loadIndex, loadPkgDocs, loadPkgIndex,
+                                          parseQuery, readDef, renderEmptyJson,
+                                          renderJson)
+import           Hayoo.Search.XmlHtml    (RenderState (..), renderXmlHtml,
+                                          result)
 
-import           Prelude                        hiding (catch)
+import           Heist.Interpreted
 
-import           Snap.Http.Server
+import           Holumbus.Index.Common   (sizeDocs)
+
 import           Snap.Core
+import           Snap.Http.Server
 import           Snap.Snaplet
 import           Snap.Snaplet.Heist
 import           Snap.Util.FileServe
--- {-
 import           Snap.Util.GZip
--- -}
-import           System.Directory               ( getModificationTime )
-import           System.FilePath                ( (</>) )
-import           System.Locale                  ( defaultTimeLocale
-                                                , rfc822DateFormat
-                                                )
-import           System.Time                    ( toUTCTime
-                                                , formatCalendarTime
-                                                )
 
-import           Text.Templating.Heist
+import           System.Directory        (getModificationTime)
+import           System.FilePath         ((</>))
+import           System.Locale           (defaultTimeLocale, rfc822DateFormat)
 
 ------------------------------------------------------------------------------
 
@@ -88,14 +68,14 @@ data HayooCore
       , _modTime  :: ! String
       }
 
-makeLenses [''HayooCore]
+makeLenses ''HayooCore
 
 ------------------------------------------------------------------------------
 
 newtype HayooState
     = HayooState { _hayooCore :: HayooCore }
 
-makeLenses [''HayooState]
+makeLenses ''HayooState
 
 data App
     = App
@@ -103,7 +83,7 @@ data App
       , _hayooState :: Snaplet HayooState
       }
 
-makeLenses [''App]
+makeLenses ''App
 
 instance HasHeist App where
     heistLens = subSnaplet heist
@@ -138,23 +118,20 @@ appInit
                    -- , ("/:stuff",              render "examples")  -- default handler
                    ]
          addSplices [ ("snap-version", serverVersion)
-                    , ( "packages-searched"
-                      , packagesSearched $
-                        getL (snapletValue >>> hayooCore) hy
-                      )
+                    , ("packages-searched", packagesSearched $ view (snapletValue . hayooCore) hy)
                     ]
-         wrapHandlers $ catch500 . withCompression      -- add compression and internal server error
+         wrapSite $ catch500 . withCompression      -- add compression and internal server error
          return $ App hs hy
 
-packagesSearched :: HayooCore -> SnapletSplice b v
+packagesSearched :: HayooCore -> SnapletISplice b
 packagesSearched c
-    = liftHeist $ textSplice $ T.pack $ unwords $
+    = textSplice $ T.pack $ unwords $
       [ "Concurrently search more than", show $ _sizePkg c
       , "packages and more than", show $ _sizeFct c
       , "functions!"
       , "(Index generated: ", _modTime c, ")"
       ]
-      
+
 ------------------------------------------------------------------------------
 -- | Deliver Hayoo files
 
@@ -269,13 +246,15 @@ jsonResponse
 
 getHayooCore :: Handler App HayooState HayooCore
 getHayooCore
-    = getL (snapletValue >>> hayooCore) <$> getSnapletState
+    = do s <- getSnapletState
+         return $ view (snapletValue . hayooCore) s
+--    = view (hayooCore) <$> getSnapletState
 
 ------------------------------------------------------------------------------
 
 catch500 :: MonadSnap m => m a -> m ()
 catch500 m
-    = (m >> return ()) `catch`
+    = (m >> return ()) `C.catch`
       \ (e::SomeException) -> do
         --    let t = T.pack $ show e
         putResponse r
@@ -291,7 +270,7 @@ catch500 m
 
 catch404 :: MonadSnap m => m a -> m ()
 catch404 m
-    = (m >> return ()) `catch`
+    = (m >> return ()) `C.catch`
       \ (_e::SomeException) -> do
         putResponse r
         writeBS "<html><head><title>Page not found</title></head>"
@@ -301,9 +280,9 @@ catch404 m
       r = setContentType "text/html" $
           setResponseStatus 404 "Not Found" emptyResponse
 
-serverVersion :: SnapletSplice b v
+serverVersion :: SnapletISplice b
 serverVersion
-    = liftHeist $ textSplice $ T.decodeUtf8 snapServerVersion
+    = textSplice $ T.decodeUtf8 snapServerVersion
 
 ------------------------------------------------------------------------------
 
@@ -316,7 +295,7 @@ getHayooInitialState    :: MonadIO m => (Text -> m ()) -> String -> m HayooState
 getHayooInitialState printInfo' ixBase
     = do fidx  <- liftIO $ loadIndex     hayooIndex
          infoM "Hayoo.Main" ("Hayoo index   loaded from file " ++ show hayooIndex)
-               
+
          fdoc  <- liftIO $ loadDocuments hayooDocs
          infoM "Hayoo.Main" ("Hayoo docs    loaded from file " ++ show hayooDocs )
 
@@ -343,7 +322,7 @@ getHayooInitialState printInfo' ixBase
                     , _modTime  = formatDate mtim
                     }
     where
-      formatDate      = formatCalendarTime defaultTimeLocale rfc822DateFormat . toUTCTime
+      formatDate      = formatTime defaultTimeLocale rfc822DateFormat
       hayooIndex      = ixBase ++ "/ix.bin.idx"
       hayooDocs       = ixBase ++ "/ix.bin.doc"
       hackageIndex    = ixBase ++ "/pkg.bin.idx"
