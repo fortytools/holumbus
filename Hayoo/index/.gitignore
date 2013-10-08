@@ -17,3 +17,7 @@ new-pkg.bin.*
 *.out
 new-pkg.bin
 Types-Data-Num-Decimal-Literals.html
+hxt-pkg
+hxt-pkg.doc
+hxt-pkg.idx
+hxt-pkg.xml

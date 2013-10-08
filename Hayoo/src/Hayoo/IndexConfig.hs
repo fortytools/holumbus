@@ -7,15 +7,14 @@ where
 
 import           Data.Char.Properties.XMLCharProps
 
-import           Hayoo.Haddock
 import           Hayoo.HackagePackage
+import           Hayoo.Haddock
 import           Hayoo.Signature
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 
-import           Text.Regex.XMLSchema.String      ( matchSubex )
-
+import           Text.Regex.XMLSchema.String       (matchSubex)
 import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
@@ -80,7 +79,7 @@ hayooIndexContextConfig         = [ ixModule
                                   , ixc_textToWords     = tokenize descrWord
                                   }
 
--- -----------------------------------------------------------------------------    
+-- -----------------------------------------------------------------------------
 
 hayooPkgIndexContextConfig      :: [IndexContextConfig]
 hayooPkgIndexContextConfig      = [ ixCategory
@@ -127,7 +126,7 @@ hayooPkgIndexContextConfig      = [ ixCategory
                                                           listA (getPkgAuthor <+> getPkgMaintainer) >>^ unwords
                                   }
 
--- -----------------------------------------------------------------------------    
+-- -----------------------------------------------------------------------------
 
 -- please: "-" as 1. char in set !!!
 -- words start with a letter, end with a letter or digit and may contain -, . and @ and digits
@@ -135,7 +134,7 @@ hayooPkgIndexContextConfig      = [ ixCategory
 descrWord                       :: String
 descrWord                       = "[A-Za-z][-A-Za-z0-9.@]*[A-Za-z0-9]"
 
--- -----------------------------------------------------------------------------    
+-- -----------------------------------------------------------------------------
 
 deCamel                         :: String -> String
 deCamel                         = deCamel' False
@@ -152,7 +151,7 @@ deCamel                         = deCamel' False
         where
         isCap                   = (`elem` ['A'..'Z'])
 
--- -----------------------------------------------------------------------------    
+-- -----------------------------------------------------------------------------
 
 boringWord                      :: String -> Bool
 boringWord w                    = null w
@@ -195,4 +194,4 @@ removePars xs
         [("m", xs')]            -> [xs, xs']
         _                       -> [xs]
 
--- -----------------------------------------------------------------------------    
+-- -----------------------------------------------------------------------------

@@ -18,7 +18,8 @@ px	= pkg.bin
 ixn	= new-$(ix)
 pxn	= new-$(px)
 
-bindir  = $(HOME)/.cabal/bin
+# bindir  = $(HOME)/.cabal/bin
+bindir  = ../.cabal-sandbox/bin
 
 indexer	= $(bindir)/hayooIndexer
 snap	= $(bindir)/hayooSnap
@@ -40,11 +41,11 @@ RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 # partition: size of partial indexes build with whole-index
 #            if size >= 1000, there occur "out of memory" errors when writing partial indexes
 # maxpar:    maximum of docs indexed and merged in paralled ( <= partition )
-# maxdocs:   upper limit of # of docs, hackage has about 21000 docs (2012-03-09)
+# maxdocs:   upper limit of # of docs, hackage had about 33000 docs (2013-10-09)
 
 partition =500
 maxpar    =500
-maxdocs   =30000
+maxdocs   =50000
 
 all	:
 	cd .. && cabal configure && cabal build && cabal install
@@ -64,6 +65,7 @@ whole-cache	: $(indexer)
 	[ -d ./cache ] || mkdir cache
 	$< $(RUNOPTS) --cache \
 		--hackage \
+		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
 		--valid=$(valid) \
 		--xml-output=cache.xml \
@@ -92,10 +94,10 @@ whole-index	: $(indexer)
 	@echo "preparing and writing the compressed index requires most of the runtime"
 	rm -f tmp/ix-*
 	$< $(RUNOPTS) --fct-index \
-		--maxthreads=$(threads) \
-		--partition=$(partition) \
-		--maxpar=$(maxpar) \
 		--maxdocs=$(maxdocs) \
+		--maxthreads=$(threads) \
+		--maxpar=$(maxpar) \
+		--partition=$(partition) \
 		--valid=$(validix) \
 		--new-index=$(ix) \
 		--new-search=$(ix) \
@@ -108,6 +110,7 @@ whole-pkg	: $(indexer)
 	rm -f tmp/pkg-*
 	$< $(RUNOPTS) --pkg-index \
 		--ranking \
+		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
 		--maxpar=$(maxpar) \
 		--valid=$(validix) \
@@ -197,12 +200,12 @@ ixx     = hxt-ix
 pxx     = hxt-pkg
 
 testix	:
-	hayooIndexer --fct-index --maxthreads=1 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist)
+	$(indexer) --fct-index --maxthreads=1 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist)
 
-#	hayooIndexer --fct-index --maxthreads=1 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist) --partition=20
+#	$(indexer) --fct-index --maxthreads=1 --maxpar=20 --maxdocs=2500 --valid=1month --new-index=$(ixx) --new-search=$(ixx) --xml-output=$(ixx).xml -p $(pkglist) --partition=20
 
 testpkg	:
-	hayooIndexer --pkg-index --maxthreads=0 --maxpar=250 --maxdocs=2500 --valid=1month --new-index=$(pxx) --new-search=$(pxx) --xml-output=$(pxx).xml -p $(pkglist)
+	$(indexer) --pkg-index --maxthreads=0 --maxpar=250 --maxdocs=2500 --valid=1month --new-index=$(pxx) --new-search=$(pxx) --xml-output=$(pxx).xml -p $(pkglist)
 
 test	: testix testpkg
 

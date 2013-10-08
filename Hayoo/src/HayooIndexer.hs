@@ -5,13 +5,13 @@
 module Main (main)
 where
 
-import           Codec.Compression.BZip ( compress, decompress )
+import           Codec.Compression.BZip       (compress, decompress)
 
 import           Control.DeepSeq
--- import           Control.Monad
+import           Control.Monad                ()
 import           Control.Monad.Reader
 
-import qualified Data.Binary                    as B
+import qualified Data.Binary                  as B
 import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
@@ -32,10 +32,10 @@ import           System.Environment
 import           System.Exit
 import           System.IO
 
-import           Text.XML.HXT.Core
 import           Text.XML.HXT.Cache
-import           Text.XML.HXT.HTTP()
+import           Text.XML.HXT.Core
 import           Text.XML.HXT.Curl
+import           Text.XML.HXT.HTTP            ()
 
 -- ------------------------------------------------------------
 
@@ -92,7 +92,7 @@ initAppOpts
       , ao_getHack  = False
       , ao_pkgRank  = False
       , ao_msg      = ""
-      , ao_crawlDoc = (25000, 1024, 1)                                          -- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
+      , ao_crawlDoc = (50000, 1024, 1)                                          -- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
       , ao_crawlSav = 5000                                                      -- save intervall
       , ao_crawlSfn = "./tmp/ix-"                                               -- save path
       , ao_crawlLog = (DEBUG, NOTICE)                                           -- log cache and hxt
@@ -352,11 +352,11 @@ removePacks getPkgName'
     = do (ix, (pkg, dfg)) <- asks (ao_index &&& ao_packages &&& ao_defrag)
          liftIO $ removePackages' getPkgName' ix pkg dfg
 
-removePackagesIx ::HIO HayooIndexerState 
+removePackagesIx ::HIO HayooIndexerState
 removePackagesIx
     = removePacks getPkgNameFct
 
-removePackagesPkg :: HIO HayooPkgIndexerState 
+removePackagesPkg :: HIO HayooPkgIndexerState
 removePackagesPkg
     = removePacks getPkgNamePkg
 
@@ -404,7 +404,7 @@ writeResults v
       out (bf, bi)
           | null bf     = bi
           | otherwise   = bf
-      
+
 -- ------------------------------------------------------------
 
 hayooCacher :: HIO CacheCrawlerState
@@ -430,7 +430,7 @@ hayooPackageUpdate pkgs
                     (ao_crawlSav o, ao_crawlSfn o)
                     (ao_crawlLog o)
                     (ao_crawlPar o)
-                    -- (setDocAge 1 (ao_crawlPar o))              -- cache validation initiated (1 sec valid) 
+                    -- (setDocAge 1 (ao_crawlPar o))              -- cache validation initiated (1 sec valid)
                     (ao_crawlCch o)
                     Nothing
                     hayooStart
@@ -569,7 +569,7 @@ hayooOptDescr
           \ x -> x { ao_action   = BuildCache }
         )
         "update the cache"
-                   
+
       , Option "i" ["index"]
         ( ReqArg
           (\ f x -> x { ao_index = f })
@@ -603,7 +603,7 @@ hayooOptDescr
           "FILE"
         )
         "resume program with file containing saved intermediate state"
-                   
+
       , Option "p" ["packages"]
         ( ReqArg
           (\ l x -> x { ao_packages = pkgList l })
@@ -696,7 +696,7 @@ hayooOptDescr
           \   x -> x { ao_pkgRank   = True }
         )
         "when processing package index, compute package rank, default is no rank"
-                   
+
       ]
     where
     pkgList

@@ -15,14 +15,12 @@ module Hayoo.URIConfig
     , editLatestPackage
 
     , packageVersion
-    , packageVersion'
     , packageVersion''
 
     , fileName
+    , packageName
     )
 where
-
--- import           Control.Applicative
 
 import           Data.List
 
@@ -45,10 +43,10 @@ hackageHome                     :: String
 hackageHome                     = "http://hackage.haskell.org/packages/"
 
 hackagePackages                 :: String
-hackagePackages                 = "http://hackage.haskell.org/package/"         -- no "s" at the end !!!
+hackagePackages                 = "http://hackage.haskell.org/package/" -- no "s" at the end !!!
 
 hackageStartPage                :: URI
-hackageStartPage                =  hackageHome ++ "archive/pkg-list.html"
+hackageStartPage                =  hackageHome                          -- hackage2 change
 
 hackageStart                    :: [URI]
 hackageStart                    =  [ hackageStartPage ]
@@ -57,25 +55,24 @@ hackageRefs                     :: Bool -> [String] -> URI -> Bool
 hackageRefs withDoc pkgs        = simpleFollowRef'
                                   ( (hackagePackages ++ packageName')
                                     : ( if withDoc
-                                        then [ packageDocPath  ++ modulePath ++ ext "html" ]
+                                        then [ hackagePackageDocPath ++ modulePath ++ ext "html" ]
                                         else []
                                       )
                                   )
-                                  [ packageDocPath ++ alternatives
-                                                       [ "doc-index.*" ++ ext "html"            -- no index files
-                                                       , "src/.*"                               -- no hscolored sources
-                                                       ]
-                                  , hackagePackages ++ packageName' ++ packageVersion''         -- no package pages with (old) version numbers
+                                  [ hackagePackageDocPath
+                                    ++ alternatives
+                                           [ "doc-index.*" ++ ext "html"  -- no index files
+                                           , "src/.*"                     -- no hscolored sources
+                                           ]                              -- no old package files
+                                  , hackagePackages ++ packageName' ++ packageVersion''
                                   ]
     where
-    packageDocPath              = hackagePackageDocPath ++ packageName' ++ "/" ++ packageVersion' ++ "/doc/html/"
-
     packageName'
-        | null pkgs             = fileName
+        | null pkgs             = packageName
         | otherwise             = alternatives pkgs
 
 hackagePackageDocPath           :: String
-hackagePackageDocPath           = hackageHome ++ "archive/"
+hackagePackageDocPath           = hackagePackages ++ packageName ++ opt packageVersion'' ++ "/docs/"
 
 hackageGetPackage               :: String -> String
 hackageGetPackage u
@@ -90,7 +87,7 @@ getHackagePackage s
     | otherwise                 = ""
 
 isHaddockURI                    :: URI -> Bool
-isHaddockURI                    = match (hackagePackageDocPath ++ fileName ++ "/.+/doc/html/.+[.]html")
+isHaddockURI                    = match (hackagePackageDocPath ++ modulePath ++ ext "html")
 
 -- ------------------------------------------------------------
 
@@ -111,23 +108,27 @@ fileName                        = "[^/?]+"
 ext                             :: String -> String
 ext                             = ("[.]" ++)
 
+opt                             :: String -> String
+opt s                           = "(" ++ s ++ ")?"
+
 packageName                     :: String
-packageName                     = "[A-Za-z]([A-Za-z0-9_]|-)*"
+packageName                     = "[A-Za-z][A-Za-z0-9_]*(-[A-Za-z0-9_]*[A-Za-z][A-Za-z0-9_]*)*"
 
 packageVersion
-  , packageVersion'
   , packageVersion''            :: String
 
 packageVersion                  = "[0-9]+([.][0-9]+)*"          -- there are package versions without sub version no
 packageVersion''                = "-" ++ packageVersion
-packageVersion'                 = alternatives [packageVersion, "latest"]
 
 -- ------------------------------------------------------------
 
--- In the package doc URIs the package version number "/*.*.*/" is substituted by the alias "/latest/"
+-- In the package doc URIs the package version "/xyz-1.2.3.4/" is removed ("/xyz/")
+-- This is a redirect to the latest version of the package
 
 editLatestPackage               :: String -> String
-editLatestPackage               = sed (const "/latest/") "/[0-9.]+/"
+editLatestPackage               = sed removeVersion hackagePackageDocPath
+   where
+     removeVersion              = sed (const "/docs/") (packageVersion'' ++ "/docs/")
 
 -- ------------------------------------------------------------
 

@@ -256,12 +256,13 @@ catch500 :: MonadSnap m => m a -> m ()
 catch500 m
     = (m >> return ()) `C.catch`
       \ (e::SomeException) -> do
-        --    let t = T.pack $ show e
+        let t = T.encodeUtf8 $ T.pack $ show e
         putResponse r
         writeBS "<html><head><title>Internal Server Error</title></head>"
         writeBS "<body><h1>Internal Server Error</h1>"
-        writeBS "<p>A web handler threw an exception.</p>"
-        writeBS "</body></html>"
+        writeBS "<h2>A web handler threw an exception.</h2><p>"
+        writeBS t
+        writeBS "</p></body></html>"
 
         logError $ B.concat [ "caught exception: ", B.pack $ show e ]
     where

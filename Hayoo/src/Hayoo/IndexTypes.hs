@@ -149,12 +149,20 @@ lookupRankTable p               = fromMaybe 1.0 . PT.lookup p
 buildRankTable                  :: HayooPkgDocuments -> RankTable
 buildRankTable                  = toMap
                                   >>> elemsDocIdMap
+                                  -- map checkCustom                    -- hunting fromJust errors
+                                  >>> filter (custom >>> isJust)        -- the robust version
                                   >>> map ( custom
                                             >>> fromJust
                                             >>> (p_name &&& p_rank)
                                           )
                                   >>> PT.fromList 
-
+{-
+    where
+      checkCustom d =
+          case custom d of
+            Nothing -> error $ "buildRankTable: Doc without custom component: " ++ show d
+            Just _  -> d
+-- -}
 -- ------------------------------------------------------------
 
 type HayooFctDocuments                  = SmallDocuments  FunctionInfo

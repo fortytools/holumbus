@@ -3,20 +3,22 @@ where
 
 import           Data.List
 
-import           Hayoo.URIConfig
 import           Hayoo.PackageInfo
+import           Hayoo.URIConfig
 
 import           Holumbus.Crawler.Html
 
 import           Text.XML.HXT.Core
-  
+
 import           Text.Regex.XMLSchema.String
 
 -- ------------------------------------------------------------
 
 hayooGetPkgInfo                 :: IOSArrow XmlTree PackageInfo
 hayooGetPkgInfo                 = fromLA $
-                                  ( getPkgNameAndVersion
+                                  ( getPkgName
+                                    &&&
+                                    getPkgVersion
                                     &&&
                                     getPkgDependencies
                                     &&&
@@ -33,44 +35,66 @@ hayooGetPkgInfo                 = fromLA $
                                     getPkgDescr
                                   )
                                   >>^
-                                  (\ ((x1, x2), (x3, (x4, (x5, (x6, (x7, (x8, x9))))))) -> mkPackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9)
+                                  (\ (x1, (x2, (x3, (x4, (x5, (x6, (x7, (x8, x9)))))))) -> mkPackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9)
 
 hayooGetPkgTitle                :: IOSArrow XmlTree String
 hayooGetPkgTitle                = fromLA $
                                   getPkgName
 
 -- ------------------------------------------------------------
+--
+-- all the get arrows must be deterministic
+-- else hayooGetPkgInfo fails, which is an error
 
 getPkgName                      :: LA XmlTree String
-getPkgName                      = getPkgNameAndVersion >>^ fst
-
-getPkgNameAndVersion            :: LA XmlTree (String, String)
-getPkgNameAndVersion            = getHtmlTitle
+getPkgName                      = getHtmlTitle
                                   >>^
-                                  ( ( words >>> drop 1 >>> take 1 >>> unwords )
-                                    >>>
-                                    ( sed (const "") packageVersion''
-                                      &&&
-                                      ( tokenize packageVersion'' >>> reverse >>> take 1 >>> concat >>> drop 1)
-                                    )
+                                  ( -- select the package name, the 2. word in title
+                                    words
+                                    >>> drop 1
+                                    >>> take 1
+                                    >>> unwords
+
+                                    -- and remove trailing ":" if there is any ":"
+                                    >>> reverse
+                                    >>> dropColon
+                                    >>> reverse
                                   )
+    where
+      dropColon (':' : n)       = n
+      dropColon n               = n
+
+getPkgSynopsis                  :: LA XmlTree String
+getPkgSynopsis                  = getHtmlTitle
+                                  >>^
+                                  ( words >>> drop 2 >>> unwords )
+
+getPkgVersion                   :: LA XmlTree String
+getPkgVersion                   = getAllText
+                                  $
+                                  getProperty "Versions"
+                                  >>>
+                                  getChildren
+                                  >>>
+                                  hasName "strong"
 
 getPkgDependencies              :: LA XmlTree [String]
-getPkgDependencies              = getProperty "Dependencies"
-                                  >>>
-                                  listA
-                                  ( getChildren
+getPkgDependencies              = ( getProperty "Dependencies"
                                     >>>
-                                    hasName "a"
+                                    listA
+                                    ( getChildren
+                                      >>>
+                                      hasName "a"
+                                      >>>
+                                      getChildren
+                                      >>>
+                                      getText
+                                      >>>
+                                      this -- checkPackageName
+                                    )
                                     >>>
-                                    getChildren
-                                    >>>
-                                    getText
-                                    >>>
-                                    this -- checkPackageName
-                                  )
-                                  >>>
-                                  arr (sort >>> nub)
+                                    arr (sort >>> nub)
+                                  ) `withDefault` []
 
 getPkgAuthor                    :: LA XmlTree String
 getPkgAuthor                    = getAllText $ getProperty "Author(s)?"
@@ -84,20 +108,9 @@ getPkgCategory                  = getAllText $ getProperty "Category"
 getPkgHomepage                  :: LA XmlTree String
 getPkgHomepage                  = getAllText $ getProperty "Home page"
 
-getPkgSynopsis                  :: LA XmlTree String
-getPkgSynopsis                  = ( getAllText
-                                    ( getByPath ["html","body"]
-                                      />
-                                      isElemWithAttr "div" "id" (== "package-header")
-                                      />
-                                      isElemWithAttr "p" "class" (== "caption")
-                                    )
-                                  )
-                                  >>^
-                                  ( dropWhile (/= ':') >>> drop 1 >>> dropWhile (== ' '))       -- remove package name
-
 getPkgDescr                     :: LA XmlTree String
-getPkgDescr                     = getAllText                    -- take all stuff between "h1" and next "h2" element in content
+getPkgDescr                     = getAllText
+                                  -- take all stuff between "h1" and next "h2" element in content
                                   ( ( getByPath ["html","body"]
                                       />
                                       isElemWithAttr "div" "id" (== "content")
@@ -111,7 +124,11 @@ getPkgDescr                     = getAllText                    -- take all stuf
                                     >>>
                                     unlistA
                                     >>>
-                                    (none `when` hasName "h1")
+                                    (none                       -- remove h1 header
+                                     `when` hasName "h1")
+                                    >>>
+                                    (none                       -- remove "Tags: ..." part
+                                     `when` isElemWithAttr "div" "style" (== "font-size: small"))
                                   )
 
 -- ------------------------------------------------------------
