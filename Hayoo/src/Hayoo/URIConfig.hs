@@ -76,9 +76,11 @@ hackagePackageDocPath           = hackagePackages ++ packageName ++ opt packageV
 
 hackageGetPackage               :: String -> String
 hackageGetPackage u
-    | hackagePackageDocPath `isPrefixOf` u
-                                = takeWhile (/= '/') . drop (length hackagePackageDocPath) $ u
+    | isHaddockURI u            = getNameOfPackage u
     | otherwise                 = ""
+    where
+      getNameOfPackage          = sed (const "") (opt packageVersion'' ++ "/docs/.*") . drop (length hackagePackages)
+
 
 getHackagePackage               :: String -> String
 getHackagePackage s
