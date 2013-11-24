@@ -17,7 +17,7 @@
       <a href="mailto:hayoo@holumbus.org">hayoo@holumbus.org</a>
     </div>
     <div id="copyright">
-      Hayoo! beta 2.4 © 2012
+      Hayoo! beta 2.5 © 2013
       <span class="author"><a href="http://tbh.github.com">Timo B. Kranz</a></span>,
       <span class="author">Sebastian M. Gauck</span> &
       <span class="author">Uwe Schmidt</span>
