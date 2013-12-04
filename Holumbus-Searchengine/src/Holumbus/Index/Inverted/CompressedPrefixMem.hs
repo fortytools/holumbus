@@ -12,6 +12,7 @@ module Holumbus.Index.Inverted.CompressedPrefixMem
 
     , ComprOccurrences(..)
 
+    , emptyInverted
     , emptyInverted0
     , emptyInvertedCompressed
     , emptyInvertedSerialized
@@ -50,7 +51,7 @@ import           Data.Function          ( on )
 import           Data.Int
 
 import           Data.List              ( foldl', sortBy )
-import qualified Data.Map               as M
+import qualified Data.Map.Strict        as M
 import           Data.Maybe
 
 import           Holumbus.Index.Common
@@ -119,17 +120,26 @@ class Sizeof a where
 
 -- ----------------------------------------------------------------------------
 --
--- auxiliary types
+-- auxiliary type for strict Bytestrings
+-- the use of the smart constructor assures that the Bytestring is
+-- fully evaluated before constructing the value
+--
+-- This type is used in the variants working with compressed and/or serialised data
+-- to represent occurences 'OccCompressed', 'OccSerialized',  'OccCserialized', OccOSerialized'
 
 newtype ByteString      = Bs { unBs :: BS.ByteString }
                           deriving (Eq, Show)
 
+mkBs                    :: BS.ByteString -> ByteString
+mkBs s                  = BS.length s `seq` Bs s
+
 instance NFData ByteString where
-  rnf s                 = BS.length (unBs s) `seq` ()
+-- use default implementation: eval to WHNF, and that's sufficient
+--  rnf s                 = BS.length (unBs s) `seq` ()
 
 instance B.Binary ByteString where
   put                   = B.put . unBs
-  get                   = B.get >>= return . Bs
+  get                   = B.get >>= return . mkBs
 
 instance Sizeof ByteString where
   sizeof                = (8 + ) . BS.length . unBs     -- we need the size of the length + the length
@@ -137,19 +147,24 @@ instance Sizeof ByteString where
 -- ----------------------------------------------------------------------------
 --
 -- the pure occurrence type, just wrapped in a newtype for instance declarations
+-- and for forcing evaluation
 
 newtype Occ0            = Occ0 { unOcc0 :: Occurrences }
 
+mkOcc0                  :: Occurrences -> Occ0
+mkOcc0 os               = Occ0 $!! os
+
 instance ComprOccurrences Occ0 where
-  fromOccurrences       = Occ0
+  fromOccurrences       = mkOcc0
   toOccurrences         = unOcc0
 
 instance NFData Occ0 where
-  rnf                   = rnf . unOcc0
+-- use default implementation: eval to WHNF, and that's sufficient
+--  rnf                   = rnf . unOcc0
 
 instance B.Binary Occ0 where
   put                   = B.put . unOcc0
-  get                   = B.get >>= return . Occ0
+  get                   = B.get >>= return . mkOcc0
 
 instance Sizeof Occ0 where
   sizeof                = BS.length . B.encode . unOcc0
@@ -183,7 +198,7 @@ newtype OccSerialized   = OccBs { unOccBs :: ByteString }
                           deriving (Eq, Show)
 
 instance ComprOccurrences OccSerialized where
-  fromOccurrences       = OccBs . Bs . B.encode . deflateOcc
+  fromOccurrences       = OccBs . mkBs . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode . unBs . unOccBs
 
 instance NFData OccSerialized where
@@ -204,7 +219,7 @@ newtype OccCSerialized  = OccCBs { unOccCBs :: ByteString }
                           deriving (Eq, Show)
 
 instance ComprOccurrences OccCSerialized where
-  fromOccurrences       = OccCBs . Bs . BZ.compress . B.encode . deflateOcc
+  fromOccurrences       = OccCBs . mkBs . BZ.compress . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode  . BZ.decompress . unBs . unOccCBs
 
 instance NFData OccCSerialized where
@@ -227,7 +242,7 @@ newtype OccOSerialized  = OccOBs { unOccOBs :: ByteString }
                           deriving (Eq, Show)
 
 instance ComprOccurrences OccOSerialized where
-  fromOccurrences       = OccOBs . Bs . BZ.compress . B.encode
+  fromOccurrences       = OccOBs . mkBs . BZ.compress . B.encode
   toOccurrences         = B.decode . BZ.decompress . unBs . unOccOBs
 
 instance NFData OccOSerialized where
@@ -290,7 +305,7 @@ instance (B.Binary occ) => B.Binary (Inverted occ) where
 -- ----------------------------------------------------------------------------
 
 instance (B.Binary occ, ComprOccurrences occ) => HolIndex (Inverted occ) where
-  sizeWords                     = M.fold ((+) . PT.size) 0 . unInverted
+  sizeWords                     = M.foldl' (\ x y -> x + PT.size y) 0 . unInverted
   contexts                      = fmap fst . M.toList . unInverted
 
   allWords     i c              = fmap (second  toOccurrences) . PT.toList                      . getPart c $ i
@@ -396,7 +411,7 @@ singletonInverted               :: (ComprOccurrences i) => Context -> String -> 
 singletonInverted c w o         = Inverted . M.singleton c . PT.singleton w . fromOccurrences $ o
 
 sizeofAttrsInverted             :: (Sizeof i) => Inverted i -> Int64
-sizeofAttrsInverted             = M.fold ((+) . sizeofPT) 0 . unInverted
+sizeofAttrsInverted             = M.foldl' (\ x y -> x + sizeofPT y) 0 . unInverted
                                   where
                                   sizeofPT = PT.fold ((+) . sizeof) 0
 
