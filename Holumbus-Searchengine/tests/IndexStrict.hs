@@ -57,6 +57,12 @@ indexer i s
     where
       s' = map (\ x -> if isAlpha x then toLower x else ' ') s
 
+idx :: (Binary occ, ComprOccurrences occ) => (Int, String) -> Inverted occ
+idx = foldl (\ ix (c, w, o) -> insertOccurrences c w o ix) emptyInverted . uncurry indexer
+
+d0 :: (Int, String)
+d0 = (0, "abc")
+
 d1 :: (Int, String)
 d1 = (100, "Alles hat ein Ende, nur die Wurst hat zwei")
 
@@ -69,5 +75,5 @@ d3 = (300, "Wiso, weshalb, warum, wer nicht fragt bleibt dumm")
 d4 :: (Int, String)
 d4 = (400, "wer, wie, was, der, die, das, einer, eine eines")
 
-idx :: (Binary occ, ComprOccurrences occ) => (Int, String) -> Inverted occ
-idx = foldl (\ ix (c, w, o) -> insertOccurrences c w o ix) emptyInverted . uncurry indexer
+checkIdx :: Show occ => String -> Inverted occ -> Test
+checkIdx s ix = testCase ("checkIsNF: " ++ s) (checkIsNF ix)
