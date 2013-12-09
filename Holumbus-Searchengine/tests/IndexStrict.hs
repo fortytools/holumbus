@@ -6,7 +6,7 @@ module Main where
 
 import           Control.Arrow         (second)
 import           Control.DeepSeq       (($!!))
-
+import           Control.Monad         (when)
 import           Data.Binary (Binary)
 import           Data.Char (isAlpha, toLower)
 import           Data.Monoid
@@ -28,7 +28,7 @@ default(Int)
 
 main :: IO ()
 main = defaultMain
-       [
+       [ testNF "d0" (idx d0::Inverted0)
        ]
 
 test_isNF :: Assertion 
@@ -75,5 +75,31 @@ d3 = (300, "Wiso, weshalb, warum, wer nicht fragt bleibt dumm")
 d4 :: (Int, String)
 d4 = (400, "wer, wie, was, der, die, das, einer, eine eines")
 
-checkIdx :: Show occ => String -> Inverted occ -> Test
-checkIdx s ix = testCase ("checkIsNF: " ++ s) (checkIsNF ix)
+ds :: [(String, (Int, String))]
+ds = [("d0", d0)
+     ,("d1", d1)
+     ,("d2", d2)
+     ,("d3", d3)
+     ,("d4", d4)
+     ]
+
+testsNF :: (Binary occ, ComprOccurrences occ) =>
+           [(String, Inverted occ)] -> [Test] 
+testsNF xs = map (uncurry testNF) $ xs
+
+toIdx :: (Binary occ, ComprOccurrences occ) =>
+         Inverted occ -> [(String, (Int, String))] -> [(String, Inverted occ)]
+toIdx _phantom xs = map (\ (s, x) -> (s, idx x)) xs
+
+toInverted0 :: [(String, (Int, String))] -> [(String, Inverted0)]
+toInverted0 = toIdx emptyInverted0
+
+testNF :: String -> a -> Test
+testNF s !x = testCase "testNF" $
+              ( do ok <- isNF x
+                   when (not ok) (assertNF x)
+                   return ok ) @? (s) -- ++ " " ++ show x)
+
+
+
+                         
