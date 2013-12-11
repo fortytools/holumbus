@@ -20,19 +20,18 @@
 module Holumbus.Index.Common.Occurences
 where
 
-import Control.DeepSeq
+-- import           Control.DeepSeq
 
-import Data.Binary              ( Binary (..) )
-import qualified
-       Data.Binary              as B
+-- import           Data.Binary                      (Binary (..))
+-- import qualified Data.Binary                      as B
 
-import qualified Data.EnumSet   as IS
+import qualified Data.IntSet                      as IS
 
-import Holumbus.Index.Common.BasicTypes
-import Holumbus.Index.Common.DocId
-import Holumbus.Index.Common.DocIdMap
+import           Holumbus.Index.Common.BasicTypes
+import           Holumbus.Index.Common.DocId
+import           Holumbus.Index.Common.DocIdMap
 
-import Text.XML.HXT.Core
+import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
@@ -98,7 +97,7 @@ xpOccurrences           = xpWrap (fromListDocIdMap, toListDocIdMap)
 -- ------------------------------------------------------------
 
 -- | The positions of the word in the document.
-type Positions                  = IS.EnumSet Position
+type Positions                  = IS.IntSet
 
 emptyPos                :: Positions
 emptyPos                = IS.empty
@@ -130,12 +129,14 @@ xpPositions             = xpWrap ( IS.fromList . (map read) . words
                                  , unwords . (map show) . IS.toList
                                  ) xpText
 
+{- old stuff
 instance (NFData v, Enum v) => NFData (IS.EnumSet v) where
     rnf                   = rnf . IS.toList
 
 instance (Binary v, Enum v) => Binary (IS.EnumSet v) where
     put                   = B.put . IS.toList
     get                   = B.get >>= return . IS.fromList
+-}
 
 -- ------------------------------------------------------------
 

@@ -10,51 +10,51 @@
   Portability: portable
   Version    : 0.3
 
-  The ranking mechanism for Holumbus. 
-  
-  Customized ranking functions for both documents and suggested words can be 
+  The ranking mechanism for Holumbus.
+
+  Customized ranking functions for both documents and suggested words can be
   provided by the user. Some predefined ranking functions are avaliable, too.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Query.Ranking 
+module Holumbus.Query.Ranking
   (
   -- * Ranking types
   RankConfig (..)
   , DocRanking
   , WordRanking
-  
+
   -- * Ranking
   , rank
-  
+
   -- * Predefined document rankings
   , docRankByCount
   , docRankWeightedByCount
-  
+
   -- * Predefined word rankings
   , wordRankByCount
   , wordRankWeightedByCount
   )
 where
 
-import Prelude hiding (foldr)
+import           Prelude               hiding (foldr)
 
-import Data.Function
-import Data.Foldable
+import           Data.Foldable
+import           Data.Function
 
-import qualified Data.List as L
-import qualified Data.Map as M
+import qualified Data.List             as L
+import qualified Data.Map              as M
 
-import Holumbus.Query.Result
-import Holumbus.Index.Common
+import           Holumbus.Index.Common
+import           Holumbus.Query.Result
 
 -- ----------------------------------------------------------------------------
 
 -- | The configuration of the ranking mechanism.
-data RankConfig a       = RankConfig 
-                          { docRanking :: DocRanking a  -- ^ A function to determine the score of a document.
+data RankConfig a       = RankConfig
+                          { docRanking  :: DocRanking a  -- ^ A function to determine the score of a document.
                           , wordRanking :: WordRanking  -- ^ A funciton to determine the score of a word.
                           }
 

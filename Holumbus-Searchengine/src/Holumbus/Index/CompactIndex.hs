@@ -37,32 +37,21 @@ import           Control.Monad.Reader
 
 import           Data.Binary
 
-import           Data.Function.Selector         ( (.&&&.) )
+import           Data.Function.Selector                      ((.&&&.))
 
-import           Holumbus.Crawler.Types
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.Logger
+import           Holumbus.Crawler.Types
 
-import           Holumbus.Index.Common          ( Document(..)
-                                                , Occurrences
-                                                , defragmentDocIndex
-                                                , fromList
-                                                , toList
-                                                , unionDocs
-                                                , mergeIndexes
-                                                )
-
-import           Holumbus.Index.CompactDocuments
-                                                ( Documents(..)
-                                                , emptyDocuments
-                                                )
-
-import           Holumbus.Index.CompactSmallDocuments
-                                                ( SmallDocuments(..)
-                                                , docTable2smallDocTable
-                                                )
-import qualified Holumbus.Index.CompactSmallDocuments
-                                                as CSD
+import           Holumbus.Index.Common                       (Document (..),
+                                                              Occurrences, defragmentDocIndex,
+                                                              fromList,
+                                                              mergeIndexes,
+                                                              toList, unionDocs)
+import           Holumbus.Index.CompactDocuments             (Documents (..),
+                                                              emptyDocuments)
+import           Holumbus.Index.CompactSmallDocuments        (SmallDocuments (..), docTable2smallDocTable)
+import qualified Holumbus.Index.CompactSmallDocuments        as CSD
 
 import           Text.XML.HXT.Core
 
@@ -70,8 +59,10 @@ import           Text.XML.HXT.Core
 
 {- .1: direct use of prefix tree with simple-9 encoded occurences
 
-   concerning efficiency this implementation is about the same as the 2. one,
+   concerning efficiency this implementation is about the same as the 2.,
    space and time are minimally better, the reason could be less code working with classes
+
+   PrefixMem is not longer supported
 
 import           Holumbus.Index.Inverted.PrefixMem
 
@@ -104,7 +95,7 @@ emptyInverted                   = PM.emptyInvertedCompressed
    in runtime and are not worth to be considered
 -}
 
-import qualified Holumbus.Index.Inverted.CompressedPrefixMem    as PM
+import qualified Holumbus.Index.Inverted.CompressedPrefixMem as PM
 
 type Inverted                   = PM.Inverted0
 
@@ -176,8 +167,11 @@ mergeSmallDocs (x : xs)
     = do docs <- mergeSmallDocs xs
          notice ["merge small documents from file", x]
          doc1 <- liftIO $ decodeFile x
-         rnf doc1 `seq`
-                 (return $ unionDocs docs doc1)
+         return $! unionDocs docs doc1
+
+-- old stuff
+--         rnf doc1 `seq`
+--                 (return $ unionDocs docs doc1)
 
 mergeCompactIxs :: (MonadIO m) => [String] -> m CompactInverted
 mergeCompactIxs []
@@ -186,8 +180,11 @@ mergeCompactIxs (x : xs)
     = do ixs <- mergeCompactIxs xs
          notice ["merge compact index from file", x]
          ix1 <- liftIO $ decodeFile x
-         rnf ix1 `seq`
-                 (return $ mergeIndexes ix1 ixs)
+         return $! mergeIndexes ix1 ixs
+
+-- old stuff
+--         rnf ix1 `seq`
+--                 (return $ mergeIndexes ix1 ixs)
 
 -- ------------------------------------------------------------
 
@@ -234,7 +231,7 @@ writeSearchBin out state
 
 -- ------------------------------------------------------------
 
-writePartialIndex :: (NFData c, XmlPickler c, Binary c) =>
+writePartialIndex :: (XmlPickler c, Binary c) =>
                      Bool -> FilePath -> CrawlerAction a (HolumbusState c) ()
 writePartialIndex xout fn
     = modifyStateIO
@@ -254,16 +251,19 @@ writePartialIndex xout fn
    but when running the parallel one, the index ids will overlap.
 -}
 
-writePartialIndex' :: (NFData c, XmlPickler c, Binary c) =>
+writePartialIndex' :: (XmlPickler c, Binary c) =>
                       Bool -> FilePath -> HolumbusState c -> IO (HolumbusState c)
 writePartialIndex' xout out ixs
     = do writeSearchBin out ixs
          if xout
             then writeXml (out ++ ".xml") ixs
             else return ()
-         let ixs' = flushHolumbusState ixs
-         rnf ixs' `seq`
-             return ixs'
+         return $! flushHolumbusState ixs
+
+-- old stuff
+--         let ixs' = flushHolumbusState ixs
+--         rnf ixs' `seq`
+--             return ixs'
 
 -- ------------------------------------------------------------
 

@@ -16,7 +16,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Query.Fuzzy 
+module Holumbus.Query.Fuzzy
   (
   -- * Fuzzy types
   FuzzySet
@@ -24,27 +24,27 @@ module Holumbus.Query.Fuzzy
   , Replacement
   , FuzzyScore
   , FuzzyConfig (..)
-  
+
   -- * Predefined replacements
   , englishReplacements
   , germanReplacements
-  
+
   -- * Generation
   , fuzz
-  
+
   -- * Conversion
   , toList
   )
 where
 
-import Data.Binary
-import Data.List
-import Data.Function
+import           Data.Binary
+import           Data.Function
+import           Data.List
 
-import Control.Monad
+import           Control.Monad
 
-import Data.Map (Map)
-import qualified Data.Map as M
+import           Data.Map      (Map)
+import qualified Data.Map      as M
 
 -- | A set of string which have been "fuzzed" with an associated score.
 
@@ -61,14 +61,14 @@ type Replacements = [ Replacement ]
 
 type Replacement = ((String, String), FuzzyScore)
 
--- | The score indicating an amount of fuzziness. 
+-- | The score indicating an amount of fuzziness.
 
 type FuzzyScore = Float
 
 -- | The configuration of a fuzzy query.
 
 data FuzzyConfig
-    = FuzzyConfig 
+    = FuzzyConfig
       { applyReplacements  :: Bool         -- ^ Indicates whether the replacements should be applied.
       , applySwappings     :: Bool         -- ^ Indicates whether the swapping of adjacent characters should be applied.
       , maxFuzziness       :: FuzzyScore   -- ^ The maximum allowed fuzziness.
@@ -91,7 +91,7 @@ englishReplacements =
   , (("e", "ee"), 0.2)
   , (("o", "oo"), 0.2)
   , (("s", "ss"), 0.2)
-  
+
   , (("g", "ck"), 0.4)
   , (("k", "ck"), 0.4)
   , (("ea", "ee"), 0.4)
@@ -108,7 +108,7 @@ englishReplacements =
 -- | Some default replacements for the german language.
 
 germanReplacements :: Replacements
-germanReplacements = 
+germanReplacements =
   [ (("l", "ll"), 0.2)
   , (("t", "tt"), 0.2)
   , (("n", "nn"), 0.2)
@@ -131,7 +131,7 @@ germanReplacements =
   , (("ß", "ss"), 0.1)
   ]
 
--- | Continue fuzzing a string with the an explicitly specified list of replacements until 
+-- | Continue fuzzing a string with the an explicitly specified list of replacements until
 -- a given score threshold is reached.
 
 fuzz :: FuzzyConfig -> String -> FuzzySet
@@ -156,14 +156,14 @@ fuzzLimit cfg sc s = if sc <= th then M.filter (\ns -> ns <= th) (fuzzInternal c
 fuzzInternal :: FuzzyConfig -> FuzzyScore -> String -> FuzzySet
 fuzzInternal cfg sc s = M.unionWith min replaced swapped
   where
-  replaced = let rs = customReplacements cfg in if (applyReplacements cfg) 
+  replaced = let rs = customReplacements cfg in if (applyReplacements cfg)
              then foldr (\r res -> M.unionWith min res (applyFuzz (replace rs r) sc s)) M.empty rs
              else M.empty
-  swapped = if (applySwappings cfg) 
+  swapped = if (applySwappings cfg)
             then applyFuzz swap sc s
             else M.empty
 
--- | Applies a fuzzy function to a string. An initial score is combined with the new score 
+-- | Applies a fuzzy function to a string. An initial score is combined with the new score
 -- for the replacement.
 
 applyFuzz :: (String -> String -> [(String, FuzzyScore)]) -> FuzzyScore -> String -> FuzzySet
@@ -175,7 +175,7 @@ applyFuzz f sc s = apply (init $ inits s) (init $ tails s)
   apply (pr:prs) (su:sus) = M.unionsWith min $ (apply prs sus):(map create $ (f pr su))
     where
     create (fuzzed, score) = M.singleton fuzzed (sc + score * (calcWeight (length pr) (length s)))
-                             
+
 -- | Apply a replacement in both directions to the suffix of a string and return the complete
 -- string with a score, calculated from the replacement itself and the list of replacements.
 
@@ -186,7 +186,7 @@ replace rs ((r1, r2), s) prefix suffix = (replace' r1 r2) ++ (replace' r2 r1)
     where
     replaced = replaceFirst tok sub suffix
     score = s / (snd $ maximumBy (compare `on` snd) rs)
-    
+
 -- | Swap the first two characters of the suffix and return the complete string with a score or
 -- Nothing if there are not enough characters to swap.
 
@@ -207,8 +207,8 @@ calcWeight pos len = (l - p) / l
 replaceFirst :: Eq a => [a] -> [a] -> [a] -> [a]
 replaceFirst []       ys zs       = ys ++ zs
 replaceFirst _        _ []       = []
-replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then 
-                                      if null ys then replaceFirst xs [] zs 
+replaceFirst t@(x:xs) ys s@(z:zs) = if x == z && t `isPrefixOf` s then
+                                      if null ys then replaceFirst xs [] zs
                                       else (head ys) : replaceFirst xs (tail ys) zs
                                     else s
 

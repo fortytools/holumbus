@@ -20,7 +20,7 @@
 module Holumbus.Index.Common.BasicTypes
 where
 
-import           Data.Word      ( Word32 )
+-- import           Data.Word      ( Word32 )
 
 -- ------------------------------------------------------------
 
@@ -34,8 +34,8 @@ type Title                      = String
 type Content                    = String
 
 -- | The position of a word in the document.
---type Position                 = Int
-type Position                   = Word32
+type Position                 = Int
+-- type Position                   = Word32
 
 -- | The name of a context.
 type Context                    = String

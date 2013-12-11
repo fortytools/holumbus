@@ -2,3 +2,4 @@
 dist/
 *.swp
 *.out
+*.old

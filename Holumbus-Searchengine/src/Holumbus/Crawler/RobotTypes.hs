@@ -5,10 +5,10 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Binary                    ( Binary )
-import qualified Data.Binary                    as B
+import           Data.Binary           (Binary)
+import qualified Data.Binary           as B
 import           Data.Char
-import qualified Data.Map                       as M
+import qualified Data.Map.Strict       as M
 
 import           Holumbus.Crawler.URIs
 
@@ -38,7 +38,6 @@ instance Binary RobotAction where
     get                 = B.get >>= return . toEnum
 
 instance NFData RobotAction where
-    rnf x               = x `seq` ()
 
 instance XmlPickler RobotAction where
     xpickle             = xpPrim
@@ -96,7 +95,7 @@ robotsNo what   = none
                           >>>
                           (what `elem`)
                         )
-                  )       
+                  )
 
 -- | robots no index filter. This filter checks HTML documents
 -- for a \<meta name=\"robots\" content=\"noindex\"\> in the head of the document

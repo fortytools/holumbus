@@ -1,4 +1,6 @@
-{-# OPTIONS -XFlexibleContexts -XBangPatterns #-}
+{-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -- ------------------------------------------------------------
 
@@ -23,17 +25,17 @@ where
 -- ------------------------------------------------------------
 
 import           Control.DeepSeq
-import           Control.Monad                  ( foldM )
-import           Control.Monad.Trans            -- ( MonadIO )
+import           Control.Monad          (foldM)
+import           Control.Monad.Trans
 
-import           Data.Binary                    ( Binary )
-import qualified Data.Binary                    as B
+import           Data.Binary            (Binary)
+import qualified Data.Binary            as B
 import           Data.Function.Selector
 import           Data.Maybe
 
 import           Holumbus.Crawler
 
-import           Holumbus.Index.Common          hiding ( URI )
+import           Holumbus.Index.Common  hiding (URI)
 
 import           Text.XML.HXT.Core
 
@@ -50,15 +52,15 @@ type IndexCrawlerConfig i d c   = CrawlerConfig (RawDoc c) (IndexerState i d c)
 type IndexCrawlerState  i d c   = CrawlerState             (IndexerState i d c)
 
 data IndexContextConfig         = IndexContextConfig
-                                  { ixc_name           :: String
-                                  , ixc_collectText    :: IOSArrow XmlTree String
-                                  , ixc_textToWords    :: String -> [String]
-                                  , ixc_boringWord     :: String -> Bool
-                                  }   
+                                  { ixc_name        :: String
+                                  , ixc_collectText :: IOSArrow XmlTree String
+                                  , ixc_textToWords :: String -> [String]
+                                  , ixc_boringWord  :: String -> Bool
+                                  }
 
 data IndexerState i d c         = IndexerState
-                                  { ixs_index           :: ! i          -- the index type
-                                  , ixs_documents       :: ! (d c)      -- the type for document descriptions
+                                  { ixs_index     :: ! i          -- the index type
+                                  , ixs_documents :: ! (d c)      -- the type for document descriptions
                                   } deriving (Show)
 
 -- ------------------------------------------------------------
@@ -181,7 +183,7 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
     titleF                      = ( fromMaybe (constA "") titleF0 ) >. concat
 
     customF                     = ( fromMaybe none customF0 ) >. listToMaybe
-                                  
+
     contextFs                   :: IOSArrow XmlTree RawContext
     contextFs                   = catA . map contextF $ contextCs               -- collect all contexts
 

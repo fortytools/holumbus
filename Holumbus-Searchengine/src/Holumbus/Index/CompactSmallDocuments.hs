@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- ----------------------------------------------------------------------------
@@ -20,7 +20,7 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.CompactSmallDocuments 
+module Holumbus.Index.CompactSmallDocuments
 (
   -- * Documents type
   SmallDocuments (..)
@@ -36,11 +36,11 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Binary                            ( Binary )
-import qualified Data.Binary                            as B
+import           Data.Binary                     (Binary)
+import qualified Data.Binary                     as B
 
 import           Holumbus.Index.Common
-import qualified Holumbus.Index.CompactDocuments        as CD
+import qualified Holumbus.Index.CompactDocuments as CD
 
 import           Text.XML.HXT.Core
 
@@ -55,9 +55,10 @@ import           Text.XML.HXT.Core
 -- see also 'Holumbus.Index.CompactDocuments.Documents' data type
 
 newtype SmallDocuments a        = SmallDocuments
-                                  { idToSmallDoc   :: CD.DocMap a -- ^ A mapping from a doc id
+                                  { idToSmallDoc :: CD.DocMap a -- ^ A mapping from a doc id
                                                                   --   to the document itself.
                                   }
+                                  deriving (NFData)
 
 -- ----------------------------------------------------------------------------
 
@@ -82,7 +83,7 @@ instance (Binary a, HolIndex i) => HolDocIndex SmallDocuments a i where
 
 instance Binary a => HolDocuments SmallDocuments a where
   sizeDocs                      = sizeDocIdMap . idToSmallDoc
-  
+
   lookupById  d i               = maybe (fail "") return
                                   . fmap CD.toDocument
                                   . lookupDocIdMap i
@@ -141,12 +142,6 @@ instance Binary a => HolDocuments SmallDocuments a where
   removeById                    = notImpl
   updateDocuments               = notImpl
   filterDocuments               = notImpl
-
--- ----------------------------------------------------------------------------
-
-instance NFData a =>            NFData (SmallDocuments a)
-    where
-    rnf (SmallDocuments i2d)    = rnf i2d
 
 -- ----------------------------------------------------------------------------
 

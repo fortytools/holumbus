@@ -38,37 +38,30 @@ module Holumbus.Index.Inverted.CompressedPrefixMem
     )
 where
 
-import qualified Codec.Compression.BZip as BZ
+import qualified Codec.Compression.BZip     as BZ
 
-import           Control.Arrow          ( second )
+import           Control.Arrow              (second)
 import           Control.DeepSeq
 
-import qualified Data.ByteString.Lazy   as BS
-import qualified Data.Binary            as B
+import qualified Data.Binary                as B
+import qualified Data.ByteString.Lazy       as BL
 
-import           Data.Function          ( on )
+import           Data.Function              (on)
 
 import           Data.Int
 
-import           Data.List              ( foldl', sortBy )
-import qualified Data.Map.Strict        as M
+import           Data.List                  (foldl', sortBy)
+import qualified Data.Map.Strict            as M
 import           Data.Maybe
 
 import           Holumbus.Index.Common
 import           Holumbus.Index.Compression
 
-import qualified Holumbus.Data.PrefixTree       as PT
+import qualified Data.StringMap.Strict      as PT
 
-import           Text.XML.HXT.Core      ( PU
-                                        , XmlPickler
-                                        , xpickle
-                                        , xpAttr
-                                        , xpElem
-                                        , xpList
-                                        , xpPair
-                                        , xpText
-                                        , xpWrap
-                                        )
+import           Text.XML.HXT.Core          (PU, XmlPickler, xpAttr, xpElem,
+                                             xpList, xpPair, xpText, xpWrap,
+                                             xpickle)
 
 -- import           Debug.Trace            ( trace )
 
@@ -126,23 +119,25 @@ class Sizeof a where
 --
 -- This type is used in the variants working with compressed and/or serialised data
 -- to represent occurences 'OccCompressed', 'OccSerialized',  'OccCserialized', OccOSerialized'
+--
+-- The constructor must not be called directly, only via mkBs
 
-newtype ByteString      = Bs { unBs :: BS.ByteString }
+newtype ByteString      = Bs { unBs :: BL.ByteString }
                           deriving (Eq, Show)
 
-mkBs                    :: BS.ByteString -> ByteString
-mkBs s                  = BS.length s `seq` Bs s
+mkBs                    :: BL.ByteString -> ByteString
+mkBs s                  = Bs $!! s
 
 instance NFData ByteString where
 -- use default implementation: eval to WHNF, and that's sufficient
---  rnf s                 = BS.length (unBs s) `seq` ()
 
 instance B.Binary ByteString where
   put                   = B.put . unBs
   get                   = B.get >>= return . mkBs
 
 instance Sizeof ByteString where
-  sizeof                = (8 + ) . BS.length . unBs     -- we need the size of the length + the length
+  sizeof                = (8 + ) . BL.length . unBs
+                          -- we need the size of the length + the length
 
 -- ----------------------------------------------------------------------------
 --
@@ -150,6 +145,7 @@ instance Sizeof ByteString where
 -- and for forcing evaluation
 
 newtype Occ0            = Occ0 { unOcc0 :: Occurrences }
+                          deriving (Show)
 
 mkOcc0                  :: Occurrences -> Occ0
 mkOcc0 os               = Occ0 $!! os
@@ -160,14 +156,13 @@ instance ComprOccurrences Occ0 where
 
 instance NFData Occ0 where
 -- use default implementation: eval to WHNF, and that's sufficient
---  rnf                   = rnf . unOcc0
 
 instance B.Binary Occ0 where
   put                   = B.put . unOcc0
   get                   = B.get >>= return . mkOcc0
 
 instance Sizeof Occ0 where
-  sizeof                = BS.length . B.encode . unOcc0
+  sizeof                = BL.length . B.encode . unOcc0
 
 -- ----------------------------------------------------------------------------
 --
@@ -176,33 +171,33 @@ instance Sizeof Occ0 where
 newtype OccCompressed   = OccCp { unOccCp :: CompressedOccurrences }
                           deriving (Eq, Show)
 
+mkOccCp                  :: Occurrences -> OccCompressed
+mkOccCp os               = OccCp $!! deflateOcc os
+
 instance ComprOccurrences OccCompressed where
-  fromOccurrences       = OccCp . deflateOcc
+  fromOccurrences       = mkOccCp
   toOccurrences         = inflateOcc . unOccCp
 
 instance NFData OccCompressed where
-  rnf                   = rnf . unOccCp
+-- use default implementation: eval to WHNF, and that's sufficient
 
 instance B.Binary OccCompressed where
   put                   = B.put . unOccCp
-  get                   = B.get >>= return . OccCp
+  get                   = B.get >>= ((return . OccCp) $!!)
 
 instance Sizeof OccCompressed where
-  sizeof                = BS.length . B.encode . unOccCp
+  sizeof                = BL.length . B.encode . unOccCp
 
 -- ----------------------------------------------------------------------------
 --
 -- the simpe-9 compresses occurrences serialized into a byte strings
 
 newtype OccSerialized   = OccBs { unOccBs :: ByteString }
-                          deriving (Eq, Show)
+                          deriving (Eq, Show, NFData)
 
 instance ComprOccurrences OccSerialized where
   fromOccurrences       = OccBs . mkBs . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode . unBs . unOccBs
-
-instance NFData OccSerialized where
-  rnf                   = rnf . unOccBs
 
 instance B.Binary OccSerialized where
   put                   = B.put . unOccBs
@@ -216,14 +211,11 @@ instance Sizeof OccSerialized where
 -- the simple-9 compressed occurrences serialized and bzipped into a byte string
 
 newtype OccCSerialized  = OccCBs { unOccCBs :: ByteString }
-                          deriving (Eq, Show)
+                          deriving (Eq, Show, NFData)
 
 instance ComprOccurrences OccCSerialized where
   fromOccurrences       = OccCBs . mkBs . BZ.compress . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode  . BZ.decompress . unBs . unOccCBs
-
-instance NFData OccCSerialized where
-  rnf                   = rnf . unOccCBs
 
 instance B.Binary OccCSerialized where
   put                   = B.put . unOccCBs
@@ -239,14 +231,11 @@ instance Sizeof OccCSerialized where
 -- and lookup is about 8% better
 
 newtype OccOSerialized  = OccOBs { unOccOBs :: ByteString }
-                          deriving (Eq, Show)
+                          deriving (Eq, Show, NFData)
 
 instance ComprOccurrences OccOSerialized where
   fromOccurrences       = OccOBs . mkBs . BZ.compress . B.encode
   toOccurrences         = B.decode . BZ.decompress . unBs . unOccOBs
-
-instance NFData OccOSerialized where
-  rnf                   = rnf . unOccOBs
 
 instance B.Binary OccOSerialized where
   put                   = B.put . unOccOBs
@@ -261,8 +250,8 @@ instance Sizeof OccOSerialized where
 
 newtype Inverted occ    = Inverted
                           { unInverted :: Parts  occ    -- ^ The parts of the index, each representing one context.
-                          } 
-                          deriving (Show, Eq)
+                          }
+                          deriving (Show, Eq, NFData)
 
 -- | The index parts are identified by a name, which should denote the context of the words.
 
@@ -271,12 +260,7 @@ type Parts occ          = M.Map Context (Part occ)
 -- | The index part is the real inverted index. Words are mapped to their occurrences.
 -- The part is implemented as a prefix tree
 
-type Part occ           = PT.PrefixTree occ
-
--- ----------------------------------------------------------------------------
-
-instance (NFData occ) => NFData (Inverted occ) where
-    rnf         = rnf . unInverted
+type Part occ           = PT.StringMap occ
 
 -- ----------------------------------------------------------------------------
 
@@ -308,11 +292,29 @@ instance (B.Binary occ, ComprOccurrences occ) => HolIndex (Inverted occ) where
   sizeWords                     = M.foldl' (\ x y -> x + PT.size y) 0 . unInverted
   contexts                      = fmap fst . M.toList . unInverted
 
-  allWords     i c              = fmap (second  toOccurrences) . PT.toList                      . getPart c $ i
-  prefixCase   i c q            = fmap (second  toOccurrences) . PT.prefixFindWithKeyBF       q . getPart c $ i
-  prefixNoCase i c q            = fmap (second  toOccurrences) . PT.prefixFindNoCaseWithKeyBF q . getPart c $ i
-  lookupCase   i c q            = fmap ((,) q . toOccurrences) . maybeToList . PT.lookup      q . getPart c $ i
-  lookupNoCase i c q            = fmap (second  toOccurrences) . PT.lookupNoCase              q . getPart c $ i
+  allWords     i c              = fmap (second  toOccurrences) .
+                                  PT.toList .
+                                  getPart c $ i
+
+  prefixCase   i c q            = fmap (second  toOccurrences) .
+                                  PT.toListShortestFirst .
+                                  PT.prefixFilter q .
+                                  getPart c $ i
+
+  prefixNoCase i c q            = fmap (second  toOccurrences) .
+                                  PT.toListShortestFirst .
+                                  PT.prefixFilterNoCase q .
+                                  getPart c $ i
+
+  lookupCase   i c q            = fmap ((,) q . toOccurrences) .
+                                  maybeToList .
+                                  PT.lookup q .
+                                  getPart c $ i
+
+  lookupNoCase i c q            = fmap (second  toOccurrences) .
+                                  PT.toList .
+                                  PT.lookupNoCase q .
+                                  getPart c $ i
 
   mergeIndexes                  = zipInverted $ M.unionWith      $ PT.unionWith (zipOcc mergeOccurrences)
   substractIndexes              = zipInverted $ M.differenceWith $ substractPart
@@ -438,7 +440,7 @@ allocate f (x:xs) (y:ys)        = allocate f xs (sortBy (compare `on` fst) ((com
   where
   combine (s1, v1) (s2, v2)     = (s1 + s2, f v1 v2)
 
--- | Create empty buckets for allocating indexes.  
+-- | Create empty buckets for allocating indexes.
 createBuckets                   :: Int -> [(Int, Inverted i)]
 createBuckets n                 = (replicate n (0, emptyInverted))
 
@@ -448,7 +450,7 @@ createBuckets n                 = (replicate n (0, emptyInverted))
 
 -- | The pure inverted index implemented as a prefix tree without any space optimizations.
 -- This may be taken as a reference for space and time measurements for the other index structures
- 
+
 type Inverted0                  = Inverted Occ0
 
 -- | The inverted index with simple-9 encoding of the occurence sets

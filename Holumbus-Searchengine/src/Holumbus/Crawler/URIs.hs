@@ -5,7 +5,7 @@
 module Holumbus.Crawler.URIs
 where
 
-import qualified Holumbus.Data.PrefixTree       as S
+import qualified Data.StringMap.Strict as S
 
 -- ------------------------------------------------------------
 
@@ -19,7 +19,7 @@ type URIWithLevel               = (URI, Int)
 type URIs                       = URIs' ()
 type URIsWithLevel              = URIs' Int     -- URIs with a priority or clicklevel
 
-type URIs' a                    = S.PrefixTree a
+type URIs' a                    = S.StringMap a
 
 -- ------------------------------------------------------------
 

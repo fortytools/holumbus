@@ -19,10 +19,10 @@ import           Control.Arrow
 import           Control.DeepSeq
 
 import           Data.Binary
-
 import           Data.List                      ( foldl' )
 import qualified Data.Map                       as M    ( lookup )
 import           Data.Maybe
+import qualified Data.StringMap                 as SM
 
 import           Hayoo.FunctionInfo
 import           Hayoo.PackageInfo
@@ -30,7 +30,6 @@ import           Hayoo.PackageRank
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
-import qualified Holumbus.Data.PrefixTree       as PT
 import           Holumbus.Index.Common          ( Document(..)
                                                 , custom
                                                 , elemsDocIdMap
@@ -141,10 +140,10 @@ traceNothing d
 
 -- ------------------------------------------------------------
 
-type RankTable                  = PT.PrefixTree Score
+type RankTable                  = SM.StringMap Score
 
 lookupRankTable                 :: String -> RankTable -> Score
-lookupRankTable p               = fromMaybe 1.0 . PT.lookup p
+lookupRankTable p               = fromMaybe 1.0 . SM.lookup p
 
 buildRankTable                  :: HayooPkgDocuments -> RankTable
 buildRankTable                  = toMap
@@ -155,7 +154,7 @@ buildRankTable                  = toMap
                                             >>> fromJust
                                             >>> (p_name &&& p_rank)
                                           )
-                                  >>> PT.fromList 
+                                  >>> SM.fromList 
 {-
     where
       checkCustom d =

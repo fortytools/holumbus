@@ -4,12 +4,12 @@
   Module     : Holumbus.Index.Common.DiffList
   Copyright  : Copyright (C) 2011 Timo B. Huebel, Uwe Schmidt
   License    : MIT
-  
+
   Maintainer : Timo B. Huebel (tbh@holumbus.org)
   Stability  : experimental
   Portability: portable
   Version    : 0.1
-  
+
   Providing space efficient difference encoding for lists of integers. The encoded
   lists are compressed using "Holumbus.Data.Crunch" to save even more space. For
   convenience, conversion functions for "Data.IntSet" are provided. Only works
@@ -19,34 +19,30 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Common.DiffList 
+module Holumbus.Index.Common.DiffList
   (
   -- * DiffList types
   DiffList
-    
+
   -- * Conversion
   , fromPositions
   , toPositions
   , fromList
   , toList
-  
+
   -- * Debug
   , diffs
   )
 where
 
-import Data.List
-import Data.Word                        ( Word32
-                                        , Word64
-                                        )
+import           Data.List
+import           Data.Word                        (Word32, Word64)
 
-import Holumbus.Data.Crunch
+import           Holumbus.Data.Crunch
 
-import Holumbus.Index.Common.BasicTypes ( Position )
-import Holumbus.Index.Common.Occurences ( Positions
-                                        , fromListPos
-                                        , toAscListPos
-                                        )
+import           Holumbus.Index.Common.BasicTypes (Position)
+import           Holumbus.Index.Common.Occurences (Positions, fromListPos,
+                                                   toAscListPos)
 
 -- ----------------------------------------------------------------------------
 
@@ -85,20 +81,20 @@ encode                  = encode' 0
   where
   encode'               :: Word32 -> [Position] -> [Word32]
   encode' _ []          = []
-  encode' l (x:xs)      = n:(encode' x xs)
+  encode' l (x:xs)      = n : (encode' (toEnum x) xs)
     where
-    n = fromIntegral (x - l)
+    n = toEnum (x - fromEnum l)
 
 -- | This is were the real work is done: Decoding a difference list.
 
 decode                  :: [Word32] -> [Position]
-decode                  = decode' 0
+decode                  = map fromEnum . decode' 0
   where
   decode'               :: Position -> [Word32] -> [Position]
   decode' _ []          = []
   decode' l (x:xs)      = n:(decode' n xs)
     where
-    n                   = (fromIntegral x) + l 
+    n                   = (fromIntegral x) + l
 
 -- | Returns all differences. Used for debugging purposes.
 

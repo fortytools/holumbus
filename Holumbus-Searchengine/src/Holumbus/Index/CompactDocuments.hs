@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 -- ----------------------------------------------------------------------------
@@ -16,24 +16,25 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.CompactDocuments 
+module Holumbus.Index.CompactDocuments
 (
   -- * Documents type
   Documents (..)
-  , CompressedDoc(..)
+  , CompressedDoc
   , DocMap
   , URIMap
 
   -- * Construction
   , emptyDocuments
   , singleton
-  
+
   -- * Conversion
   , simplify
   , toDocument
   , fromDocument
   , fromDocMap
   , toDocMap
+  , mkCDoc
 )
 where
 
@@ -41,13 +42,13 @@ import qualified Codec.Compression.BZip as BZ
 
 import           Control.DeepSeq
 
-import           Data.Binary            ( Binary )
+import           Data.Binary            (Binary)
 import qualified Data.Binary            as B
-import           Data.ByteString.Lazy   ( ByteString )
-import qualified Data.ByteString.Lazy   as BS
-import           Data.Maybe             ( fromJust )
+-- import qualified Data.ByteString        as BS
+import qualified Data.ByteString.Lazy   as BL
+import           Data.Maybe             (fromJust)
+import qualified Data.StringMap         as M
 
-import qualified Holumbus.Data.PrefixTree as M
 import           Holumbus.Index.Common
 
 import           Text.XML.HXT.Core
@@ -56,20 +57,14 @@ import           Text.XML.HXT.Core
 
 -- | The table which is used to map a document to an artificial id and vice versa.
 
-type URIMap                     = M.PrefixTree DocId
-type DocMap a                   = DocIdMap (CompressedDoc a)
-
-newtype CompressedDoc a         = CDoc { unCDoc :: ByteString }
-                                  deriving (Eq, Show)
-
-data Documents a                = Documents
-                                  { idToDoc   :: ! (DocMap a)   -- ^ A mapping from a document id to
-                                                                --   the document itself.
-                                  , docToId   :: ! URIMap       -- ^ A space efficient mapping from
-                                                                --   the URI of a document to its id.
-                                  , lastDocId :: ! DocId        -- ^ The last used document id.
-                                  }
-                                  deriving (Show)
+data Documents a        = Documents
+                          { idToDoc   :: ! (DocMap a)   -- ^ A mapping from a document id to
+                                                        --   the document itself.
+                          , docToId   :: ! URIMap       -- ^ A space efficient mapping from
+                                                        --   the URI of a document to its id.
+                          , lastDocId :: ! DocId        -- ^ The last used document id.
+                          }
+                          deriving (Show)
 
 -- ----------------------------------------------------------------------------
 
@@ -93,7 +88,7 @@ instance (Binary a, HolIndex i) => HolDocIndex Documents a i where
           dt2s                  = editDocIds    add1 dt2
           ix2s                  = updateDocIds' add1 ix2
 
-          add1                  = addDocId disp 
+          add1                  = addDocId disp
           max1                  = maxKeyDocIdMap . toMap $ dt1
           min2                  = minKeyDocIdMap . toMap $ dt2
           disp                  = incrDocId $ subDocId max1 min2
@@ -103,26 +98,9 @@ instance (Binary a, HolIndex i) => HolDocIndex Documents a i where
 
 -- ----------------------------------------------------------------------------
 
-toDocument                      :: (Binary a) => CompressedDoc a -> Document a
-toDocument                      = B.decode . BZ.decompress . unCDoc
-
-fromDocument                    :: (Binary a) => Document a -> CompressedDoc a
-fromDocument                    = CDoc . BZ.compress . B.encode
-
-mapDocument                     :: (Binary a) => (Document a -> Document a) -> CompressedDoc a -> CompressedDoc a
-mapDocument f                   = fromDocument . f . toDocument
-
-toDocMap                        :: (Binary a) => DocIdMap (Document a) -> DocMap a
-toDocMap                        = mapDocIdMap fromDocument
-
-fromDocMap                      :: (Binary a) => DocMap a -> DocIdMap (Document a)
-fromDocMap                      = mapDocIdMap toDocument
-
--- ----------------------------------------------------------------------------
-
 instance Binary a => HolDocuments Documents a where
   sizeDocs d                    = sizeDocIdMap (idToDoc d)
-  
+
   lookupById  d i               = maybe (fail "") return
                                   . fmap toDocument
                                   . lookupDocIdMap i
@@ -168,15 +146,14 @@ instance Binary a => HolDocuments Documents a where
   insertDoc ds d                = maybe reallyInsert (\oldId -> (oldId, ds)) (lookupByURI ds (uri d))
     where
     d'                          = fromDocument d
-    reallyInsert                = rnf d' `seq`                  -- force document compression
-                                  (newId, Documents newIdToDoc newDocToId newId)
+    reallyInsert                = newDocs `seq` (newId, newDocs)
       where
-      newIdToDoc                = insertDocIdMap newId d' (idToDoc ds)
-      newDocToId                = M.insert (uri d) newId  (docToId ds)
-      newId                     = incrDocId (lastDocId ds)
+        newIdToDoc              = insertDocIdMap newId d' (idToDoc ds)
+        newDocToId              = M.insert (uri d) newId  (docToId ds)
+        newId                   = incrDocId (lastDocId ds)
+        newDocs                 = Documents newIdToDoc newDocToId newId
 
-  updateDoc ds i d              = rnf d' `seq`                  -- force document compression
-                                  ds 
+  updateDoc ds i d              = ds
                                   { idToDoc = insertDocIdMap i d' (idToDoc ds)
                                   , docToId = M.insert (uri d) i (docToId (removeById ds i))
                                   }
@@ -196,8 +173,8 @@ instance Binary a => HolDocuments Documents a where
     updated                     = mapDocIdMap (mapDocument f) (idToDoc d)
 
   filterDocuments p d           = Documents filtered (idToDoc2docToId filtered) (lastId filtered)
-    where 
-    filtered                    = filterDocIdMap (p . toDocument) (idToDoc d)  
+    where
+    filtered                    = filterDocIdMap (p . toDocument) (idToDoc d)
 
   fromMap itd'                  = Documents itd (idToDoc2docToId itd) (lastId itd)
     where
@@ -258,27 +235,6 @@ instance Binary a =>            Binary (Documents a)
 
 -- ------------------------------------------------------------
 
-instance (Binary a, XmlPickler a) =>
-                                XmlPickler (CompressedDoc a)
-    where
-    xpickle                     = xpWrap (fromDocument , toDocument) $
-                                  xpickle
-
--- ----------------------------------------------------------------------------
-
-instance Binary a =>            Binary (CompressedDoc a)
-    where
-    put                         = B.put . unCDoc
-    get                         = B.get >>= return . CDoc
-
--- ----------------------------------------------------------------------------
-
-instance                        NFData (CompressedDoc a)
-    where
-    rnf (CDoc s)                = BS.length s `seq` ()
-
--- ------------------------------------------------------------
-
 -- | Create an empty table.
 
 emptyDocuments                  :: Documents a
@@ -287,8 +243,7 @@ emptyDocuments                  = Documents emptyDocIdMap M.empty nullDocId
 -- | Create a document table containing a single document.
 
 singleton                       :: (Binary a) => Document a -> Documents a
-singleton d                     = rnf d' `seq`
-                                  Documents
+singleton d                     = Documents
                                   (singletonDocIdMap firstDocId d')
                                   (M.singleton (uri d) firstDocId)
                                   firstDocId
@@ -306,16 +261,55 @@ simplify dt                     = Documents (simple (idToDoc dt)) (docToId dt) (
                                     . toDocument
                                   ) i2d
 
+-- ------------------------------------------------------------
+
+newtype CompressedDoc a         = CDoc { unCDoc :: BL.ByteString }
+                                  deriving (Eq, Show, NFData)
+
+mkCDoc                          :: BL.ByteString -> CompressedDoc a
+mkCDoc s                        = CDoc $!! s
+
+instance (Binary a, XmlPickler a) => XmlPickler (CompressedDoc a)
+    where
+    xpickle                     = xpWrap (fromDocument , toDocument) $
+                                  xpickle
+
+instance Binary a =>            Binary (CompressedDoc a)
+    where
+    put                         = B.put . unCDoc
+    get                         = B.get >>= return . mkCDoc
+
+toDocument      :: (Binary a) => CompressedDoc a -> Document a
+toDocument      = B.decode . BZ.decompress . unCDoc
+
+fromDocument    :: (Binary a) => Document a -> CompressedDoc a
+fromDocument    = mkCDoc . BZ.compress . B.encode
+
+mapDocument     :: (Binary a) => (Document a -> Document a) -> CompressedDoc a -> CompressedDoc a
+mapDocument f   = fromDocument . f . toDocument
+
+-- ------------------------------------------------------------
+
+type URIMap     = M.StringMap DocId
+
+type DocMap a   = DocIdMap (CompressedDoc a)
+
+toDocMap        :: (Binary a) => DocIdMap (Document a) -> DocMap a
+toDocMap        = mapDocIdMap fromDocument
+
+fromDocMap      :: (Binary a) => DocMap a -> DocIdMap (Document a)
+fromDocMap      = mapDocIdMap toDocument
+
 -- | Construct the inverse map from the original map.
 
-idToDoc2docToId                 :: Binary a => DocMap a -> URIMap
-idToDoc2docToId                 = foldWithKeyDocIdMap
-                                  (\i d r -> M.insert (uri . toDocument $ d) i r)
-                                  M.empty
+idToDoc2docToId :: Binary a => DocMap a -> URIMap
+idToDoc2docToId = foldWithKeyDocIdMap
+                  (\i d r -> M.insert (uri . toDocument $ d) i r)
+                  M.empty
 
 -- | Query the 'idToDoc' part of the document table for the last id.
 
-lastId                          :: DocMap a -> DocId
-lastId                          = maxKeyDocIdMap
+lastId          :: DocMap a -> DocId
+lastId          = maxKeyDocIdMap
 
 -- ------------------------------------------------------------

@@ -1,20 +1,20 @@
-{-# OPTIONS -XBangPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- ------------------------------------------------------------
 
 module Holumbus.Crawler.Core
 where
 
-import           Control.Concurrent.MapFold             ( mapFold )
-import           Control.Sequential.MapFoldBinary       ( mapFoldBinaryM )
+import           Control.Concurrent.MapFold       (mapFold)
 import           Control.DeepSeq
+import           Control.Sequential.MapFoldBinary (mapFoldBinaryM)
 
 import           Control.Monad.Reader
-import           Control.Monad.State
 import           Control.Monad.ReaderStateIO
+import           Control.Monad.State
 
-import           Data.Binary                    ( Binary )
-import qualified Data.Binary                    as B    -- else naming conflict with put and get from Monad.State
+import           Data.Binary                      (Binary)
+import qualified Data.Binary                      as B
 
 import           Data.Function.Selector
 
@@ -22,16 +22,13 @@ import           Data.List
 
 import           Holumbus.Crawler.Constants
 import           Holumbus.Crawler.Logger
-import           Holumbus.Crawler.URIs
 import           Holumbus.Crawler.Robots
 import           Holumbus.Crawler.Types
-import           Holumbus.Crawler.Util          ( mkTmpFile )
+import           Holumbus.Crawler.URIs
+import           Holumbus.Crawler.Util            (mkTmpFile)
 import           Holumbus.Crawler.XmlArrows
 
-import           Text.XML.HXT.Core              hiding
-                                                ( when
-                                                , getState
-                                                )
+import           Text.XML.HXT.Core                hiding (getState, when)
 
 -- ------------------------------------------------------------
 
@@ -157,7 +154,7 @@ crawlNextDocs mapf      = do
                           mp   <- getConf  theMaxParDocs
                           md   <- getConf theMaxNoOfDocs
 
-                          let n       = mp `min` (md - nd) 
+                          let n       = mp `min` (md - nd)
                           let urisTBP = nextURIs n uris
 
                           modifyState theNoOfDocs (+ (length urisTBP))
@@ -209,14 +206,14 @@ processDoc' (uri, lev)  = do
                           [(uri', (uris', docRes))] <- liftIO $ runX (processDocArrow conf uri)
                           let toBeFollowed = getS theFollowRef conf
                           let maxLevel     = getS theClickLevel conf
-                          let ! lev1       = lev + 1 
+                          let ! lev1       = lev + 1
                           let movedUris    = if null uri'
                                              then emptyURIs
                                              else singletonURIs uri'
                           let newUris      = if lev >= maxLevel
                                              then emptyURIs
                                              else fromListURIs'
-                                                  . map (\ u -> (u, lev1)) 
+                                                  . map (\ u -> (u, lev1))
                                                   . filter toBeFollowed
                                                   $ uris'
                           return (movedUris, newUris, docRes)
@@ -230,7 +227,7 @@ combineDocResults'      :: (NFData r) =>
 combineDocResults' mergeOp (m1, n1, r1) (m2, n2, r2)
                         = do
                           noticeC "crawlNextDocs" ["combining results"]
-                          r   <- mergeOp r1 r2
+                          r     <- mergeOp r1 r2
                           m     <- return $ unionURIs m1 m2
                           n     <- return $ unionURIs' min n1 n2
                           res   <- return $ (m, n, r)
@@ -373,7 +370,7 @@ initCrawler                     :: CrawlerAction a r ()
 initCrawler                     = do
                                   conf <- ask
                                   setLogLevel "" (getS theTraceLevel conf)
-                                  
+
 
 runCrawler                      :: CrawlerAction a r x ->
                                    CrawlerConfig a r   ->

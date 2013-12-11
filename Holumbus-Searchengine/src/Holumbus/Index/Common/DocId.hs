@@ -20,21 +20,20 @@
 module Holumbus.Index.Common.DocId
 where
 
-import Control.DeepSeq
+import           Control.DeepSeq
 
-import Data.Binary              ( Binary (..) )
-import qualified
-       Data.Binary              as B
-import Data.Int                ( Int64 )
+import           Data.Binary       (Binary (..))
+import qualified Data.Binary       as B
+-- import Data.Int                ( Int64 )
 
-import Text.XML.HXT.Core
+import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
 -- | The unique identifier of a document
 -- (created upon insertion into the document table).
 
-newtype DocId                   = DocId { theDocId :: Int64 }
+newtype DocId                   = DocId { theDocId :: Int }
                                   deriving (Eq, Ord, Enum, NFData)
 
 instance Show DocId where

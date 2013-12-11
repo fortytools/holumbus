@@ -20,12 +20,12 @@
 module Holumbus.Index.Common.RawResult
 where
 
-import           Data.Map       (Map)
-import qualified Data.Map       as M
+import           Data.Map                         (Map)
+import qualified Data.Map                         as M
 
-import Holumbus.Index.Common.BasicTypes
-import Holumbus.Index.Common.DocIdMap
-import Holumbus.Index.Common.Occurences
+import           Holumbus.Index.Common.BasicTypes
+import           Holumbus.Index.Common.DocIdMap
+import           Holumbus.Index.Common.Occurences
 
 -- ------------------------------------------------------------
 
@@ -52,7 +52,7 @@ genResultByDocument f c os
     = mapDocIdMap transform $
       unionsWithDocIdMap (flip $ (:) . head) (map insertWords os)
     where
-      insertWords (w, o) = mapDocIdMap (\ p -> [(w, f p)]) o   
+      insertWords (w, o) = mapDocIdMap (\ p -> [(w, f p)]) o
       transform w        = M.singleton c (M.fromList w)
 
 {-# INLINE genResultByDocument #-}

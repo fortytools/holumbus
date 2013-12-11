@@ -8,18 +8,18 @@ import           Control.DeepSeq
 import           Data.Function.Selector
 
 import           Data.List
-import qualified Data.Map                       as M
+import qualified Data.Map.Strict             as M
 import           Data.Maybe
 
-import           Holumbus.Crawler.URIs
+import           Holumbus.Crawler.Logger
 import           Holumbus.Crawler.RobotTypes
 import           Holumbus.Crawler.Types
-import           Holumbus.Crawler.Logger
+import           Holumbus.Crawler.URIs
 
-import qualified Network.URI                    as N
+import qualified Network.URI                 as N
 
-import           Text.XML.HXT.Core
 import           Text.XML.HXT.Cache
+import           Text.XML.HXT.Core
 
 {-
 import           Text.XML.HXT.RelaxNG.XmlSchema.RegexMatch
