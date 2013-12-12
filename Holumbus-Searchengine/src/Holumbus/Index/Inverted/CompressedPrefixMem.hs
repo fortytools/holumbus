@@ -1,4 +1,4 @@
-{-# OPTIONS #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Holumbus.Index.Inverted.CompressedPrefixMem
     ( Inverted(..)

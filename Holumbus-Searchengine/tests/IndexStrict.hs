@@ -8,7 +8,8 @@ import           Control.Arrow                               (first, second,
                                                               (***))
 import           Control.DeepSeq                             (($!!))
 import           Control.Monad                               (when)
-import           Data.Binary                                 (Binary)
+
+import           Data.Binary                                 (Binary, encodeFile, decodeFile)
 import           Data.Char                                   (isAlpha, toLower)
 import           Data.List                                   (sort, tails)
 import           Data.Monoid
@@ -52,6 +53,13 @@ main = defaultMain $
 testNF :: String -> a -> Test
 testNF s !x = testCase s $
               ( do ok <- isNF x
+                   when (not ok) (assertNF x)
+                   return ok ) @? s
+
+testNF' :: (a -> IO b) -> String -> a -> Test
+testNF' f s y = testCase s $
+              ( do !x <- f y
+                   ok <- isNF x
                    when (not ok) (assertNF x)
                    return ok ) @? s
 
@@ -137,48 +145,73 @@ ixs = {- -}
       ixsSubtract
           = ixSubtractAll . ixsDocs
 
-      ds =
-          [ ("d0", d0)
-          , ("d1", d1)
-          , ("d2", d2)
-          , ("d3", d3)
-          , ("d4", d4)
-          ]
+ixs' :: (Binary occ, ComprOccurrences occ) =>
+       Ixs (Inverted occ)
+ixs' = map (second idx) ds
 
-ixs0 :: Ixs Inverted0
-ixs0 = ixs
+ds :: [(String, (Int, String))]
+ds =
+    [ ("d0", d0)
+    , ("d1", d1)
+    , ("d2", d2)
+    , ("d3", d3)
+    , ("d4", d4)
+    ]
 
-ixs1  :: Ixs InvertedCompressed
-ixs1 = ixs
+ixs0, ixs0' :: Ixs Inverted0
+ixs0  = ixs
+ixs0' = ixs'
 
-ixs2  :: Ixs InvertedSerialized
-ixs2 = ixs
+ixs1, ixs1'  :: Ixs InvertedCompressed
+ixs1  = ixs
+ixs1' = ixs'
 
-ixs3 :: Ixs InvertedCSerialized
-ixs3 = ixs
+ixs2, ixs2'  :: Ixs InvertedSerialized
+ixs2  = ixs
+ixs2' = ixs'
 
-ixs4 :: Ixs InvertedOSerialized
+ixs3, ixs3' :: Ixs InvertedCSerialized
+ixs3  = ixs
+ixs3' = ixs'
+
+ixs4, ixs4' :: Ixs InvertedOSerialized
 ixs4 = ixs
+ixs4' = ixs'
 
 -- the tests
 
-toTest :: String -> [(String, d)] -> [Test]
-toTest name = map (uncurry testNF . first ((name ++ ": ") ++))
+toTestNF' :: (d -> IO a) -> String -> [(String, d)] -> [Test]
+toTestNF' f name = map (uncurry (testNF' f) . first ((name ++ ": ") ++))
+
+toTestNF :: String -> [(String, d)] -> [Test]
+toTestNF = toTestNF' return
+
+toTestBinaryNF :: (Binary occ, ComprOccurrences occ) => String -> [(String, Inverted occ)] -> [Test]
+toTestBinaryNF = toTestNF' serialize
+
+serialize :: (Binary a, ComprOccurrences a) => Inverted a -> IO (Inverted a)
+serialize x = do encodeFile "/tmp/x.bin" x
+                 y <- decodeFile "/tmp/x.bin"
+                 return (y `mergeIndexes` idx d4)
 
 txs0 :: [Test]
-txs0 = toTest "Inverted0" ixs0
+txs0 = toTestNF "Inverted0" ixs0
+       ++
+       toTestBinaryNF "Inverted0 (Binary)" ixs0'
 
 txs1 :: [Test]
-txs1 = toTest "InvertedCompressed" ixs1
+txs1 = toTestNF "InvertedCompressed" ixs1
+       ++
+       toTestBinaryNF "InvertedCompressed (Binary)" ixs1'
 
 txs2 :: [Test]
-txs2 = toTest "InvertedSerialized" ixs2
+txs2 = toTestNF "InvertedSerialized" ixs2
 
 txs3 :: [Test]
-txs3 = toTest "InvertedCSerialized" ixs3
+txs3 = toTestNF "InvertedCSerialized" ixs3
 
 txs4 :: [Test]
-txs4 = toTest "InvertedOSerialized" ixs4
+txs4 = toTestNF "InvertedOSerialized" ixs4
 
 -- ----------------------------------------
 
