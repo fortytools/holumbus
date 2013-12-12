@@ -43,8 +43,8 @@ RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 # maxpar:    maximum of docs indexed and merged in paralled ( <= partition )
 # maxdocs:   upper limit of # of docs, hackage had about 33000 docs (2013-10-09)
 
-partition =500
-maxpar    =500
+partition =2000
+maxpar    =2000
 maxdocs   =50000
 
 all	:
@@ -106,16 +106,17 @@ whole-index	: $(indexer)
 
 whole-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
-	@echo the resulting package index is "$(px)", an XML version is stored in "$(px).xml" 
+	@echo the resulting package index is "$(px)"
+	@echo for an XML version, use 'make whole-pkg OPT=--new-xml="$(px).xml"'
 	rm -f tmp/pkg-*
 	$< $(RUNOPTS) --pkg-index \
 		--ranking \
 		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
-		--maxpar=$(maxpar) \
+		--maxpar=$(maxdocs) \
+		--save=$(maxdocs) \
 		--valid=$(validix) \
 		--new-index=$(px) \
-		--xml-output=$(px).xml \
 		--new-search=$(px) \
 		$(OPTS)
 	ls -l $(px)*
