@@ -1,10 +1,10 @@
 {-# OPTIONS -fno-warn-orphans #-}
 
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TypeSynonymInstances       #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -25,10 +25,10 @@
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Index.Common 
+module Holumbus.Index.Common
   (
   -- * Common index types and classes
-  HolIndex (..)
+    HolIndex (..)
   , HolIndexM (..)
   , HolDocuments (..)
   , HolDocIndex (..)
@@ -48,18 +48,18 @@ module Holumbus.Index.Common
   )
 where
 
-import Control.Monad                    ( foldM )
+import           Control.Monad                    (foldM)
 
 -- import Data.Binary                   ( Binary (..) )
 -- import Data.Maybe
 
-import Holumbus.Index.Common.BasicTypes
-import Holumbus.Index.Common.Document
-import Holumbus.Index.Common.DocId
-import Holumbus.Index.Common.DocIdMap
-import Holumbus.Index.Common.Occurences
-import Holumbus.Index.Common.RawResult
-import Holumbus.Index.Common.LoadStore
+import           Holumbus.Index.Common.BasicTypes
+import           Holumbus.Index.Common.DocId
+import           Holumbus.Index.Common.DocIdMap
+import           Holumbus.Index.Common.Document
+import           Holumbus.Index.Common.LoadStore
+import           Holumbus.Index.Common.Occurences
+import           Holumbus.Index.Common.RawResult
 
 -- ------------------------------------------------------------
 
@@ -86,7 +86,7 @@ class HolIndex i where
 
   -- | Searches for and exact word in a given context (case-insensitive).
   lookupNoCase                  :: i -> Context -> String -> RawResult
-  
+
   -- | Insert occurrences.
   insertOccurrences             :: Context -> Word -> Occurrences -> i -> i
 
@@ -101,7 +101,7 @@ class HolIndex i where
   deletePosition                :: Context -> Word -> DocId -> Position -> i -> i
   deletePosition c w d p i      = deleteOccurrences c w (singletonOccurrence d p) i
 
-  -- | Merges two indexes. 
+  -- | Merges two indexes.
   mergeIndexes                  :: i -> i -> i
 
   -- | Substract one index from another.
@@ -125,12 +125,12 @@ class HolIndex i where
   updateDocIds'                 :: (DocId -> DocId) -> i -> i
   updateDocIds' f               = updateDocIds (const . const $ f)
 
-  -- Convert an Index to a list. Can be used for easy conversion between different index  
+  -- Convert an Index to a list. Can be used for easy conversion between different index
   -- implementations
 
   toList                        :: i -> [(Context, Word, Occurrences)]
-  
-  -- Create an Index from a list. Can be used for easy conversion between different index  
+
+  -- Create an Index from a list. Can be used for easy conversion between different index
   -- implementations. Needs an empty index as first argument
 
   fromList                      :: i -> [(Context, Word, Occurrences)] -> i
@@ -176,7 +176,7 @@ class (Monad m) => HolIndexM m i where
   deletePositionM               :: Context -> Word -> DocId -> Position -> i -> m i
   deletePositionM c w d p i     = deleteOccurrencesM c w (singletonOccurrence d p) i
 
-  -- | Merges two indexes. 
+  -- | Merges two indexes.
   mergeIndexesM                 :: i -> i -> m i
 
   -- | Update document id's (e.g. for renaming documents). If the function maps two different id's
@@ -187,11 +187,11 @@ class (Monad m) => HolIndexM m i where
   -- | Update document id's with an simple injective editing function.
   updateDocIdsM'                :: (DocId -> DocId) -> i -> m i
 
-  -- Convert an Index to a list. Can be used for easy conversion between different index  
+  -- Convert an Index to a list. Can be used for easy conversion between different index
   -- implementations
   toListM                       :: i -> m [(Context, Word, Occurrences)]
 
-  -- Create an Index from a list. Can be used vor easy conversion between different index  
+  -- Create an Index from a list. Can be used vor easy conversion between different index
   -- implementations. Needs an empty index as first argument
   fromListM                     :: i -> [(Context, Word, Occurrences)] -> m i
   fromListM e                   = foldM (\i (c,w,o) -> insertOccurrencesM c w o i) e
@@ -227,7 +227,7 @@ class HolDocuments d a where
 
   -- | Returns the number of unique documents in the table.
   sizeDocs                      :: d a -> Int
-  
+
   -- | Lookup a document by its id.
   lookupById                    :: Monad m => d a -> DocId -> m (Document a)
 
@@ -250,14 +250,14 @@ class HolDocuments d a where
 
   -- | Return an empty document table. The input parameter is taken to identify the typeclass
   makeEmpty                     :: d a -> d a
-  
-  -- | Insert a document into the table. Returns a tuple of the id for that document and the 
-  -- new table. If a document with the same URI is already present, its id will be returned 
+
+  -- | Insert a document into the table. Returns a tuple of the id for that document and the
+  -- new table. If a document with the same URI is already present, its id will be returned
   -- and the table is returned unchanged.
 
   insertDoc                     :: d a -> (Document a) -> (DocId, d a)
 
-  -- | Update a document with a certain DocId. 
+  -- | Update a document with a certain DocId.
   updateDoc                     :: d a -> DocId -> (Document a) -> d a
 
   -- | Removes the document with the specified id from the table.
@@ -289,7 +289,7 @@ class HolCache c where
   -- upon failure or if no text found for the document, @Nothing@ is returned.
   getDocText  :: c -> Context -> DocId -> IO (Maybe Content)
 
-  -- | Store the full text of a document for a given context. May throw an exception if the 
+  -- | Store the full text of a document for a given context. May throw an exception if the
   -- storage of the text failed.
 
   putDocText  :: c -> Context -> DocId -> Content -> IO ()

@@ -1,5 +1,5 @@
 name:          Holumbus-Searchengine
-version:       1.2.4
+version:       1.2.6.0
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Kranz, Uwe Schmidt
@@ -30,6 +30,7 @@ library
                , binary                 >= 0.5 && < 1
                , bytestring             >= 0.9 && < 1
                , bzlib                  >= 0.4 && < 1
+               , data-size              >= 0.1.1 && < 1
                , data-stringmap         >= 0.9.3
                , directory              >= 1   && < 2
                , filepath               >= 1   && < 2
@@ -74,11 +75,6 @@ library
     Holumbus.Crawler.Util
     Holumbus.Crawler.XmlArrows
     Holumbus.Data.Crunch
---    Holumbus.Data.PrefixTree.Core
---    Holumbus.Data.PrefixTree.FuzzySearch
---    Holumbus.Data.PrefixTree
---    Holumbus.Data.PrefixTree.PrefixSet
---    Holumbus.Data.PrefixTree.Types
     Holumbus.Index.Common
     Holumbus.Index.Common.BasicTypes
     Holumbus.Index.Common.DiffList
@@ -95,7 +91,6 @@ library
     Holumbus.Index.HashedDocuments
     Holumbus.Index.HashedIndex
     Holumbus.Index.Inverted.CompressedPrefixMem
---    Holumbus.Index.Inverted.PrefixMem
     Holumbus.Query.Fuzzy
     Holumbus.Query.Intermediate
     Holumbus.Query.Language.Grammar

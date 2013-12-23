@@ -1,5 +1,7 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -21,23 +23,25 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Index.CompactSmallDocuments
-(
-  -- * Documents type
-  SmallDocuments (..)
+    (
+    -- * Documents type
+      SmallDocuments (..)
 
-  -- * Construction
-  , emptyDocuments
-  , singleton
+    -- * Construction
+    , emptyDocuments
+    , singleton
 
-  -- * Conversion
-  , docTable2smallDocTable
-)
+    -- * Conversion
+    , docTable2smallDocTable
+    )
 where
 
 import           Control.DeepSeq
 
 import           Data.Binary                     (Binary)
 import qualified Data.Binary                     as B
+import           Data.Size
+import           Data.Typeable
 
 import           Holumbus.Index.Common
 import qualified Holumbus.Index.CompactDocuments as CD
@@ -56,9 +60,9 @@ import           Text.XML.HXT.Core
 
 newtype SmallDocuments a        = SmallDocuments
                                   { idToSmallDoc :: CD.DocMap a -- ^ A mapping from a doc id
-                                                                  --   to the document itself.
+                                                                --   to the document itself.
                                   }
-                                  deriving (NFData)
+                                  deriving (NFData, Typeable)
 
 -- ----------------------------------------------------------------------------
 
@@ -167,6 +171,13 @@ instance Binary a =>            Binary (SmallDocuments a)
     get                         = do
                                   i2d <- B.get
                                   return $ SmallDocuments i2d
+
+-- ------------------------------------------------------------
+
+instance Sizeable a => Sizeable (SmallDocuments a) where
+    dataOf                      = dataOf  . idToSmallDoc
+    bytesOf                     = dataOf
+    statsOf x                   = setName (nameOf x) . statsOf . idToSmallDoc $ x
 
 -- ------------------------------------------------------------
 

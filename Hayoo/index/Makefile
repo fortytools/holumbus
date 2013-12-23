@@ -107,7 +107,7 @@ whole-index	: $(indexer)
 whole-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)"
-	@echo for an XML version, use 'make whole-pkg OPT=--new-xml="$(px).xml"'
+	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
 	rm -f tmp/pkg-*
 	$< $(RUNOPTS) --pkg-index \
 		--ranking \

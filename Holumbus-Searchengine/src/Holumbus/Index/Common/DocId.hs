@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- ----------------------------------------------------------------------------
@@ -24,7 +25,8 @@ import           Control.DeepSeq
 
 import           Data.Binary       (Binary (..))
 import qualified Data.Binary       as B
--- import Data.Int                ( Int64 )
+import           Data.Size
+import           Data.Typeable
 
 import           Text.XML.HXT.Core
 
@@ -34,7 +36,7 @@ import           Text.XML.HXT.Core
 -- (created upon insertion into the document table).
 
 newtype DocId                   = DocId { theDocId :: Int }
-                                  deriving (Eq, Ord, Enum, NFData)
+                                  deriving (Eq, Ord, Enum, NFData, Typeable)
 
 instance Show DocId where
     show                        = show . theDocId
@@ -45,6 +47,12 @@ instance Binary DocId where
     get                         = B.get >>= return . DocId
     {-# INLINE put #-}
     {-# INLINE get #-}
+
+instance Sizeable DocId where
+    dataOf                      = dataOf  . theDocId
+    bytesOf                     = dataOf
+    statsOf x                   = setName (nameOf x) . statsOf . theDocId $ x
+
 
 incrDocId                       :: DocId -> DocId
 incrDocId                       = DocId . (1+) . theDocId

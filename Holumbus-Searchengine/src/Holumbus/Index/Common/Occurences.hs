@@ -20,11 +20,6 @@
 module Holumbus.Index.Common.Occurences
 where
 
--- import           Control.DeepSeq
-
--- import           Data.Binary                      (Binary (..))
--- import qualified Data.Binary                      as B
-
 import qualified Data.IntSet                      as IS
 
 import           Holumbus.Index.Common.BasicTypes
@@ -128,15 +123,6 @@ xpPositions             :: PU Positions
 xpPositions             = xpWrap ( IS.fromList . (map read) . words
                                  , unwords . (map show) . IS.toList
                                  ) xpText
-
-{- old stuff
-instance (NFData v, Enum v) => NFData (IS.EnumSet v) where
-    rnf                   = rnf . IS.toList
-
-instance (Binary v, Enum v) => Binary (IS.EnumSet v) where
-    put                   = B.put . IS.toList
-    get                   = B.get >>= return . IS.fromList
--}
 
 -- ------------------------------------------------------------
 

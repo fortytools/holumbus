@@ -1,5 +1,7 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -17,25 +19,25 @@
 -- ----------------------------------------------------------------------------
 
 module Holumbus.Index.CompactDocuments
-(
-  -- * Documents type
-  Documents (..)
-  , CompressedDoc
-  , DocMap
-  , URIMap
+    (
+      -- * Documents type
+      Documents (..)
+    , CompressedDoc
+    , DocMap
+    , URIMap
 
-  -- * Construction
-  , emptyDocuments
-  , singleton
+      -- * Construction
+    , emptyDocuments
+    , singleton
 
-  -- * Conversion
-  , simplify
-  , toDocument
-  , fromDocument
-  , fromDocMap
-  , toDocMap
-  , mkCDoc
-)
+      -- * Conversion
+    , simplify
+    , toDocument
+    , fromDocument
+    , fromDocMap
+    , toDocMap
+    , mkCDoc
+    )
 where
 
 import qualified Codec.Compression.BZip as BZ
@@ -44,10 +46,14 @@ import           Control.DeepSeq
 
 import           Data.Binary            (Binary)
 import qualified Data.Binary            as B
--- import qualified Data.ByteString        as BS
+import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
 import           Data.Maybe             (fromJust)
+import           Data.Size
 import qualified Data.StringMap         as M
+import           Data.Typeable
+
+-- import qualified Data.ByteString        as BS
 
 import           Holumbus.Index.Common
 
@@ -64,7 +70,7 @@ data Documents a        = Documents
                                                         --   the URI of a document to its id.
                           , lastDocId :: ! DocId        -- ^ The last used document id.
                           }
-                          deriving (Show)
+                          deriving (Show, Typeable)
 
 -- ----------------------------------------------------------------------------
 
@@ -235,6 +241,12 @@ instance Binary a =>            Binary (Documents a)
 
 -- ------------------------------------------------------------
 
+instance Sizeable a => Sizeable (Documents a) where
+    dataOf _x                   = 3 .*. dataOfPtr
+    statsOf x@(Documents i d l) = mkStats x <> statsOf i <> statsOf d <> statsOf l
+
+-- ------------------------------------------------------------
+
 -- | Create an empty table.
 
 emptyDocuments                  :: Documents a
@@ -263,10 +275,10 @@ simplify dt                     = Documents (simple (idToDoc dt)) (docToId dt) (
 
 -- ------------------------------------------------------------
 
-newtype CompressedDoc a         = CDoc { unCDoc :: BL.ByteString }
-                                  deriving (Eq, Show, NFData)
+newtype CompressedDoc a         = CDoc { unCDoc :: BS.ByteString }
+                                  deriving (Eq, Show, NFData, Typeable)
 
-mkCDoc                          :: BL.ByteString -> CompressedDoc a
+mkCDoc                          :: BS.ByteString -> CompressedDoc a
 mkCDoc s                        = CDoc $!! s
 
 instance (Binary a, XmlPickler a) => XmlPickler (CompressedDoc a)
@@ -279,11 +291,16 @@ instance Binary a =>            Binary (CompressedDoc a)
     put                         = B.put . unCDoc
     get                         = B.get >>= return . mkCDoc
 
+instance Sizeable a => Sizeable (CompressedDoc a) where
+    dataOf                      = dataOf  . unCDoc
+    bytesOf                     = dataOf
+    statsOf x                   = setName (nameOf x) . statsOf . unCDoc $ x
+
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
-toDocument      = B.decode . BZ.decompress . unCDoc
+toDocument      = B.decode . BZ.decompress . BL.fromStrict . unCDoc
 
 fromDocument    :: (Binary a) => Document a -> CompressedDoc a
-fromDocument    = mkCDoc . BZ.compress . B.encode
+fromDocument    = mkCDoc . BL.toStrict . BZ.compress . B.encode
 
 mapDocument     :: (Binary a) => (Document a -> Document a) -> CompressedDoc a -> CompressedDoc a
 mapDocument f   = fromDocument . f . toDocument

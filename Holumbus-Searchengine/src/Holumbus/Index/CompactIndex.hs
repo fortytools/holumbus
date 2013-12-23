@@ -1,5 +1,3 @@
-{-# OPTIONS #-}
-
 -- ------------------------------------------------------------
 
 module Holumbus.Index.CompactIndex
@@ -36,8 +34,8 @@ import           Control.DeepSeq
 import           Control.Monad.Reader
 
 import           Data.Binary
-
 import           Data.Function.Selector                      ((.&&&.))
+import           Data.Size
 
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.Logger
@@ -147,15 +145,21 @@ defragmentHolumbusState IndexerState
 
 -- ------------------------------------------------------------
 
-mergeAndWritePartialRes' :: (MonadIO m, NFData i, Binary i) =>
+mergeAndWritePartialRes' :: (MonadIO m, NFData i, Binary i, Sizeable i) =>
                             (SmallDocuments i -> SmallDocuments i) -> [String] -> String -> m ()
 mergeAndWritePartialRes' id' pxs out
     = do notice $ ["merge partial doctables from"] ++ pxs
          mdocs <- mergeSmallDocs $ map (++ ".doc") pxs
+         notice $ ["space statistics for merged compressed documents"
+                  , "\n\n" ++ show (statsOf mdocs)
+                  ]
          notice $ ["write merged doctable to", out ++ ".doc"]
          liftIO $ encodeFile (out ++ ".doc") (id' mdocs)
          notice $ ["merge partial indexes from"] ++ pxs
          mixs  <- mergeCompactIxs $ map (++ ".idx") pxs
+         notice $ ["space statistics for merged compressed indexes"
+                  , "\n\n" ++ show (statsOf mixs)
+                  ]
          notice $ ["write merged indexes to", out ++ ".idx"]
          liftIO $ encodeFile (out ++ ".idx") mixs
          notice $ ["merge partial doctables and indexes done"]
@@ -167,7 +171,7 @@ mergeSmallDocs (x : xs)
     = do docs <- mergeSmallDocs xs
          notice ["merge small documents from file", x]
          doc1 <- liftIO $ decodeFile x
-         return $! unionDocs docs doc1
+         doc1 `seq` (return $! unionDocs docs doc1)
 
 -- old stuff
 --         rnf doc1 `seq`
@@ -180,7 +184,7 @@ mergeCompactIxs (x : xs)
     = do ixs <- mergeCompactIxs xs
          notice ["merge compact index from file", x]
          ix1 <- liftIO $ decodeFile x
-         return $! mergeIndexes ix1 ixs
+         ix1 `seq` (return $! mergeIndexes ix1 ixs)
 
 -- old stuff
 --         rnf ix1 `seq`
@@ -215,13 +219,20 @@ writeBin out v
              liftIO $ encodeFile out v
              notice ["writing binary data finished"]
 
-writeSearchBin :: (Binary c, MonadIO m) => FilePath -> HolumbusState c -> m ()
+writeSearchBin :: (Binary c, MonadIO m, Sizeable c) =>
+                  FilePath -> HolumbusState c -> m ()
 writeSearchBin out state
     | null out
         = notice ["no search index written"]
     | otherwise
-        = do notice ["writing small document table into binary file", docFile]
+        = do notice $ ["space statistics for documents"
+                      , "\n\n" ++ show (statsOf $ ixs_documents state)
+                      ]
+             notice ["writing small document table into binary file", docFile]
              liftIO $ encodeFile docFile (docTable2smallDocTable . ixs_documents $ state)
+             notice $ ["space statistics for index"
+                      , "\n\n" ++ show (statsOf $ ixs_index state)
+                      ]
              notice ["writing compressed inverted index into binary file", idxFile]
              liftIO $ encodeFile idxFile (inverted2compactInverted . ixs_index $ state)
              notice ["writing search index files finished"]
@@ -231,7 +242,7 @@ writeSearchBin out state
 
 -- ------------------------------------------------------------
 
-writePartialIndex :: (XmlPickler c, Binary c) =>
+writePartialIndex :: (XmlPickler c, Binary c, Sizeable c) =>
                      Bool -> FilePath -> CrawlerAction a (HolumbusState c) ()
 writePartialIndex xout fn
     = modifyStateIO
@@ -251,7 +262,7 @@ writePartialIndex xout fn
    but when running the parallel one, the index ids will overlap.
 -}
 
-writePartialIndex' :: (XmlPickler c, Binary c) =>
+writePartialIndex' :: (XmlPickler c, Binary c, Sizeable c) =>
                       Bool -> FilePath -> HolumbusState c -> IO (HolumbusState c)
 writePartialIndex' xout out ixs
     = do writeSearchBin out ixs

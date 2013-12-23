@@ -1,4 +1,5 @@
-{-# OPTIONS #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -20,14 +21,16 @@
 module Holumbus.Index.Common.Document
 where
 
-import Control.Monad                    ( liftM3 )
-import Control.DeepSeq
+import           Control.DeepSeq
+import           Control.Monad                    (liftM3)
 
-import Data.Binary                      ( Binary (..) )
+import           Data.Binary                      (Binary (..))
+import           Data.Size
+import           Data.Typeable
 
-import Holumbus.Index.Common.BasicTypes
+import           Holumbus.Index.Common.BasicTypes
 
-import Text.XML.HXT.Core
+import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
@@ -39,7 +42,7 @@ data Document a                 = Document
                                   , uri    :: ! URI
                                   , custom :: ! (Maybe a)
                                   }
-                                  deriving (Show, Eq, Ord)
+                                  deriving (Show, Eq, Ord, Typeable)
 
 instance Binary a => Binary (Document a) where
     put (Document t u c)        = put t >> put u >> put c
@@ -55,5 +58,9 @@ instance XmlPickler a => XmlPickler (Document a) where
 
 instance NFData a => NFData (Document a) where
     rnf (Document t u c)        = rnf t `seq` rnf u `seq` rnf c
+
+instance Sizeable a => Sizeable (Document a) where
+    dataOf _x                   = 3 .*. dataOfPtr
+    statsOf x@(Document t u c)  = mkStats x <> statsOf t <> statsOf u <> statsOf c
 
 -- ------------------------------------------------------------

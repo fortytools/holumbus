@@ -1,4 +1,4 @@
-{-# OPTIONS #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -- ------------------------------------------------------------
 
@@ -15,6 +15,7 @@ import qualified Data.Binary                  as B
 import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
+import           Data.Size
 
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
@@ -259,7 +260,8 @@ mainHackage
           = do notice $ if null ps
                           then ["indexing all packages from hackage package index"]
                           else "indexing hackage package descriptions for packages:" : ps
-               (getS theResultAccu `fmap` hayooPkgIndexer) >>= rankPkg
+               (getS theResultAccu `fmap` hayooPkgIndexer) >>=
+                 rankPkg
 
       rankPkg ix
           = do rank <- asks ao_pkgRank
@@ -368,6 +370,17 @@ mergePkg nix oix
          liftIO $ unionIndexerStatesM oix nix
 
 -- ------------------------------------------------------------
+{-
+logStats :: Sizeable a => String -> a -> HIO ()
+logStats msg x
+    = notice $ [msg, "\n\n" ++ show (statsOf x)]
+
+logIndexerState :: (Sizeable i, Sizeable (d c)) => IndexerState i d c -> HIO ()
+logIndexerState ixs
+    = do logStats "space statistics for index"     (ixs_index     ixs)
+         logStats "space statistics for documents" (ixs_documents ixs)
+-- -}
+-- ------------------------------------------------------------
 
 writePartialRes :: (HayooIndexerState, [Int]) -> HIO ()
 writePartialRes (x, ps)
@@ -387,7 +400,7 @@ mergeAndWritePartialRes ps
 
 -- ------------------------------------------------------------
 
-writeRes :: (XmlPickler a, B.Binary a) => HolumbusState a -> HIO ()
+writeRes :: (XmlPickler a, B.Binary a, Sizeable a) => HolumbusState a -> HIO ()
 writeRes x
     = writeSearchBin' x >> writeResults x
     where

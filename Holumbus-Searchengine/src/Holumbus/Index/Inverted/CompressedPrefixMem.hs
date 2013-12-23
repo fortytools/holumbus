@@ -1,4 +1,7 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 
 module Holumbus.Index.Inverted.CompressedPrefixMem
     ( Inverted(..)
@@ -18,9 +21,6 @@ module Holumbus.Index.Inverted.CompressedPrefixMem
     , emptyInvertedSerialized
     , emptyInvertedCSerialized
     , emptyInvertedOSerialized
-
-    , Sizeof(..)
-    , sizeofAttrsInverted
 
     , mapOcc
     , zipOcc
@@ -48,16 +48,15 @@ import qualified Data.ByteString.Lazy       as BL
 
 import           Data.Function              (on)
 
-import           Data.Int
-
 import           Data.List                  (foldl', sortBy)
 import qualified Data.Map.Strict            as M
 import           Data.Maybe
+import           Data.Size
+import qualified Data.StringMap.Strict      as PT
+import           Data.Typeable
 
 import           Holumbus.Index.Common
 import           Holumbus.Index.Compression
-
-import qualified Data.StringMap.Strict      as PT
 
 import           Text.XML.HXT.Core          (PU, XmlPickler, xpAttr, xpElem,
                                              xpList, xpPair, xpText, xpWrap,
@@ -106,13 +105,6 @@ deleteDocIds ids        = mapOcc $ flip diffOccurrences ids
 
 -- ----------------------------------------------------------------------------
 --
--- overloaded function sizeof for estimating the size of a value
-
-class Sizeof a where
-  sizeof        :: a -> Int64
-
--- ----------------------------------------------------------------------------
---
 -- auxiliary type for strict Bytestrings
 -- the use of the smart constructor assures that the Bytestring is
 -- fully evaluated before constructing the value
@@ -123,7 +115,7 @@ class Sizeof a where
 -- The constructor must not be called directly, only via mkBs
 
 newtype ByteString      = Bs { unBs :: BL.ByteString }
-                          deriving (Eq, Show)
+                          deriving (Eq, Show, Typeable)
 
 mkBs                    :: BL.ByteString -> ByteString
 mkBs s                  = Bs $!! s
@@ -135,9 +127,11 @@ instance B.Binary ByteString where
   put                   = B.put . unBs
   get                   = B.get >>= return . mkBs
 
-instance Sizeof ByteString where
-  sizeof                = (8 + ) . BL.length . unBs
-                          -- we need the size of the length + the length
+instance Sizeable ByteString where
+    dataOf                      = dataOf  . unBs
+    bytesOf                     = dataOf
+    statsOf x                   = {- setName (nameOf x) . -} statsOf . unBs $ x
+                                  -- else name clashes with ByteString (strict)
 
 -- ----------------------------------------------------------------------------
 --
@@ -145,7 +139,7 @@ instance Sizeof ByteString where
 -- and for forcing evaluation
 
 newtype Occ0            = Occ0 { unOcc0 :: Occurrences }
-                          deriving (Show)
+                          deriving (Show, Typeable)
 
 mkOcc0                  :: Occurrences -> Occ0
 mkOcc0 os               = Occ0 $!! os
@@ -161,15 +155,17 @@ instance B.Binary Occ0 where
   put                   = B.put . unOcc0
   get                   = B.get >>= return . mkOcc0
 
-instance Sizeof Occ0 where
-  sizeof                = BL.length . B.encode . unOcc0
+instance Sizeable Occ0 where
+    dataOf              = dataOf  . unOcc0
+    bytesOf             = dataOf
+    statsOf x           = setName (nameOf x) . statsOf . unOcc0 $ x
 
 -- ----------------------------------------------------------------------------
 --
 -- the simple-9 compressed occurrence type, just wrapped in a newtype for instance declarations
 
 newtype OccCompressed   = OccCp { unOccCp :: CompressedOccurrences }
-                          deriving (Eq, Show)
+                          deriving (Eq, Show, Typeable)
 
 mkOccCp                  :: Occurrences -> OccCompressed
 mkOccCp os               = OccCp $!! deflateOcc os
@@ -185,15 +181,17 @@ instance B.Binary OccCompressed where
   put                   = B.put . unOccCp
   get                   = B.get >>= ((return . OccCp) $!!)
 
-instance Sizeof OccCompressed where
-  sizeof                = BL.length . B.encode . unOccCp
+instance Sizeable OccCompressed where
+    dataOf              = dataOf  . unOccCp
+    bytesOf             = dataOf
+    statsOf x           = setName (nameOf x) . statsOf . unOccCp $ x
 
 -- ----------------------------------------------------------------------------
 --
 -- the simpe-9 compresses occurrences serialized into a byte strings
 
 newtype OccSerialized   = OccBs { unOccBs :: ByteString }
-                          deriving (Eq, Show, NFData)
+                          deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccSerialized where
   fromOccurrences       = OccBs . mkBs . B.encode . deflateOcc
@@ -203,15 +201,17 @@ instance B.Binary OccSerialized where
   put                   = B.put . unOccBs
   get                   = B.get >>= return . OccBs
 
-instance Sizeof OccSerialized where
-  sizeof                = sizeof . unOccBs
+instance Sizeable OccSerialized where
+    dataOf              = dataOf  . unOccBs
+    bytesOf             = dataOf
+    statsOf x           = setName (nameOf x) . statsOf . unOccBs $ x
 
 -- ----------------------------------------------------------------------------
 --
 -- the simple-9 compressed occurrences serialized and bzipped into a byte string
 
 newtype OccCSerialized  = OccCBs { unOccCBs :: ByteString }
-                          deriving (Eq, Show, NFData)
+                          deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccCSerialized where
   fromOccurrences       = OccCBs . mkBs . BZ.compress . B.encode . deflateOcc
@@ -221,8 +221,10 @@ instance B.Binary OccCSerialized where
   put                   = B.put . unOccCBs
   get                   = B.get >>= return . OccCBs
 
-instance Sizeof OccCSerialized where
-  sizeof                = sizeof . unOccCBs
+instance Sizeable OccCSerialized where
+    dataOf              = dataOf  . unOccCBs
+    bytesOf             = dataOf
+    statsOf x           = setName (nameOf x) . statsOf . unOccCBs $ x
 
 -- ----------------------------------------------------------------------------
 --
@@ -231,7 +233,7 @@ instance Sizeof OccCSerialized where
 -- and lookup is about 8% better
 
 newtype OccOSerialized  = OccOBs { unOccOBs :: ByteString }
-                          deriving (Eq, Show, NFData)
+                          deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccOSerialized where
   fromOccurrences       = OccOBs . mkBs . BZ.compress . B.encode
@@ -241,8 +243,10 @@ instance B.Binary OccOSerialized where
   put                   = B.put . unOccOBs
   get                   = B.get >>= return . OccOBs
 
-instance Sizeof OccOSerialized where
-  sizeof                = sizeof . unOccOBs
+instance Sizeable OccOSerialized where
+    dataOf              = dataOf  . unOccOBs
+    bytesOf             = dataOf
+    statsOf x           = setName (nameOf x) . statsOf . unOccOBs $ x
 
 -- ----------------------------------------------------------------------------
 
@@ -251,7 +255,7 @@ instance Sizeof OccOSerialized where
 newtype Inverted occ    = Inverted
                           { unInverted :: Parts  occ    -- ^ The parts of the index, each representing one context.
                           }
-                          deriving (Show, Eq, NFData)
+                          deriving (Show, Eq, NFData, Typeable)
 
 -- | The index parts are identified by a name, which should denote the context of the words.
 
@@ -285,6 +289,11 @@ xpPart                  = xpElem "index" (xpWrap (PT.fromList, PT.toList) (xpLis
 instance (B.Binary occ) => B.Binary (Inverted occ) where
   put                   = B.put . unInverted
   get                   = B.get >>= return . Inverted
+
+instance Sizeable occ => Sizeable (Inverted occ) where
+    dataOf              = dataOf  . unInverted
+    bytesOf             = dataOf
+    statsOf x           = setName (nameOf x) . statsOf . unInverted $ x
 
 -- ----------------------------------------------------------------------------
 
@@ -411,11 +420,6 @@ toListInverted                  = M.toList . unInverted
 
 singletonInverted               :: (ComprOccurrences i) => Context -> String -> Occurrences -> Inverted i
 singletonInverted c w o         = Inverted . M.singleton c . PT.singleton w . fromOccurrences $ o
-
-sizeofAttrsInverted             :: (Sizeof i) => Inverted i -> Int64
-sizeofAttrsInverted             = M.foldl' (\ x y -> x + sizeofPT y) 0 . unInverted
-                                  where
-                                  sizeofPT = PT.fold ((+) . sizeof) 0
 
 -- | Remove DocIds from index
 

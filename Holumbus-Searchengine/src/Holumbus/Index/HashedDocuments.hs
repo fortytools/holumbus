@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -46,9 +47,12 @@ import           Control.DeepSeq
 
 import           Data.Binary            (Binary)
 import qualified Data.Binary            as B
--- import           Data.ByteString.Lazy   ( ByteString )
 import qualified Data.ByteString.Lazy   as BL
 import           Data.Digest.Pure.SHA
+import           Data.Size
+import           Data.Typeable
+
+-- import           Data.ByteString.Lazy   ( ByteString )
 
 import           Holumbus.Index.Common
 
@@ -60,8 +64,8 @@ import           Text.XML.HXT.Core
 
 newtype Documents a
     = Documents { idToDoc :: DocMap a }   -- ^ A mapping from a document id to
-                                            --   the document itself.
-      deriving (Eq, Show, NFData)
+                                          --   the document itself.
+      deriving (Eq, Show, NFData, Typeable)
 
 -- ----------------------------------------------------------------------------
 -- | The hash function from URIs to DocIds
@@ -175,6 +179,13 @@ instance Binary a => Binary (Documents a) where
     put = B.put . idToDoc
     get = fmap Documents B.get
 
+-- ----------------------------------------------------------------------------
+
+instance Sizeable a => Sizeable (Documents a) where
+    dataOf                      = dataOf . idToDoc
+    bytesOf                     = dataOf
+    statsOf x                   = setName (nameOf x) . statsOf . idToDoc $ x
+
 -- ------------------------------------------------------------
 
 -- | Create an empty table.
@@ -200,7 +211,7 @@ singleton d
 
 newtype CompressedDoc a
     = CDoc { unCDoc :: BL.ByteString }
-      deriving (Eq, Show, NFData)
+      deriving (Eq, Show, NFData, Typeable)
 
 mkCDoc                          :: BL.ByteString -> CompressedDoc a
 mkCDoc s                        = CDoc $!! s
@@ -213,6 +224,11 @@ instance (Binary a, XmlPickler a) => XmlPickler (CompressedDoc a) where
 instance Binary a => Binary (CompressedDoc a) where
     put = B.put . unCDoc
     get = B.get >>= return . mkCDoc
+
+instance Sizeable a => Sizeable (CompressedDoc a) where
+    dataOf                      = dataOf . unCDoc
+    bytesOf                     = dataOf
+    statsOf x                   = setName (nameOf x) . statsOf . unCDoc $ x
 
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
 toDocument      = B.decode . BZ.decompress . unCDoc

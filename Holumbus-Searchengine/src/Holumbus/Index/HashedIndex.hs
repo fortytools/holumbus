@@ -1,5 +1,3 @@
-{-# OPTIONS #-}
-
 -- ------------------------------------------------------------
 
 module Holumbus.Index.HashedIndex

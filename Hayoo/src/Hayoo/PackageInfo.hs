@@ -1,4 +1,5 @@
-{-# OPTIONS #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- ------------------------------------------------------------
 
@@ -7,10 +8,12 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Binary                    ( Binary(..) )
-import qualified Data.Binary                    as B
+import           Data.Binary           (Binary (..))
+import qualified Data.Binary           as B
+import           Data.Size
+import           Data.Typeable
 
-import           Holumbus.Query.Result          ( Score )
+import           Holumbus.Query.Result (Score)
 
 import           Text.XML.HXT.Core
 
@@ -24,19 +27,19 @@ import           Text.XML.HXT.Core
 -- So there is non need for unsing bytestrings and strict fields
 
 data PackageInfo
-    = PackageInfo 
-      { p_name              :: String               -- ^ The name of the package
-      , p_version           :: String               -- ^ The latest package version
-      , p_dependencies      :: String               -- ^ The list of required packages
-      , p_author            :: String               -- ^ The author
-      , p_maintainer        :: String               -- ^ The maintainer
-      , p_category          :: String               -- ^ The package category
-      , p_homepage          :: String               -- ^ The home page
-      , p_synopsis          :: String               -- ^ The synopsis
-      , p_description       :: String               -- ^ The description of the package
-      , p_rank              :: Score                -- ^ The ranking
-      } 
-    deriving (Show, Eq)
+    = PackageInfo
+      { p_name         :: String               -- ^ The name of the package
+      , p_version      :: String               -- ^ The latest package version
+      , p_dependencies :: String               -- ^ The list of required packages
+      , p_author       :: String               -- ^ The author
+      , p_maintainer   :: String               -- ^ The maintainer
+      , p_category     :: String               -- ^ The package category
+      , p_homepage     :: String               -- ^ The home page
+      , p_synopsis     :: String               -- ^ The synopsis
+      , p_description  :: String               -- ^ The description of the package
+      , p_rank         :: Score                -- ^ The ranking
+      }
+    deriving (Show, Eq, Typeable)
 
 mkPackageInfo                   :: String -> String -> [String] -> String -> String -> String -> String -> String -> String -> PackageInfo
 mkPackageInfo n v d a m c h y s = PackageInfo n v (unwords d) a m c h y s 1.0
@@ -64,7 +67,7 @@ instance XmlPickler PackageInfo where
                                   (xpTriple xpName xpVersion xpDependencies)
                                   xpAuthor xpMaintainer xpCategory xpHomepage
                                   (xpTriple xpSynopsis xpDescr xpRank)
-            where                               
+            where
             xpName              = xpAttr "name"         xpText0
             xpVersion           = xpAttr "version"      xpText0
             xpDependencies      = xpAttr "dependencies" xpText0
@@ -100,5 +103,14 @@ instance B.Binary PackageInfo where
                                   x10 <- get
                                   let r = PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10
                                   rnf r `seq` return r
+
+instance Sizeable PackageInfo where
+    dataOf _x                   = 10 .*. dataOfPtr
+    statsOf x@(PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10)
+                                = mkStats x <> statsOf x1 <> statsOf x2 <> statsOf x3
+                                            <> statsOf x4 <> statsOf x5 <> statsOf x6
+                                            <> statsOf x7 <> statsOf x8 <> statsOf x9
+                                            <> statsOf x10
+
 
 -- ------------------------------------------------------------
