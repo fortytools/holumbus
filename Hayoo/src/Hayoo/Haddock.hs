@@ -240,9 +240,10 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
 
     processFunctionSig          = mkSingleFct $< splitMultiFct
         where
+          matchSigStart         = match "(\\s)*::.*"
           mkSingleFct ts        = replaceChildren (constL ts)
           splitMultiFct         = listA getChildren
-                                  >>> spanA (neg $ hasText ((== "::") . stringTrim))
+                                  >>> spanA (neg $ hasText matchSigStart)
                                   >>> first ( unlistA
                                               >>> aWithClass (== "def")
                                               >>> hasAttr "name"
