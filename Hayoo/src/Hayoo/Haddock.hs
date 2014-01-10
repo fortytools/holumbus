@@ -31,27 +31,32 @@ import           Text.XML.HXT.XPath
 -- ------------------------------------------------------------
 
 hayooGetFctInfo                 :: IOSArrow XmlTree FunctionInfo
-hayooGetFctInfo                 = fromLA $
-                                  ( getAttrValue "module"
-                                    &&&
-                                    getAttrValue "signature"
-                                    &&&
-                                    getAttrValue "package"
-                                    &&&
-                                    getAttrValue "source"
-                                    &&&
-                                    ( xshow
-                                      ( hayooGetDescr
-                                        >>>
-                                        getChildren
-                                        >>>
-                                        editDescrMarkup
+hayooGetFctInfo                 = -- withTraceLevel 3 (traceDoc "hayooGetFctInfo") -- just for dev.
+                                  -- >>>
+                                  ( fromLA $
+                                    ( getAttrValue "module"
+                                      &&&
+                                      getAttrValue "signature"
+                                      &&&
+                                      getAttrValue "package"
+                                      &&&
+                                      getAttrValue "source"
+                                      &&&
+                                      ( xshow
+                                        ( hayooGetDescr
+                                          >>>
+                                          getChildren
+                                          >>>
+                                          editDescrMarkup
+                                        )
+                                        >>^ escapeNoneAscii
                                       )
-                                      >>^ escapeNoneAscii
+                                      &&&
+                                      ( getChildren >>> getAttrValue "type" )
                                     )
+                                    >>^
+                                    (\ (m, (s, (p, (r, (d, t))))) -> mkFunctionInfo m s p r d t)
                                   )
-                                  >>^
-                                  (\ (m, (s, (p, (r, d)))) -> mkFunctionInfo m s p r d)
     where
       -- escape the serialized XML, such that it's a 7-bit ASCII string
       -- else serialization into binary format does not work properly
@@ -343,7 +348,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   )
                                   ( unlistA >>> hasName "dd" >>> getChildren )
 
-    theMethods                  = mkDecl0 "function" ( this >>> unlistA )
+    theMethods                  = mkDecl0 "method" ( this >>> unlistA )
 
     theLinkPrefix               = ( first_p_src
                                     >>>
@@ -356,7 +361,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   `withDefault` "#v:"
 
     theSignature                = ( ifA
-                                    ( hasAttrValue "type" (`elem` ["function"]) )
+                                    ( hasAttrValue "type" (`elem` ["function", "method"]) )
                                     ( xshow ( ( single ( this /> pWithClass (== "src") )
                                                 <+>
                                                 theSubArguments         -- fancy arguments
