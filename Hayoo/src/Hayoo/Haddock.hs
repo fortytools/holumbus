@@ -527,11 +527,28 @@ removeSourceLinks               :: LA XmlTree XmlTree
 removeSourceLinks               = processTopDown
                                   ( none
                                     `when`
-                                    ( aWithHref (\a -> null a || "src/" `isPrefixOf` a)
+                                    ( aWithHref ( \ a ->
+                                                      null a
+                                                      ||
+                                                      "src/" `isPrefixOf` a
+                                                )
                                       />
-                                      hasText (== "Source")
+                                      hasText ( \ s ->
+                                                    s == "Source"
+                                                    ||
+                                                    isRottenSourceLink s
+                                              )
                                     )
                                   )
+-- there are rotten source links in class method docs,
+-- e.g. in "http://hackage.haskell.org/package/base-4.6.0.1/docs/Prelude.html" for (==),
+-- these contain a substring "/^A/^B/" (^A stand for ASCII char 0x01, ^B for 0x02)
+-- which are not accepted as URL chars in HXT, parsing of tags is abborted, and the URL
+-- is taken as plain text, so the source looks something like "/packages/archive///doc...>Source
+
+isRottenSourceLink :: String -> Bool
+isRottenSourceLink
+    = match "[\"]/packages/archive///doc/html/src/.*>Source"
 
 -- ------------------------------------------------------------
 
