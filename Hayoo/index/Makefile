@@ -211,7 +211,7 @@ testpkg	:
 test	: testix testpkg
 
 search	:
-	$(snap) +RTS -s -RTS &
+	$(snap) +RTS -s -K100M -RTS &
 
 .PHONY	: all force \
 	whole whole-cache whole-index whole-pkg \
