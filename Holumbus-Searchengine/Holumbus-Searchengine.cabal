@@ -1,5 +1,5 @@
 name:          Holumbus-Searchengine
-version:       1.2.6.0
+version:       1.2.6.1
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Kranz, Uwe Schmidt
@@ -31,7 +31,7 @@ library
                , bytestring             >= 0.9 && < 1
                , bzlib                  >= 0.4 && < 1
                , data-size              >= 0.1.1 && < 1
-               , data-stringmap         >= 0.9.3
+               , data-stringmap         >= 0.9.5
                , directory              >= 1   && < 2
                , filepath               >= 1   && < 2
                , hslogger               >= 1   && < 2

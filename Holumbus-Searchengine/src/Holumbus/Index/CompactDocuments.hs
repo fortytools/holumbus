@@ -274,12 +274,19 @@ simplify dt                     = Documents (simple (idToDoc dt)) (docToId dt) (
                                   ) i2d
 
 -- ------------------------------------------------------------
+--
+-- The CompressedDoc is a candidate for a BS.ShortByteString available with bytestring 0.10.4,
+-- then 5 machine words can be saved per value
 
 newtype CompressedDoc a         = CDoc { unCDoc :: BS.ByteString }
                                   deriving (Eq, Show, NFData, Typeable)
 
 mkCDoc                          :: BS.ByteString -> CompressedDoc a
-mkCDoc s                        = CDoc $!! s
+mkCDoc s                        = CDoc $!! BS.copy s
+
+-- in mkCDoc the ByteString is physically copied
+-- to avoid sharing data with other possibly very large strings
+-- this can occur e.g in the Binary instance with get
 
 instance (Binary a, XmlPickler a) => XmlPickler (CompressedDoc a)
     where
@@ -289,7 +296,11 @@ instance (Binary a, XmlPickler a) => XmlPickler (CompressedDoc a)
 instance Binary a =>            Binary (CompressedDoc a)
     where
     put                         = B.put . unCDoc
-    get                         = B.get >>= return . mkCDoc
+    get                         = B.get >>= return . mkCDoc . BS.copy
+
+-- to avoid sharing the data with with the input, the ByteString is physically copied
+-- before return. This should be the single place where sharing is introduced,
+-- else the copy must be moved to mkCDoc
 
 instance Sizeable a => Sizeable (CompressedDoc a) where
     dataOf                      = dataOf  . unCDoc

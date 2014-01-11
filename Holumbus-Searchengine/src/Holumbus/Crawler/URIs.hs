@@ -81,10 +81,10 @@ toListURIs'             :: URIs' a -> [(URI, a)]
 toListURIs'             = S.toList
 
 foldURIs                :: (URI -> b -> b) -> b -> URIs -> b
-foldURIs f              = S.foldWithKey (\ x _ r -> f x r)
+foldURIs f              = S.foldrWithKey (\ x _ r -> f x r)
 
 foldURIs'               :: (URI -> a -> b -> b) -> b -> URIs' a -> b
-foldURIs'               = S.foldWithKey
+foldURIs'               = S.foldrWithKey
 
 -- ------------------------------------------------------------
 
