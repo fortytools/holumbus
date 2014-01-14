@@ -141,8 +141,8 @@ instance B.Binary SByteString where
 
 instance Sizeable SByteString where
     dataOf                      = dataOf  . unBs
-    bytesOf                     = dataOf
-    statsOf x                   = statsOf . unBs $ x
+    bytesOf                     = bytesOf . unBs
+    statsOf                     = statsOf . unBs
 
 -- ----------------------------------------------------------------------------
 --
@@ -168,8 +168,8 @@ instance B.Binary Occ0 where
 
 instance Sizeable Occ0 where
     dataOf              = dataOf  . unOcc0
-    bytesOf             = dataOf
-    statsOf x           = setName (nameOf x) . statsOf . unOcc0 $ x
+    bytesOf             = bytesOf . unOcc0
+    statsOf             = statsOf . unOcc0
 
 -- ----------------------------------------------------------------------------
 --
@@ -194,8 +194,8 @@ instance B.Binary OccCompressed where
 
 instance Sizeable OccCompressed where
     dataOf              = dataOf  . unOccCp
-    bytesOf             = dataOf
-    statsOf x           = setName (nameOf x) . statsOf . unOccCp $ x
+    bytesOf             = bytesOf . unOccCp
+    statsOf             = statsOf . unOccCp
 
 -- ----------------------------------------------------------------------------
 --
@@ -214,8 +214,8 @@ instance B.Binary OccSerialized where
 
 instance Sizeable OccSerialized where
     dataOf              = dataOf  . unOccBs
-    bytesOf             = dataOf
-    statsOf x           = setName (nameOf x) . statsOf . unOccBs $ x
+    bytesOf             = bytesOf . unOccBs
+    statsOf             = statsOf . unOccBs
 
 -- ----------------------------------------------------------------------------
 --
@@ -234,8 +234,8 @@ instance B.Binary OccCSerialized where
 
 instance Sizeable OccCSerialized where
     dataOf              = dataOf  . unOccCBs
-    bytesOf             = dataOf
-    statsOf x           = setName (nameOf x) . statsOf . unOccCBs $ x
+    bytesOf             = bytesOf . unOccCBs
+    statsOf             = statsOf . unOccCBs
 
 -- ----------------------------------------------------------------------------
 --
@@ -256,8 +256,8 @@ instance B.Binary OccOSerialized where
 
 instance Sizeable OccOSerialized where
     dataOf              = dataOf  . unOccOBs
-    bytesOf             = dataOf
-    statsOf x           = setName (nameOf x) . statsOf . unOccOBs $ x
+    bytesOf             = bytesOf . unOccOBs
+    statsOf             = statsOf . unOccOBs
 
 -- ----------------------------------------------------------------------------
 
@@ -301,10 +301,10 @@ instance (B.Binary occ) => B.Binary (Inverted occ) where
   put                   = B.put . unInverted
   get                   = B.get >>= return . Inverted
 
-instance Sizeable occ => Sizeable (Inverted occ) where
+instance (Typeable occ, Sizeable occ) => Sizeable (Inverted occ) where
     dataOf              = dataOf  . unInverted
-    bytesOf             = dataOf
-    statsOf x           = setName (nameOf x) . statsOf . unInverted $ x
+    bytesOf             = bytesOf . unInverted
+    statsOf             = statsOf . unInverted
 
 -- ----------------------------------------------------------------------------
 

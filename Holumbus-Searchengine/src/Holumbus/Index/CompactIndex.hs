@@ -36,6 +36,7 @@ import           Control.Monad.Reader
 import           Data.Binary
 import           Data.Function.Selector                      ((.&&&.))
 import           Data.Size
+import           Data.Typeable
 
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.Logger
@@ -145,7 +146,7 @@ defragmentHolumbusState IndexerState
 
 -- ------------------------------------------------------------
 
-mergeAndWritePartialRes' :: (MonadIO m, NFData i, Binary i, Sizeable i) =>
+mergeAndWritePartialRes' :: (MonadIO m, NFData i, Binary i, Sizeable i, Typeable i) =>
                             (SmallDocuments i -> SmallDocuments i) -> [String] -> String -> m ()
 mergeAndWritePartialRes' id' pxs out
     = do notice $ ["merge partial doctables from"] ++ pxs
@@ -219,7 +220,7 @@ writeBin out v
              liftIO $ encodeFile out v
              notice ["writing binary data finished"]
 
-writeSearchBin :: (Binary c, MonadIO m, Sizeable c) =>
+writeSearchBin :: (Binary c, MonadIO m, Sizeable c, Typeable c) =>
                   FilePath -> HolumbusState c -> m ()
 writeSearchBin out state
     | null out
@@ -242,7 +243,7 @@ writeSearchBin out state
 
 -- ------------------------------------------------------------
 
-writePartialIndex :: (XmlPickler c, Binary c, Sizeable c) =>
+writePartialIndex :: (XmlPickler c, Binary c, Sizeable c, Typeable c) =>
                      Bool -> FilePath -> CrawlerAction a (HolumbusState c) ()
 writePartialIndex xout fn
     = modifyStateIO
@@ -262,7 +263,7 @@ writePartialIndex xout fn
    but when running the parallel one, the index ids will overlap.
 -}
 
-writePartialIndex' :: (XmlPickler c, Binary c, Sizeable c) =>
+writePartialIndex' :: (XmlPickler c, Binary c, Sizeable c, Typeable c) =>
                       Bool -> FilePath -> HolumbusState c -> IO (HolumbusState c)
 writePartialIndex' xout out ixs
     = do writeSearchBin out ixs

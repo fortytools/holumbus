@@ -59,7 +59,7 @@ instance XmlPickler a => XmlPickler (Document a) where
 instance NFData a => NFData (Document a) where
     rnf (Document t u c)        = rnf t `seq` rnf u `seq` rnf c
 
-instance Sizeable a => Sizeable (Document a) where
+instance (Sizeable a, Typeable a) => Sizeable (Document a) where
     dataOf _x                   = 3 .*. dataOfPtr
     statsOf x@(Document t u c)  = mkStats x <> statsOf t <> statsOf u <> statsOf c
 

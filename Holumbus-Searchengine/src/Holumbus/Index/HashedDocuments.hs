@@ -181,10 +181,10 @@ instance Binary a => Binary (Documents a) where
 
 -- ----------------------------------------------------------------------------
 
-instance Sizeable a => Sizeable (Documents a) where
-    dataOf                      = dataOf . idToDoc
-    bytesOf                     = dataOf
-    statsOf x                   = setName (nameOf x) . statsOf . idToDoc $ x
+instance (Typeable a, Sizeable a) => Sizeable (Documents a) where
+    dataOf                      = dataOf  . idToDoc
+    bytesOf                     = bytesOf . idToDoc
+    statsOf                     = statsOf . idToDoc
 
 -- ------------------------------------------------------------
 
@@ -226,9 +226,9 @@ instance Binary a => Binary (CompressedDoc a) where
     get = B.get >>= return . mkCDoc
 
 instance Sizeable a => Sizeable (CompressedDoc a) where
-    dataOf                      = dataOf . unCDoc
-    bytesOf                     = dataOf
-    statsOf x                   = setName (nameOf x) . statsOf . unCDoc $ x
+    dataOf                      = dataOf  . unCDoc
+    bytesOf                     = bytesOf . unCDoc
+    statsOf                     = statsOf . unCDoc
 
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
 toDocument      = B.decode . BZ.decompress . unCDoc

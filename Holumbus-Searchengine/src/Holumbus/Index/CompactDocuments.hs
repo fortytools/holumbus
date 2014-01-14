@@ -241,7 +241,7 @@ instance Binary a =>            Binary (Documents a)
 
 -- ------------------------------------------------------------
 
-instance Sizeable a => Sizeable (Documents a) where
+instance (Sizeable a, Typeable a) => Sizeable (Documents a) where
     dataOf _x                   = 3 .*. dataOfPtr
     statsOf x@(Documents i d l) = mkStats x <> statsOf i <> statsOf d <> statsOf l
 
@@ -302,10 +302,10 @@ instance Binary a =>            Binary (CompressedDoc a)
 -- before return. This should be the single place where sharing is introduced,
 -- else the copy must be moved to mkCDoc
 
-instance Sizeable a => Sizeable (CompressedDoc a) where
+instance (Sizeable a, Typeable a) => Sizeable (CompressedDoc a) where
     dataOf                      = dataOf  . unCDoc
-    bytesOf                     = dataOf
-    statsOf x                   = setName (nameOf x) . statsOf . unCDoc $ x
+    bytesOf                     = bytesOf . unCDoc
+    statsOf                     = statsOf . unCDoc
 
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
 toDocument      = B.decode . BZ.decompress . BL.fromStrict . unCDoc

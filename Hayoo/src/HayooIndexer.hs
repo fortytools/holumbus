@@ -16,6 +16,7 @@ import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
 import           Data.Size
+import           Data.Typeable
 
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
@@ -400,7 +401,7 @@ mergeAndWritePartialRes ps
 
 -- ------------------------------------------------------------
 
-writeRes :: (XmlPickler a, B.Binary a, Sizeable a) => HolumbusState a -> HIO ()
+writeRes :: (XmlPickler a, B.Binary a, Sizeable a, Typeable a) => HolumbusState a -> HIO ()
 writeRes x
     = writeSearchBin' x >> writeResults x
     where

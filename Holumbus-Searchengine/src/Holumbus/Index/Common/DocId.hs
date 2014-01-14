@@ -50,9 +50,8 @@ instance Binary DocId where
 
 instance Sizeable DocId where
     dataOf                      = dataOf  . theDocId
-    bytesOf                     = dataOf
-    statsOf x                   = setName (nameOf x) . statsOf . theDocId $ x
-
+    bytesOf                     = bytesOf . theDocId
+    statsOf                     = statsOf . theDocId
 
 incrDocId                       :: DocId -> DocId
 incrDocId                       = DocId . (1+) . theDocId

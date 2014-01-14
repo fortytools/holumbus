@@ -172,10 +172,10 @@ instance Binary v => Binary (DocIdMap v) where
     put                         = B.put . toListDocIdMap
     get                         = B.get >>= return . fromListDocIdMap
 
-instance Sizeable v => Sizeable (DocIdMap v) where
+instance (Typeable v, Sizeable v) => Sizeable (DocIdMap v) where
     dataOf                      = dataOf  . unDIM
-    bytesOf                     = dataOf
-    statsOf x                   = setName (nameOf x) . statsOf . unDIM $ x
+    bytesOf                     = bytesOf . unDIM
+    statsOf                     = statsOf . unDIM
 
 -- ------------------------------------------------------------
 

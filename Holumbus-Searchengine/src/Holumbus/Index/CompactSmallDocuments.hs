@@ -174,10 +174,10 @@ instance Binary a =>            Binary (SmallDocuments a)
 
 -- ------------------------------------------------------------
 
-instance Sizeable a => Sizeable (SmallDocuments a) where
+instance (Sizeable a, Typeable a) => Sizeable (SmallDocuments a) where
     dataOf                      = dataOf  . idToSmallDoc
     bytesOf                     = dataOf
-    statsOf x                   = setName (nameOf x) . statsOf . idToSmallDoc $ x
+    statsOf x                   = statsOf . idToSmallDoc $ x
 
 -- ------------------------------------------------------------
 
