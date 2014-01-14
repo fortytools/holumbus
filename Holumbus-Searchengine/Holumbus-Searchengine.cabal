@@ -109,6 +109,8 @@ library
               FlexibleInstances
               GeneralizedNewtypeDeriving
               TypeSynonymInstances
+              LiberalTypeSynonyms
+              DeriveDataTypeable
 
 test-suite strict
   type:          exitcode-stdio-1.0
