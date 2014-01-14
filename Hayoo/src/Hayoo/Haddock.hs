@@ -151,9 +151,9 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                     += attr "signature" (theSignature >>> mkText)
                                     += attr "source"    (theSourceURI >>> mkText)
                                     += sattr "version"  "2.8"
-                                    += attr transferURI ( ( (theURI &&& theLinkPrefix &&& theTitle)
+                                    += attr transferURI ( ( (theURI &&& theAnchor)
                                                             >>^
-                                                            (\ (u, (h, t)) -> u ++ h ++ t)
+                                                            (\ (u, a) -> u ++ a)
                                                           )
                                                           >>>
                                                           mkText
@@ -324,6 +324,16 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   >>^
                                   unEscapeString
 
+    theAnchor                   = ( first_p_src
+                                    >>>
+                                    firstChildWithClass "a" "def"
+                                    >>>
+                                    getAttrValue "name"
+                                    >>^
+                                    ('#' :)
+                                  )
+                                  `withDefault` ""
+
     theConstructors srcLnk      = mkFctDecl
                                   ( ( getChildren
                                       >>>
@@ -349,16 +359,6 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   ( unlistA >>> hasName "dd" >>> getChildren )
 
     theMethods                  = mkDecl0 "method" ( this >>> unlistA )
-
-    theLinkPrefix               = ( first_p_src
-                                    >>>
-                                    firstChildWithClass "a" "def"
-                                    >>>
-                                    getAttrValue "name"
-                                    >>^
-                                    (take 2 >>> ('#' :))
-                                  )
-                                  `withDefault` "#v:"
 
     theSignature                = ( ifA
                                     ( hasAttrValue "type" (`elem` ["function", "method"]) )
