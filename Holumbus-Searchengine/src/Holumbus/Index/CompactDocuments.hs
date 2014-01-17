@@ -48,6 +48,7 @@ import           Data.Binary            (Binary)
 import qualified Data.Binary            as B
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
+import qualified Data.ByteString.Short  as SS
 import           Data.Maybe             (fromJust)
 import           Data.Size
 import qualified Data.StringMap         as M
@@ -278,11 +279,14 @@ simplify dt                     = Documents (simple (idToDoc dt)) (docToId dt) (
 -- The CompressedDoc is a candidate for a BS.ShortByteString available with bytestring 0.10.4,
 -- then 5 machine words can be saved per value
 
-newtype CompressedDoc a         = CDoc { unCDoc :: BS.ByteString }
+newtype CompressedDoc a         = CDoc { unSDoc :: SS.ShortByteString }
                                   deriving (Eq, Show, NFData, Typeable)
 
 mkCDoc                          :: BS.ByteString -> CompressedDoc a
-mkCDoc s                        = CDoc $!! BS.copy s
+mkCDoc s                        = CDoc $!! SS.toShort s
+
+unCDoc                          :: CompressedDoc a -> BS.ByteString
+unCDoc                          = SS.fromShort . unSDoc
 
 -- in mkCDoc the ByteString is physically copied
 -- to avoid sharing data with other possibly very large strings
@@ -303,9 +307,9 @@ instance Binary a =>            Binary (CompressedDoc a)
 -- else the copy must be moved to mkCDoc
 
 instance (Sizeable a, Typeable a) => Sizeable (CompressedDoc a) where
-    dataOf                      = dataOf  . unCDoc
-    bytesOf                     = bytesOf . unCDoc
-    statsOf                     = statsOf . unCDoc
+    dataOf                      = dataOf  . unSDoc
+    bytesOf                     = bytesOf . unSDoc
+    statsOf                     = statsOf . unSDoc
 
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
 toDocument      = B.decode . BZ.decompress . BL.fromStrict . unCDoc

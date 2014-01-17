@@ -43,8 +43,8 @@ RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 # maxpar:    maximum of docs indexed and merged in paralled ( <= partition )
 # maxdocs:   upper limit of # of docs, hackage had about 33000 docs (2013-10-09)
 
-partition =2000
-maxpar    =2000
+partition =500
+maxpar    =500
 maxdocs   =50000
 
 all	:

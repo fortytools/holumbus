@@ -46,6 +46,7 @@ import           Control.DeepSeq
 import qualified Data.Binary                as B
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as BL
+import qualified Data.ByteString.Short      as SS
 
 import           Data.Function              (on)
 
@@ -118,31 +119,36 @@ deleteDocIds ids        = mapOcc $ flip diffOccurrences ids
 -- The SByteString is a candidate for a BS.ShortByteString available with bytestring 0.10.4,
 -- then 5 machine words can be saved per value
 
-newtype SByteString     = Bs { unBs :: BS.ByteString }
+newtype SByteString     = Bs { unSs :: SS.ShortByteString }
                           deriving (Eq, Show, Typeable)
 
-mkSBs                   :: BS.ByteString -> SByteString
-mkSBs s                 = Bs $!! s
+mkBs                    :: BS.ByteString -> SByteString
+mkBs s                  = Bs $!! SS.toShort s
 
--- in mkSBs the ByteString is physically copied
+unBs                    :: SByteString -> BS.ByteString
+unBs                    = SS.fromShort . unSs
+
+-- in mkBs the ByteString is physically copied into a ShortByteString
 -- to avoid sharing data with other possibly very large strings
 -- this can occur e.g in the Binary instance with get
+-- Working with ShortByteString prevents fragmentation of the heap store,
+-- ByteStrings can't be move in the heap (are PINNED), ShortByteString can.
 
 instance NFData SByteString where
 -- use default implementation: eval to WHNF, and that's sufficient
 
 instance B.Binary SByteString where
   put                   = B.put . unBs
-  get                   = B.get >>= return . mkSBs . BS.copy
+  get                   = B.get >>= return . mkBs
 
 -- to avoid sharing the data with with the input the ByteString is physically copied
 -- before return. This should be the single place where sharing is introduced,
 -- else the copy must be moved to mSBs
 
 instance Sizeable SByteString where
-    dataOf                      = dataOf  . unBs
-    bytesOf                     = bytesOf . unBs
-    statsOf                     = statsOf . unBs
+    dataOf                      = dataOf  . unSs
+    bytesOf                     = bytesOf . unSs
+    statsOf                     = statsOf . unSs
 
 -- ----------------------------------------------------------------------------
 --
@@ -205,7 +211,7 @@ newtype OccSerialized   = OccBs { unOccBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccSerialized where
-  fromOccurrences       = OccBs . mkSBs . BL.toStrict . B.encode . deflateOcc
+  fromOccurrences       = OccBs . mkBs . BL.toStrict . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode . BL.fromStrict . unBs . unOccBs
 
 instance B.Binary OccSerialized where
@@ -225,7 +231,7 @@ newtype OccCSerialized  = OccCBs { unOccCBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccCSerialized where
-  fromOccurrences       = OccCBs . mkSBs . BL.toStrict . BZ.compress . B.encode . deflateOcc
+  fromOccurrences       = OccCBs . mkBs . BL.toStrict . BZ.compress . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode  . BZ.decompress . BL.fromStrict . unBs . unOccCBs
 
 instance B.Binary OccCSerialized where
@@ -247,7 +253,7 @@ newtype OccOSerialized  = OccOBs { unOccOBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccOSerialized where
-  fromOccurrences       = OccOBs . mkSBs . BL.toStrict . BZ.compress . B.encode
+  fromOccurrences       = OccOBs . mkBs . BL.toStrict . BZ.compress . B.encode
   toOccurrences         = B.decode . BZ.decompress . BL.fromStrict . unBs . unOccOBs
 
 instance B.Binary OccOSerialized where
