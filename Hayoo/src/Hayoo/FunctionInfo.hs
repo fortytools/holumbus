@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 -- ------------------------------------------------------------
 
@@ -11,6 +12,7 @@ where
 import           Control.Applicative ((<$>), (<*>))
 import           Control.DeepSeq
 
+import           Data.Aeson
 import           Data.Binary         (Binary (..))
 import qualified Data.Binary         as B
 import           Data.Maybe
@@ -54,8 +56,11 @@ toFct'Type s = fromMaybe Fct'unknown $ lookup s fctAssocList
 fromFct'Type :: Fct'Type -> String
 fromFct'Type = drop 4 . show
 
+-- mkFunctionInfo is a strict constructor
+
 mkFunctionInfo                  :: String -> String -> String -> String -> String -> String -> FunctionInfo
-mkFunctionInfo m s p r d t      = FunctionInfo m s p r d (toFct'Type t)
+mkFunctionInfo m s p r d t      = let res = FunctionInfo m s p r d (toFct'Type t) in
+                                  rnf res `seq` res
 
 instance XmlPickler FunctionInfo where
     xpickle                     = xpWrap (fromTuple, toTuple) xpFunction
@@ -78,7 +83,8 @@ instance XmlPickler Fct'Type where
     xpickle                     = xpWrap (toFct'Type, fromFct'Type) xpText0
 
 instance NFData FunctionInfo where
-  rnf (FunctionInfo m s p r d _t)  = rnf m `seq` rnf s `seq` rnf p `seq` rnf r `seq` rnf d
+    rnf (FunctionInfo m s p r d _t)
+                                = rnf m `seq` rnf s `seq` rnf p `seq` rnf r `seq` rnf d
 
 instance B.Binary FunctionInfo where
     put (FunctionInfo m s p r d t)
@@ -91,6 +97,19 @@ instance B.Binary FunctionInfo where
 instance B.Binary Fct'Type where
     put = put . fromEnum
     get = toEnum <$> get
+
+instance ToJSON FunctionInfo where
+    toJSON (FunctionInfo mon sig pac sou fct typ)
+        = object
+          ( map (uncurry (.=)) . filter (not . null . snd)
+            $ [ ("fct-module",    mon)
+              , ("fct-signature", sig)
+              , ("fct-package",   pac)
+              , ("fct-source",    sou)
+              , ("fct-descr",     fct)
+              , ("fct-type",      fromFct'Type typ)
+              ]
+          )
 
 instance Sizeable FunctionInfo where
     dataOf _x                   = 6 .*. dataOfPtr

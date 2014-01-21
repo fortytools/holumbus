@@ -6,29 +6,25 @@ module Holumbus.Crawler.Types
 where
 
 import           Control.DeepSeq
-
 import           Control.Monad.Reader
+import           Control.Monad.ReaderStateIOError
 import           Control.Monad.State
-import           Control.Monad.ReaderStateIO
 
--- import                Control.Monad.State
-
-import           Data.Binary                    ( Binary )
-import qualified Data.Binary                    as B    -- else naming conflict with put and get from Monad.State
-
+import           Data.Binary                                 (Binary)
+import qualified Data.Binary                                 as B
 import           Data.Function.Selector
 
 import           Holumbus.Crawler.Constants
-import           Holumbus.Crawler.URIs
 import           Holumbus.Crawler.RobotTypes
-import           Holumbus.Crawler.XmlArrows                     ( checkDocumentStatus )
+import           Holumbus.Crawler.URIs
+import           Holumbus.Crawler.XmlArrows                  (checkDocumentStatus)
 
+import qualified Text.XML.HXT.Arrow.XmlState.RunIOStateArrow as HXT (theSysConfigComp)
+import qualified Text.XML.HXT.Arrow.XmlState.TypeDefs        as HXT (theInputOptions)
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Curl
-import qualified Text.XML.HXT.Arrow.XmlState.RunIOStateArrow    as HXT ( theSysConfigComp )
-import qualified Text.XML.HXT.Arrow.XmlState.TypeDefs           as HXT ( theInputOptions )
 
-import           System.Log.Logger                              ( Priority(..) )
+import           System.Log.Logger                           (Priority (..))
 
 -- ------------------------------------------------------------
 
@@ -52,30 +48,30 @@ type ProcessDocument     a      = IOSArrow XmlTree a
 
 -- | The crawler action monad
 
-type CrawlerAction a r          = ReaderStateIO (CrawlerConfig a r) (CrawlerState r)
+type CrawlerAction a r          = ReaderStateIOError (CrawlerConfig a r) (CrawlerState r)
 
 -- | The crawler configuration record
 
 data CrawlerConfig a r
     = CrawlerConfig
-      { cc_sysConfig        :: SysConfig
-      , cc_preRefsFilter    :: IOSArrow XmlTree XmlTree
-      , cc_processRefs      :: IOSArrow XmlTree URI
-      , cc_preDocFilter     :: IOSArrow XmlTree XmlTree
-      , cc_processDoc       :: ProcessDocument a
-      , cc_accumulate       :: AccumulateDocResult a r              -- result accumulation runs in the IO monad to allow storing parts externally
-      , cc_fold             :: MergeDocResults r
-      , cc_followRef        :: URI -> Bool
-      , cc_addRobotsTxt     :: CrawlerConfig a r -> AddRobotsAction
-      , cc_clickLevel       :: ! Int
-      , cc_maxNoOfDocs      :: ! Int
-      , cc_maxParDocs       :: ! Int
-      , cc_maxParThreads    :: ! Int
-      , cc_saveIntervall    :: ! Int
-      , cc_savePathPrefix   :: ! String
-      , cc_savePreAction    :: FilePath -> CrawlerAction a r ()     -- SavePartialResults r
-      , cc_traceLevel       :: ! Priority
-      , cc_traceLevelHxt    :: ! Priority
+      { cc_sysConfig      :: SysConfig
+      , cc_preRefsFilter  :: IOSArrow XmlTree XmlTree
+      , cc_processRefs    :: IOSArrow XmlTree URI
+      , cc_preDocFilter   :: IOSArrow XmlTree XmlTree
+      , cc_processDoc     :: ProcessDocument a
+      , cc_accumulate     :: AccumulateDocResult a r              -- result accumulation runs in the IO monad to allow storing parts externally
+      , cc_fold           :: MergeDocResults r
+      , cc_followRef      :: URI -> Bool
+      , cc_addRobotsTxt   :: CrawlerConfig a r -> AddRobotsAction
+      , cc_clickLevel     :: ! Int
+      , cc_maxNoOfDocs    :: ! Int
+      , cc_maxParDocs     :: ! Int
+      , cc_maxParThreads  :: ! Int
+      , cc_saveIntervall  :: ! Int
+      , cc_savePathPrefix :: ! String
+      , cc_savePreAction  :: FilePath -> CrawlerAction a r ()     -- SavePartialResults r
+      , cc_traceLevel     :: ! Priority
+      , cc_traceLevelHxt  :: ! Priority
       }
 
 -- | The crawler state record
@@ -240,7 +236,7 @@ defaultCrawlerConfig    :: AccumulateDocResult a r -> MergeDocResults r -> Crawl
 defaultCrawlerConfig op op2
     = CrawlerConfig
       { cc_sysConfig        = ( withCurl [ (curl_user_agent,                defaultCrawlerName)
-                                         , (curl_max_time,          show $ (60 * 1000::Int))        -- whole transaction for reading a document must complete within 60,000 milli seconds, 
+                                         , (curl_max_time,          show $ (60 * 1000::Int))        -- whole transaction for reading a document must complete within 60,000 milli seconds,
                                          , (curl_connect_timeout,   show $ (10::Int))               -- connection must be established within 10 seconds
                                          ]
                               )

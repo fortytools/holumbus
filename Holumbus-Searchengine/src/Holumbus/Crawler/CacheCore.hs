@@ -7,7 +7,7 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Binary                    ( Binary(..) )
+import           Data.Binary            (Binary (..))
 {-
 import qualified Data.Binary                    as B
 -- -}
@@ -105,14 +105,14 @@ cacheCrawlerConfig opts followRef
 
 -- ------------------------------------------------------------
 
-stdCacher                       :: (Int, Int, Int)                              -- ^ the parameters for parallel crawling 
+stdCacher                       :: (Int, Int, Int)                              -- ^ the parameters for parallel crawling
                                 -> (Int, String)                                -- ^ the save intervall and file path
                                 -> (Priority, Priority)                         -- ^ the log levels for the crawler and hxt
                                 -> SysConfig                                    -- ^ the read attributes
                                 -> (CacheCrawlerConfig -> CacheCrawlerConfig)   -- ^ further configuration settings
                                 -> Maybe String                                 -- ^ resume from interrupted index run with state stored in file
                                 -> [URI]                                        -- ^ start caching with this set of uris
-                                -> (URI -> Bool) -> IO CacheCrawlerState
+                                -> (URI -> Bool) -> IO (Either String CacheCrawlerState)
 
 stdCacher (maxDocs, maxParDocs, maxParThreads)
           (saveIntervall, savePath)
@@ -121,13 +121,16 @@ stdCacher (maxDocs, maxParDocs, maxParThreads)
           furtherConfigs
           resumeLoc
           startUris
-          followRef             = execCrawler action config initState
+          followRef             = do res <- execCrawler action config initState
+                                     either (\ e  -> errC    "cacheCore" ["cache update failed:", e])
+                                            (const $ noticeC "cacheCore" ["cache update finished"])
+                                            res
+                                     return res
     where
     initState                   = initCrawlerState emptyCacheState
     action                      = do
                                   noticeC "cacheCore" ["cache update started"]
                                   maybe (crawlDocs startUris) crawlerResume $ resumeLoc
-                                  noticeC "cacheCore" ["cache update finished"]
 
     config                      = setCrawlerMaxDocs maxDocs maxParDocs maxParThreads
                                   >>>

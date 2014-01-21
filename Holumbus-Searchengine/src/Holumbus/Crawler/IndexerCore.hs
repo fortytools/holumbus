@@ -1,13 +1,15 @@
-{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 -- ------------------------------------------------------------
 
 module Holumbus.Crawler.IndexerCore
+{-
     ( RawDoc
     , RawContexts
     , RawContext
+    , RawCrawlerDoc
     , RawWords
     , RawWord
     , RawTitle
@@ -20,22 +22,28 @@ module Holumbus.Crawler.IndexerCore
     , unionIndexerStatesM
     , insertRawDocM
     )
+-}
 where
 
 -- ------------------------------------------------------------
 
 import           Control.DeepSeq
-import           Control.Monad          (foldM)
-import           Control.Monad.Trans
 
-import           Data.Binary            (Binary)
-import qualified Data.Binary            as B
+import           Data.Aeson
+import           Data.Aeson.Encode.Pretty
+import           Data.Aeson.Types         (Pair)
+import           Data.Binary              (Binary)
+import qualified Data.Binary              as B
+import qualified Data.ByteString.Lazy     as LB
 import           Data.Function.Selector
+import qualified Data.HashMap.Strict      as M
 import           Data.Maybe
+import           Data.Monoid
+import qualified Data.Text                as T
 
 import           Holumbus.Crawler
 
-import           Holumbus.Index.Common  hiding (URI)
+import           Holumbus.Index.Common    hiding (URI)
 
 import           Text.XML.HXT.Core
 
@@ -62,6 +70,52 @@ data IndexerState i d c         = IndexerState
                                   { ixs_index     :: ! i          -- the index type
                                   , ixs_documents :: ! (d c)      -- the type for document descriptions
                                   } deriving (Show)
+
+-- ------------------------------------------------------------
+--
+-- conversion to JSON of a raw doc is a bit tricky
+-- the title attribute must be merged into the custom object
+-- to get all attributes together, so we need this hack with addPair
+
+newtype RawCrawlerDoc c         = RCD (URI, RawDoc c)
+
+instance (ToJSON c) => ToJSON (RawCrawlerDoc c) where
+    toJSON (RCD (rawUri, (rawContexts, rawTitle, rawCustom)))
+        = object
+          [ "uri" .= rawUri
+          , ("description", addPair ("title", toJSON rawTitle) $ toJSON rawCustom)
+          , "index" .= object (map toJSONRawContext rawContexts)
+          ]
+
+toJSONRawContext :: RawContext -> Pair
+toJSONRawContext (cx, ws) = T.pack cx .= toJSONRawWords ws
+
+toJSONRawWords :: RawWords -> Value
+toJSONRawWords = object . map pair . toWordPositions
+    where
+      pair (w, ps) = T.pack w .= ps
+
+toWordPositions :: RawWords -> [(Word, [Position])]
+toWordPositions = M.toList . foldr ins M.empty
+    where
+      ins (w, p) = M.insertWith (++) w [p]
+
+addPair :: Pair -> Value -> Value
+addPair (k, v) (Object m) = Object $ M.insert k v m
+addPair p      _          = object [p]
+
+flushRawCrawlerDoc :: (ToJSON c) => Bool -> (LB.ByteString -> IO ()) -> c -> IO ()
+flushRawCrawlerDoc pretty io d
+    = io $ (if pretty then encodePretty' encConfig else encode) d
+      where
+        encConfig :: Config
+        encConfig
+            = Config { confIndent = 2
+                     , confCompare
+                         = keyOrder ["uri", "description", "index"]
+                           `mappend`
+                           compare
+                     }
 
 -- ------------------------------------------------------------
 
@@ -106,43 +160,9 @@ emptyIndexerState eix edm       = IndexerState
 
 -- ------------------------------------------------------------
 
-stdIndexer                      :: ( Binary i
-                                   , Binary (d c)
-                                   , Binary c
-                                   , HolIndexM IO i
-                                   , HolDocuments d c
-                                   , NFData i
-                                   , NFData (d c)
-                                   , NFData c) =>
-                                   IndexCrawlerConfig i d c     -- ^ adapt configuration to special needs,
-                                                                --   use id if default is ok
-                                -> Maybe String                 -- ^ resume from interrupted index run with state
-                                                                --   stored in file
-                                -> [URI]                        -- ^ start indexing with this set of uris
-                                -> IndexerState i d c           -- ^ the initial empty indexer state
-                                -> IO (IndexCrawlerState i d c) -- ^ result is a state consisting of the index and the map of indexed documents
-
-stdIndexer config resumeLoc startUris eis
-                                = execCrawler action config (initCrawlerState eis)
-    where
-    action                      = do
-                                  noticeC "indexerCore" ["indexer started"]
-                                  res <- maybe (crawlDocs startUris) crawlerResume $ resumeLoc
-                                  noticeC "indexerCore" ["indexer finished"]
-                                  return res
-
--- ------------------------------------------------------------
-
--- general HolIndexM IO i version, for old specialized version see code at end of this file
-
-indexCrawlerConfig              :: ( HolIndexM IO i
-                                   , HolDocuments d c
-                                   , HolDocIndex  d c i
-                                   , NFData i
-                                   , NFData c
-                                   , NFData (d c)
-                                   ) =>
-                                   SysConfig                                    -- ^ document read options
+indexCrawlerConfig'             :: AccumulateDocResult ([RawContext], String, Maybe c) (IndexerState i d c)
+                                -> MergeDocResults (IndexerState i d c)
+                                -> SysConfig                                    -- ^ document read options
                                 -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
                                 -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
                                 -> Maybe (IOSArrow XmlTree XmlTree)             -- ^ the pre document filter, default is the this arrow
@@ -150,8 +170,7 @@ indexCrawlerConfig              :: ( HolIndexM IO i
                                 -> Maybe (IOSArrow XmlTree c)                   -- ^ the filter for the cutomized doc info, default Nothing
                                 -> [IndexContextConfig]                         -- ^ the configuration of the various index parts
                                 -> IndexCrawlerConfig i d c                     -- ^ result is a crawler config
-
-indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
+indexCrawlerConfig' insertRaw unionIndex opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                 = addSysConfig (defaultOpts >>> opts)           -- install the default read options
                                   >>>
                                   ( setS theFollowRef followRef )
@@ -168,7 +187,7 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
                                   >>>
                                   addRobotsNoIndex
                                   $
-                                  defaultCrawlerConfig insertRawDocM unionIndexerStatesM
+                                  defaultCrawlerConfig insertRaw unionIndex
                                                                                 -- take the default crawler config
                                                                                 -- and set the result combining functions
     where
@@ -217,67 +236,30 @@ indexCrawlerConfig opts followRef getHrefF preDocF titleF0 customF0 contextCs
 
 -- ------------------------------------------------------------
 
-unionIndexerStatesM             :: ( MonadIO m
-                                   , HolIndexM m i
-                                   , HolDocuments d c
-                                   , HolDocIndex d c i
-                                   ) =>
-                                   IndexerState i d c
-                                -> IndexerState i d c
-                                -> m (IndexerState i d c)
-unionIndexerStatesM ixs1 ixs2
-    = return
-      $! IndexerState { ixs_index        = ix
-                      , ixs_documents    = dt
-                      }
-    where
-      (! dt, ! ix)              = unionDocIndex dt1 ix1 dt2 ix2
-      ix1                       = ixs_index     ixs1
-      ix2                       = ixs_index     ixs2
-      dt1                       = ixs_documents ixs1
-      dt2                       = ixs_documents ixs2
-
--- ------------------------------------------------------------
-
-insertRawDocM                   :: ( MonadIO m
-                                   , HolIndexM m i
-                                   , HolDocuments d c
+stdIndexer                      :: ( Binary i
+                                   , Binary (d c)
+                                   , Binary c
                                    , NFData i
-                                   , NFData c
                                    , NFData (d c)
-                                   ) =>
-                                   (URI, RawDoc c)                              -- ^ extracted URI and doc info
-                                -> IndexerState i d c                           -- ^ old indexer state
-                                -> m (IndexerState i d c)                       -- ^ new indexer state
+                                   , NFData c) =>
+                                   IndexCrawlerConfig i d c     -- ^ adapt configuration to special needs,
+                                                                --   use id if default is ok
+                                -> Maybe String                 -- ^ resume from interrupted index run with state
+                                                                --   stored in file
+                                -> [URI]                        -- ^ start indexing with this set of uris
+                                -> IndexerState i d c           -- ^ the initial empty indexer state
+                                -> IO (Either String (IndexCrawlerState i d c)) -- ^ result is a state consisting of the index and the map of indexed documents
 
-insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
-    | nullContexts              = return ixs    -- no words found in document,
-                                                -- so there are no refs in index
-                                                -- and document is thrown away
-    | otherwise                 = do
-                                  newIx  <- foldM (insertRawContextM did) (ixs_index ixs) $ rawContexts
-                                  newIxs <- return $
-                                            IndexerState { ixs_index        = newIx
-                                                         , ixs_documents    = newDocs
-                                                         }
-                                  rnf newIxs `seq`
-                                      return newIxs
+stdIndexer config resumeLoc startUris eis
+    = do res <- execCrawler action config (initCrawlerState eis)
+         either (\ e -> errC    "indexerCore" ["indexer failed:", e])
+                (\ _ -> noticeC "indexerCore" ["indexer finished"])
+                res
+         return res
     where
-    nullContexts                = and . map (null . snd) $ rawContexts
-    (did, newDocs)              = insertDoc (ixs_documents ixs) doc
-    doc                         = Document
-                                  { title       = rawTitle
-                                  , uri         = rawUri
-                                  , custom      = rawCustom
-                                  }
-
-insertRawContextM               :: (Monad m, HolIndexM m i) =>
-                                   DocId -> i -> (Context, [(Word, Position)]) -> m i
-insertRawContextM did ix (cx, ws)
-                                = foldM (insWordM cx did) ix ws
-
-insWordM                        :: (Monad m, HolIndexM m i) =>
-                                   Context -> DocId -> i -> (Word, Position) -> m i
-insWordM cx' did' ix' (w', p')  = insertPositionM cx' w' did' p' ix'
+    action                      = do
+                                  noticeC "indexerCore" ["indexer started"]
+                                  res <- maybe (crawlDocs startUris) crawlerResume $ resumeLoc
+                                  return res
 
 -- ------------------------------------------------------------

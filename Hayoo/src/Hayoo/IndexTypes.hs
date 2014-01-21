@@ -4,11 +4,7 @@
 
 module Hayoo.IndexTypes
     ( module Hayoo.IndexTypes
-#if hashedIndex
-    , module Holumbus.Index.HashedIndex
-#else
     , module Holumbus.Index.CompactIndex
-#endif
     , FunctionInfo(..)
     , PackageInfo(..)
     , Score
@@ -19,10 +15,10 @@ import           Control.Arrow
 import           Control.DeepSeq
 
 import           Data.Binary
-import           Data.List                      ( foldl' )
-import qualified Data.Map                       as M    ( lookup )
+import           Data.List                    (foldl')
+import qualified Data.Map                     as M (lookup)
 import           Data.Maybe
-import qualified Data.StringMap                 as SM
+import qualified Data.StringMap               as SM
 
 import           Hayoo.FunctionInfo
 import           Hayoo.PackageInfo
@@ -30,25 +26,14 @@ import           Hayoo.PackageRank
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
-import           Holumbus.Index.Common          ( Document(..)
-                                                , custom
-                                                , elemsDocIdMap
-                                                , emptyDocIdMap
-                                                , emptyPos
-                                                , foldWithKeyDocIdMap
-                                                , insertDocIdMap
-                                                , keysDocIdMap
-                                                , removeById
-                                                , toMap
-                                                , updateDocuments
-                                                )
-#if hashedIndex
-import           Holumbus.Index.HashedIndex
-#else
+import           Holumbus.Index.Common        (Document (..), custom,
+                                               elemsDocIdMap, emptyDocIdMap,
+                                               emptyPos, foldWithKeyDocIdMap,
+                                               insertDocIdMap, keysDocIdMap,
+                                               removeById, toMap,
+                                               updateDocuments)
 import           Holumbus.Index.CompactIndex
-#endif
-
-import           Holumbus.Query.Result          ( Score )
+import           Holumbus.Query.Result        (Score)
 
 -- ------------------------------------------------------------
 
@@ -115,7 +100,10 @@ removePack' pkgName ps IndexerState
 
 packageRanking                  :: HayooPkgIndexerState -> HayooPkgIndexerState
 packageRanking ixs@(IndexerState { ixs_documents = ds })
-                                = ixs { ixs_documents = updateDocuments insertRank ds }
+                                = ixs { ixs_documents = packageDocRanking ds }
+
+packageDocRanking :: Documents PackageInfo -> Documents PackageInfo
+packageDocRanking ds = updateDocuments insertRank ds
     where
     deflate                     = 0.5
     scale                       = (/10.0) . fromInteger . round . (*10) . (+1.0) . logBase 2
@@ -154,7 +142,7 @@ buildRankTable                  = toMap
                                             >>> fromJust
                                             >>> (p_name &&& p_rank)
                                           )
-                                  >>> SM.fromList 
+                                  >>> SM.fromList
 {-
     where
       checkCustom d =

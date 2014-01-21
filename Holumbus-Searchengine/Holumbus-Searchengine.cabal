@@ -26,27 +26,31 @@ source-repository head
   location:    https://github.com/fortytools/holumbus
 
 library
-  build-depends: base                   >= 4     && < 5
-               , binary                 >= 0.5   && < 1
-               , bytestring             >= 0.9   && < 1
-               , bzlib                  >= 0.4   && < 1
-               , data-size              >= 0.1.3 && < 1
-               , data-stringmap         >= 0.9.5
-               , directory              >= 1     && < 2
-               , filepath               >= 1     && < 2
-               , hslogger               >= 1     && < 2
-               , hxt                    >= 9.1   && < 10
-               , hxt-cache              >= 9     && < 10
-               , hxt-curl               >= 9     && < 10
-               , hxt-regex-xmlschema    >= 9     && < 10
-               , hxt-unicode            >= 9     && < 10
-               , mtl                    >= 1.1   && < 3
-               , network                >= 2.1   && < 3
-               , parallel               >= 3.1   && < 4
-               , parsec                 >= 2.1   && < 4
-               , process                >= 1     && < 2
-               , SHA                    >= 1.4   && < 2
-               , unix                   >= 2.3   && < 3
+  build-depends:   base                   >= 4     && < 5
+                 , aeson                  >= 0.6
+                 , aeson-pretty           >= 0.7
+                 , binary                 >= 0.5   && < 1
+                 , bytestring             >= 0.9   && < 1
+                 , bzlib                  >= 0.4   && < 1
+                 , data-size              >= 0.1.3 && < 1
+                 , data-stringmap         >= 0.9.5
+                 , directory              >= 1     && < 2
+                 , filepath               >= 1     && < 2
+                 , hslogger               >= 1     && < 2
+                 , hxt                    >= 9.1   && < 10
+                 , hxt-cache              >= 9     && < 10
+                 , hxt-curl               >= 9     && < 10
+                 , hxt-regex-xmlschema    >= 9     && < 10
+                 , hxt-unicode            >= 9     && < 10
+                 , mtl                    >= 1.1   && < 3
+                 , network                >= 2.1   && < 3
+                 , parallel               >= 3.1   && < 4
+                 , parsec                 >= 2.1   && < 4
+                 , process                >= 1     && < 2
+                 , SHA                    >= 1.4   && < 2
+                 , text                   >= 0.11
+                 , unix                   >= 2.3   && < 3
+                 , unordered-containers   >= 0.2
 
   -- instance NFData (Map k v) has moved from deepseq into containers (dependency hell)
   if impl(ghc < 7.4)
@@ -58,7 +62,7 @@ library
 
   exposed-modules:
     Control.Concurrent.MapFold
-    Control.Monad.ReaderStateIO
+    Control.Monad.ReaderStateIOError
     Control.Sequential.MapFoldBinary
     Holumbus.Crawler.CacheCore
     Holumbus.Crawler.Constants

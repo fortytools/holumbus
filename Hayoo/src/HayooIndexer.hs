@@ -5,29 +5,33 @@
 module Main (main)
 where
 
-import           Codec.Compression.BZip       (compress, decompress)
+import           Codec.Compression.BZip     (compress, decompress)
 
 import           Control.DeepSeq
-import           Control.Monad                ()
+-- import           Control.Monad
+import           Control.Monad.Error
 import           Control.Monad.Reader
 
-import qualified Data.Binary                  as B
+import qualified Data.Binary                as B
 import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
 import           Data.Size
 import           Data.Typeable
 
+import qualified Hayoo.FctIndexerCore       as FJ
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
 import           Hayoo.IndexConfig
+import           Hayoo.IndexerCore
 import           Hayoo.IndexTypes
 import           Hayoo.PackageArchive
+import qualified Hayoo.PkgIndexerCore       as PJ
+import           Hayoo.PostToServer
 import           Hayoo.URIConfig
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.CacheCore
-import           Holumbus.Crawler.IndexerCore
 
 import           System.Console.GetOpt
 import           System.Environment
@@ -37,7 +41,7 @@ import           System.IO
 import           Text.XML.HXT.Cache
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Curl
-import           Text.XML.HXT.HTTP            ()
+import           Text.XML.HXT.HTTP          ()
 
 -- ------------------------------------------------------------
 
@@ -47,30 +51,35 @@ data AppAction
 
 data AppOpts
     = AO
-      { ao_progname :: String
-      , ao_index    :: String
-      , ao_ixout    :: String
-      , ao_ixsearch :: String
-      , ao_xml      :: String
-      , ao_help     :: Bool
-      , ao_pkgIndex :: Bool
-      , ao_action   :: AppAction
-      , ao_defrag   :: Bool
-      , ao_partix   :: Bool
-      , ao_resume   :: Maybe String
-      , ao_packages :: [String]
-      , ao_latest   :: Maybe Int
-      , ao_getHack  :: Bool
-      , ao_pkgRank  :: Bool
-      , ao_msg      :: String
-      , ao_crawlDoc :: (Int, Int, Int)
-      , ao_crawlSav :: Int
-      , ao_crawlSfn :: String
-      , ao_crawlLog :: (Priority, Priority)
-      , ao_crawlPar :: SysConfig
-      , ao_crawlFct :: HayooIndexerConfig    -> HayooIndexerConfig
-      , ao_crawlPkg :: HayooPkgIndexerConfig -> HayooPkgIndexerConfig
-      , ao_crawlCch :: CacheCrawlerConfig    -> CacheCrawlerConfig
+      { ao_progname    :: String
+      , ao_index       :: String
+      , ao_ixout       :: String
+      , ao_ixsearch    :: String
+      , ao_xml         :: String
+      , ao_help        :: Bool
+      , ao_pkgIndex    :: Bool
+      , ao_JSON        :: Bool
+      , ao_JSONserv    :: Maybe String
+      , ao_action      :: AppAction
+      , ao_defrag      :: Bool
+      , ao_partix      :: Bool
+      , ao_resume      :: Maybe String
+      , ao_packages    :: [String]
+      , ao_latest      :: Maybe Int
+      , ao_getHack     :: Bool
+      , ao_pkgRank     :: Bool
+      , ao_pkgRankOnly :: Bool
+      , ao_msg         :: String
+      , ao_crawlDoc    :: (Int, Int, Int)
+      , ao_crawlSav    :: Int
+      , ao_crawlSfn    :: String
+      , ao_crawlLog    :: (Priority, Priority)
+      , ao_crawlPar    :: SysConfig
+      , ao_crawlFct    :: HayooIndexerConfig    -> HayooIndexerConfig
+      , ao_crawlPkg    :: HayooPkgIndexerConfig -> HayooPkgIndexerConfig
+      , ao_crawlCch    :: CacheCrawlerConfig    -> CacheCrawlerConfig
+      , ao_crawlPkJ    :: PJ.PkgCrawlerConfig   -> PJ.PkgCrawlerConfig
+      , ao_crawlFcJ    :: FJ.FctCrawlerConfig   -> FJ.FctCrawlerConfig
       }
 
 -- ------------------------------------------------------------
@@ -78,62 +87,72 @@ data AppOpts
 initAppOpts :: AppOpts
 initAppOpts
     = AO
-      { ao_progname = "hayooIndexer"
-      , ao_index    = ""
-      , ao_ixout    = ""
-      , ao_ixsearch = ""
-      , ao_xml      = ""
-      , ao_help     = False
-      , ao_pkgIndex = False
-      , ao_action   = BuildIx
-      , ao_defrag   = False
-      , ao_partix   = False
-      , ao_resume   = Nothing
-      , ao_packages = []
-      , ao_latest   = Nothing
-      , ao_getHack  = False
-      , ao_pkgRank  = False
-      , ao_msg      = ""
-      , ao_crawlDoc = (50000, 1024, 1)                                          -- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
-      , ao_crawlSav = 5000                                                      -- save intervall
-      , ao_crawlSfn = "./tmp/ix-"                                               -- save path
-      , ao_crawlLog = (DEBUG, NOTICE)                                           -- log cache and hxt
-      , ao_crawlPar = withCache' (60 * 60 * 24 * 30)                            -- set cache dir, cache remains valid 1 month, 404 pages are cached
-                      >>>
-                      withCompression (compress, decompress)                    -- compress cache files
-                      >>>
-                      withStrictDeserialize yes                                 -- strict input of cache files
-                      >>>
-                      withAcceptedMimeTypes [ text_html
-                                            , application_xhtml
-                                            ]
-                      >>>
-                      withCurl [ (curl_location,             v_1)               -- automatically follow redirects
-                               , (curl_max_redirects,        "3")               -- but limit # of redirects to 3
-                               ]
-                      >>>
-                      -- withHTTP [ (curl_max_redirects,        "3") ]          -- nice try: HTTP web access instead of curl, problem: no document size limit
-                      -- >>>
-                      withRedirect yes
-                      >>>
-                      withInputOption curl_max_filesize
-                                          (show (1024 * 1024 * 3 `div` 2 ::Int)) -- this limit excludes automtically generated pages, sometimes > 1.5 Mbyte
-                      >>>
-                      withParseHTML no
-                      >>>
-                      withParseByMimeType yes
+      { ao_progname     = "hayooCrawler"
+      , ao_index        = ""
+      , ao_ixout        = ""
+      , ao_ixsearch     = ""
+      , ao_xml          = ""
+      , ao_help         = False
+      , ao_pkgIndex     = False
+      , ao_JSON         = False
+      , ao_JSONserv     = Nothing
+      , ao_action       = BuildIx
+      , ao_defrag       = False
+      , ao_partix       = False
+      , ao_resume       = Nothing
+      , ao_packages     = []
+      , ao_latest       = Nothing
+      , ao_getHack      = False
+      , ao_pkgRank      = False
+      , ao_pkgRankOnly  = False
+      , ao_msg          = ""
+      , ao_crawlDoc     = (50000, 1024, 1)                                          -- max docs, max par docs, max threads: no parallel threads, but 1024 docs are indexed before results are inserted
+      , ao_crawlSav     = 5000                                                      -- save intervall
+      , ao_crawlSfn     = "./tmp/ix-"                                               -- save path
+      , ao_crawlLog     = (DEBUG, NOTICE)                                           -- log cache and hxt
+      , ao_crawlPar     = withCache' (60 * 60 * 24 * 30)                            -- set cache dir, cache remains valid 1 month, 404 pages are cached
+                          >>>
+                          withCompression (compress, decompress)                    -- compress cache files
+                          >>>
+                          withStrictDeserialize yes                                 -- strict input of cache files
+                          >>>
+                          withAcceptedMimeTypes [ text_html
+                                                , application_xhtml
+                                                ]
+                          >>>
+                          withCurl [ (curl_location,             v_1)               -- automatically follow redirects
+                                   , (curl_max_redirects,        "3")               -- but limit # of redirects to 3
+                                   ]
+                          >>>
+                          -- withHTTP [ (curl_max_redirects,        "3") ]          -- nice try: HTTP web access instead of curl, problem: no document size limit
+                          -- >>>
+                          withRedirect yes
+                          >>>
+                          withInputOption curl_max_filesize
+                                              (show (1024 * 1024 * 3 `div` 2 ::Int)) -- this limit excludes automtically generated pages, sometimes > 1.5 Mbyte
+                          >>>
+                          withParseHTML no
+                          >>>
+                          withParseByMimeType yes
 
-      , ao_crawlFct = ( editPackageURIs                                         -- configure URI rewriting
-                        >>>
-                        disableRobotsTxt                                        -- for hayoo robots.txt is not needed
-                      )
+      , ao_crawlFct     = ( editPackageURIs                                         -- configure URI rewriting
+                            >>>
+                            disableRobotsTxt                                        -- for hayoo robots.txt is not needed
+                          )
 
-      , ao_crawlPkg = disableRobotsTxt
+      , ao_crawlPkg     = disableRobotsTxt
 
-      , ao_crawlCch = ( editPackageURIs                                         -- configure URI rewriting
-                        >>>
-                        disableRobotsTxt                                        -- for hayoo robots.txt is not needed
-                      )
+      , ao_crawlCch     = ( editPackageURIs                                         -- configure URI rewriting
+                            >>>
+                            disableRobotsTxt                                        -- for hayoo robots.txt is not needed
+                          )
+
+      , ao_crawlPkJ     = disableRobotsTxt
+
+      , ao_crawlFcJ     = ( editPackageURIs                                         -- configure URI rewriting
+                            >>>
+                            disableRobotsTxt                                        -- for hayoo robots.txt is not needed
+                          )
       }
     where
       editPackageURIs
@@ -145,13 +164,14 @@ withCache' sec
 
 -- ------------------------------------------------------------
 
-type HIO = ReaderT AppOpts IO
+type HIO = ReaderT AppOpts (ErrorT String IO)
 
 main :: IO ()
 main
     = do pn   <- getProgName
          args <- getArgs
-         runReaderT main2 (evalOptions pn args)
+         res  <- runErrorT $ runReaderT main2 (evalOptions pn args)
+         either (const exitFailure) (const exitSuccess) res
 
 -- ------------------------------------------------------------
 
@@ -161,9 +181,9 @@ main2
          if h
             then do msg <- asks ao_msg
                     liftIO $ do hPutStrLn stderr (msg ++ "\n" ++ usageInfo pn hayooOptDescr)
-                                if null msg
-                                   then exitSuccess
-                                   else exitFailure
+                    if null msg
+                       then return ()
+                       else throwError "wrong option"
             else do asks (snd . ao_crawlLog) >>= setLogLevel ""
                     a <- asks ao_action
                     case a of
@@ -173,7 +193,6 @@ main2
                                        if p
                                           then mainHackage
                                           else mainHaddock
-                    liftIO $ exitSuccess
 
 -- ------------------------------------------------------------
 
@@ -236,7 +255,10 @@ mainHackage
                            if isJust rs
                               then notice ["resume hackage package description indexing"]
                               else return ()
-                           indexPkg ps >>= writeRes
+                           js <- asks ao_JSON
+                           if not js
+                              then (indexPkg ps >>= writeRes)
+                              else indexPkgJSON ps
 
       removePkg :: [String] -> HIO HayooPkgIndexerState
       removePkg ps
@@ -261,8 +283,15 @@ mainHackage
           = do notice $ if null ps
                           then ["indexing all packages from hackage package index"]
                           else "indexing hackage package descriptions for packages:" : ps
-               (getS theResultAccu `fmap` hayooPkgIndexer) >>=
-                 rankPkg
+               (getS theResultAccu `fmap` hayooPkgIndexer)
+                        >>= rankPkg
+
+      indexPkgJSON :: [String] -> HIO () -- HayooPkgIndexerState
+      indexPkgJSON ps
+          = do notice $ if null ps
+                          then ["JSON format indexing all packages from hackage package index"]
+                          else "JSON format indexing hackage package descriptions for packages:" : ps
+               (getS theResultAccu `fmap` hayooPJIndexer) >>= (rankPkgJSON . ixs_documents)
 
       rankPkg ix
           = do rank <- asks ao_pkgRank
@@ -274,6 +303,19 @@ mainHackage
                           return res
                   else do notice ["no package ranks computed"]
                           return ix
+
+      rankPkgJSON :: Documents PackageInfo -> HIO ()
+      rankPkgJSON dt
+          = do rank <- asks ao_pkgRank
+               serv <- asks ao_JSONserv
+               if rank
+                  then do notice ["computing package ranks"]
+                          liftIO $ (case serv of
+                                      Nothing -> PJ.flushRanksToFile
+                                      Just u  -> PJ.flushRanksToServer u
+                                   ) (packageDocRanking dt)
+                          notice ["JSON package ranks stored in file 'packages/0000-ranks.json'"]
+                  else do notice ["no package ranks computed"]
 
 mainHaddock :: HIO ()
 mainHaddock
@@ -300,7 +342,11 @@ mainHaddock
                            if isJust rs
                               then notice ["resume haddock document indexing"]
                               else return ()
-                           indexPkg ps >>= writePartialRes
+                           js <- asks ao_JSON
+                           if not js
+                              then (indexPkg ps >>= writePartialRes)
+                              else indexPkgJSON ps
+
       removePkg ps
           = do notice $ "deleting packages" : ps ++ ["from haddock index"]
                res <- removePackagesIx
@@ -329,6 +375,13 @@ mainHaddock
                           then ["indexing all haddock pages"]
                           else "indexing haddock for packages:" : ps
                (getS (theResultAccu .&&&. theListOfDocsSaved) `fmap` hayooIndexer)
+
+      indexPkgJSON :: [String] -> HIO ()
+      indexPkgJSON ps
+          = do notice $ if null ps
+                          then ["JSON format indexing all haddock pages"]
+                          else "JSON format indexing haddock pages:" : ps
+               hayooFJIndexer >> return ()
 
       updateLatest latest
           = do notice ["reindex with latest packages"]
@@ -424,7 +477,7 @@ writeResults v
 hayooCacher :: HIO CacheCrawlerState
 hayooCacher
     = do o <- ask
-         liftIO $ stdCacher
+         liftIOC $ stdCacher
                     (ao_crawlDoc o)
                     (ao_crawlSav o, ao_crawlSfn o)
                     (ao_crawlLog o)
@@ -434,12 +487,16 @@ hayooCacher
                     hayooStart
                     (hayooRefs True [])
 
+liftIOC :: IO (Either String a) -> HIO a
+liftIOC action
+    = liftIO action >>= either throwError return
+
 -- ------------------------------------------------------------
 
 hayooPackageUpdate :: [String] -> HIO CacheCrawlerState
 hayooPackageUpdate pkgs
     = do o <- ask
-         liftIO $ stdCacher
+         liftIOC $ stdCacher
                     (ao_crawlDoc o)
                     (ao_crawlSav o, ao_crawlSfn o)
                     (ao_crawlLog o)
@@ -455,7 +512,7 @@ hayooPackageUpdate pkgs
 hayooPkgIndexer :: HIO HayooPkgIndexerCrawlerState
 hayooPkgIndexer
     = do o <- ask
-         liftIO $ stdIndexer
+         liftIOC $ stdIndexer
                     (config o)
                     (ao_resume o)
                     hackageStart
@@ -484,11 +541,95 @@ hayooPkgIndexer
           (md, mp, mt)  = ao_crawlDoc o
 
 -- ------------------------------------------------------------
+--
+-- the JSON package indexer
+
+hayooPJIndexer :: HIO PJ.PkgCrawlerState
+hayooPJIndexer
+    = do o <- ask
+         liftIOC $ stdIndexer
+                    (config o)
+                    (ao_resume o)
+                    hackageStart
+                    PJ.emptyPkgState
+    where
+      config0 o
+          = PJ.indexCrawlerConfig
+            flush
+            (ao_crawlPar o)
+            (hayooRefs False $ ao_packages o)
+            Nothing
+            (Just $ checkDocumentStatus >>> preparePkg)
+            (Just $ hayooGetPkgTitle)
+            (Just $ hayooGetPkgInfo)
+            hayooPkgIndexContextConfig
+          where
+            flush
+                = case (ao_pkgRankOnly o, ao_JSONserv o) of
+                    (True, _      ) -> PJ.flushToDevNull
+                    (_,    Nothing) -> PJ.flushToFile
+                    (_,    Just u ) -> PJ.flushToServer u
+
+      config o
+          = ao_crawlPkJ o $
+            setCrawlerTraceLevel ct ht   $
+            setCrawlerSaveConf si sp     $
+            setCrawlerMaxDocs md mp mt   $
+            config0                      $ o
+          where
+            (ct, ht)      = ao_crawlLog o
+            si            = ao_crawlSav o
+            sp            = ao_crawlSfn o
+            (md, mp, mt)  = ao_crawlDoc o
+
+-- ------------------------------------------------------------
+--
+-- the JSON package indexer
+
+hayooFJIndexer :: HIO FJ.FctCrawlerState
+hayooFJIndexer
+    = do o <- ask
+         liftIOC $ stdIndexer
+                    (config o)
+                    (ao_resume o)
+                    hayooStart
+                    FJ.emptyFctState
+    where
+      config0 o
+          = FJ.indexCrawlerConfig
+            flush
+            (ao_crawlPar o)
+            (hayooRefs True $ ao_packages o)
+            Nothing
+            (Just $ checkDocumentStatus >>> prepareHaddock)
+            (Just $ hayooGetTitle)
+            (Just $ hayooGetFctInfo)
+            hayooIndexContextConfig
+          where
+            flush
+                = case ao_JSONserv o of
+                    Nothing -> FJ.flushToFile
+                    Just u  -> FJ.flushToServer u
+
+      config o
+          = ao_crawlFcJ o $
+            setCrawlerTraceLevel ct ht   $
+            setCrawlerSaveConf si sp     $
+            setCrawlerMaxDocs md mp mt   $
+            setCrawlerPreRefsFilter noHaddockPage $
+            config0                      $ o
+          where
+            (ct, ht)      = ao_crawlLog o
+            si            = ao_crawlSav o
+            sp            = ao_crawlSfn o
+            (md, mp, mt)  = ao_crawlDoc o
+
+-- ------------------------------------------------------------
 
 hayooIndexer :: HIO HayooIndexerCrawlerState
 hayooIndexer
     = do o <- ask
-         liftIO $ stdIndexer
+         liftIOC $ stdIndexer
                     (config o)
                     (ao_resume o)
                     hayooStart
@@ -612,6 +753,19 @@ hayooOptDescr
         )
         "output of final crawler state in xml format, \"-\" for stdout"
 
+      , Option "j" ["json-output"]
+        ( NoArg
+          (\ x -> x { ao_JSON = True })
+        )
+        "output of crawler results in JSON format, default: output to files"
+
+      , Option "" ["json-server"]
+        ( ReqArg
+          (\ u x -> x { ao_JSONserv = Just $ if null u then defaultServer else u})
+          "URI"
+        )
+        ( "the server, into which the JSON output will be pushed, default is " ++ show defaultServer ++ " (no file output)")
+
       , Option "r" ["resume"]
         ( ReqArg (\ s x -> x { ao_resume = Just s})
           "FILE"
@@ -711,6 +865,13 @@ hayooOptDescr
         )
         "when processing package index, compute package rank, default is no rank"
 
+      , Option "" ["only-ranking"]
+        ( NoArg $
+          \   x -> x { ao_pkgRank     = True
+                     , ao_pkgRankOnly = True
+                     }
+        )
+        "when processing package index for JSON, only compute package rank, no descriptions"
       ]
     where
     pkgList

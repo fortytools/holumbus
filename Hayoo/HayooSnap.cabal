@@ -81,8 +81,13 @@ executable hayooIndexer
                  , Hayoo.Haddock
                  , Hayoo.HackagePackage
                  , Hayoo.IndexConfig
+                 , Hayoo.IndexerCore
+                 , Hayoo.PkgIndexerCore
+                 , Hayoo.PostToServer
 
   build-depends:   base                   >= 4     && < 5
+                 , aeson                  >= 0.6
+                 , aeson-pretty           >= 0.7
                  , binary                 >= 0.5
                  , bytestring             >= 0.9
                  , bzlib                  >= 0.4
@@ -94,6 +99,7 @@ executable hayooIndexer
                  , enummapset             >= 0
                  , filepath               >= 1
                  , Holumbus-Searchengine  >= 1.2.6 && < 2
+                 , HTTP                   >= 4000.2
                  , hxt                    >= 9.1   && < 10
                  , hxt-cache              >= 9     && < 10
                  , hxt-charproperties     >= 9     && < 10
@@ -106,6 +112,7 @@ executable hayooIndexer
                  , parsec                 >= 2.1   && < 4
                  , process                >= 1     && < 2
                  , tar                    >= 0.3
+                 , text                   >= 0.11
                  , zlib                   >= 0.5
 
   hs-source-dirs: src

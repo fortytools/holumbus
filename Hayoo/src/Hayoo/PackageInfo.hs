@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 
 -- ------------------------------------------------------------
 
@@ -8,6 +9,7 @@ where
 
 import           Control.DeepSeq
 
+import           Data.Aeson
 import           Data.Binary           (Binary (..))
 import qualified Data.Binary           as B
 import           Data.Size
@@ -37,18 +39,21 @@ data PackageInfo
       , p_homepage     :: String               -- ^ The home page
       , p_synopsis     :: String               -- ^ The synopsis
       , p_description  :: String               -- ^ The description of the package
-      , p_rank         :: Score                -- ^ The ranking
+      , p_rank         :: ! Score              -- ^ The ranking
       }
     deriving (Show, Eq, Typeable)
 
 mkPackageInfo                   :: String -> String -> [String] -> String -> String -> String -> String -> String -> String -> PackageInfo
-mkPackageInfo n v d a m c h y s = PackageInfo n v (unwords d) a m c h y s 1.0
+mkPackageInfo n v d a m c h y s = PackageInfo n v (unwords d) a m c h y s defPackageRank
+
+defPackageRank :: Score
+defPackageRank = 1.0
 
 setPackageRank                  :: Score -> PackageInfo -> PackageInfo
-setPackageRank r p              = r `seq` p { p_rank = r }
+setPackageRank r p              = p { p_rank = r }
 
 getPackageName                  :: PackageInfo -> String
-getPackageName                  =  p_name
+getPackageName                  = p_name
 
 getPackageDependencies          :: PackageInfo -> [String]
 getPackageDependencies          = words . p_dependencies
@@ -103,6 +108,27 @@ instance B.Binary PackageInfo where
                                   x10 <- get
                                   let r = PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10
                                   rnf r `seq` return r
+
+instance ToJSON PackageInfo where
+    toJSON (PackageInfo nam ver dep aut mai cat hom syn des ran)
+        = object
+          ( ( map (uncurry (.=)) . filter (not . null . snd)
+            $ [ ("pkg-name",         nam)
+              , ("pkg-version",      ver)
+              , ("pkg-dependencies", dep)
+              , ("pkg-author",       aut)
+              , ("pkg-maintainer",   mai)
+              , ("pkg-category",     cat)
+              , ("pkg-homepage",     hom)
+              , ("pkg-synopsis",     syn)
+              , ("pkg-description",  des)
+              ]
+            )
+            ++ ( if ran == defPackageRank
+                 then []
+                 else ["pkg-rank" .= show ran]  -- convert rank to string
+               )
+          )
 
 instance Sizeable PackageInfo where
     dataOf _x                   = 10 .*. dataOfPtr
