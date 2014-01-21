@@ -29,21 +29,14 @@ where
 
 import           Control.DeepSeq
 
-import           Data.Aeson
-import           Data.Aeson.Encode.Pretty
-import           Data.Aeson.Types         (Pair)
-import           Data.Binary              (Binary)
-import qualified Data.Binary              as B
-import qualified Data.ByteString.Lazy     as LB
+import           Data.Binary            (Binary)
+import qualified Data.Binary            as B
 import           Data.Function.Selector
-import qualified Data.HashMap.Strict      as M
 import           Data.Maybe
-import           Data.Monoid
-import qualified Data.Text                as T
 
 import           Holumbus.Crawler
 
-import           Holumbus.Index.Common    hiding (URI)
+import           Holumbus.Index.Common  hiding (URI)
 
 import           Text.XML.HXT.Core
 
@@ -72,6 +65,7 @@ data IndexerState i d c         = IndexerState
                                   } deriving (Show)
 
 -- ------------------------------------------------------------
+{-
 --
 -- conversion to JSON of a raw doc is a bit tricky
 -- the title attribute must be merged into the custom object
@@ -116,7 +110,7 @@ flushRawCrawlerDoc pretty io d
                            `mappend`
                            compare
                      }
-
+-- -}
 -- ------------------------------------------------------------
 
 instance (NFData i, NFData (d c)) => NFData (IndexerState i d c)

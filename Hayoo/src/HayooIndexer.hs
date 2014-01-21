@@ -5,29 +5,28 @@
 module Main (main)
 where
 
-import           Codec.Compression.BZip     (compress, decompress)
+import           Codec.Compression.BZip      (compress, decompress)
 
 import           Control.DeepSeq
--- import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.Reader
 
-import qualified Data.Binary                as B
+import qualified Data.Binary                 as B
 import           Data.Char
 import           Data.Function.Selector
 import           Data.Maybe
 import           Data.Size
 import           Data.Typeable
 
-import qualified Hayoo.FctIndexerCore       as FJ
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
+import qualified Hayoo.Hayoo2.FctIndexerCore as FJ
+import qualified Hayoo.Hayoo2.PkgIndexerCore as PJ
+import           Hayoo.Hayoo2.PostToServer
 import           Hayoo.IndexConfig
 import           Hayoo.IndexerCore
 import           Hayoo.IndexTypes
 import           Hayoo.PackageArchive
-import qualified Hayoo.PkgIndexerCore       as PJ
-import           Hayoo.PostToServer
 import           Hayoo.URIConfig
 
 import           Holumbus.Crawler
@@ -41,7 +40,7 @@ import           System.IO
 import           Text.XML.HXT.Cache
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Curl
-import           Text.XML.HXT.HTTP          ()
+import           Text.XML.HXT.HTTP           ()
 
 -- ------------------------------------------------------------
 

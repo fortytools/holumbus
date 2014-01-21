@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Hayoo.PostToServer
+module Hayoo.Hayoo2.PostToServer
 where
 
 import qualified Data.ByteString.Lazy as LB

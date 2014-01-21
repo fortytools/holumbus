@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module Hayoo.FctIndexerCore
+module Hayoo.Hayoo2.FctIndexerCore
 where
 
 import           Control.DeepSeq
@@ -13,8 +13,9 @@ import qualified Data.ByteString.Lazy         as LB
 import           Data.Maybe
 
 import           Hayoo.FunctionInfo
+import           Hayoo.Hayoo2.PostToServer
+import           Hayoo.Hayoo2.RawCrawlerDoc
 import           Hayoo.IndexTypes
-import           Hayoo.PostToServer
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore

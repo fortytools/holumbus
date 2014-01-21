@@ -82,8 +82,10 @@ executable hayooIndexer
                  , Hayoo.HackagePackage
                  , Hayoo.IndexConfig
                  , Hayoo.IndexerCore
-                 , Hayoo.PkgIndexerCore
-                 , Hayoo.PostToServer
+                 , Hayoo.Hayoo2.FctIndexerCore
+                 , Hayoo.Hayoo2.PkgIndexerCore
+                 , Hayoo.Hayoo2.PostToServer
+                 , Hayoo.Hayoo2.RawCrawlerDoc
 
   build-depends:   base                   >= 4     && < 5
                  , aeson                  >= 0.6
@@ -113,6 +115,7 @@ executable hayooIndexer
                  , process                >= 1     && < 2
                  , tar                    >= 0.3
                  , text                   >= 0.11
+                 , unordered-containers   >= 0.2
                  , zlib                   >= 0.5
 
   hs-source-dirs: src

@@ -27,8 +27,8 @@ source-repository head
 
 library
   build-depends:   base                   >= 4     && < 5
-                 , aeson                  >= 0.6
-                 , aeson-pretty           >= 0.7
+--                 , aeson                  >= 0.6
+--                 , aeson-pretty           >= 0.7
                  , binary                 >= 0.5   && < 1
                  , bytestring             >= 0.9   && < 1
                  , bzlib                  >= 0.4   && < 1
@@ -50,7 +50,7 @@ library
                  , SHA                    >= 1.4   && < 2
                  , text                   >= 0.11
                  , unix                   >= 2.3   && < 3
-                 , unordered-containers   >= 0.2
+--                 , unordered-containers   >= 0.2
 
   -- instance NFData (Map k v) has moved from deepseq into containers (dependency hell)
   if impl(ghc < 7.4)

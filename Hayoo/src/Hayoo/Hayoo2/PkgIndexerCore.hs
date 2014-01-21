@@ -3,7 +3,7 @@
 
 -- ------------------------------------------------------------
 
-module Hayoo.PkgIndexerCore
+module Hayoo.Hayoo2.PkgIndexerCore
 where
 
 -- import           Control.DeepSeq
@@ -12,10 +12,11 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy         as LB
 import           Data.Maybe
 
+import           Hayoo.Hayoo2.PostToServer
+import           Hayoo.Hayoo2.RawCrawlerDoc
 import           Hayoo.IndexTypes
 import           Hayoo.PackageInfo
 
-import           Hayoo.PostToServer
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Common        hiding (URI)
