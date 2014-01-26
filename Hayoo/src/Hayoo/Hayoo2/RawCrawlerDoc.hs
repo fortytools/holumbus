@@ -14,18 +14,13 @@ where
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
 import           Data.Aeson.Types             (Pair)
--- import           Data.Binary                  (Binary)
--- import qualified Data.Binary                  as B
 import qualified Data.ByteString.Lazy         as LB
 import qualified Data.HashMap.Strict          as M
--- import           Data.Maybe
 import           Data.Monoid
 import qualified Data.Text                    as T
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
-
-import           Holumbus.Index.Common        hiding (URI)
 
 -- ------------------------------------------------------------
 --
@@ -37,24 +32,23 @@ newtype RawCrawlerDoc c         = RCD (URI, RawDoc c)
 
 instance (ToJSON c) => ToJSON (RawCrawlerDoc c) where
     toJSON (RCD (rawUri, (rawContexts, rawTitle, rawCustom)))
-        = object
-          [ "uri" .= rawUri
-          , ("description", addPair ("title", toJSON rawTitle) $ toJSON rawCustom)
-          , "index" .= object (map toJSONRawContext rawContexts)
-          ]
+        = object [ "cmd"      .= ("update" :: T.Text)
+                 , "document" .= doc
+                 ]
+        where
+          doc = object
+                [ "uri"        .= rawUri
+                , ("description", addPair ("title", toJSON rawTitle) $
+                                  toJSON rawCustom
+                  )
+                , "index"      .= object (map toJSONRawContext rawContexts)
+                ]
 
 toJSONRawContext :: RawContext -> Pair
 toJSONRawContext (cx, ws) = T.pack cx .= toJSONRawWords ws
 
 toJSONRawWords :: RawWords -> Value
-toJSONRawWords = object . map pair . toWordPositions
-    where
-      pair (w, ps) = T.pack w .= ps
-
-toWordPositions :: RawWords -> [(Word, [Position])]
-toWordPositions = M.toList . foldr ins M.empty
-    where
-      ins (w, p) = M.insertWith (++) w [p]
+toJSONRawWords = toJSON . T.pack . unwords . map fst
 
 addPair :: Pair -> Value -> Value
 addPair (k, v) (Object m) = Object $ M.insert k v m

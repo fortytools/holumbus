@@ -1,20 +1,22 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Hayoo.PackageArchive
 where
 
 
-import qualified Codec.Archive.Tar              as Tar
-import qualified Codec.Archive.Tar.Entry        as Tar
+import qualified Codec.Archive.Tar       as Tar
+import qualified Codec.Archive.Tar.Entry as Tar
 
-import qualified Codec.Compression.GZip         as GZip ( decompress )
+import qualified Codec.Compression.GZip  as GZip (decompress)
 
 import           Control.Arrow
 
-import           Data.ByteString.Lazy           ( ByteString )
-import qualified Data.ByteString.Lazy           as BS
+import           Data.ByteString.Lazy    (ByteString)
+import qualified Data.ByteString.Lazy    as BL
 import           Data.List
 
 import           System.FilePath
-import           System.Process                 ( system )
+import           System.Process          (system)
 import           System.Time
 
 -- ------------------------------------------------------------
@@ -28,14 +30,17 @@ getNewPackages updateArchive since
                                   >> return ()
                              else return ()
                           t <- secondsAgo
-                          a <- BS.readFile $ "cache/" ++ archiveFile
+                          a <- BL.readFile $ "cache/" ++ archiveFile
                           return $ latestPackages t a
     where
     archiveFile         = "00-index.tar.gz"
     secondsAgo          :: IO ClockTime
     secondsAgo          = do
                           (TOD s _f) <- getClockTime
-                          return $ TOD (s - toInteger since) 0
+                          return $ TOD ( if since <= 0
+                                         then 0
+                                         else s - toInteger since
+                                       ) 0
 
 -- ------------------------------------------------------------
 

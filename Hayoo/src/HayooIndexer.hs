@@ -7,6 +7,7 @@ where
 
 import           Codec.Compression.BZip      (compress, decompress)
 
+import           Control.Applicative         ((<$>))
 import           Control.DeepSeq
 import           Control.Monad.Error
 import           Control.Monad.Reader
@@ -42,6 +43,7 @@ import           Text.XML.HXT.Core
 import           Text.XML.HXT.Curl
 import           Text.XML.HXT.HTTP           ()
 
+-- import           Data.List                   (intercalate)
 -- ------------------------------------------------------------
 
 data AppAction
@@ -316,6 +318,8 @@ mainHackage
                           notice ["JSON package ranks stored in file 'packages/0000-ranks.json'"]
                   else do notice ["no package ranks computed"]
 
+-- ------------------------------------------------------------
+
 mainHaddock :: HIO ()
 mainHaddock
     = do action
@@ -344,7 +348,7 @@ mainHaddock
                            js <- asks ao_JSON
                            if not js
                               then (indexPkg ps >>= writePartialRes)
-                              else indexPkgJSON ps
+                              else indexPkgListJSON ps
 
       removePkg ps
           = do notice $ "deleting packages" : ps ++ ["from haddock index"]
@@ -375,12 +379,36 @@ mainHaddock
                           else "indexing haddock for packages:" : ps
                (getS (theResultAccu .&&&. theListOfDocsSaved) `fmap` hayooIndexer)
 
-      indexPkgJSON :: [String] -> HIO ()
-      indexPkgJSON ps
-          = do notice $ if null ps
-                          then ["JSON format indexing all haddock pages"]
-                          else "JSON format indexing haddock pages:" : ps
-               hayooFJIndexer >> return ()
+      indexPkgListJSON :: [String] -> HIO ()
+      indexPkgListJSON ps
+          | null ps   = getPackageList >>= indexPkgListJSON'
+          | otherwise =                    indexPkgListJSON' ps
+          where
+            indexPkgListJSON' []  = noaction
+            indexPkgListJSON' ps' = mapM_ indexPkgJSON ps'
+
+      indexPkgJSON :: String -> HIO ()
+      indexPkgJSON pkg
+          = do notice ["start indexing haddock pages in JSON for package:", show pkg]
+               local (\ o -> o { ao_packages = [pkg] }
+                     ) $ do ix <- getS theResultAccu <$> hayooFJIndexer
+                            flushJSON pkg ix
+
+               notice ["finish indexing haddock pages in JSON for package:", show pkg]
+               return ()
+
+      flushJSON :: String -> FJ.FctIndexerState -> HIO ()
+      flushJSON pkg ix
+          = do serv <- asks ao_JSONserv
+               notice $ "flushing function index as JSON to" : target serv
+               liftIO $ flush serv ix
+               notice $ ["flushing function index as JSON done"]
+               return ()
+          where
+            target (Just uri) = ["server", show uri]
+            target  Nothing   = ["file",   show pkg]
+            flush (Just uri)  = FJ.flushToServer uri
+            flush  Nothing    = FJ.flushToFile   pkg
 
       updateLatest latest
           = do notice ["reindex with latest packages"]
@@ -398,6 +426,13 @@ mainHaddock
 noaction :: HIO ()
 noaction
     = notice ["no packages to be processed"]
+
+-- ------------------------------------------------------------
+
+getPackageList :: HIO [String]
+getPackageList
+    = do age <- maybe 0 id <$> asks ao_latest
+         liftIO $ getNewPackages False age
 
 -- ------------------------------------------------------------
 
@@ -444,7 +479,7 @@ writePartialRes (x, ps)
 
 mergeAndWritePartialRes :: [Int] -> HIO ()
 mergeAndWritePartialRes ps
-    = do pxs <- (\ fn -> map (mkTmpFile 10 fn) ps) `fmap` asks ao_crawlSfn
+    = do pxs <- (\ fn -> map (mkTmpFile 10 fn) ps) <$> asks ao_crawlSfn
          out <- asks ao_ixsearch
          mergeAndWritePartialRes' id' pxs out
     where
@@ -596,7 +631,6 @@ hayooFJIndexer
     where
       config0 o
           = FJ.indexCrawlerConfig
-            flush
             (ao_crawlPar o)
             (hayooRefs True $ ao_packages o)
             Nothing
@@ -604,11 +638,6 @@ hayooFJIndexer
             (Just $ hayooGetTitle)
             (Just $ hayooGetFctInfo)
             hayooIndexContextConfig
-          where
-            flush
-                = case ao_JSONserv o of
-                    Nothing -> FJ.flushToFile
-                    Just u  -> FJ.flushToServer u
 
       config o
           = ao_crawlFcJ o $
