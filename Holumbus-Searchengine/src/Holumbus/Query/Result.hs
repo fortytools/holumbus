@@ -11,15 +11,15 @@
 
   The data type for results of Holumbus queries.
 
-  The result of a query is defined in terms of two partial results, 
-  the documents containing the search terms and the words which 
+  The result of a query is defined in terms of two partial results,
+  the documents containing the search terms and the words which
   are possible completions of the serach terms.
 
 -}
 
 -- ----------------------------------------------------------------------------
 
-module Holumbus.Query.Result 
+module Holumbus.Query.Result
   (
   -- * Result data types
     Result (..)
@@ -32,7 +32,7 @@ module Holumbus.Query.Result
   , DocInfo (..)
   , WordInfo (..)
   , Score
-  
+
   -- * Construction
   , emptyResult
 
@@ -47,47 +47,47 @@ module Holumbus.Query.Result
   -- * Transform
   , setDocScore
   , setWordScore
-  
+
   -- * Picklers
   , xpDocHits
   , xpWordHits
   )
 where
 
-import           Prelude                hiding (null)
+import           Prelude               hiding (null)
 
 import           Control.DeepSeq
-import           Control.Monad          ( liftM2 )
+import           Control.Monad         (liftM2)
 
-import           Data.Binary            ( Binary (..) )
+import           Data.Binary           (Binary (..))
 import           Data.Function
-import           Data.Map               ( Map )
-import qualified Data.Map               as M
-import qualified Data.List              as L
+import qualified Data.List             as L
+import           Data.Map              (Map)
+import qualified Data.Map              as M
 
-import           Holumbus.Utility
 import           Holumbus.Index.Common
+import           Holumbus.Utility
 
 import           Text.XML.HXT.Core
 
 -- ----------------------------------------------------------------------------
 
 -- | The combined result type for Holumbus queries.
-data Result a           = Result        
+data Result a           = Result
                           { docHits  :: (DocHits a)  -- ^ The documents matching the query.
                           , wordHits :: WordHits     -- ^ The words which are completions of the query terms.
                           }
                           deriving (Eq, Show)
 
 -- | Information about an document.
-data DocInfo a          = DocInfo 
+data DocInfo a          = DocInfo
                           { document :: (Document a) -- ^ The document itself.
                           , docScore :: Score        -- ^ The score for the document (initial score for all documents is @0.0@).
                           }
                           deriving (Eq, Show)
 
 -- | Information about a word.
-data WordInfo           = WordInfo 
+data WordInfo           = WordInfo
                           { terms     :: Terms    -- ^ The search terms that led to this very word.
                           , wordScore :: Score    -- ^ The frequency of the word in the document for a context.
                           }
@@ -141,7 +141,7 @@ instance NFData WordInfo where
   rnf (WordInfo t s)    = rnf t `seq` rnf s
 
 instance XmlPickler a => XmlPickler (Result a) where
-  xpickle               = xpElem "result" $ 
+  xpickle               = xpElem "result" $
                           xpWrap ( \ (dh, wh) -> Result dh wh
                                  , \ (Result dh wh) -> (dh, wh)
                                  ) (xpPair xpDocHits xpWordHits)
@@ -160,7 +160,7 @@ instance XmlPickler WordInfo where
     where
     xpWordInfo          = xpPair (xpAttr "term" xpTerms)
                                  (xpAttr "score" xpPrim)
-    xpTerms             = xpWrap (split ",", join ",") xpText0
+    xpTerms             = xpWrap (split ",", L.intercalate ",") xpText0
 
 -- ----------------------------------------------------------------------------
 

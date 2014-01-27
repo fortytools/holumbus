@@ -1,0 +1,83 @@
+name:          Hayoo-Indexer
+version:       1.3.0.0
+license:       MIT
+license-file:  LICENSE
+author:        Sebastian M. Gauck, Timo B. Kranz, Uwe Schmidt
+copyright:     Copyright (c) 2007 - 2013 Uwe Schmidt, Sebastian M. Gauck and Timo B. Kranz
+maintainer:    Timo B. Kranz <tbh@holumbus.org>, Uwe Schmidt <uwe@fh-wedel.de>
+stability:     experimental
+category:      Text, Data
+synopsis:      The Hayoo! search engine for Haskell API search on hackage
+homepage:      http://holumbus.fh-wedel.de
+description:   The indexer part of the Hayoo search engine
+cabal-version: >=1.6
+build-type:    Simple
+-- tested-with:  ghc-7.6.2
+
+-- ------------------------------------------------------------
+
+executable hayooIndexer
+  main-is:      HayooIndexer.hs
+
+  other-modules:   Hayoo.HackagePackage
+                 , Hayoo.Haddock
+                 , Hayoo.Hayoo2.FctIndexerCore
+                 , Hayoo.Hayoo2.PkgIndexerCore
+                 , Hayoo.Hayoo2.PostToServer
+                 , Hayoo.Hayoo2.RawCrawlerDoc
+                 , Hayoo.IndexConfig
+                 , Hayoo.IndexerCore
+                 , Hayoo.PackageArchive
+                 , Hayoo.URIConfig
+
+  build-depends:   base                   >= 4     && < 5
+                 , aeson                  >= 0.6
+                 , aeson-pretty           >= 0.7
+                 , binary                 >= 0.5
+                 , bytestring             >= 0.9
+                 , bzlib                  >= 0.4
+                 , containers             >= 0.4.2
+                 , data-size              >= 0.1.1
+                 , data-stringmap         >= 0.9.3
+                 , deepseq                >= 1.2
+                 , directory              >= 1.1
+                 , filepath               >= 1
+                 , Hayoo-Lib              >= 1.3
+                 , Holumbus-Searchengine  >= 1.2.6 && < 2
+                 , HTTP                   >= 4000.2
+                 , hxt                    >= 9.1   && < 10
+                 , hxt-cache              >= 9     && < 10
+                 , hxt-charproperties     >= 9     && < 10
+                 , hxt-curl               >= 9     && < 10
+                 , hxt-http               >= 9     && < 10
+                 , hxt-regex-xmlschema    >= 9     && < 10
+                 , hxt-xpath              >= 9.1   && < 10
+                 , mtl                    >= 2
+                 , network                >= 2.1
+                 , old-time               >= 1
+                 , parsec                 >= 2.1   && < 4
+                 , process                >= 1     && < 2
+                 , tar                    >= 0.3
+                 , text                   >= 0.11
+                 , unordered-containers   >= 0.2
+                 , zlib                   >= 0.5
+
+  hs-source-dirs: .
+
+  ghc-options:   -threaded
+                 -rtsopts
+                 -Wall
+                 -fwarn-tabs
+                 -funbox-strict-fields
+
+--  extensions:    CPP
+
+--  cpp-options:  -DhashedIndex=0
+
+-- ------------------------------------------------------------
+
+source-repository head
+  type:     git
+  location: https://github.com/fortytools/holumbus
+
+-- ------------------------------------------------------------

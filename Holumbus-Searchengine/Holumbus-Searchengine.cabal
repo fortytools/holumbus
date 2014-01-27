@@ -27,8 +27,6 @@ source-repository head
 
 library
   build-depends:   base                   >= 4     && < 5
---                 , aeson                  >= 0.6
---                 , aeson-pretty           >= 0.7
                  , binary                 >= 0.5   && < 1
                  , bytestring             >= 0.9   && < 1
                  , bzlib                  >= 0.4   && < 1

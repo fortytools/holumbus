@@ -8,10 +8,12 @@ module Control.Monad.ReaderStateIOError
     ( module Control.Monad.ReaderStateIOError
     )
 where
-
+import           Control.Applicative
+import           Control.Monad
 import           Control.Monad.Error
 import           Control.Monad.Reader
 import           Control.Monad.State
+
 import           System.IO.Error
 
 -- ------------------------------------------------------------
@@ -22,7 +24,11 @@ import           System.IO.Error
 newtype ReaderStateIOError env state res = RSIO ( env -> state -> IO (Either String res, state) )
 
 instance Functor (ReaderStateIOError env state) where
-    fmap f a = a >>= return . f
+    fmap  = liftM
+
+instance Applicative (ReaderStateIOError env state) where
+    pure  = return
+    (<*>) = ap
 
 instance Monad (ReaderStateIOError env state) where
     return v

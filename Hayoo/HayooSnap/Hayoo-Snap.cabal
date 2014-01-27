@@ -1,0 +1,108 @@
+name:          Hayoo-Snap
+version:       1.3.0.0
+license:       MIT
+license-file:  LICENSE
+author:        Sebastian M. Gauck, Timo B. Kranz, Uwe Schmidt
+copyright:     Copyright (c) 2007 - 2013 Uwe Schmidt, Sebastian M. Gauck and Timo B. Kranz
+maintainer:    Timo B. Kranz <tbh@holumbus.org>, Uwe Schmidt <uwe@fh-wedel.de>
+stability:     experimental
+category:      Text, Data
+synopsis:      The Hayoo! search engine for Haskell API search on hackage
+homepage:      http://holumbus.fh-wedel.de
+description:   The Hayoo! search frontend
+cabal-version: >=1.6
+build-type:    Simple
+-- tested-with:  ghc-7.6.2
+
+extra-source-files:
+    README
+    index/resources/static/hayoo.css
+    index/resources/static/fhw.gif
+    index/resources/static/loader.gif
+    index/resources/static/favicon.ico
+    index/resources/static/content.js
+    index/resources/static/hayoo.js
+    index/resources/static/prototype.js
+    index/resources/static/ft.png
+    index/resources/static/hayoo.png
+    index/resources/static/hol.png
+    index/resources/static/holumbus.png
+    index/resources/static/minus.png
+    index/resources/static/plus.png
+    index/resources/static/opensearch.xml
+    snaplets/heist/templates/about.tpl
+    snaplets/heist/templates/api.tpl
+    snaplets/heist/templates/default.tpl
+    snaplets/heist/templates/echo.tpl
+    snaplets/heist/templates/examples.tpl
+    snaplets/heist/templates/footer.tpl
+    snaplets/heist/templates/head.tpl
+    snaplets/heist/templates/help.tpl
+    snaplets/heist/templates/index.tpl
+    snaplets/heist/templates/info.tpl
+    snaplets/heist/templates/main.tpl
+    snaplets/heist/templates/query.tpl
+    snaplets/heist/templates/results-dyn.tpl
+    snaplets/heist/templates/results-stat.tpl
+
+-- ------------------------------------------------------------
+
+Executable hayooSnap
+  hs-source-dirs:  .
+
+  main-is:         HayooSnap11.hs
+  
+  other-modules:   Hayoo.Search.Common
+                 , Hayoo.Search.EvalSearch
+                 , Hayoo.Search.XmlHtml
+                 , Hayoo.Search.JSON
+                 , Hayoo.Search.Parser
+
+  build-depends:   base                      >= 4     && < 5
+                 , binary                    >= 0.5
+                 , bytestring                >= 0.9.1
+                 , containers                >= 0.4.2
+                 , deepseq                   >= 1.2
+                 , directory                 >= 1
+                 , filepath                  >= 1
+                 , Hayoo-Lib                 >= 1.3
+                 , heist                     >= 0.10  && < 0.12
+                 , Holumbus-Searchengine     >= 1.2.6 && < 2
+                 , hxt                       >= 9     && < 10
+                 , hxt-unicode               >= 9     && < 10
+                 , json                      >= 0.4
+                 , lens                     
+                 , MonadCatchIO-transformers >= 0.2   && < 0.4
+                 , mtl                       >= 2     && < 3
+                 , network                   >= 2
+                 , old-locale                >= 1
+                 , parsec                    >= 2     && < 4
+                 , snap                      >= 0.11  && < 0.12
+                 , snap-core                 >= 0.9   && < 0.11
+                 , snap-server               >= 0.9   && < 0.11
+                 , text                      >= 0.11
+                 , time                      >= 1
+                 , transformers              >= 0.3
+                 , xmlhtml                   >= 0.1
+                 , attoparsec                >= 0.10  && < 0.11
+                 , comonad                   >= 1.1   && < 3.1
+                 , either                    >= 3.4   && < 3.5
+                 , lens                      >= 3.9   && < 3.10
+
+  extensions:    TypeSynonymInstances, MultiParamTypeClasses
+
+  ghc-options:   -threaded
+                 -rtsopts
+                 -Wall
+                 -fwarn-tabs
+                 -funbox-strict-fields
+                 -fno-warn-orphans
+                 -fno-warn-unused-do-bind
+
+-- ------------------------------------------------------------
+
+source-repository head
+  type:     git
+  location: https://github.com/fortytools/holumbus
+
+-- ------------------------------------------------------------
