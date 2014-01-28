@@ -64,7 +64,30 @@ import           Text.XML.HXT.Core          (PU, XmlPickler, xpAttr, xpElem,
                                              xpList, xpPair, xpText, xpWrap,
                                              xpickle)
 
--- import           Debug.Trace            ( trace )
+-- ----------------------------------------------------------------------------
+
+{- generating data for statistics about efficiency of compression
+
+import           Debug.Trace                (trace)
+
+traceCompress :: (BL.ByteString -> BL.ByteString) -> (BL.ByteString -> BL.ByteString)
+traceCompress f x
+    = trace msg y
+    where
+      lin  = BL.length x
+      y    = f x
+      lout = BL.length y
+      tod  = fromInteger . fromIntegral
+      cp   = (tod lout / tod lin) :: Double
+      msg  = "traceCompress: " ++ show (lin, lout) ++ ", factor = " ++ show cp
+-- -}
+
+-- {-
+
+traceCompress :: (BL.ByteString -> BL.ByteString) -> (BL.ByteString -> BL.ByteString)
+traceCompress = id
+
+-- -}
 
 -- ----------------------------------------------------------------------------
 
@@ -231,7 +254,7 @@ newtype OccCSerialized  = OccCBs { unOccCBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccCSerialized where
-  fromOccurrences       = OccCBs . mkBs . BL.toStrict . BZ.compress . B.encode . deflateOcc
+  fromOccurrences       = OccCBs . mkBs . BL.toStrict . traceCompress BZ.compress . B.encode . deflateOcc
   toOccurrences         = inflateOcc . B.decode  . BZ.decompress . BL.fromStrict . unBs . unOccCBs
 
 instance B.Binary OccCSerialized where
@@ -253,7 +276,7 @@ newtype OccOSerialized  = OccOBs { unOccOBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccOSerialized where
-  fromOccurrences       = OccOBs . mkBs . BL.toStrict . BZ.compress . B.encode
+  fromOccurrences       = OccOBs . mkBs . BL.toStrict . traceCompress BZ.compress . B.encode
   toOccurrences         = B.decode . BZ.decompress . BL.fromStrict . unBs . unOccOBs
 
 instance B.Binary OccOSerialized where

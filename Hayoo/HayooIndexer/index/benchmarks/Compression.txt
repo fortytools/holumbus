@@ -1,0 +1,39 @@
+Compression Benchmark for Occurences serialized as ByteStrings
+
+
+run of make whole-index with tracing compression with bzip2
+
+     1,772,928 occurence sets compressed
+ 3,040,856,400 total # of bytes before compression
+   493,212,983 total # of bytes after compression
+           6.2 compression factor
+          16.2 % remaining # bytes
+     3.609.544 maximum size of serialized occurence set
+       417.261 compressed size of maximum size occurence set
+
+       895,475 occurence set with negaive compression
+    31,473,880 total # of bytes before compression
+    44,286,808 total # of bytes after compression
+           0.7 compression factor
+         140.7 percent "remaining" # bytes
+          35.1 bytes is the arithmetic mean of occurence sets with negative compression
+            72 maximum size with negative compression
+            74 maximum compressed size with 72 bytes input
+          50.5 % of occurence sets have negative compression
+
+results
+
+* about 1/2 of the occurence sets generate overhead when compressing them
+* this is bad concerning runtime AND space
+* this is bad for small indexes
+
+consequences
+
+* when trying to compress, put a single byte
+  in front of the bytestring indicating compression/no compression
+* all bytestrings with less than 80 bytes are not compressed,
+  all others are compressed
+* the # of bytes for the lower limit for compression
+  may be raised moderatly for perfomance gains
+* when decompressing, check 1. byte, take the tail and
+  decompress or take it as it is
