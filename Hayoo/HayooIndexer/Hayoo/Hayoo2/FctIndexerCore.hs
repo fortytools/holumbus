@@ -11,7 +11,6 @@ import           Control.DeepSeq
 import           Data.Binary                  (Binary)
 import qualified Data.Binary                  as B
 import qualified Data.ByteString.Lazy         as LB
-import           Data.Maybe
 import qualified Data.StringMap.Strict        as M
 
 import           Hayoo.FunctionInfo
@@ -29,50 +28,29 @@ import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
 
-{-
-type FctCrawlerConfig = IndexCrawlerConfig () DummyDocs FunctionInfo
-type FctCrawlerState  = IndexCrawlerState  () DummyDocs FunctionInfo
+type FctCrawlerConfig 	= IndexCrawlerConfig () RawDocIndex FunctionInfo
+type FctCrawlerState  	= IndexCrawlerState  () RawDocIndex FunctionInfo
 
-type FctIndexerState  = IndexerState       () DummyDocs FunctionInfo
+type FctIndexerState  	= IndexerState       () RawDocIndex FunctionInfo
 
-newtype DummyDocs a = DummyDocs ()
-
-instance NFData (DummyDocs a)
-
-instance Binary (DummyDocs a) where
-    put _ = return ()
-    get   = return emptyDummyDocs
-
-emptyDummyDocs :: DummyDocs a
-emptyDummyDocs = DummyDocs ()
-
-emptyFctState :: FctIndexerState
-emptyFctState = emptyIndexerState () emptyDummyDocs
--- -}
-
-type FctCrawlerConfig = IndexCrawlerConfig () RawDocIndex FunctionInfo
-type FctCrawlerState  = IndexCrawlerState  () RawDocIndex FunctionInfo
-
-type FctIndexerState  = IndexerState       () RawDocIndex FunctionInfo
-
-newtype RawDocIndex a = RDX (M.StringMap (RawDoc FunctionInfo))
-    deriving (Show)
+newtype RawDocIndex a 	= RDX (M.StringMap (RawDoc FunctionInfo))
+                          deriving (Show)
 
 instance NFData (RawDocIndex a)
 
 instance Binary (RawDocIndex a) where
-    put (RDX ix) = B.put ix
-    get          = RDX <$> B.get
+    put (RDX ix) 	= B.put ix
+    get          	= RDX <$> B.get
 
-emptyFctState :: FctIndexerState
-emptyFctState = emptyIndexerState () emptyRawDocIndex
+emptyFctState 		:: FctIndexerState
+emptyFctState 		= emptyIndexerState () emptyRawDocIndex
 
-emptyRawDocIndex :: RawDocIndex a
-emptyRawDocIndex = RDX $ M.empty
+emptyRawDocIndex 	:: RawDocIndex a
+emptyRawDocIndex 	= RDX $ M.empty
 
-insertRawDoc :: URI -> RawDoc FunctionInfo -> RawDocIndex a -> RawDocIndex a
+insertRawDoc 		:: URI -> RawDoc FunctionInfo -> RawDocIndex a -> RawDocIndex a
 insertRawDoc uri rd (RDX ix)
-    = rnf rd `seq` (RDX $ M.insert uri rd ix)
+    			= rnf rd `seq` (RDX $ M.insert uri rd ix)
 
 -- ------------------------------------------------------------
 
@@ -103,19 +81,28 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
 
 
 flushToFile :: String -> FctIndexerState -> IO ()
-flushToFile pkgName (IndexerState _ (RDX ix))
+flushToFile pkgName fx
     = do createDirectoryIfMissing True dirPath
-         flushRawCrawlerDoc True (LB.writeFile filePath) $ map RCD (M.toList ix)
+         flushTo (flushRawCrawlerDoc True (LB.writeFile filePath)) fx
       where
         dirPath  = "functions"
         filePath = dirPath </> pkgName ++ ".js"
 
 flushToServer :: String -> FctIndexerState -> IO ()
-flushToServer url (IndexerState _ (RDX ix))
-    = flushRawCrawlerDoc False flush $ map RCD (M.toList ix)
+flushToServer url fx
+    = flushTo (flushRawCrawlerDoc False flush) fx
     where
       flush bs
           = postToServer $ mkPostReq url "insert" bs
+
+flushTo :: ([RawCrawlerDoc FunctionInfo] -> IO ()) -> FctIndexerState -> IO ()
+flushTo flush (IndexerState _ (RDX ix))
+    | M.null ix
+        = return ()
+    | otherwise
+        = flush $ map RCD (M.toList ix)
+
+{- old stuff
 
 flushToFile' :: (URI, RawDoc FunctionInfo) -> IO ()
 flushToFile' rd@(_rawUri, (_rawContexts, rawTitle, rawCustom))
@@ -140,6 +127,7 @@ flushToServer' url rd
       flush bs
           = postToServer $ mkPostReq url "insert" bs
 
+-- -}
 -- ------------------------------------------------------------
 
 -- the pkgIndex crawler configuration

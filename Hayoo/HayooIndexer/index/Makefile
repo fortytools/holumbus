@@ -104,6 +104,22 @@ whole-index	: $(indexer)
 		$(OPTS)
 	ls -l $(ix)*
 
+whole-json-index	: $(indexer)
+	@echo "build an index of all haddock pages on hackage in a single run"
+	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
+	@echo 'the result is written in JSON format into subdir "functions"'
+	@echo "there is a JSON file per hackage package"
+	$< $(RUNOPTS) --fct-index \
+		--json-output \
+		--maxdocs=$(maxdocs) \
+		--maxthreads=$(threads) \
+		--maxpar=$(maxpar) \
+		--valid=$(validix) \
+		--new-index=$(ix) \
+		--new-search=$(ix) \
+		$(OPTS)
+	ls ./functions/*.js
+
 whole-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)"
