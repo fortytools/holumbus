@@ -104,6 +104,19 @@ whole-index	: $(indexer)
 		$(OPTS)
 	ls -l $(ix)*
 
+whole	:
+	[ -d ./log ]   || mkdir log
+	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
+	$(MAKE) whole-cache > log/whole-cache.out 2>&1
+	@echo "create index for all haddock pages"
+	$(MAKE) whole-index > log/whole-index.out 2>&1
+	@echo "create index for hackage packages, this needs just a few minutes, output is $(px), xml output pkg.xml, log file is pkg.out"
+	$(MAKE) whole-pkg   > log/whole-pkg.out   2>&1
+	@echo look at the following files
+	@ls -l *.bin* log/whole-*.out
+
+#----------------------------------------
+
 whole-json-index	: $(indexer)
 	@echo "build an index of all haddock pages on hackage in a single run"
 	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
@@ -120,34 +133,47 @@ whole-json-index	: $(indexer)
 		$(OPTS)
 	ls ./functions/*.js
 
-whole-pkg	: $(indexer)
+whole-json-pkg	: $(indexer)
 	@echo generate a new package index for all hackage packages inclusive ranking
 	@echo the resulting package index is "$(px)"
 	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
 	rm -f tmp/pkg-*
 	$< $(RUNOPTS) --pkg-index \
-		--ranking \
+		--json-output \
 		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
 		--maxpar=$(maxdocs) \
-		--save=$(maxdocs) \
 		--valid=$(validix) \
 		--new-index=$(px) \
 		--new-search=$(px) \
 		$(OPTS)
-	ls -l $(px)*
+	ls -l ./json/00-packages.js
 
-whole	:
-	[ -d ./log ]   || mkdir log
-	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
-	$(MAKE) whole-cache > log/whole-cache.out 2>&1
-	@echo "create index for all haddock pages"
-	$(MAKE) whole-index > log/whole-index.out 2>&1
-	@echo "create index for hackage packages, this needs just a few minutes, output is $(px), xml output pkg.xml, log file is pkg.out"
-	$(MAKE) whole-pkg   > log/whole-pkg.out   2>&1
-	@echo look at the following files
-	@ls -l *.bin* log/whole-*.out
+whole-json-rank	: $(indexer)
+	@echo generate a new package index for all hackage packages inclusive ranking
+	@echo the resulting package index is "$(px)"
+	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
+	rm -f tmp/pkg-*
+	$< $(RUNOPTS) --pkg-index \
+		--json-output \
+		--only-ranking \
+		--maxdocs=$(maxdocs) \
+		--maxthreads=$(threads) \
+		--maxpar=$(maxdocs) \
+		--valid=$(validix) \
+		--new-index=$(px) \
+		--new-search=$(px) \
+		$(OPTS)
+	ls -l ./json/00-ranking.js
 
+whole-json	: $(indexer)
+	$(MAKE) update-cache      > log/update-cache.out     2>&1
+	$(MAKE) whole-json-index  > log/whole-json-index.out 2>&1
+	$(MAKE) whole-json-pkg    > log/whole-json-pkg.out   2>&1
+	$(MAKE) whole-json-rank   > log/whole-json-rank.out  2>&1
+	ls -l ./json
+
+#----------------------------------------
 
 update-cache	: $(indexer)
 	@echo update the hayoo cache with all packages uploaded to hackage within the last $(latest)

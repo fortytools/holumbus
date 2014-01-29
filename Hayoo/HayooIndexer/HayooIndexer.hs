@@ -238,6 +238,51 @@ mainCache
 
 mainHackage :: HIO ()
 mainHackage
+    = do js <- asks ao_JSON
+         rk <- asks ao_pkgRank
+         if js && not rk
+            then mainHackageJSON
+            else mainHackage'
+
+mainHackageJSON :: HIO ()
+mainHackageJSON
+    = do action
+    where
+      action
+          = do latest <- asks ao_latest
+               maybe action2 (updateLatest action2) latest
+      action2
+          = do (act, ps) <- asks (ao_action &&& ao_packages)
+               case act of
+                 BuildIx
+                     -> indexPkg ps
+                 _   -> notice ["mainHackageJSON:", "ignoring command"]
+
+      indexPkg :: [String] -> HIO ()
+      indexPkg ps
+          = do notice $ if null ps
+                          then ["JSON indexing all packages from hackage package index"]
+                          else "JSON indexing hackage package descriptions for packages:" : ps
+               ix <- getS theResultAccu <$> hayooPJIndexer
+               notice ["writing package index as JSON"]
+               flushJSON "00-packages" ix
+               notice ["package index as JSON written"]
+
+      flushJSON :: String -> PJ.PkgIndexerState -> HIO ()
+      flushJSON pkg ix
+          = do serv <- asks ao_JSONserv
+               notice $ "flushing package index as JSON to" : target serv
+               liftIO $ flush serv ix
+               notice $ ["flushing package index as JSON done"]
+               return ()
+          where
+            target (Just uri) = ["server", show uri]
+            target  Nothing   = ["file",   show pkg]
+            flush (Just uri)  = PJ.flushToServer uri
+            flush  Nothing    = PJ.flushToFile   pkg
+
+mainHackage' :: HIO ()
+mainHackage'
     = action
     where
       action
@@ -257,9 +302,9 @@ mainHackage
                               then notice ["resume hackage package description indexing"]
                               else return ()
                            js <- asks ao_JSON
-                           if not js
-                              then (indexPkg ps >>= writeRes)
-                              else indexPkgJSON ps
+                           if js        -- JSON package rank is computed here
+                              then indexPkgJSON ps
+                              else (indexPkg ps >>= writeRes)
 
       removePkg :: [String] -> HIO HayooPkgIndexerState
       removePkg ps
@@ -287,13 +332,6 @@ mainHackage
                (getS theResultAccu `fmap` hayooPkgIndexer)
                         >>= rankPkg
 
-      indexPkgJSON :: [String] -> HIO () -- HayooPkgIndexerState
-      indexPkgJSON ps
-          = do notice $ if null ps
-                          then ["JSON format indexing all packages from hackage package index"]
-                          else "JSON format indexing hackage package descriptions for packages:" : ps
-               (getS theResultAccu `fmap` hayooPJIndexer) >>= (rankPkgJSON . ixs_documents)
-
       rankPkg ix
           = do rank <- asks ao_pkgRank
                if rank
@@ -305,6 +343,16 @@ mainHackage
                   else do notice ["no package ranks computed"]
                           return ix
 
+      indexPkgJSON :: [String] -> HIO () -- HayooPkgIndexerState
+      indexPkgJSON []
+          = do notice ["compute JSON format package ranking"]
+               (getS theResultAccu `fmap` hayooPkgIndexer) >>= (rankPkgJSON . ixs_documents)
+
+      indexPkgJSON ps
+          = do notice ["package rank computing only possible for all packages\n"
+                      ,"not for a selection", show ps
+                      ]
+
       rankPkgJSON :: Documents PackageInfo -> HIO ()
       rankPkgJSON dt
           = do rank <- asks ao_pkgRank
@@ -312,10 +360,10 @@ mainHackage
                if rank
                   then do notice ["computing package ranks"]
                           liftIO $ (case serv of
-                                      Nothing -> PJ.flushRanksToFile
+                                      Nothing -> PJ.flushRanksToFile "00-ranking"
                                       Just u  -> PJ.flushRanksToServer u
                                    ) (packageDocRanking dt)
-                          notice ["JSON package ranks stored in file 'packages/0000-ranks.json'"]
+                          notice ["JSON package ranks stored in file '00-ranking'"]
                   else do notice ["no package ranks computed"]
 
 -- ------------------------------------------------------------
@@ -333,7 +381,7 @@ mainHaddockJSON
     where
       action
           = do latest <- asks ao_latest
-               maybe action2 updateLatest latest
+               maybe action2 (updateLatest action2) latest
       action2
           = do (act, ps) <- asks (ao_action &&& ao_packages)
                case act of
@@ -372,16 +420,17 @@ mainHaddockJSON
             flush (Just uri)  = FJ.flushToServer uri
             flush  Nothing    = FJ.flushToFile   pkg
 
-      updateLatest latest
-          = do notice ["mainHaddockJSON: compute latest packages"]
-               hk  <- asks ao_getHack
-               ps  <- liftIO $ getNewPackages hk latest
-               if null ps
-                  then notice ["no new packages to be indexed"]
-                  else do local (\ o -> o { ao_latest   = Nothing
-                                          , ao_packages = ps
-                                          }
-                                ) action2
+updateLatest :: HIO () -> Int -> HIO ()
+updateLatest cont latest
+    = do notice ["updateLatest: compute latest packages"]
+         hk  <- asks ao_getHack
+         ps  <- liftIO $ getNewPackages hk latest
+         if null ps
+            then notice ["no new packages to be indexed"]
+            else do local (\ o -> o { ao_latest   = Nothing
+                                    , ao_packages = ps
+                                    }
+                          ) cont
 
 mainHaddock' :: HIO ()
 mainHaddock'
@@ -389,7 +438,7 @@ mainHaddock'
     where
       action
           = do latest <- asks ao_latest
-               maybe action2 updateLatest latest
+               maybe action2 updateLatest' latest
       action2
           = do apl <- asks (ao_action &&& ao_packages)
                case apl of
@@ -439,7 +488,7 @@ mainHaddock'
                           else "indexing haddock for packages:" : ps
                (getS (theResultAccu .&&&. theListOfDocsSaved) `fmap` hayooIndexer)
 
-      updateLatest latest
+      updateLatest' latest
           = do notice ["reindex with latest packages"]
                hk  <- asks ao_getHack
                ps  <- liftIO $ getNewPackages hk latest
@@ -486,17 +535,6 @@ mergePkg nix oix
     = do notice $ ["merging existing index with new packages"]
          liftIO $ unionIndexerStatesM oix nix
 
--- ------------------------------------------------------------
-{-
-logStats :: Sizeable a => String -> a -> HIO ()
-logStats msg x
-    = notice $ [msg, "\n\n" ++ show (statsOf x)]
-
-logIndexerState :: (Sizeable i, Sizeable (d c)) => IndexerState i d c -> HIO ()
-logIndexerState ixs
-    = do logStats "space statistics for index"     (ixs_index     ixs)
-         logStats "space statistics for documents" (ixs_documents ixs)
--- -}
 -- ------------------------------------------------------------
 
 writePartialRes :: (HayooIndexerState, [Int]) -> HIO ()
@@ -618,7 +656,6 @@ hayooPJIndexer
     where
       config0 o
           = PJ.indexCrawlerConfig
-            flush
             (ao_crawlPar o)
             (hayooRefs False $ ao_packages o)
             Nothing
@@ -626,12 +663,6 @@ hayooPJIndexer
             (Just $ hayooGetPkgTitle)
             (Just $ hayooGetPkgInfo)
             hayooPkgIndexContextConfig
-          where
-            flush
-                = case (ao_pkgRankOnly o, ao_JSONserv o) of
-                    (True, _      ) -> PJ.flushToDevNull
-                    (_,    Nothing) -> PJ.flushToFile
-                    (_,    Just u ) -> PJ.flushToServer u
 
       config o
           = ao_crawlPkJ o $

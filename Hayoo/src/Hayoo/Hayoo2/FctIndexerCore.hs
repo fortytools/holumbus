@@ -21,6 +21,7 @@ import           Hayoo.IndexTypes
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
+import           Holumbus.Index.Common        hiding (URI)
 
 import           System.Directory
 import           System.FilePath
@@ -28,27 +29,6 @@ import           System.FilePath
 import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
-
-{-
-type FctCrawlerConfig = IndexCrawlerConfig () DummyDocs FunctionInfo
-type FctCrawlerState  = IndexCrawlerState  () DummyDocs FunctionInfo
-
-type FctIndexerState  = IndexerState       () DummyDocs FunctionInfo
-
-newtype DummyDocs a = DummyDocs ()
-
-instance NFData (DummyDocs a)
-
-instance Binary (DummyDocs a) where
-    put _ = return ()
-    get   = return emptyDummyDocs
-
-emptyDummyDocs :: DummyDocs a
-emptyDummyDocs = DummyDocs ()
-
-emptyFctState :: FctIndexerState
-emptyFctState = emptyIndexerState () emptyDummyDocs
--- -}
 
 type FctCrawlerConfig = IndexCrawlerConfig () RawDocIndex FunctionInfo
 type FctCrawlerState  = IndexCrawlerState  () RawDocIndex FunctionInfo
