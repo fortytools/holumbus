@@ -7,7 +7,7 @@ import           Data.List (foldl')
 main :: IO ()
 main
     = do s <- readFile "counts"
-         let res = foldl' maxPairs (0,0) . filter (uncurry (<=)) . map readPair . lines $ s
+         let res = foldl' sumPairs (0,0) . map readPair . lines $ s
          print res
          print $ cp res
          return ()

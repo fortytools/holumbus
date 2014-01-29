@@ -37,3 +37,21 @@ consequences
   may be raised moderatly for perfomance gains
 * when decompressing, check 1. byte, take the tail and
   decompress or take it as it is
+
+run of make whole-index with tracing compression with smart bzip2
+no compression of small sets <= 80 bytes
+
+     1,772,928 occurence sets compressed (as before)
+ 3,040,856,400 total # of bytes before compression (as before)
+   484,113,814 total # of bytes after compression
+          6.28 compression factor
+          15.9 % remaining # bytes
+     3.609.544 maximum size of serialized occurence set (as before)
+       417.261 compressed size of maximum size occurence set (as before)
+
+     1,115,997 occurence set without compression
+    46,066,400 total # of bytes before prefixing with 1 byte
+    47,182,397 total # of bytes after  prefixing with 1 byte
+          0.97 compression factor
+         102.4 percent "remaining" # bytes
+          62.9 % of occurence sets are not compressed

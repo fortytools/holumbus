@@ -38,56 +38,38 @@ module Holumbus.Index.Inverted.CompressedPrefixMem
     )
 where
 
-import qualified Codec.Compression.BZip     as BZ
-
-import           Control.Arrow              (second)
+import           Control.Arrow                  (second)
 import           Control.DeepSeq
 
-import qualified Data.Binary                as B
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Lazy       as BL
-import qualified Data.ByteString.Short      as SS
+import qualified Data.Binary                    as B
+import qualified Data.ByteString                as BS
+import qualified Data.ByteString.Lazy           as BL
+import qualified Data.ByteString.Short          as SS
 
-import           Data.Function              (on)
+import           Data.Function                  (on)
 
-import           Data.List                  (foldl', sortBy)
-import qualified Data.Map.Strict            as M
+import           Data.List                      (foldl', sortBy)
+import qualified Data.Map.Strict                as M
 import           Data.Maybe
 import           Data.Size
-import qualified Data.StringMap.Strict      as PT
+import qualified Data.StringMap.Strict          as PT
 import           Data.Typeable
 
+import qualified Holumbus.ByteStringCompression as BZ
 import           Holumbus.Index.Common
 import           Holumbus.Index.Compression
 
-import           Text.XML.HXT.Core          (PU, XmlPickler, xpAttr, xpElem,
-                                             xpList, xpPair, xpText, xpWrap,
-                                             xpickle)
+import           Text.XML.HXT.Core              (PU, XmlPickler, xpAttr, xpElem,
+                                                 xpList, xpPair, xpText, xpWrap,
+                                                 xpickle)
 
 -- ----------------------------------------------------------------------------
 
-{- generating data for statistics about efficiency of compression
+compress   :: BL.ByteString -> BL.ByteString
+compress   = BZ.compressBZipSmart
 
-import           Debug.Trace                (trace)
-
-traceCompress :: (BL.ByteString -> BL.ByteString) -> (BL.ByteString -> BL.ByteString)
-traceCompress f x
-    = trace msg y
-    where
-      lin  = BL.length x
-      y    = f x
-      lout = BL.length y
-      tod  = fromInteger . fromIntegral
-      cp   = (tod lout / tod lin) :: Double
-      msg  = "traceCompress: " ++ show (lin, lout) ++ ", factor = " ++ show cp
--- -}
-
--- {-
-
-traceCompress :: (BL.ByteString -> BL.ByteString) -> (BL.ByteString -> BL.ByteString)
-traceCompress = id
-
--- -}
+decompress :: BL.ByteString -> BL.ByteString
+decompress = BZ.decompressBZipSmart
 
 -- ----------------------------------------------------------------------------
 
@@ -254,8 +236,8 @@ newtype OccCSerialized  = OccCBs { unOccCBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccCSerialized where
-  fromOccurrences       = OccCBs . mkBs . BL.toStrict . traceCompress BZ.compress . B.encode . deflateOcc
-  toOccurrences         = inflateOcc . B.decode  . BZ.decompress . BL.fromStrict . unBs . unOccCBs
+  fromOccurrences       = OccCBs . mkBs . BL.toStrict . compress . B.encode . deflateOcc
+  toOccurrences         = inflateOcc . B.decode  . decompress . BL.fromStrict . unBs . unOccCBs
 
 instance B.Binary OccCSerialized where
   put                   = B.put . unOccCBs
@@ -276,8 +258,8 @@ newtype OccOSerialized  = OccOBs { unOccOBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccOSerialized where
-  fromOccurrences       = OccOBs . mkBs . BL.toStrict . traceCompress BZ.compress . B.encode
-  toOccurrences         = B.decode . BZ.decompress . BL.fromStrict . unBs . unOccOBs
+  fromOccurrences       = OccOBs . mkBs . BL.toStrict . compress . B.encode
+  toOccurrences         = B.decode . decompress . BL.fromStrict . unBs . unOccOBs
 
 instance B.Binary OccOSerialized where
   put                   = B.put . unOccOBs

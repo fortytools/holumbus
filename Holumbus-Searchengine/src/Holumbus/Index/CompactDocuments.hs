@@ -40,25 +40,33 @@ module Holumbus.Index.CompactDocuments
     )
 where
 
-import qualified Codec.Compression.BZip as BZ
-
 import           Control.DeepSeq
 
-import           Data.Binary            (Binary)
-import qualified Data.Binary            as B
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BL
-import qualified Data.ByteString.Short  as SS
-import           Data.Maybe             (fromJust)
+import           Data.Binary                    (Binary)
+import qualified Data.Binary                    as B
+import qualified Data.ByteString                as BS
+import qualified Data.ByteString.Lazy           as BL
+import qualified Data.ByteString.Short          as SS
+import           Data.Maybe                     (fromJust)
 import           Data.Size
-import qualified Data.StringMap         as M
+import qualified Data.StringMap                 as M
 import           Data.Typeable
 
--- import qualified Data.ByteString        as BS
-
+import qualified Holumbus.ByteStringCompression as BZ
 import           Holumbus.Index.Common
 
 import           Text.XML.HXT.Core
+
+-- ----------------------------------------------------------------------------
+--
+-- Document descriptions are always shorter as before when compressed
+-- so no compressBZipSmart is neccessary
+
+compress   :: BL.ByteString -> BL.ByteString
+compress   = BZ.compressBZip
+
+decompress :: BL.ByteString -> BL.ByteString
+decompress = BZ.decompressBZip
 
 -- ----------------------------------------------------------------------------
 
@@ -312,10 +320,10 @@ instance (Sizeable a, Typeable a) => Sizeable (CompressedDoc a) where
     statsOf                     = statsOf . unSDoc
 
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
-toDocument      = B.decode . BZ.decompress . BL.fromStrict . unCDoc
+toDocument      = B.decode . decompress . BL.fromStrict . unCDoc
 
 fromDocument    :: (Binary a) => Document a -> CompressedDoc a
-fromDocument    = mkCDoc . BL.toStrict . BZ.compress . B.encode
+fromDocument    = mkCDoc . BL.toStrict . compress . B.encode
 
 mapDocument     :: (Binary a) => (Document a -> Document a) -> CompressedDoc a -> CompressedDoc a
 mapDocument f   = fromDocument . f . toDocument

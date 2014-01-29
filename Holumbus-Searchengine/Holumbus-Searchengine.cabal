@@ -62,6 +62,7 @@ library
     Control.Concurrent.MapFold
     Control.Monad.ReaderStateIOError
     Control.Sequential.MapFoldBinary
+    Holumbus.ByteStringCompression
     Holumbus.Crawler.CacheCore
     Holumbus.Crawler.Constants
     Holumbus.Crawler.Core
