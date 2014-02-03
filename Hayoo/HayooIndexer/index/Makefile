@@ -104,6 +104,23 @@ whole-index	: $(indexer)
 		$(OPTS)
 	ls -l $(ix)*
 
+whole-pkg	: $(indexer)
+	@echo generate a new package index for all hackage packages inclusive ranking
+	@echo the resulting package index is "$(px)"
+	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
+	rm -f tmp/pkg-*
+	$< $(RUNOPTS) --pkg-index \
+		--ranking \
+		--maxdocs=$(maxdocs) \
+		--maxthreads=$(threads) \
+		--maxpar=$(maxdocs) \
+		--save=$(maxdocs) \
+		--valid=$(validix) \
+		--new-index=$(px) \
+		--new-search=$(px) \
+		$(OPTS)
+	ls -l $(px)*
+
 whole	:
 	[ -d ./log ]   || mkdir log
 	@echo "update cache for all hackage pages, this may run about 1 to 2 hours"
