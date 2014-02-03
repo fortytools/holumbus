@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -40,13 +41,16 @@ import           Control.DeepSeq
 
 import           Data.Binary                     (Binary)
 import qualified Data.Binary                     as B
-import           Data.Size
 import           Data.Typeable
 
 import           Holumbus.Index.Common
 import qualified Holumbus.Index.CompactDocuments as CD
 
 import           Text.XML.HXT.Core
+
+#if sizeable==1
+import           Data.Size
+#endif
 
 -- ----------------------------------------------------------------------------
 
@@ -174,13 +178,6 @@ instance Binary a =>            Binary (SmallDocuments a)
 
 -- ------------------------------------------------------------
 
-instance (Sizeable a, Typeable a) => Sizeable (SmallDocuments a) where
-    dataOf                      = dataOf  . idToSmallDoc
-    bytesOf                     = dataOf
-    statsOf x                   = statsOf . idToSmallDoc $ x
-
--- ------------------------------------------------------------
-
 notImpl                         :: a
 notImpl                         = error "operation not implemented for SmallDocuments data type"
 
@@ -202,4 +199,13 @@ singleton d                     = SmallDocuments (singletonDocIdMap firstDocId (
 docTable2smallDocTable          :: CD.Documents a -> SmallDocuments a
 docTable2smallDocTable          =  SmallDocuments . CD.idToDoc
 
+-- ------------------------------------------------------------
+#if sizeable == 1
+
+instance (Sizeable a, Typeable a) => Sizeable (SmallDocuments a) where
+    dataOf                      = dataOf  . idToSmallDoc
+    bytesOf                     = dataOf
+    statsOf x                   = statsOf . idToSmallDoc $ x
+
+#endif
 -- ------------------------------------------------------------

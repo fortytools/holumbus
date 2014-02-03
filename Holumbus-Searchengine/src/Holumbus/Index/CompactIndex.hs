@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- ------------------------------------------------------------
 
 module Holumbus.Index.CompactIndex
@@ -35,8 +36,6 @@ import           Control.Monad.Reader
 
 import           Data.Binary
 import           Data.Function.Selector                      ((.&&&.))
-import           Data.Size
-import           Data.Typeable
 
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Crawler.Logger
@@ -54,6 +53,10 @@ import qualified Holumbus.Index.CompactSmallDocuments        as CSD
 
 import           Text.XML.HXT.Core
 
+#if sizeable == 1
+import           Data.Size
+import           Data.Typeable
+#endif
 -- ------------------------------------------------------------
 
 {- .1: direct use of prefix tree with simple-9 encoded occurences
@@ -146,21 +149,29 @@ defragmentHolumbusState IndexerState
 
 -- ------------------------------------------------------------
 
-mergeAndWritePartialRes' :: (MonadIO m, NFData i, Binary i, Sizeable i, Typeable i) =>
+mergeAndWritePartialRes' :: ( MonadIO m, NFData i, Binary i
+#if sizeable == 1
+                            , Sizeable i, Typeable i
+#endif
+                            ) =>
                             (SmallDocuments i -> SmallDocuments i) -> [String] -> String -> m ()
 mergeAndWritePartialRes' id' pxs out
     = do notice $ ["merge partial doctables from"] ++ pxs
          mdocs <- mergeSmallDocs $ map (++ ".doc") pxs
+#if sizeable == 1
          notice $ ["space statistics for merged compressed documents"
                   , "\n\n" ++ show (statsOf mdocs)
                   ]
+#endif
          notice $ ["write merged doctable to", out ++ ".doc"]
          liftIO $ encodeFile (out ++ ".doc") (id' mdocs)
          notice $ ["merge partial indexes from"] ++ pxs
          mixs  <- mergeCompactIxs $ map (++ ".idx") pxs
+#if sizeable == 1
          notice $ ["space statistics for merged compressed indexes"
                   , "\n\n" ++ show (statsOf mixs)
                   ]
+#endif
          notice $ ["write merged indexes to", out ++ ".idx"]
          liftIO $ encodeFile (out ++ ".idx") mixs
          notice $ ["merge partial doctables and indexes done"]
@@ -174,10 +185,6 @@ mergeSmallDocs (x : xs)
          doc1 <- liftIO $ decodeFile x
          doc1 `seq` (return $! unionDocs docs doc1)
 
--- old stuff
---         rnf doc1 `seq`
---                 (return $ unionDocs docs doc1)
-
 mergeCompactIxs :: (MonadIO m) => [String] -> m CompactInverted
 mergeCompactIxs []
     = return emptyCompactInverted
@@ -186,10 +193,6 @@ mergeCompactIxs (x : xs)
          notice ["merge compact index from file", x]
          ix1 <- liftIO $ decodeFile x
          ix1 `seq` (return $! mergeIndexes ix1 ixs)
-
--- old stuff
---         rnf ix1 `seq`
---                 (return $ mergeIndexes ix1 ixs)
 
 -- ------------------------------------------------------------
 
@@ -220,20 +223,29 @@ writeBin out v
              liftIO $ encodeFile out v
              notice ["writing binary data finished"]
 
-writeSearchBin :: (Binary c, MonadIO m, Sizeable c, Typeable c) =>
+writeSearchBin :: ( Binary c, MonadIO m
+#if sizeable == 1
+                  , Sizeable c, Typeable c
+#endif
+                  ) =>
                   FilePath -> HolumbusState c -> m ()
 writeSearchBin out state
     | null out
         = notice ["no search index written"]
     | otherwise
-        = do notice $ ["space statistics for documents"
+        = do
+#if sizeable == 1
+             notice $ ["space statistics for documents"
                       , "\n\n" ++ show (statsOf $ ixs_documents state)
                       ]
+#endif
              notice ["writing small document table into binary file", docFile]
              liftIO $ encodeFile docFile (docTable2smallDocTable . ixs_documents $ state)
+#if sizeable == 1
              notice $ ["space statistics for index"
                       , "\n\n" ++ show (statsOf $ ixs_index state)
                       ]
+#endif
              notice ["writing compressed inverted index into binary file", idxFile]
              liftIO $ encodeFile idxFile (inverted2compactInverted . ixs_index $ state)
              notice ["writing search index files finished"]
@@ -243,7 +255,11 @@ writeSearchBin out state
 
 -- ------------------------------------------------------------
 
-writePartialIndex :: (XmlPickler c, Binary c, Sizeable c, Typeable c) =>
+writePartialIndex :: ( XmlPickler c, Binary c
+#if sizeable == 1
+                     , Sizeable c, Typeable c
+#endif
+                     ) =>
                      Bool -> FilePath -> CrawlerAction a (HolumbusState c) ()
 writePartialIndex xout fn
     = modifyStateIO
@@ -263,7 +279,11 @@ writePartialIndex xout fn
    but when running the parallel one, the index ids will overlap.
 -}
 
-writePartialIndex' :: (XmlPickler c, Binary c, Sizeable c, Typeable c) =>
+writePartialIndex' :: ( XmlPickler c, Binary c
+#if sizeable == 1
+                      , Sizeable c, Typeable c
+#endif
+                      ) =>
                       Bool -> FilePath -> HolumbusState c -> IO (HolumbusState c)
 writePartialIndex' xout out ixs
     = do writeSearchBin out ixs

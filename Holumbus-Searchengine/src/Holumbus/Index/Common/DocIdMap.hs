@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
@@ -59,11 +60,13 @@ import           Data.Binary                 (Binary (..))
 import qualified Data.Binary                 as B
 import           Data.Foldable
 import qualified Data.IntMap.Strict          as IM
-import           Data.Size
 import           Data.Typeable
 
 import           Holumbus.Index.Common.DocId
 
+#if sizeable == 1
+import           Data.Size
+#endif
 -- ------------------------------------------------------------
 
 newtype DocIdMap v              = DIM { unDIM :: IM.IntMap v }
@@ -172,11 +175,15 @@ instance Binary v => Binary (DocIdMap v) where
     put                         = B.put . toListDocIdMap
     get                         = B.get >>= return . fromListDocIdMap
 
+-- ------------------------------------------------------------
+#if sizeable == 1
+
 instance (Typeable v, Sizeable v) => Sizeable (DocIdMap v) where
     dataOf                      = dataOf  . unDIM
     bytesOf                     = bytesOf . unDIM
     statsOf                     = statsOf . unDIM
 
+#endif
 -- ------------------------------------------------------------
 
 {-# INLINE liftDIM #-}

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -49,14 +50,15 @@ import           Data.Binary            (Binary)
 import qualified Data.Binary            as B
 import qualified Data.ByteString.Lazy   as BL
 import           Data.Digest.Pure.SHA
-import           Data.Size
 import           Data.Typeable
-
--- import           Data.ByteString.Lazy   ( ByteString )
 
 import           Holumbus.Index.Common
 
 import           Text.XML.HXT.Core
+
+#if sizeable == 1
+import           Data.Size
+#endif
 
 -- ----------------------------------------------------------------------------
 
@@ -181,13 +183,6 @@ instance Binary a => Binary (Documents a) where
 
 -- ----------------------------------------------------------------------------
 
-instance (Typeable a, Sizeable a) => Sizeable (Documents a) where
-    dataOf                      = dataOf  . idToDoc
-    bytesOf                     = bytesOf . idToDoc
-    statsOf                     = statsOf . idToDoc
-
--- ------------------------------------------------------------
-
 -- | Create an empty table.
 
 emptyDocuments :: Documents a
@@ -225,11 +220,6 @@ instance Binary a => Binary (CompressedDoc a) where
     put = B.put . unCDoc
     get = B.get >>= return . mkCDoc
 
-instance Sizeable a => Sizeable (CompressedDoc a) where
-    dataOf                      = dataOf  . unCDoc
-    bytesOf                     = bytesOf . unCDoc
-    statsOf                     = statsOf . unCDoc
-
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
 toDocument      = B.decode . BZ.decompress . unCDoc
 
@@ -250,4 +240,18 @@ toDocMap        = mapDocIdMap fromDocument
 fromDocMap      :: (Binary a) => DocMap a -> DocIdMap (Document a)
 fromDocMap      = mapDocIdMap toDocument
 
+-- ------------------------------------------------------------
+#if sizeable==1
+
+instance (Typeable a, Sizeable a) => Sizeable (Documents a) where
+    dataOf                      = dataOf  . idToDoc
+    bytesOf                     = bytesOf . idToDoc
+    statsOf                     = statsOf . idToDoc
+
+instance Sizeable a => Sizeable (CompressedDoc a) where
+    dataOf                      = dataOf  . unCDoc
+    bytesOf                     = bytesOf . unCDoc
+    statsOf                     = statsOf . unCDoc
+
+#endif
 -- ------------------------------------------------------------

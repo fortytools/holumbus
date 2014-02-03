@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
@@ -25,11 +26,13 @@ import           Control.DeepSeq
 
 import           Data.Binary       (Binary (..))
 import qualified Data.Binary       as B
-import           Data.Size
 import           Data.Typeable
 
 import           Text.XML.HXT.Core
 
+#if sizeable == 1
+import           Data.Size
+#endif
 -- ------------------------------------------------------------
 
 -- | The unique identifier of a document
@@ -47,11 +50,6 @@ instance Binary DocId where
     get                         = B.get >>= return . DocId
     {-# INLINE put #-}
     {-# INLINE get #-}
-
-instance Sizeable DocId where
-    dataOf                      = dataOf  . theDocId
-    bytesOf                     = bytesOf . theDocId
-    statsOf                     = statsOf . theDocId
 
 incrDocId                       :: DocId -> DocId
 incrDocId                       = DocId . (1+) . theDocId
@@ -82,3 +80,13 @@ xpDocId                         = xpWrap (DocId, theDocId) xpPrim
 {-# INLINE mkDocId #-}
 
 -- ------------------------------------------------------------
+#if sizeable == 1
+
+instance Sizeable DocId where
+    dataOf                      = dataOf  . theDocId
+    bytesOf                     = bytesOf . theDocId
+    statsOf                     = statsOf . theDocId
+
+#endif
+-- ------------------------------------------------------------
+

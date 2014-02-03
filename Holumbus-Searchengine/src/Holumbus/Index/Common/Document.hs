@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
@@ -25,13 +26,15 @@ import           Control.DeepSeq
 import           Control.Monad                    (liftM3)
 
 import           Data.Binary                      (Binary (..))
-import           Data.Size
 import           Data.Typeable
 
 import           Holumbus.Index.Common.BasicTypes
 
 import           Text.XML.HXT.Core
 
+#if sizeable == 1
+import           Data.Size
+#endif
 -- ------------------------------------------------------------
 
 -- | A document consists of a title and its unique identifier (URI)
@@ -59,8 +62,12 @@ instance XmlPickler a => XmlPickler (Document a) where
 instance NFData a => NFData (Document a) where
     rnf (Document t u c)        = rnf t `seq` rnf u `seq` rnf c
 
+-- ------------------------------------------------------------
+#if sizeable == 1
+
 instance (Sizeable a, Typeable a) => Sizeable (Document a) where
     dataOf _x                   = 3 .*. dataOfPtr
     statsOf x@(Document t u c)  = mkStats x <> statsOf t <> statsOf u <> statsOf c
 
+#endif
 -- ------------------------------------------------------------

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -51,7 +52,6 @@ import           Data.Function                  (on)
 import           Data.List                      (foldl', sortBy)
 import qualified Data.Map.Strict                as M
 import           Data.Maybe
-import           Data.Size
 import qualified Data.StringMap.Strict          as PT
 import           Data.Typeable
 
@@ -63,6 +63,9 @@ import           Text.XML.HXT.Core              (PU, XmlPickler, xpAttr, xpElem,
                                                  xpList, xpPair, xpText, xpWrap,
                                                  xpickle)
 
+#if sizeable == 1
+import           Data.Size
+#endif
 -- ----------------------------------------------------------------------------
 
 compress   :: BL.ByteString -> BL.ByteString
@@ -150,11 +153,6 @@ instance B.Binary SByteString where
 -- before return. This should be the single place where sharing is introduced,
 -- else the copy must be moved to mSBs
 
-instance Sizeable SByteString where
-    dataOf                      = dataOf  . unSs
-    bytesOf                     = bytesOf . unSs
-    statsOf                     = statsOf . unSs
-
 -- ----------------------------------------------------------------------------
 --
 -- the pure occurrence type, just wrapped in a newtype for instance declarations
@@ -177,11 +175,6 @@ instance B.Binary Occ0 where
   put                   = B.put . unOcc0
   get                   = B.get >>= return . mkOcc0
 
-instance Sizeable Occ0 where
-    dataOf              = dataOf  . unOcc0
-    bytesOf             = bytesOf . unOcc0
-    statsOf             = statsOf . unOcc0
-
 -- ----------------------------------------------------------------------------
 --
 -- the simple-9 compressed occurrence type, just wrapped in a newtype for instance declarations
@@ -203,11 +196,6 @@ instance B.Binary OccCompressed where
   put                   = B.put . unOccCp
   get                   = B.get >>= ((return . OccCp) $!!)
 
-instance Sizeable OccCompressed where
-    dataOf              = dataOf  . unOccCp
-    bytesOf             = bytesOf . unOccCp
-    statsOf             = statsOf . unOccCp
-
 -- ----------------------------------------------------------------------------
 --
 -- the simpe-9 compresses occurrences serialized into a byte strings
@@ -223,11 +211,6 @@ instance B.Binary OccSerialized where
   put                   = B.put . unOccBs
   get                   = B.get >>= return . OccBs
 
-instance Sizeable OccSerialized where
-    dataOf              = dataOf  . unOccBs
-    bytesOf             = bytesOf . unOccBs
-    statsOf             = statsOf . unOccBs
-
 -- ----------------------------------------------------------------------------
 --
 -- the simple-9 compressed occurrences serialized and bzipped into a byte string
@@ -242,11 +225,6 @@ instance ComprOccurrences OccCSerialized where
 instance B.Binary OccCSerialized where
   put                   = B.put . unOccCBs
   get                   = B.get >>= return . OccCBs
-
-instance Sizeable OccCSerialized where
-    dataOf              = dataOf  . unOccCBs
-    bytesOf             = bytesOf . unOccCBs
-    statsOf             = statsOf . unOccCBs
 
 -- ----------------------------------------------------------------------------
 --
@@ -264,11 +242,6 @@ instance ComprOccurrences OccOSerialized where
 instance B.Binary OccOSerialized where
   put                   = B.put . unOccOBs
   get                   = B.get >>= return . OccOBs
-
-instance Sizeable OccOSerialized where
-    dataOf              = dataOf  . unOccOBs
-    bytesOf             = bytesOf . unOccOBs
-    statsOf             = statsOf . unOccOBs
 
 -- ----------------------------------------------------------------------------
 
@@ -311,11 +284,6 @@ xpPart                  = xpElem "index" (xpWrap (PT.fromList, PT.toList) (xpLis
 instance (B.Binary occ) => B.Binary (Inverted occ) where
   put                   = B.put . unInverted
   get                   = B.get >>= return . Inverted
-
-instance (Typeable occ, Sizeable occ) => Sizeable (Inverted occ) where
-    dataOf              = dataOf  . unInverted
-    bytesOf             = bytesOf . unInverted
-    statsOf             = statsOf . unInverted
 
 -- ----------------------------------------------------------------------------
 
@@ -518,4 +486,44 @@ emptyInvertedOSerialized        = emptyInverted
 
 
 -- ----------------------------------------------------------------------------
+#if sizeable == 1
+
+instance Sizeable SByteString where
+    dataOf                      = dataOf  . unSs
+    bytesOf                     = bytesOf . unSs
+    statsOf                     = statsOf . unSs
+
+instance Sizeable OccSerialized where
+    dataOf              = dataOf  . unOccBs
+    bytesOf             = bytesOf . unOccBs
+    statsOf             = statsOf . unOccBs
+
+instance Sizeable OccCSerialized where
+    dataOf              = dataOf  . unOccCBs
+    bytesOf             = bytesOf . unOccCBs
+    statsOf             = statsOf . unOccCBs
+
+instance Sizeable Occ0 where
+    dataOf              = dataOf  . unOcc0
+    bytesOf             = bytesOf . unOcc0
+    statsOf             = statsOf . unOcc0
+
+instance Sizeable OccCompressed where
+    dataOf              = dataOf  . unOccCp
+    bytesOf             = bytesOf . unOccCp
+    statsOf             = statsOf . unOccCp
+
+instance Sizeable OccOSerialized where
+    dataOf              = dataOf  . unOccOBs
+    bytesOf             = bytesOf . unOccOBs
+    statsOf             = statsOf . unOccOBs
+
+instance (Typeable occ, Sizeable occ) => Sizeable (Inverted occ) where
+    dataOf              = dataOf  . unInverted
+    bytesOf             = bytesOf . unInverted
+    statsOf             = statsOf . unInverted
+
+#endif
+-- ----------------------------------------------------------------------------
+
 

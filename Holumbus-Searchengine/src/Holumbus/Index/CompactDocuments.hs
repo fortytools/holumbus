@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -7,7 +8,7 @@
 
 {- |
   Module     : Holumbus.Index.CompactDocuments
-  Copyright  : Copyright (C) 2007- Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
+  Copyright  : Copyright (C) 2007- 2014 Sebastian M. Schlatt, Timo B. Huebel, Uwe Schmidt
   License    : MIT
 
   Maintainer : Uwe Schmidt (uwe@fh-wedel.de)
@@ -48,8 +49,7 @@ import qualified Data.ByteString                as BS
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.ByteString.Short          as SS
 import           Data.Maybe                     (fromJust)
-import           Data.Size
-import qualified Data.StringMap                 as M
+import qualified Data.StringMap.Strict          as M
 import           Data.Typeable
 
 import qualified Holumbus.ByteStringCompression as BZ
@@ -57,6 +57,9 @@ import           Holumbus.Index.Common
 
 import           Text.XML.HXT.Core
 
+#if sizeable == 1
+import           Data.Size
+#endif
 -- ----------------------------------------------------------------------------
 --
 -- Document descriptions are always shorter as before when compressed
@@ -250,12 +253,6 @@ instance Binary a =>            Binary (Documents a)
 
 -- ------------------------------------------------------------
 
-instance (Sizeable a, Typeable a) => Sizeable (Documents a) where
-    dataOf _x                   = 3 .*. dataOfPtr
-    statsOf x@(Documents i d l) = mkStats x <> statsOf i <> statsOf d <> statsOf l
-
--- ------------------------------------------------------------
-
 -- | Create an empty table.
 
 emptyDocuments                  :: Documents a
@@ -314,11 +311,6 @@ instance Binary a =>            Binary (CompressedDoc a)
 -- before return. This should be the single place where sharing is introduced,
 -- else the copy must be moved to mkCDoc
 
-instance (Sizeable a, Typeable a) => Sizeable (CompressedDoc a) where
-    dataOf                      = dataOf  . unSDoc
-    bytesOf                     = bytesOf . unSDoc
-    statsOf                     = statsOf . unSDoc
-
 toDocument      :: (Binary a) => CompressedDoc a -> Document a
 toDocument      = B.decode . decompress . BL.fromStrict . unCDoc
 
@@ -352,4 +344,17 @@ idToDoc2docToId = foldWithKeyDocIdMap
 lastId          :: DocMap a -> DocId
 lastId          = maxKeyDocIdMap
 
+-- ------------------------------------------------------------
+#if sizeable == 1
+
+instance (Sizeable a, Typeable a) => Sizeable (Documents a) where
+    dataOf _x                   = 3 .*. dataOfPtr
+    statsOf x@(Documents i d l) = mkStats x <> statsOf i <> statsOf d <> statsOf l
+
+instance (Sizeable a, Typeable a) => Sizeable (CompressedDoc a) where
+    dataOf                      = dataOf  . unSDoc
+    bytesOf                     = bytesOf . unSDoc
+    statsOf                     = statsOf . unSDoc
+
+#endif
 -- ------------------------------------------------------------
