@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 -- ----------------------------------------------------------------------------
 
@@ -9,28 +9,25 @@ module Hayoo.Search.XmlHtml
     , renderXmlHtml
     )
 where
-import           Control.Monad          ()
+import           Control.Monad         ()
 import           Control.Monad.Writer
 
 
-import qualified Data.ByteString.Char8  as C
-import           Data.Char              ( toLower
-                                        , isSpace
-                                        )
+import qualified Data.ByteString.Char8 as C
+import           Data.Char             (isSpace, toLower)
 import           Data.Function
-import qualified Data.List              as L
-import qualified Data.Map               as M
+import qualified Data.List             as L
+import qualified Data.Map              as M
 import           Data.Maybe
-import           Data.Monoid            ()
-import           Data.Text              (Text, pack)
-
-import           Holumbus.Utility hiding (escape, join)
-import           Holumbus.Index.Common
-
-import           Holumbus.Query.Result
+import           Data.Monoid           ()
+import           Data.Text             (Text, pack)
 
 import           Hayoo.IndexTypes
 import           Hayoo.Search.Common
+
+import           Holumbus.Index.Common
+import           Holumbus.Query.Result
+import qualified Holumbus.Utility      as U
 
 import           Text.XmlHtml
 
@@ -145,9 +142,9 @@ xhtml s
 -- ------------------------------------------------------------
 
 data RenderState = RenderState
-                 { rsQuery    :: String
-                 , rsStart    :: Int
-                 , rsStatic   :: Bool
+                 { rsQuery  :: String
+                 , rsStart  :: Int
+                 , rsStatic :: Bool
                  }
 
 pageLimit :: Int
@@ -167,7 +164,7 @@ renderXmlHtml
 result :: RenderState -> StatusResult -> XHtml FlowContent
 result rs (sm, rf, rp, tm, tp)
     = div' [a_id_ "result"] $
-      do div' [a_id_ "status"] $ text sm  
+      do div' [a_id_ "status"] $ text sm
          packageResults rs rp
          topLists rs tm tp
          functionResults rs rf
@@ -237,7 +234,7 @@ packageList rs tp
 packageResults :: RenderState -> (Result PackageInfo) -> XHtml FlowContent
 packageResults rs rp
     = let pl = extractPackages rp
-      in 
+      in
         if L.null pl
         then empty
         else div' [a_id_ "hackage"] $
@@ -245,7 +242,7 @@ packageResults rs rp
     where
       packageInfo k
           = div' [a_class_ "package"] $
-            do div' [a_class_ "category"] $ mapM_ packageCategory (split "," $ p_category k)
+            do div' [a_class_ "category"] $ mapM_ packageCategory (U.split "," $ p_category k)
                div' [a_class_ "name"] $
                     do a' [ a_class_ "name"
                           , a_href $ pack $ "http://hackage.haskell.org/package/" ++ (p_name k)
@@ -260,8 +257,8 @@ packageResults rs rp
                ] $ text c
       extractPackages
           = take pageLimit .
-            drop (rsStart rs) . 
-            (mapMaybe (\ (_, (di, _)) -> custom $ document di)) . 
+            drop (rsStart rs) .
+            (mapMaybe (\ (_, (di, _)) -> custom $ document di)) .
             reverse .
             L.sortBy (compare `on` (docScore . fst . snd)) .
             toListDocIdMap .
@@ -281,12 +278,12 @@ functionResults rs rf
       toListSortedDocs
           = take pageLimit .
             drop (rsStart rs) .
-            reverse . 
+            reverse .
             L.sortBy (compare `on` (docScore . fst . snd)) .
             toListDocIdMap
       toListSortedWords
           = L.sortBy (compare `on` fst) .
-            take maxWordHits . 
+            take maxWordHits .
             L.sortBy (compare `on` (wordScore .fst . snd)) .
             filter notSignature .
             M.toList
@@ -376,7 +373,7 @@ pager rs m = if m <= 0 || m < pageLimit then empty else div'[a_id_ "pager"] $ do
 
 -- ------------------------------------------------------------
 
-data Pager  = Pager 
+data Pager  = Pager
               { _prevPage  :: Maybe Int -- == last predPages
               , _predPages :: [(Int, Int)]
               , _currPage  :: Int
@@ -405,7 +402,7 @@ makePager s pg n = Pager pv (drop (length pd - 10) pd) (length pd + 1) (take 10 
 
 -- | Replace a given list with another list in a list.
 replace :: Eq a => [a] -> [a] -> [a] -> [a]
-replace old new l = L.intercalate new . split old $ l
+replace old new l = L.intercalate new . U.split old $ l
 
 -- | Remove leading and trailing whitespace using isSpace.
 stringTrim :: String -> String

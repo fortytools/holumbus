@@ -26,3 +26,5 @@ functions/
 lib/
 json/
 cache/
+log/
+json.tgz

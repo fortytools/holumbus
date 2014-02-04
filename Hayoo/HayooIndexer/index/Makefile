@@ -21,12 +21,13 @@ pxn	= new-$(px)
 # bindir  = $(HOME)/.cabal/bin
 bindir  = ../.cabal-sandbox/bin
 
-indexer	= $(bindir)/hayooIndexer
-snap	= $(bindir)/hayooSnap
-# search	= $(bindir)/hayooSearch
-# fastcgi	= $(bindir)/hayooFastCGI
+snapdir	= ../../HayooSnap
+snapbin	= $(snapdir)/.cabal-sandbox/bin
+snaplib = $(snapdir)/index/lib
 
-progs	= $(indexer) $(snap)
+indexer	= $(bindir)/hayooIndexer
+
+progs	= $(indexer)
 
 # the -A option is important for garbage collection performance,
 # a good value is about the size of the L2 cache of the cpu
@@ -243,7 +244,7 @@ new2cur	: $(ixn).doc $(ixn).idx $(pxn).doc $(pxn).idx
 	mv    $(pxn).xml $(px).xml
 	rm -f tmp/pkg*
 
-ixdir	= ./lib
+ixdir	= $(snaplib)
 
 install-index	: $(ix).doc $(ix).idx $(px).doc $(px).idx
 	[ -d $(ixdir) ] || mkdir $(ixdir)
@@ -270,7 +271,7 @@ testpkg	:
 test	: testix testpkg
 
 search	:
-	$(snap) +RTS -s -K100M -RTS &
+	cd $(snapdir)/index && ../.cabal-sandbox/bin/hayooSnap +RTS -s -K100M -RTS &
 
 .PHONY	: all force \
 	whole whole-cache whole-index whole-pkg \
