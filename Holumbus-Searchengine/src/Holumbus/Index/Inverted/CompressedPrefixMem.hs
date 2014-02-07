@@ -74,6 +74,10 @@ compress   = BZ.compressBZipSmart
 decompress :: BL.ByteString -> BL.ByteString
 decompress = BZ.decompressBZipSmart
 
+traceFrom :: Occurrences -> Occurrences
+traceFrom = id
+-- traceFrom = traceOccPos
+
 -- ----------------------------------------------------------------------------
 
 class ComprOccurrences s where
@@ -165,7 +169,7 @@ mkOcc0                  :: Occurrences -> Occ0
 mkOcc0 os               = Occ0 $!! os
 
 instance ComprOccurrences Occ0 where
-  fromOccurrences       = mkOcc0
+  fromOccurrences       = mkOcc0 . traceFrom
   toOccurrences         = unOcc0
 
 instance NFData Occ0 where
@@ -186,7 +190,7 @@ mkOccCp                  :: Occurrences -> OccCompressed
 mkOccCp os               = OccCp $!! deflateOcc os
 
 instance ComprOccurrences OccCompressed where
-  fromOccurrences       = mkOccCp
+  fromOccurrences       = mkOccCp . traceFrom
   toOccurrences         = inflateOcc . unOccCp
 
 instance NFData OccCompressed where
@@ -204,7 +208,7 @@ newtype OccSerialized   = OccBs { unOccBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccSerialized where
-  fromOccurrences       = OccBs . mkBs . BL.toStrict . B.encode . deflateOcc
+  fromOccurrences       = OccBs . mkBs . BL.toStrict . B.encode . deflateOcc . traceFrom
   toOccurrences         = inflateOcc . B.decode . BL.fromStrict . unBs . unOccBs
 
 instance B.Binary OccSerialized where
@@ -219,7 +223,7 @@ newtype OccCSerialized  = OccCBs { unOccCBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccCSerialized where
-  fromOccurrences       = OccCBs . mkBs . BL.toStrict . compress . B.encode . deflateOcc
+  fromOccurrences       = OccCBs . mkBs . BL.toStrict . compress . B.encode . deflateOcc . traceFrom
   toOccurrences         = inflateOcc . B.decode  . decompress . BL.fromStrict . unBs . unOccCBs
 
 instance B.Binary OccCSerialized where
@@ -236,7 +240,7 @@ newtype OccOSerialized  = OccOBs { unOccOBs :: SByteString }
                           deriving (Eq, Show, NFData, Typeable)
 
 instance ComprOccurrences OccOSerialized where
-  fromOccurrences       = OccOBs . mkBs . BL.toStrict . compress . B.encode
+  fromOccurrences       = OccOBs . mkBs . BL.toStrict . compress . B.encode .traceFrom
   toOccurrences         = B.decode . decompress . BL.fromStrict . unBs . unOccOBs
 
 instance B.Binary OccOSerialized where

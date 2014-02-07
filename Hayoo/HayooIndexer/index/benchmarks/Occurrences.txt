@@ -1,0 +1,17 @@
+Benchmark about occurrence sets
+===============================
+ 
+    393,520       occurrence sets from Hayoo index analysed
+    232,530 (59%) of the form [i,j,k,..] (sets of documents where the word occurs always only once)
+  2,777,623       positions in all 232,530 documents
+          0       of the form [1]        (single document with pos=1)
+    126,846 (32%) of the form [i,i,i,..] (sets of documents where the word occurs always at the same pos)
+    121,206 (30%) of the form [1,1,..,1] (sets of documents where the word occurs always at pos 1)
+  2,542,965       positions in all 121,206 documents
+
+    160,990 (41%) of the form (i,j)      (sets of documents where the word occurs multiple times in a d.)
+ 84,245,283       position sets in these 160,990 occurrence sets 
+105,179,134       positions in these 84,245,283 positions sets
+            1.25  arithmetic mean: positions per set
+    103,581 (26%) there is a word,  which occurs in 26% of all documents
+    246,092       there is a word, which occurs 246,092 times in all documents

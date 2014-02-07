@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# OPTIONS -fno-warn-orphans #-}
 
 -- ----------------------------------------------------------------------------
@@ -21,6 +22,9 @@ module Holumbus.Index.Common.Occurences
 where
 
 import qualified Data.IntSet                      as IS
+import           Data.Maybe                       (fromJust)
+
+import qualified Debug.Trace                      as DT
 
 import           Holumbus.Index.Common.BasicTypes
 import           Holumbus.Index.Common.DocId
@@ -125,4 +129,20 @@ xpPositions             = xpWrap ( IS.fromList . (map read) . words
                                  ) xpText
 
 -- ------------------------------------------------------------
+-- Just for space performance stats
 
+sizeOccPos :: Occurrences -> (Int, Int)
+sizeOccPos os
+    = foldDocIdMap (\ ps (!dc, !pc) -> (dc + 1, pc + IS.size ps)) (0, 0) os
+
+
+traceOccPos :: Occurrences -> Occurrences
+traceOccPos os
+    = DT.trace msg os
+    where
+      _sc@(!dc, !pc) = sizeOccPos os
+      v0 | dc == pc  = show $ foldDocIdMap (\ ps res -> IS.elems ps ++ res) [] os
+         | otherwise = show $ foldDocIdMap (\ ps res -> IS.elems ps :  res) [] os
+      msg  = "traceOccPos: " ++ v0
+
+-- ------------------------------------------------------------
