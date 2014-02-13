@@ -15,3 +15,72 @@ Benchmark about occurrence sets
             1.25  arithmetic mean: positions per set
     103,581 (26%) there is a word,  which occurs in 26% of all documents
     246,092       there is a word, which occurs 246,092 times in all documents
+
+
+Effect with a cache of single element sets with small positions, e.g, < 1000
+
+single element sets:
+assumption: 90% of all positions are < 1000
+
+    2,777,623 * (3 words Tip + 3 words Tip (IntSet)) + (2,777,623 - 232,530) * 5 words Bin =
+  235,129,624       bytes of mem used (235Mb)
+
+    2,777,623 * 0.9 * 3 words =
+   59.996.656       bytes of mem saved (60Mb) by use of cache
+
+multiple element sets:
+assumption: 90% of the Tips (Set) can be cached
+
+   84,245,283       position sets with
+  105,179,134       positions
+
+  105,179,134       Tips (Set) used
+   20,933,851       Bins (Set) used
+   84,245,283       Tips (Map) used
+   84,084,293       Bins (Map) used (= 84,245,283 - 160,990)
+8,746,911,768       bytes total ((105,179,134 * 3 + 20,933,851 * 5 + 84,245,283 * 3 + 84,084,293 * 5) * 8)
+
+2,271,869,294       bytes for the Tips (Set) can be saved
+
+
+
+8,746,911,768
+  235,129,624 =
+8,982,041,392       total amount of bytes (8.9Gb)
+2,331,865,950       total amount of bytes (2.3Gb) can be saved
+           26 %     of bytes can be saved by chache (max 30 %)
+
+==> use of cache for single element sets can reduce memory used for index by a 1/4.
+
+DocIdMap space estimation
+
+      393,520       DocIdMaps contain
+   87,022,906       DocId - Positions pairs
+          221       is the average size of a DocIdMap
+
+      232,530       DocIdMaps contain single element sets with
+    2,777,623       sets in these maps, so the average size of a map is  2777.623 / 232.530
+           12       DocIds / map
+      160,990       contain multiple element sets with
+   84,245,283       sets in these maps, so the average size of a map is 84245.283 / 160.990
+          523       DocIds / map
+
+
+Space for different implementations of DocIdMaps
+
+Data.IntMap:        n Tips + (n - 1) Bins, size(Tip) = 3 words, size(Bin) = 5 words
+                    n * 3 + (n - 1) * 5 = n * 8 - 5
+                    for n = 200: 1595 words
+
+strict unpacked BinTree with Empty and Node constructor
+                    n Nodes, size(Node) = 5 words
+                    for n = 200: 1000 words
+                    space reduction: 37 %
+
+strict unpacked BinTree with Leaf, Left, Right, Node constructor
+                    n Nodes, size(Node) = 5, size(Left,Right) = 4, size(Leaf) = 3, n+1 Empty refs disappear
+                    n * 5 - (n + 1)
+                    for n = 200: 1000 - 201 = 799 words
+                    space reduction: 50 %
+
+
