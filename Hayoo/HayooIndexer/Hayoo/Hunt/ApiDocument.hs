@@ -3,6 +3,7 @@
 module Hayoo.Hunt.ApiDocument
 where
 
+import           Data.Digest.Murmur64
 import qualified Data.Map.Strict              as SM
 import qualified Data.Text                    as T
 
@@ -59,6 +60,13 @@ instance ToDescr RankDescr where
 
 instance ToDescr PkgDescr where
     toDescr (PD x) = piToDescr x
+
+instance Hashable64 FctDescr where
+    hash64Add (FD (FunctionInfo _mon sig pac sou fct typ))
+        = hash64Add [sig, pac, sou, fct, show typ]
+
+fiToHash :: FunctionInfo -> Int
+fiToHash = fromInteger . fromIntegral . asWord64 . hash64 . FD
 
 -- ----------------------------------------
 

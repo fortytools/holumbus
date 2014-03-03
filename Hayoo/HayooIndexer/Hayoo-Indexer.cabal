@@ -55,6 +55,7 @@ executable hayooIndexer
                  , hxt-regex-xmlschema    >= 9     && < 10
                  , hxt-xpath              >= 9.1   && < 10
                  , mtl                    >= 2
+                 , murmur-hash
                  , network                >= 2.1
                  , old-time               >= 1
                  , parsec                 >= 2.1   && < 4
