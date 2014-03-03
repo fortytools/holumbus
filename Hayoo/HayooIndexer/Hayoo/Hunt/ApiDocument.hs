@@ -69,7 +69,7 @@ fiToDescr :: FunctionInfo -> Description
 fiToDescr (FunctionInfo mon sig pac sou fct typ)
     = mkDescr
       [ (d'module,      T.pack mon)
-      , (d'signature,   T.pack sig)
+      , (d'signature,   T.pack . cleanupSig $ sig)
       , (d'package,     T.pack pac)
       , (d'source,      T.pack sou)
       , (d'description, T.pack fct)
@@ -95,5 +95,12 @@ rankToText :: Score -> T.Text
 rankToText r
     | r == defPackageRank = T.empty
     | otherwise           = T.pack . show $ r
+
+-- HACK: for modules the old Hayoo index contains the word "module" in the signature
+-- this is removed, the type is encoded in the type field
+
+cleanupSig :: String -> String
+cleanupSig "module" = ""
+cleanupSig x        = x
 
 -- ------------------------------------------------------------

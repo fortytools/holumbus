@@ -18,7 +18,7 @@ import           Hayoo.Hunt.Output
 -- the context names
 
 c'author, c'category, c'dependencies, c'description, c'homepage,
-  c'maintainer, c'module, c'name, c'package, c'signature, c'source,
+  c'maintainer, c'module, c'name, c'partial, c'package, c'signature, c'source,
   c'synopsis, c'type, c'version :: Text
 
 c'author       = "author"
@@ -30,6 +30,7 @@ c'maintainer   = "maintainer"
 c'module       = "module"
 c'name         = "name"
 c'package      = "package"
+c'partial      = "partial"
 c'signature    = "signature"
 c'source       = "source"
 c'synopsis     = "synopsis"

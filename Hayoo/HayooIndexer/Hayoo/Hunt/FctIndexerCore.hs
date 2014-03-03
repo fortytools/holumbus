@@ -84,7 +84,12 @@ toCommand (IndexerState _ (RDX ix))
     = Sequence . map toCmd . M.toList $ ix
     where
       toCmd (k, (cx, t, cu))
-          = Update . toApiDoc $ (T.pack k, (cx, t, fmap FD cu))
+          = Insert . toApiDoc $ (T.pack k, (cx', t, fmap FD cu))
+          where
+            -- HACK: add the type attribute of the custom info record
+            -- to a classifying context with name "type"
+            cx' = map (\w -> ("type", [(w, 1)])) tp ++ cx
+            tp  = maybe [] ((:[]) . drop 4 . show . fctType) cu
 
 -- ------------------------------------------------------------
 

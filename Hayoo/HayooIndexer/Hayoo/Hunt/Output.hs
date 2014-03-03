@@ -54,7 +54,7 @@ jsonOutput pretty io x
         encConfig
             = Config { confIndent = 2
                      , confCompare
-                         = keyOrder ["uri", "description", "index"]
+                         = keyOrder ["description", "index", "uri"]
                            `mappend`
                            compare
                      }

@@ -21,10 +21,11 @@ executable hayooIndexer
 
   other-modules:   Hayoo.HackagePackage
                  , Hayoo.Haddock
-                 , Hayoo.Hayoo2.FctIndexerCore
-                 , Hayoo.Hayoo2.PkgIndexerCore
-                 , Hayoo.Hayoo2.PostToServer
-                 , Hayoo.Hayoo2.RawCrawlerDoc
+                 , Hayoo.Hunt.ApiDocument
+                 , Hayoo.Hunt.FctIndexerCore
+                 , Hayoo.Hunt.IndexSchema
+                 , Hayoo.Hunt.Output
+                 , Hayoo.Hunt.PkgIndexerCore
                  , Hayoo.IndexConfig
                  , Hayoo.IndexerCore
                  , Hayoo.PackageArchive
