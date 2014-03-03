@@ -6,6 +6,7 @@
 
 module Hayoo.FunctionInfo
     ( FunctionInfo(..)
+    , Fct'Type(..)
     , mkFunctionInfo
     )
 where

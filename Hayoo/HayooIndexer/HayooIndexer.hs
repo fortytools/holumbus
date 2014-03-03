@@ -5,25 +5,28 @@
 module Main (main)
 where
 
-import           Codec.Compression.BZip      (compress, decompress)
+import           Codec.Compression.BZip     (compress, decompress)
 
-import           Control.Applicative         ((<$>))
+import           Control.Applicative        ((<$>))
 import           Control.DeepSeq
 import           Control.Monad.Error
+import           Control.Monad.IO.Class     ()
 import           Control.Monad.Reader
 
-import qualified Data.Binary                 as B
+import qualified Data.Binary                as B
 import           Data.Char
 import           Data.Function.Selector
+-- import           Data.List                   (intercalate)
 import           Data.Maybe
 import           Data.Size
 import           Data.Typeable
 
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
-import qualified Hayoo.Hayoo2.FctIndexerCore as FJ
-import qualified Hayoo.Hayoo2.PkgIndexerCore as PJ
-import           Hayoo.Hayoo2.PostToServer
+import qualified Hayoo.Hunt.FctIndexerCore  as FJ
+import           Hayoo.Hunt.IndexSchema
+import           Hayoo.Hunt.Output          (defaultServer, outputValue)
+import qualified Hayoo.Hunt.PkgIndexerCore  as PJ
 import           Hayoo.IndexConfig
 import           Hayoo.IndexerCore
 import           Hayoo.IndexTypes
@@ -41,13 +44,14 @@ import           System.IO
 import           Text.XML.HXT.Cache
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.Curl
-import           Text.XML.HXT.HTTP           ()
+import           Text.XML.HXT.HTTP          ()
 
--- import           Data.List                   (intercalate)
+
 -- ------------------------------------------------------------
 
 data AppAction
     = BuildIx | UpdatePkg | RemovePkg | BuildCache | MergeIx
+    | CreateSchema | DeleteSchema
       deriving (Eq, Show)
 
 data AppOpts
@@ -188,12 +192,20 @@ main2
             else do asks (snd . ao_crawlLog) >>= setLogLevel ""
                     a <- asks ao_action
                     case a of
-                      BuildCache -> mainCache
-                      MergeIx    -> mainHaddock
+                      BuildCache   -> mainCache
+                      MergeIx      -> mainHaddock
+                      CreateSchema -> indexSchema execCreateHayooIndexSchema
+                      DeleteSchema -> indexSchema execDropHayooIndexSchema
                       _          -> do p <- asks ao_pkgIndex
                                        if p
                                           then mainHackage
                                           else mainHaddock
+
+-- ------------------------------------------------------------
+
+indexSchema :: (Maybe String -> HIO ()) -> HIO ()
+indexSchema out
+    = asks ao_JSONserv >>= out
 
 -- ------------------------------------------------------------
 
@@ -272,14 +284,14 @@ mainHackageJSON
       flushJSON pkg ix
           = do serv <- asks ao_JSONserv
                notice $ "flushing package index as JSON to" : target serv
-               liftIO $ flush serv ix
+               outputValue (dest serv) (PJ.toCommand ix)
                notice $ ["flushing package index as JSON done"]
                return ()
           where
             target (Just uri) = ["server", show uri]
             target  Nothing   = ["file",   show pkg]
-            flush (Just uri)  = PJ.flushToServer uri
-            flush  Nothing    = PJ.flushToFile   pkg
+            dest  (Just uri)  = Right uri
+            dest   Nothing    = Left pkg
 
 mainHackage' :: HIO ()
 mainHackage'
@@ -349,7 +361,7 @@ mainHackage'
                (getS theResultAccu `fmap` hayooPkgIndexer) >>= (rankPkgJSON . ixs_documents)
 
       indexPkgJSON ps
-          = do notice ["package rank computing only possible for all packages\n"
+          = do notice ["package rank computing only possible for all packages,"
                       ,"not for a selection", show ps
                       ]
 
@@ -359,12 +371,12 @@ mainHackage'
                serv <- asks ao_JSONserv
                if rank
                   then do notice ["computing package ranks"]
-                          liftIO $ (case serv of
-                                      Nothing -> PJ.flushRanksToFile "00-ranking"
-                                      Just u  -> PJ.flushRanksToServer u
-                                   ) (packageDocRanking dt)
-                          notice ["JSON package ranks stored in file '00-ranking'"]
+                          outputValue (dest serv) (PJ.rankToCommand $ packageDocRanking dt)
+                          notice ["JSON package ranks written"]
                   else do notice ["no package ranks computed"]
+          where
+            dest Nothing    = Left "00-ranking"
+            dest (Just uri) = Right uri
 
 -- ------------------------------------------------------------
 
@@ -411,14 +423,14 @@ mainHaddockJSON
       flushJSON pkg ix
           = do serv <- asks ao_JSONserv
                notice $ "flushing function index as JSON to" : target serv
-               liftIO $ flush serv ix
+               outputValue (dest serv) (FJ.toCommand ix)
                notice $ ["flushing function index as JSON done"]
                return ()
           where
             target (Just uri) = ["server", show uri]
             target  Nothing   = ["file",   show pkg]
-            flush (Just uri)  = FJ.flushToServer uri
-            flush  Nothing    = FJ.flushToFile   pkg
+            dest  (Just uri)  = Right uri
+            dest   Nothing    = Left pkg
 
 updateLatest :: HIO () -> Int -> HIO ()
 updateLatest cont latest
@@ -845,14 +857,16 @@ hayooOptDescr
         ( NoArg
           (\ x -> x { ao_JSON = True })
         )
-        "output of crawler results in JSON format, default: output to files"
+        "output of crawler results in JSON format, default: output to files in subdir \"./json/\""
 
       , Option "" ["json-server"]
         ( ReqArg
           (\ u x -> x { ao_JSONserv = Just $ if null u then defaultServer else u})
           "URI"
         )
-        ( "the server, into which the JSON output will be pushed, default is " ++ show defaultServer ++ " (no file output)")
+        ( "the server, into which the JSON output will be pushed, default is " ++
+          show defaultServer ++ " (no file output)"
+        )
 
       , Option "r" ["resume"]
         ( ReqArg (\ s x -> x { ao_resume = Just s})
@@ -878,6 +892,56 @@ hayooOptDescr
           \ x -> x { ao_action   = RemovePkg }
         )
         "delete packages specified by \"packages\" option"
+
+      , Option "" ["json-create-schema"]
+        ( NoArg $
+          \ x -> x { ao_action   = CreateSchema
+                   , ao_JSON     = True
+                   }
+        )
+        "JSON command to create Hayoo index schema in Hunt server (--json-output implied)"
+
+
+      , Option "" ["json-delete-schema"]
+        ( NoArg $
+          \ x -> x { ao_action   = DeleteSchema
+                   , ao_JSON     = True
+                   }
+        )
+        "JSON command to drop Hayoo index schema in Hunt server (--json-output implied)"
+
+      , Option "" ["json-fct"]
+        ( NoArg $
+          \ x -> x { ao_action      = BuildIx
+                   , ao_pkgIndex    = False
+                   , ao_JSON        = True
+                   , ao_pkgRank     = False
+                   , ao_pkgRankOnly = False
+                   }
+        )
+        "JSON command to index Haddock document pages in Hunt server (--json-output implied)"
+
+      , Option "" ["json-pkg"]
+        ( NoArg $
+          \ x -> x { ao_action      = BuildIx
+                   , ao_pkgIndex    = True
+                   , ao_JSON        = True
+                   , ao_pkgRank     = False
+                   , ao_pkgRankOnly = False
+                   }
+        )
+        "JSON command to index Hayoo package descriptions in Hunt server (--json-output implied)"
+
+      , Option "" ["json-pkg-rank"]
+        ( NoArg $
+          \ x -> x { ao_action      = BuildIx
+                   , ao_pkgIndex    = True
+                   , ao_JSON        = True
+                   , ao_pkgRank     = True
+                   , ao_pkgRankOnly = True
+                   }
+        )
+        "JSON command to compute Hayoo package rank in Hunt server (--json-output implied)"
 
       , Option "" ["maxdocs"]
         ( ReqArg (setOption parseInt (\ x i -> x { ao_crawlDoc = setMaxDocs i $

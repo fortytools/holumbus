@@ -21,8 +21,10 @@
 module Holumbus.Index.Common.Occurences
 where
 
+import           Control.Applicative              ((<$>))
+import qualified Data.Binary                      as B
 import qualified Data.IntSet                      as IS
-import           Data.Maybe                       (fromJust)
+import qualified Data.IntSet.Cache                as IS
 
 import qualified Debug.Trace                      as DT
 
@@ -102,7 +104,7 @@ emptyPos                :: Positions
 emptyPos                = IS.empty
 
 singletonPos            :: Position -> Positions
-singletonPos            = IS.singleton
+singletonPos            = IS.cacheAt
 
 memberPos               :: Position -> Positions -> Bool
 memberPos               = IS.member
@@ -127,6 +129,29 @@ xpPositions             :: PU Positions
 xpPositions             = xpWrap ( IS.fromList . (map read) . words
                                  , unwords . (map show) . IS.toList
                                  ) xpText
+
+{-# INLINE emptyPos     #-}
+{-# INLINE singletonPos #-}
+{-# INLINE memberPos    #-}
+{-# INLINE toAscListPos #-}
+{-# INLINE fromListPos  #-}
+{-# INLINE sizePos      #-}
+{-# INLINE unionPos     #-}
+{-# INLINE foldPos      #-}
+
+-- ------------------------------------------------------------
+
+newtype WrappedPositions = WPos {unWPos :: Positions}
+
+instance B.Binary WrappedPositions where
+    put = B.put . IS.toList . unWPos
+    get = (WPos . IS.unions . map IS.cacheAt) <$> B.get
+
+newtype WrappedOccs = WOccs {unWOccs :: Occurrences}
+
+instance B.Binary WrappedOccs where
+    put = B.put . mapDocIdMap WPos . unWOccs
+    get = (WOccs . mapDocIdMap unWPos) <$> B.get
 
 -- ------------------------------------------------------------
 -- Just for space performance stats

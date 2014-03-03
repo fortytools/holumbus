@@ -1,7 +1,7 @@
 isghc77	= ghc --version | sed -e 's|^[^0-9]*||' | grep -q -e '^7.[789]'
 
 all	:
-	@echo "available targets: init depends delete"
+	@echo "available targets: init depends delete unregister"
 
 init	:
 	cabal sandbox init
@@ -13,6 +13,7 @@ init	:
 	cabal sandbox add-source ../../../text
 	cabal sandbox add-source ../../Holumbus-Searchengine
 	cabal sandbox add-source ../HayooLib
+	cabal sandbox add-source ../../../hunt-framework/hunt/hunt-searchengine
 
 depends	:
 	cabal install --dependencies-only --enable-tests --force-reinstall
@@ -20,4 +21,11 @@ depends	:
 delete	:
 	cabal sandbox delete
 
-.PHONY	: init delete
+unregister	:
+	cabal sandbox hc-pkg unregister hunt-searchengine
+	cabal sandbox hc-pkg unregister HayooLib
+	cabal sandbox hc-pkg unregister Holumbus-Searchengine
+	cabal sandbox hc-pkg unregister data-stringmap
+	cabal sandbox hc-pkg unregister data-size
+
+.PHONY	: init delete unregister depends

@@ -2,7 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module Hayoo.Hayoo2.FctIndexerCore
+module Hayoo.Hunt.FctIndexerCore
 where
 
 import           Control.Applicative          ((<$>))
@@ -10,19 +10,19 @@ import           Control.DeepSeq
 
 import           Data.Binary                  (Binary)
 import qualified Data.Binary                  as B
-import qualified Data.ByteString.Lazy         as LB
 import qualified Data.StringMap.Strict        as M
+import qualified Data.Text                    as T
 
 import           Hayoo.FunctionInfo
-import           Hayoo.Hayoo2.PostToServer
-import           Hayoo.Hayoo2.RawCrawlerDoc
+import           Hayoo.Hunt.ApiDocument
 import           Hayoo.IndexTypes
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 
-import           System.Directory
-import           System.FilePath
+-- import           Hunt.Common.BasicTypes
+-- import           Hunt.Index.Schema
+import           Hunt.Interpreter.Command
 
 import           Text.XML.HXT.Core
 
@@ -79,28 +79,12 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-
-flushToFile :: String -> FctIndexerState -> IO ()
-flushToFile pkgName fx
-    = do createDirectoryIfMissing True dirPath
-         flushTo (flushRawCrawlerDoc True (LB.writeFile filePath)) fx
-      where
-        dirPath  = "json"
-        filePath = dirPath </> pkgName ++ ".js"
-
-flushToServer :: String -> FctIndexerState -> IO ()
-flushToServer url fx
-    = flushTo (flushRawCrawlerDoc False flush) fx
+toCommand :: FctIndexerState -> Command
+toCommand (IndexerState _ (RDX ix))
+    = Sequence . map toCmd . M.toList $ ix
     where
-      flush bs
-          = postToServer $ mkPostReq url "insert" bs
-
-flushTo :: ([RawCrawlerDoc FunctionInfo] -> IO ()) -> FctIndexerState -> IO ()
-flushTo flush (IndexerState _ (RDX ix))
-    | M.null ix
-        = return ()
-    | otherwise
-        = flush $ map RCD (M.toList ix)
+      toCmd (k, (cx, t, cu))
+          = Update . toApiDoc $ (T.pack k, (cx, t, fmap FD cu))
 
 -- ------------------------------------------------------------
 

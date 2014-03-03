@@ -2,30 +2,25 @@
 
 -- ------------------------------------------------------------
 
-module Hayoo.Hayoo2.PkgIndexerCore
+module Hayoo.Hunt.PkgIndexerCore
 where
 
 import           Control.Applicative          ((<$>))
 import           Control.DeepSeq
 
-import           Data.Aeson
 import           Data.Binary                  (Binary)
 import qualified Data.Binary                  as B
-import qualified Data.ByteString.Lazy         as LB
-import           Data.Maybe
 import qualified Data.StringMap.Strict        as M
+import qualified Data.Text                    as T
 
-import           Hayoo.Hayoo2.PostToServer
-import           Hayoo.Hayoo2.RawCrawlerDoc
+import           Hayoo.Hunt.ApiDocument
 import           Hayoo.IndexTypes
-import           Hayoo.PackageInfo
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Common        hiding (URI)
 
-import           System.Directory
-import           System.FilePath
+import           Hunt.Interpreter.Command
 
 import           Text.XML.HXT.Core
 
@@ -36,7 +31,7 @@ type PkgCrawlerState  = IndexCrawlerState  () RawDocIndex PackageInfo
 
 type PkgIndexerState  = IndexerState       () RawDocIndex PackageInfo
 
-newtype RawDocIndex a   = RDX (M.StringMap (RawDoc PackageInfo))
+newtype RawDocIndex a = RDX (M.StringMap (RawDoc PackageInfo))
                           deriving (Show)
 
 instance NFData (RawDocIndex a)
@@ -82,85 +77,30 @@ insertHayooPkgM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-flushToFile :: String -> PkgIndexerState -> IO ()
-flushToFile pkgName fx
-    = do createDirectoryIfMissing True dirPath
-         flushTo (flushRawCrawlerDoc True (LB.writeFile filePath)) fx
-      where
-        dirPath  = "json"
-        filePath = dirPath </> pkgName ++ ".js"
-
-flushToServer :: String -> PkgIndexerState -> IO ()
-flushToServer url fx
-    = flushTo (flushRawCrawlerDoc False flush) fx
+toCommand :: PkgIndexerState -> Command
+toCommand (IndexerState _ (RDX ix))
+    = Sequence . map toCmd . M.toList $ ix
     where
-      flush bs
-          = postToServer $ mkPostReq url "insert" bs
+      toCmd (k, (cx, t, cu))
+          = Update . toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
 
-flushTo :: ([RawCrawlerDoc PackageInfo] -> IO ()) -> PkgIndexerState -> IO ()
-flushTo flush (IndexerState _ (RDX ix))
-    | M.null ix
-        = return ()
-    | otherwise
-        = flush $ map RCD (M.toList ix)
-
-{- old stuff
-flushToFile :: (URI, RawDoc PackageInfo) -> IO ()
-flushToFile rd@(_rawUri, (_rawContexts, rawTitle, _rawCustom))
-    = do createDirectoryIfMissing True dirPath
-         flushRawCrawlerDoc True (LB.writeFile filePath) (RCD rd)
-      where
-        dirPath  = "packages"
-        filePath = dirPath </> pn ++ ".js"
-        pn = rawTitle
-
-flushToServer :: String -> (URI, RawDoc PackageInfo) -> IO ()
-flushToServer url rd
-    = flushRawCrawlerDoc False flush [(RCD rd)]
-    where
-      flush bs
-          = postToServer $ mkPostReq url "insert" bs
-
-flushToDevNull :: (URI, RawDoc PackageInfo) -> IO ()
-flushToDevNull = const (return ())
--- -}
 -- ------------------------------------------------------------
 
-toRankDocs :: Documents PackageInfo -> [ToRank]
-toRankDocs = filter (\ (ToRank _ d) -> d /= defPackageRank) . map toRank . elemsDocIdMap . toMap
+toRankDocs :: Documents PackageInfo -> [(URI, RawDoc RankDescr)]
+toRankDocs = map toRank . elemsDocIdMap . toMap
 
-toRank :: Document PackageInfo -> ToRank
-toRank d = ToRank (uri d) (p_rank . fromJust . custom $ d)
+toRank :: Document PackageInfo -> (URI, ([a], String, Maybe RankDescr))
+toRank d = (uri d, ([], "", fmap (RD . p_rank) $ custom d))
 
-
-toRankRawDocIndex :: PkgIndexerState -> [ToRank]
-toRankRawDocIndex (IndexerState _ (RDX dt))
-    = map toR . M.toList $ dt
-      where
-        toR (url, (_c, _t, Just cs)) = ToRank url (p_rank cs)
-        toR _                        = error "toRankRawDocIndex: No custom info"
-
-data ToRank = ToRank URI Score
-
-instance ToJSON ToRank where
-    toJSON (ToRank u r)
-        = object $
-          [ "uri"         .= u
-          , "description" .= (object ["pkg-rank" .= show r]) -- convert rank to string
-          ]
-
-flushRanksToFile :: String -> Documents PackageInfo -> IO ()
-flushRanksToFile path0 dt
-    = flushRawCrawlerDoc True (LB.writeFile path) (toRankDocs dt)
-      where
-        path = "json/" ++ path0 ++ ".js"
-
-flushRanksToServer :: String -> Documents PackageInfo -> IO ()
-flushRanksToServer url dt
-    = flushRawCrawlerDoc False flush (toRankDocs dt)
+rankToCommand :: Documents PackageInfo -> Command
+rankToCommand
+    = Sequence . concatMap toCmd . toRankDocs
     where
-      flush bs
-          = postToServer $ mkPostReq url "update" bs
+      toCmd (k, rd)
+          | boringApiDoc d = []
+          | otherwise      = [Update d]
+          where
+            d = toApiDoc $ (T.pack k, rd)
 
 -- ------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 name:          Holumbus-Searchengine
-version:       1.2.6.3
+version:       1.2.6.4
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Kranz, Uwe Schmidt
@@ -40,6 +40,7 @@ library
     Control.Concurrent.MapFold
     Control.Monad.ReaderStateIOError
     Control.Sequential.MapFoldBinary
+    Data.IntSet.Cache
     Holumbus.ByteStringCompression
     Holumbus.Crawler.CacheCore
     Holumbus.Crawler.Constants
@@ -105,6 +106,7 @@ library
               , SHA                    >= 1.4   && < 2
               , text                   >= 0.11
               , unix                   >= 2.3   && < 3
+              , vector                 >= 0.10
 
   if flag(with-sizeable)
     build-depends:
