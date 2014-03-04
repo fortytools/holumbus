@@ -15,9 +15,11 @@ import qualified Data.IntMap.Strict           as IM
 import qualified Data.List                    as L
 import qualified Data.StringMap.Strict        as M
 import qualified Data.Text                    as T
-
+-- import qualified Data.Map.Strict              as SM
+ 
 import           Hayoo.FunctionInfo
 import           Hayoo.Hunt.ApiDocument
+import           Hayoo.Hunt.IndexSchema
 import           Hayoo.IndexTypes
 
 import           Holumbus.Crawler
@@ -92,20 +94,34 @@ toCommand (IndexerState _ (RDX ix))
 
       toCmd (k, (cx, t, cu))
           = case lookupDup cu dupMap of
-              Nothing
-                  -> insertCmd
-              Just (uri : uris)
+              Just uris@(uri : _uris1)                  -- re-exports found
                   | uri == k
-                      -> insertCmd -- TODO: modify module attr and add all uris
+                      -> insertCmd (apiDoc2 uris) -- TODO: modify module attr and add all uris
                   | otherwise
-                      -> insertCmd -- TODO: remove entry
+                      -> []
+              _       -> insertCmd apiDoc1
           where
-            insertCmd = return . Insert . toApiDoc $ (T.pack k, (addType cx, t, fmap FD cu))
+            insertCmd = (:[]) . Insert
+            apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap FD cu))
 
             -- HACK: add the type attribute of the custom info record
             -- to a classifying context with name "type"
-            addType cx' = map (\w -> ("type", [(w, 1)])) tp ++ cx'
-            tp  = maybe [] ((:[]) . drop 4 . show . fctType) cu
+            apiDoc1   = insIndexMap c'type tp apiDoc
+                        where
+                          tp = T.pack $ maybe "" (drop 4 . show . fctType) cu
+
+            apiDoc2 u = insDescrMap d'module ms $               -- add list of modules
+                        insDescrMap d'uris   us $               -- add list of uris
+                        apiDoc1
+                        where
+                          us = T.pack . show                 $ u
+                          ms = T.pack . show . map toModName $ u
+                              where
+                                toModName :: String -> String
+                                toModName u' = maybe "" id $
+                                               do (_, _, cu') <- M.lookup u' ix
+                                                  fd          <- cu'
+                                                  return (moduleName fd)
 
 lookupDup :: Maybe FunctionInfo -> IM.IntMap [URI] -> Maybe [URI]
 lookupDup v m

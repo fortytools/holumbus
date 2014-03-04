@@ -41,7 +41,7 @@ c'version      = "version"
 
 d'author, d'category, d'dependencies, d'description, d'homepage,
   d'maintainer, d'module, d'name, d'package, d'signature, d'source,
-  d'synopsis, d'type, d'version, d'rank :: Text
+  d'synopsis, d'type, d'uris, d'version, d'rank :: Text
 
 d'author       = c'author
 d'category     = c'category
@@ -57,6 +57,7 @@ d'signature    = c'signature
 d'source       = c'source
 d'synopsis     = c'synopsis
 d'type         = c'type
+d'uris         = "uris"
 d'version      = c'version
 
 createHayooIndexSchema :: Command

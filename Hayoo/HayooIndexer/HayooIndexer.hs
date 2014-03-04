@@ -50,7 +50,8 @@ import           Text.XML.HXT.HTTP          ()
 -- ------------------------------------------------------------
 
 data AppAction
-    = BuildIx | UpdatePkg | RemovePkg | BuildCache | MergeIx
+    = Usage
+    | BuildIx | UpdatePkg | RemovePkg | BuildCache | MergeIx
     | CreateSchema | DeleteSchema
       deriving (Eq, Show)
 
@@ -61,7 +62,6 @@ data AppOpts
       , ao_ixout       :: String
       , ao_ixsearch    :: String
       , ao_xml         :: String
-      , ao_help        :: Bool
       , ao_pkgIndex    :: Bool
       , ao_JSON        :: Bool
       , ao_JSONserv    :: Maybe String
@@ -97,11 +97,10 @@ initAppOpts
       , ao_ixout        = ""
       , ao_ixsearch     = ""
       , ao_xml          = ""
-      , ao_help         = False
       , ao_pkgIndex     = False
       , ao_JSON         = False
       , ao_JSONserv     = Nothing
-      , ao_action       = BuildIx
+      , ao_action       = Usage
       , ao_defrag       = False
       , ao_partix       = False
       , ao_resume       = Nothing
@@ -182,24 +181,24 @@ main
 
 main2 :: HIO ()
 main2
-    = do (h, pn) <- asks (ao_help &&& ao_progname)
-         if h
-            then do msg <- asks ao_msg
-                    liftIO $ do hPutStrLn stderr (msg ++ "\n" ++ usageInfo pn hayooOptDescr)
-                    if null msg
+    = do (a, pn) <- asks (ao_action &&& ao_progname)
+         case a of
+           Usage
+               -> do msg <- asks ao_msg
+                     liftIO $ hPutStrLn stderr (msg ++ "\n" ++ usageInfo pn hayooOptDescr)
+                     if null msg
                        then return ()
                        else throwError "wrong option"
-            else do asks (snd . ao_crawlLog) >>= setLogLevel ""
-                    a <- asks ao_action
-                    case a of
-                      BuildCache   -> mainCache
-                      MergeIx      -> mainHaddock
-                      CreateSchema -> indexSchema execCreateHayooIndexSchema
-                      DeleteSchema -> indexSchema execDropHayooIndexSchema
-                      _          -> do p <- asks ao_pkgIndex
-                                       if p
-                                          then mainHackage
-                                          else mainHaddock
+           _   -> do asks (snd . ao_crawlLog) >>= setLogLevel ""
+                     case a of
+                       BuildCache   -> mainCache
+                       MergeIx      -> mainHaddock
+                       CreateSchema -> indexSchema execCreateHayooIndexSchema
+                       DeleteSchema -> indexSchema execDropHayooIndexSchema
+                       _            -> do p <- asks ao_pkgIndex
+                                          if p
+                                            then mainHackage
+                                            else mainHaddock
 
 -- ------------------------------------------------------------
 
@@ -783,13 +782,13 @@ evalOptions pn args
     (opts, ns, es)   = getOpt Permute hayooOptDescr args
     ef1
         | null es    = id
-        | otherwise  = \ x -> x { ao_help   = True
-                                , ao_msg = concat es
+        | otherwise  = \ x -> x { ao_action = Usage
+                                , ao_msg    = concat es
                                 }
         | otherwise  = id
     ef2
         | null ns    = id
-        | otherwise  = \ x -> x { ao_help   = True
+        | otherwise  = \ x -> x { ao_action = Usage
                                 , ao_msg = "wrong program arguments: " ++ unwords ns
                                 }
 
@@ -799,13 +798,14 @@ hayooOptDescr :: [OptDescr (AppOpts -> AppOpts)]
 hayooOptDescr
     = [ Option "h?" ["help"]
         ( NoArg $
-          \ x -> x { ao_help     = True }
+          \ x -> x { ao_action = Usage }
         )
         "usage info"
 
       , Option "" ["fct-index"]
         ( NoArg $
-          \ x -> x { ao_pkgIndex = False
+          \ x -> x { ao_action = BuildIx
+                   , ao_pkgIndex = False
                    , ao_crawlSfn = "./tmp/ix-"
                    }
         )
@@ -813,7 +813,8 @@ hayooOptDescr
 
       , Option "" ["pkg-index"]
         ( NoArg $
-          \ x -> x { ao_pkgIndex = True
+          \ x -> x { ao_action = BuildIx
+                   , ao_pkgIndex = True
                    , ao_crawlSfn = "./tmp/pkg-"
                    }
         )
@@ -900,7 +901,6 @@ hayooOptDescr
                    }
         )
         "JSON command to create Hayoo index schema in Hunt server (--json-output implied)"
-
 
       , Option "" ["json-delete-schema"]
         ( NoArg $
@@ -1030,8 +1030,8 @@ hayooOptDescr
         = words . map (\ x -> if x == ',' then ' ' else x)
 
     setOption parse f s x
-        = either (\ e -> x { ao_msg  = e
-                           , ao_help = True
+        = either (\ e -> x { ao_msg    = e
+                           , ao_action = Usage
                            }
                  ) (f x) . parse $ s
 

@@ -37,6 +37,22 @@ boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
     = SM.null (apiDocIndexMap a) && SM.null (apiDocDescrMap a)
 
+chgIndexMap :: (SM.Map Context Content -> SM.Map Context Content) -> ApiDocument -> ApiDocument
+chgIndexMap f a = a { apiDocIndexMap = f $ apiDocIndexMap a }
+
+chgDescrMap :: (Description -> Description) -> ApiDocument -> ApiDocument
+chgDescrMap f a = a { apiDocDescrMap = f $ apiDocDescrMap a }
+
+insIndexMap :: Context -> Content -> ApiDocument -> ApiDocument
+insIndexMap cx ct
+    | T.null ct = id
+    | otherwise = chgIndexMap $ SM.insert cx ct
+
+insDescrMap :: T.Text -> T.Text -> ApiDocument -> ApiDocument
+insDescrMap k v
+    | T.null v  = chgDescrMap $ SM.delete k
+    | otherwise = chgDescrMap $ SM.insert k v
+
 -- ------------------------------------------------------------
 
 -- auxiliary types for ToDescr instances
