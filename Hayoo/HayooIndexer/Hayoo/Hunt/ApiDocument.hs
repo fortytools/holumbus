@@ -81,8 +81,8 @@ instance Hashable64 FctDescr where
     hash64Add (FD (FunctionInfo _mon sig pac sou fct typ))
         = hash64Add [sig, pac, sou, fct, show typ]
 
-fiToHash :: FunctionInfo -> Int
-fiToHash = fromInteger . fromIntegral . asWord64 . hash64 . FD
+fiToHash :: String -> FunctionInfo -> Int
+fiToHash name fi = fromInteger . fromIntegral . asWord64 . hash64Add name . hash64 . FD $ fi
 
 -- ----------------------------------------
 
@@ -92,11 +92,11 @@ mkDescr = SM.fromList . filter (not . T.null . snd)
 fiToDescr :: FunctionInfo -> Description
 fiToDescr (FunctionInfo mon sig pac sou fct typ)
     = mkDescr
-      [ (d'module,      T.pack mon)
-      , (d'signature,   T.pack . cleanupSig $ sig)
-      , (d'package,     T.pack pac)
-      , (d'source,      T.pack sou)
-      , (d'description, T.pack fct)
+      [ (d'module,      T.pack                   mon)
+      , (d'signature,   T.pack . cleanupSig    $ sig)
+      , (d'package,     T.pack                   pac)
+      , (d'source,      T.pack                   sou)
+      , (d'description, T.pack . cleanupDescr  $ fct)
       , (d'type,        T.pack . drop 4 . show $ typ)
       ]
 
@@ -120,11 +120,23 @@ rankToText r
     | r == defPackageRank = T.empty
     | otherwise           = T.pack . show $ r
 
--- HACK: for modules the old Hayoo index contains the word "module" in the signature
--- this is removed, the type is encoded in the type field
+-- HACK: the old Hayoo index contains keywords in the signature for type of object
+-- these are removed, the type is encoded in the type field
 
 cleanupSig :: String -> String
-cleanupSig "module" = ""
-cleanupSig x        = x
+cleanupSig ('!' : s) = s
+cleanupSig "class"   = ""
+cleanupSig "data"    = ""
+cleanupSig "module"  = ""
+cleanupSig "newtype" = ""
+cleanupSig "type"    = ""
+cleanupSig x         = x
+
+-- some descriptions consist of the single char "&#160;" (aka. nbsp),
+-- these are removed
+
+cleanupDescr :: String -> String
+cleanupDescr "&#160;" = ""
+cleanupDescr d        = d
 
 -- ------------------------------------------------------------

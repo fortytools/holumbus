@@ -422,7 +422,7 @@ mainHaddockJSON
       flushJSON pkg ix
           = do serv <- asks ao_JSONserv
                notice $ "flushing function index as JSON to" : target serv
-               outputValue (dest serv) (FJ.toCommand ix)
+               outputValue (dest serv) (FJ.toCommand True pkg ix)
                notice $ ["flushing function index as JSON done"]
                return ()
           where

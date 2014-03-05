@@ -200,7 +200,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                       [ isDataTypeNewtypeDecl
                                                        :-> ( processTypeDecl
                                                              <+>
-                                                             ( processConstructors $< getSrcLnk ) -- the data sourrce link is propagated
+                                                             ( processConstructors $< getSrcLnk ) -- the data source link is propagated
                                                            )                                      -- to the constructors and fields
                                       , isClassDecl    :-> ( processClassDecl
                                                              <+>
