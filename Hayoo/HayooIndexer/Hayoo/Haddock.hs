@@ -434,6 +434,10 @@ splitHaddock26                  = mkVirtualDoc26 $< this
 mkVirtualDoc26                  :: XmlTree -> LA XmlTree XmlTree
 mkVirtualDoc26 rt               = getDecls
                                   >>>
+                                  ( this
+                                    += attr "type" (theSignature >>> arr mkType >>> mkText)
+                                  )
+                                  >>>
                                   ( root [] []
                                     += attr "title"     (theTitle     >>> mkText)
                                     += attr "module"    (theModule    >>> mkText)
@@ -451,6 +455,11 @@ mkVirtualDoc26 rt               = getDecls
                                     += removeSourceLinks
                                   )
     where
+    mkType s
+        | s `elem` ["data", "type", "newtype", "class"]
+            = s
+        | otherwise
+            = "function"
     getDecls                    = deep ( isDecl' >>> hasAttr "id" )
 
     isDecl'                     = trWithClass (== "decl")
@@ -627,6 +636,7 @@ processDataTypeAndNewtypeDeclarations
 
     mkTheElem n t r s           = eelem "td"
                                   +=   sattr "class" "decl"
+                                  +=   sattr "type" t
                                   += ( eelem "a"
                                        +=   sattr "name" r
                                        +=   txt (n ++ " :: " ++ t)

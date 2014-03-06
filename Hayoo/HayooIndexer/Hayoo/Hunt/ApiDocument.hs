@@ -101,7 +101,7 @@ fiToDescr (FunctionInfo mon sig pac sou fct typ)
       ]
 
 piToDescr :: PackageInfo -> Description
-piToDescr (PackageInfo nam ver dep aut mai cat hom syn des ran)
+piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
     = mkDescr
       [ (d'name,         T.pack nam)
       , (d'version,      T.pack ver)
@@ -112,6 +112,7 @@ piToDescr (PackageInfo nam ver dep aut mai cat hom syn des ran)
       , (d'homepage,     T.pack hom)
       , (d'synopsis,     T.pack syn)
       , (d'description,  T.pack des)
+      , (d'upload,       T.pack upl)
       , (d'rank,         rankToText ran)
       ]
 

@@ -189,11 +189,11 @@ whole-json-rank	: $(indexer)
 	ls -l ./json/00-*.js
 
 whole-json	: $(indexer)
-	$(MAKE) update-cache      > log/update-cache.out      2>&1
+	@echo not done: "$(MAKE) update-cache      > log/update-cache.out      2>&1"
 	$(MAKE) whole-json-schema > log/whole-json-schema.out 2>&1
-	$(MAKE) whole-json-index  > log/whole-json-index.out  2>&1
 	$(MAKE) whole-json-pkg    > log/whole-json-pkg.out    2>&1
 	$(MAKE) whole-json-rank   > log/whole-json-rank.out   2>&1
+	$(MAKE) whole-json-index  > log/whole-json-index.out  2>&1
 	ls -l ./json/
 
 #----------------------------------------

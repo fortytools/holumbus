@@ -5,7 +5,7 @@ where
 
 import           Control.Monad.IO.Class
 
-import           Data.Text                (Text)
+import           Data.Text                (Text, pack)
 
 import           Hunt.Common.BasicTypes
 import           Hunt.Index.Schema
@@ -20,7 +20,7 @@ import           Hayoo.Hunt.Output
 c'author, c'category, c'dependencies, c'description, c'hierarchy, c'homepage,
   c'maintainer, c'module, c'name, c'normalized,
   c'partial, c'package, c'signature, c'source,
-  c'synopsis, c'type, c'version :: Text
+  c'synopsis, c'type, c'upload, c'version :: Text
 
 c'author       = "author"
 c'category     = "category"
@@ -38,13 +38,14 @@ c'signature    = "signature"
 c'source       = "source"
 c'synopsis     = "synopsis"
 c'type         = "type"
+c'upload       = "upload"
 c'version      = "version"
 
 -- the descripion keys, most correspond 1-1 to context names
 
 d'author, d'category, d'dependencies, d'description, d'homepage,
   d'maintainer, d'module, d'name, d'package, d'signature, d'source,
-  d'synopsis, d'type, d'uris, d'version, d'rank :: Text
+  d'synopsis, d'type, d'upload, d'uris, d'version, d'rank :: Text
 
 d'author       = c'author
 d'category     = c'category
@@ -60,6 +61,7 @@ d'signature    = c'signature
 d'source       = c'source
 d'synopsis     = c'synopsis
 d'type         = c'type
+d'upload       = c'upload
 d'uris         = "uris"
 d'version      = c'version
 
@@ -83,8 +85,15 @@ createHayooIndexSchema
       , mkIC c'source       . weight 0.1 . re ".*"    . noDefault
       , mkIC c'synopsis     . weight 0.8
       , mkIC c'type         . weight 0.0              . noDefault
+      , mkIC c'upload       . weight 1.0 . re dr      . noDefault . datecx
       , mkIC c'version      . weight 1.0 . re ".*"    . noDefault
       ]
+    where
+      d4 = "[0-9]{4}"
+      d2 = "[0-9]{2}"
+      ms = "-"
+      cl = ":"
+      dr = pack $ concat [d4, ms, d2, ms, d2, "T", d2, cl, d2, cl, d2]
 
 dropHayooIndexSchema :: Command
 dropHayooIndexSchema
@@ -116,6 +125,9 @@ ds  = ContextSchema
       , cxDefault    = True
       , cxType       = ctText
       }
+
+datecx :: ContextSchema -> ContextSchema
+datecx s = s {cxType = ctDate}
 
 weight :: CWeight -> ContextSchema -> ContextSchema
 weight w s = s {cxWeight = w}

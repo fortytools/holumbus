@@ -33,9 +33,13 @@ hayooGetPkgInfo                 = fromLA $
                                     getPkgSynopsis
                                     &&&
                                     getPkgDescr
+                                    &&&
+                                    getUploadDate
                                   )
                                   >>^
-                                  (\ (x1, (x2, (x3, (x4, (x5, (x6, (x7, (x8, x9)))))))) -> mkPackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9)
+                                  ( \(x1, (x2, (x3, (x4, (x5, (x6, (x7, (x8, (x9, x10))))))))) ->
+                                    mkPackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10
+                                  )
 
 hayooGetPkgTitle                :: IOSArrow XmlTree String
 hayooGetPkgTitle                = fromLA $
@@ -108,6 +112,9 @@ getPkgCategory                  = getAllText $ getProperty "Category"
 getPkgHomepage                  :: LA XmlTree String
 getPkgHomepage                  = getAllText $ getProperty "Home page"
 
+getUploadDate                   :: LA XmlTree String
+getUploadDate                   = getAllText $ getProperty "Upload date"
+
 getPkgDescr                     :: LA XmlTree String
 getPkgDescr                     = getAllText
                                   -- take all stuff between "h1" and next "h2" element in content
@@ -126,6 +133,9 @@ getPkgDescr                     = getAllText
                                     >>>
                                     (none                       -- remove h1 header
                                      `when` hasName "h1")
+                                    >>>
+                                    (none
+                                     `when` hasName "ul")       -- remove changelog
                                     >>>
                                     (none                       -- remove "Tags: ..." part
                                      `when` isElemWithAttr "div" "style" (== "font-size: small"))

@@ -39,12 +39,18 @@ data PackageInfo
       , p_homepage     :: String               -- ^ The home page
       , p_synopsis     :: String               -- ^ The synopsis
       , p_description  :: String               -- ^ The description of the package
+      , p_uploaddate   :: String               -- ^ The upload date
       , p_rank         :: ! Score              -- ^ The ranking
       }
     deriving (Show, Eq, Typeable)
 
-mkPackageInfo                   :: String -> String -> [String] -> String -> String -> String -> String -> String -> String -> PackageInfo
-mkPackageInfo n v d a m c h y s = PackageInfo n v (unwords d) a m c h y s defPackageRank
+mkPackageInfo                   :: String -> String -> [String] ->
+                                   String -> String -> String ->
+                                   String -> String -> String ->
+                                   String ->
+                                   PackageInfo
+mkPackageInfo n v d a m c h y s dt
+                                = PackageInfo n v (unwords d) a m c h y s dt defPackageRank
 
 defPackageRank :: Score
 defPackageRank = 1.0
@@ -61,17 +67,17 @@ getPackageDependencies          = words . p_dependencies
 instance XmlPickler PackageInfo where
     xpickle                     = xpWrap (fromTuple, toTuple) xpPackage
         where
-        fromTuple ((n, v, d), a, m, c, h, (y, s, r))
-                                = PackageInfo n v d a m c h y s r
-        toTuple (PackageInfo n v d a m c h y s r)
+        fromTuple ((n, v, d), a, m, c, h, (y, s, dt, r))
+                                = PackageInfo n v d a m c h y s dt r
+        toTuple (PackageInfo n v d a m c h y s dt r)
                                 = ((n, v, d)
                                   , a, m, c, h
-                                  ,(y, s, r)
+                                  ,(y, s, dt, r)
                                   )
         xpPackage               = xp6Tuple
                                   (xpTriple xpName xpVersion xpDependencies)
                                   xpAuthor xpMaintainer xpCategory xpHomepage
-                                  (xpTriple xpSynopsis xpDescr xpRank)
+                                  (xp4Tuple xpSynopsis xpDescr xpUploadDate xpRank)
             where
             xpName              = xpAttr "name"         xpText0
             xpVersion           = xpAttr "version"      xpText0
@@ -82,19 +88,20 @@ instance XmlPickler PackageInfo where
             xpHomepage          = xpAttr "homepage"     xpText0
             xpSynopsis          = xpAttr "synopsis"     xpText0
             xpDescr             = xpText
+            xpUploadDate        = xpAttr "upload-date"  xpText0
             xpRank              = xpAttr "rank" $
                                   xpWrap (read, show)   xpText0
 
 instance NFData PackageInfo where
-  rnf (PackageInfo n v d a m c h y s r)
+  rnf (PackageInfo n v d a m c h y s dt r)
                                 = rnf n `seq` rnf v `seq` rnf d `seq` rnf a `seq`
                                   rnf m `seq` rnf c `seq` rnf h `seq` rnf y `seq`
-                                  rnf s `seq` r          `seq` ()
+                                  rnf s `seq` rnf dt `seq` r          `seq` ()
 
 instance B.Binary PackageInfo where
-    put (PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10)
+    put (PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11)
                                 = put x1 >> put x2 >> put x3 >> put x4 >> put x5 >>
-                                  put x6 >> put x7 >> put x8 >> put x9 >> put x10
+                                  put x6 >> put x7 >> put x8 >> put x9 >> put x10 >> put x11
     get                         = do
                                   x1 <- get
                                   x2 <- get
@@ -106,37 +113,40 @@ instance B.Binary PackageInfo where
                                   x8 <- get
                                   x9 <- get
                                   x10 <- get
-                                  let r = PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10
+                                  x11 <- get
+                                  let r = PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11
                                   rnf r `seq` return r
 
 instance ToJSON PackageInfo where
-    toJSON (PackageInfo nam ver dep aut mai cat hom syn des ran)
+    toJSON (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
         = object
           ( ( map (uncurry (.=)) . filter (not . null . snd)
-            $ [ ("pkg-name",         nam)
-              , ("pkg-version",      ver)
-              , ("pkg-dependencies", dep)
-              , ("pkg-author",       aut)
-              , ("pkg-maintainer",   mai)
-              , ("pkg-category",     cat)
-              , ("pkg-homepage",     hom)
-              , ("pkg-synopsis",     syn)
-              , ("pkg-description",  des)
+            $ [ ("name",         nam)
+              , ("version",      ver)
+              , ("dependencies", dep)
+              , ("author",       aut)
+              , ("maintainer",   mai)
+              , ("category",     cat)
+              , ("homepage",     hom)
+              , ("synopsis",     syn)
+              , ("description",  des)
+              , ("upload",       upl)
               ]
             )
             ++ ( if ran == defPackageRank
                  then []
-                 else ["pkg-rank" .= show ran]  -- convert rank to string
+                 else ["rank" .= show ran]  -- convert rank to string
                )
           )
 
 instance Sizeable PackageInfo where
     dataOf _x                   = 10 .*. dataOfPtr
-    statsOf x@(PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10)
+    statsOf x@(PackageInfo x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11)
                                 = mkStats x <> statsOf x1 <> statsOf x2 <> statsOf x3
                                             <> statsOf x4 <> statsOf x5 <> statsOf x6
                                             <> statsOf x7 <> statsOf x8 <> statsOf x9
                                             <> statsOf x10
+                                            <> statsOf x11
 
 
 -- ------------------------------------------------------------

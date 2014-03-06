@@ -12,8 +12,10 @@ import           Data.Binary                  (Binary)
 import qualified Data.Binary                  as B
 import qualified Data.StringMap.Strict        as M
 import qualified Data.Text                    as T
+import           Data.Time
 
 import           Hayoo.Hunt.ApiDocument
+import           Hayoo.Hunt.IndexSchema
 import           Hayoo.IndexTypes
 
 import           Holumbus.Crawler
@@ -21,6 +23,8 @@ import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Common        hiding (URI)
 
 import           Hunt.Interpreter.Command
+
+import           System.Locale                (defaultTimeLocale)
 
 import           Text.XML.HXT.Core
 
@@ -79,10 +83,24 @@ insertHayooPkgM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
 
 toCommand :: PkgIndexerState -> Command
 toCommand (IndexerState _ (RDX ix))
-    = Sequence . map toCmd . M.toList $ ix
+    = Sequence . concatMap toCmd . M.toList $ ix
     where
       toCmd (k, (cx, t, cu))
-          = Update . toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
+          = insertCmd apiDoc1
+            where
+              insertCmd = (:[]) . Update
+              apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
+
+              -- HACK: add upload time to c'upload context
+              -- to enable search for latest packages
+              apiDoc1   = insIndexMap c'upload upl $
+                          apiDoc
+                  where
+                    upl = T.pack $ maybe "" id uplDate
+                        where
+                          uplDate = do dt1 <- p_uploaddate <$> cu
+                                       pd <- parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y" dt1
+                                       return $ formatTime defaultTimeLocale "%FT%X" $ (pd::UTCTime)
 
 -- ------------------------------------------------------------
 

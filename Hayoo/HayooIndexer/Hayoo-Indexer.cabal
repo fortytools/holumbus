@@ -58,10 +58,12 @@ executable hayooIndexer
                  , murmur-hash
                  , network                >= 2.1
                  , old-time               >= 1
+                 , old-locale             >= 1
                  , parsec                 >= 2.1   && < 4
                  , process                >= 1     && < 2
                  , tar                    >= 0.3
                  , text                   >= 0.11
+                 , time                   >= 1.4
                  , transformers           >= 0.3
                  , unordered-containers   >= 0.2
                  , zlib                   >= 0.5
