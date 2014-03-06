@@ -135,61 +135,66 @@ whole	:
 
 #----------------------------------------
 
+whole-json-schema	: $(indexer)
+	@echo "create Hayoo! Schema for Hunt server"
+	$< $(RUNOPTS) --json-create-schema $(OPTS)
+	ls ./json/00-*.js
+
+delete-json-schema	: $(indexer)
+	@echo "delete Hayoo! Schema for Hunt server"
+	$< $(RUNOPTS) --json-delete-schema $(OPTS)
+	ls ./json/00-*.js
+
 whole-json-index	: $(indexer)
 	@echo "build an index of all haddock pages on hackage in a single run"
-	@echo "fill the local cache before running this, to avoid network traffic and to get an up to date index"
+	@echo "fill the local cache before running this,"
+	@echo "to avoid network traffic and to get an up to date index"
 	@echo 'the result is written in JSON format into subdir "functions"'
 	@echo "there is a JSON file per hackage package"
-	$< $(RUNOPTS) --fct-index \
-		--json-output \
+	$< $(RUNOPTS) \
+		--json-fct \
 		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
 		--maxpar=$(maxpar) \
 		--valid=$(validix) \
-		--new-index=$(ix) \
-		--new-search=$(ix) \
 		$(OPTS)
-	ls ./functions/*.js
+	ls ./json/
 
 whole-json-pkg	: $(indexer)
-	@echo generate a new package index for all hackage packages inclusive ranking
-	@echo the resulting package index is "$(px)"
+	@echo "generate a new package index for all hackage packages inclusive ranking"
+	@echo "the resulting package index is $(px)"
 	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
 	rm -f tmp/pkg-*
-	$< $(RUNOPTS) --pkg-index \
-		--json-output \
+	$< $(RUNOPTS) \
+		--json-pkg \
 		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
 		--maxpar=$(maxdocs) \
 		--valid=$(validix) \
-		--new-index=$(px) \
-		--new-search=$(px) \
 		$(OPTS)
-	ls -l ./json/00-packages.js
+	ls -l ./json/00-*.js
 
 whole-json-rank	: $(indexer)
-	@echo generate a new package index for all hackage packages inclusive ranking
-	@echo the resulting package index is "$(px)"
+	@echo "generate a new package index for all hackage packages inclusive ranking"
+	@echo "the resulting package index is $(px)"
 	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
 	rm -f tmp/pkg-*
-	$< $(RUNOPTS) --pkg-index \
-		--json-output \
-		--only-ranking \
+	$< $(RUNOPTS) \
+		--json-pkg-rank \
 		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
 		--maxpar=$(maxdocs) \
 		--valid=$(validix) \
-		--new-index=$(px) \
-		--new-search=$(px) \
 		$(OPTS)
-	ls -l ./json/00-ranking.js
+	ls -l ./json/00-*.js
 
 whole-json	: $(indexer)
-	$(MAKE) update-cache      > log/update-cache.out     2>&1
-	$(MAKE) whole-json-index  > log/whole-json-index.out 2>&1
-	$(MAKE) whole-json-pkg    > log/whole-json-pkg.out   2>&1
-	$(MAKE) whole-json-rank   > log/whole-json-rank.out  2>&1
-	ls -l ./json
+	$(MAKE) update-cache      > log/update-cache.out      2>&1
+	$(MAKE) whole-json-schema > log/whole-json-schema.out 2>&1
+	$(MAKE) whole-json-index  > log/whole-json-index.out  2>&1
+	$(MAKE) whole-json-pkg    > log/whole-json-pkg.out    2>&1
+	$(MAKE) whole-json-rank   > log/whole-json-rank.out   2>&1
+	ls -l ./json/
 
 #----------------------------------------
 

@@ -17,18 +17,21 @@ import           Hayoo.Hunt.Output
 
 -- the context names
 
-c'author, c'category, c'dependencies, c'description, c'homepage,
-  c'maintainer, c'module, c'name, c'partial, c'package, c'signature, c'source,
+c'author, c'category, c'dependencies, c'description, c'hierarchy, c'homepage,
+  c'maintainer, c'module, c'name, c'normalized,
+  c'partial, c'package, c'signature, c'source,
   c'synopsis, c'type, c'version :: Text
 
 c'author       = "author"
 c'category     = "category"
 c'dependencies = "dependencies"
 c'description  = "description"
+c'hierarchy    = "hierarchy"
 c'homepage     = "homepage"
 c'maintainer   = "maintainer"
 c'module       = "module"
 c'name         = "name"
+c'normalized   = "normalized"
 c'package      = "package"
 c'partial      = "partial"
 c'signature    = "signature"
@@ -68,11 +71,14 @@ createHayooIndexSchema
       , mkIC c'category     . weight 1.0              . noDefault
       , mkIC c'dependencies . weight 1.0 . re "[^ ]*" . noDefault
       , mkIC c'description  . weight 0.3
+      , mkIC c'hierarchy    . weight 0.5 . re "[^ ]*" . noDefault
       , mkIC c'homepage     . weight 1.0 . re ".*"    . noDefault
       , mkIC c'maintainer   . weight 1.0              . noDefault
       , mkIC c'module       . weight 0.5 . re ".*"
       , mkIC c'name         . weight 3.0 . re "[^ ]*"
+      , mkIC c'normalized   . weight 0.2 . re ".*"
       , mkIC c'package      . weight 1.0 . re ".*"
+      , mkIC c'partial      . weight 1.0 . re "[^ ]*"
       , mkIC c'signature    . weight 0.2 . re ".*"
       , mkIC c'source       . weight 0.1 . re ".*"    . noDefault
       , mkIC c'synopsis     . weight 0.8
