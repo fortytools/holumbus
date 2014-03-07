@@ -91,10 +91,13 @@ toCommand (IndexerState _ (RDX ix))
               insertCmd = (:[]) . Insert
               apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
 
+              -- add "package" as type to the type context for easy search of packages
+              apiDoc0   = insIndexMap c'type d'package apiDoc
+
               -- HACK: add upload time to c'upload context
               -- to enable search for latest packages
               apiDoc1   = insIndexMap c'upload upl $
-                          apiDoc
+                          apiDoc0
                   where
                     upl = T.pack $ maybe "" id uplDate
                         where
