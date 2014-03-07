@@ -88,7 +88,7 @@ toCommand (IndexerState _ (RDX ix))
       toCmd (k, (cx, t, cu))
           = insertCmd apiDoc1
             where
-              insertCmd = (:[]) . Update
+              insertCmd = (:[]) . Insert
               apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
 
               -- HACK: add upload time to c'upload context
@@ -98,9 +98,10 @@ toCommand (IndexerState _ (RDX ix))
                   where
                     upl = T.pack $ maybe "" id uplDate
                         where
-                          uplDate = do dt1 <- p_uploaddate <$> cu
-                                       pd <- parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y" dt1
-                                       return $ formatTime defaultTimeLocale "%FT%X" $ (pd::UTCTime)
+                          uplDate
+                              = do dt1 <- p_uploaddate <$> cu
+                                   pd <- parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y" dt1
+                                   return $ formatTime defaultTimeLocale "%FT%X" $ (pd::UTCTime)
 
 -- ------------------------------------------------------------
 

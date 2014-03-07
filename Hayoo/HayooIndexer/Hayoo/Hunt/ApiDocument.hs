@@ -31,7 +31,7 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
       }
     where
       toCC (_,  []) = []
-      toCC (cx, ws) = [(T.pack cx, T.pack . unwords . map fst $ ws)]
+      toCC (cx, ws) = [(cxToHuntCx cx, T.pack . unwords . map fst $ ws)]
 
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a

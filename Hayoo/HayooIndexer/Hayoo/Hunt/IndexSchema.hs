@@ -7,11 +7,12 @@ import           Control.Monad.IO.Class
 
 import           Data.Text                (Text, pack)
 
+import           Hayoo.Hunt.Output
+import           Hayoo.IndexConfig
+
 import           Hunt.Common.BasicTypes
 import           Hunt.Index.Schema
 import           Hunt.Interpreter.Command
-
-import           Hayoo.Hunt.Output
 
 -- ------------------------------------------------------------
 
@@ -40,6 +41,26 @@ c'synopsis     = "synopsis"
 c'type         = "type"
 c'upload       = "upload"
 c'version      = "version"
+
+cxToHuntCx :: String -> Text
+cxToHuntCx cx
+    = maybe (error $ "no Hunt context found for: " ++ show cx) id . lookup cx $
+      [ (ix'description,  c'description)        -- the haddock contexts
+      , (ix'hierarchy,    c'hierarchy)
+      , (ix'module,       c'module)
+      , (ix'name,         c'name)
+      , (ix'normalized,   c'normalized)
+      , (ix'package,      c'package)
+      , (ix'partial,      c'partial)
+      , (ix'signature,    c'signature)
+
+      , (pk'author,       c'author)             -- the hackage package contexts
+      , (pk'category,     c'category)
+      , (pk'dependencies, c'dependencies)
+      , (pk'pkgdescr,     c'description)
+      , (pk'pkgname,      c'name)
+      , (pk'synopsis,     c'synopsis)
+      ]
 
 -- the descripion keys, most correspond 1-1 to context names
 
@@ -93,7 +114,7 @@ createHayooIndexSchema
       d2 = "[0-9]{2}"
       ms = "-"
       cl = ":"
-      dr = pack $ concat [d4, ms, d2, ms, d2, "T", d2, cl, d2, cl, d2]
+      dr = pack $ concat [d4, "(", ms, d2, "(", ms, d2, "(T", d2, cl, d2, cl, d2,")?)?)?"]
 
 dropHayooIndexSchema :: Command
 dropHayooIndexSchema
