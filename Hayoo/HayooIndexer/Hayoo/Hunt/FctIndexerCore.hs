@@ -96,7 +96,7 @@ toCommand update pkg (IndexerState _ (RDX ix))
           | update
               = DeleteByQuery $
                 QContext [c'package] $
-                QWord QCase $
+                QPhrase QCase $
                 T.pack pkg
           | otherwise
               = NOOP

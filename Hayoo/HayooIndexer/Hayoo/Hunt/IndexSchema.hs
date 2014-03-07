@@ -94,15 +94,14 @@ createHayooIndexSchema
       , mkIC c'category     . weight 1.0              . noDefault
       , mkIC c'dependencies . weight 1.0 . re "[^ ]*" . noDefault
       , mkIC c'description  . weight 0.3
-      , mkIC c'hierarchy    . weight 0.5 . re "[^ ]*" . noDefault
-      , mkIC c'homepage     . weight 1.0 . re ".*"    . noDefault
+      , mkIC c'hierarchy    . weight 0.1
       , mkIC c'maintainer   . weight 1.0              . noDefault
       , mkIC c'module       . weight 0.5 . re ".*"
       , mkIC c'name         . weight 3.0 . re "[^ ]*"
       , mkIC c'normalized   . weight 0.2 . re ".*"
       , mkIC c'package      . weight 1.0 . re ".*"
-      , mkIC c'partial      . weight 1.0 . re "[^ ]*"
-      , mkIC c'signature    . weight 0.2 . re ".*"
+      , mkIC c'partial      . weight 0.2 . re "[^ ]*"
+      , mkIC c'signature    . weight 1.0 . re ".*"    . noDefault
       , mkIC c'source       . weight 0.1 . re ".*"    . noDefault
       , mkIC c'synopsis     . weight 0.8
       , mkIC c'type         . weight 0.0              . noDefault
