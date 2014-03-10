@@ -8,7 +8,6 @@ module Hayoo.FunctionInfo
     ( FunctionInfo(..)
     , Fct'Type(..)
     , mkFunctionInfo
-    , hashFunctionInfo
     )
 where
 import           Control.Applicative ((<$>), (<*>))
@@ -118,9 +117,5 @@ instance Sizeable FunctionInfo where
     statsOf x@(FunctionInfo m s p r d _t)
                                 = mkStats x <> statsOf m <> statsOf s <> statsOf p
                                             <> statsOf r <> statsOf d
-
-hashFunctionInfo :: FunctionInfo -> Int
-hashFunctionInfo (FunctionInfo m s p r d t)
-    = undefined
 
 -- ------------------------------------------------------------

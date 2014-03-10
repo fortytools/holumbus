@@ -6,6 +6,7 @@ where
 import           Control.Monad.IO.Class
 
 import           Data.Text                (Text, pack)
+import           Data.Time
 
 import           Hayoo.Hunt.Output
 import           Hayoo.IndexConfig
@@ -14,12 +15,14 @@ import           Hunt.Common.BasicTypes
 import           Hunt.Index.Schema
 import           Hunt.Interpreter.Command
 
+import           System.Locale            (defaultTimeLocale)
+
 -- ------------------------------------------------------------
 
 -- the context names
 
 c'author, c'category, c'dependencies, c'description, c'hierarchy, c'homepage,
-  c'maintainer, c'module, c'name, c'normalized,
+  c'indexed, c'maintainer, c'module, c'name, c'normalized,
   c'partial, c'package, c'signature, c'source,
   c'synopsis, c'type, c'upload, c'version :: Text
 
@@ -29,6 +32,7 @@ c'dependencies = "dependencies"
 c'description  = "description"
 c'hierarchy    = "hierarchy"
 c'homepage     = "homepage"
+c'indexed      = "indexed"
 c'maintainer   = "maintainer"
 c'module       = "module"
 c'name         = "name"
@@ -64,7 +68,7 @@ cxToHuntCx cx
 
 -- the descripion keys, most correspond 1-1 to context names
 
-d'author, d'category, d'dependencies, d'description, d'homepage,
+d'author, d'category, d'dependencies, d'description, d'homepage, d'indexed,
   d'maintainer, d'module, d'name, d'package, d'signature, d'source,
   d'synopsis, d'type, d'upload, d'uris, d'version, d'rank :: Text
 
@@ -73,6 +77,7 @@ d'category     = c'category
 d'dependencies = c'dependencies
 d'description  = c'description
 d'homepage     = c'homepage
+d'indexed      = c'indexed
 d'maintainer   = c'maintainer
 d'module       = c'module
 d'name         = c'name
@@ -95,6 +100,7 @@ createHayooIndexSchema
       , mkIC c'dependencies . weight 1.0 . re "[^ ]*" . noDefault
       , mkIC c'description  . weight 0.3
       , mkIC c'hierarchy    . weight 0.1
+      , mkIC c'indexed      . weight 1.0 . re dr      . noDefault . datecx
       , mkIC c'maintainer   . weight 1.0              . noDefault
       , mkIC c'module       . weight 0.5 . re ".*"
       , mkIC c'name         . weight 3.0 . re "[^ ]*"
@@ -157,5 +163,18 @@ noDefault s = s {cxDefault = False}
 
 re :: CRegex -> ContextSchema -> ContextSchema
 re ex s = s {cxRegEx = Just ex}
+
+fmtDateXmlSchema :: UTCTime -> Text
+fmtDateXmlSchema = fmtDate' "%FT%X"
+
+fmtDateHTTP :: UTCTime -> Text
+fmtDateHTTP = fmtDate' "%a %b %e %H:%M:%S %Z %Y"
+
+fmtDate' :: String -> UTCTime -> Text
+fmtDate' fmt
+    = pack . formatTime defaultTimeLocale fmt
+
+parseDateHTTP :: String -> Maybe UTCTime
+parseDateHTTP = parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y"
 
 -- ------------------------------------------------------------

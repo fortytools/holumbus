@@ -19,6 +19,7 @@ import           Data.Function.Selector
 -- import           Data.List                   (intercalate)
 import           Data.Maybe
 import           Data.Size
+import           Data.Time                  (getCurrentTime)
 import           Data.Typeable
 
 import           Hayoo.HackagePackage
@@ -282,8 +283,9 @@ mainHackageJSON
       flushJSON :: String -> PJ.PkgIndexerState -> HIO ()
       flushJSON pkg ix
           = do serv <- asks ao_JSONserv
+               ct <- liftIO $ getCurrentTime
                notice $ "flushing package index as JSON to" : target serv
-               outputValue (dest serv) (PJ.toCommand ix)
+               outputValue (dest serv) (PJ.toCommand ct ix)
                notice $ ["flushing package index as JSON done"]
                return ()
           where
@@ -421,8 +423,9 @@ mainHaddockJSON
       flushJSON :: String -> FJ.FctIndexerState -> HIO ()
       flushJSON pkg ix
           = do serv <- asks ao_JSONserv
+               ct <- liftIO $ getCurrentTime
                notice $ "flushing function index as JSON to" : target serv
-               outputValue (dest serv) (FJ.toCommand True pkg ix)
+               outputValue (dest serv) (FJ.toCommand ct True pkg ix)
                notice $ ["flushing function index as JSON done"]
                return ()
           where
@@ -966,7 +969,7 @@ hayooOptDescr
         "maximum # of docs indexed at once before the results are inserted into index, default: 1024"
 
       , Option "" ["valid"]
-        ( ReqArg (setOption parseTime (\ x t -> x { ao_crawlPar = setDocAge t $
+        ( ReqArg (setOption parseDuration (\ x t -> x { ao_crawlPar = setDocAge t $
                                                                   ao_crawlPar x }))
           "DURATION"
         )
@@ -974,7 +977,7 @@ hayooOptDescr
           "10sec, 5min, 20hours, 3days, 5weeks, 1month, default is 1month" )
 
       , Option "" ["latest"]
-        ( ReqArg (setOption parseTime (\ x t -> x { ao_latest   = Just t }))
+        ( ReqArg (setOption parseDuration (\ x t -> x { ao_latest   = Just t }))
           "DURATION"
         )
         "select latest packages newer than given time, format like in option \"valid\""
@@ -1042,8 +1045,8 @@ parseInt s
     | match "[0-9]+" s                  = Right $ read s
     | otherwise                         = Left  $ "number expected in option arg"
 
-parseTime                               :: String -> Either String Int
-parseTime s
+parseDuration                           :: String -> Either String Int
+parseDuration s
     | match "[0-9]+(s(ec)?)?"      s    = Right $ t
     | match "[0-9]+(m(in)?)?"      s    = Right $ t * 60
     | match "[0-9]+(h(our(s)?)?)?" s    = Right $ t * 60 * 60

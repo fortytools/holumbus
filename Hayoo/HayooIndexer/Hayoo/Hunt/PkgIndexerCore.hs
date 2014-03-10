@@ -24,8 +24,6 @@ import           Holumbus.Index.Common        hiding (URI)
 
 import           Hunt.Interpreter.Command
 
-import           System.Locale                (defaultTimeLocale)
-
 import           Text.XML.HXT.Core
 
 -- ------------------------------------------------------------
@@ -81,12 +79,15 @@ insertHayooPkgM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: PkgIndexerState -> Command
-toCommand (IndexerState _ (RDX ix))
+toCommand :: UTCTime -> PkgIndexerState -> Command
+toCommand now (IndexerState _ (RDX ix))
     = Sequence . concatMap toCmd . M.toList $ ix
     where
+      now'  = fmtDateXmlSchema now
+      now'' = fmtDateHTTP      now
+
       toCmd (k, (cx, t, cu))
-          = insertCmd apiDoc1
+          = insertCmd apiDoc2
             where
               insertCmd = (:[]) . Insert
               apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
@@ -99,12 +100,17 @@ toCommand (IndexerState _ (RDX ix))
               apiDoc1   = insIndexMap c'upload upl $
                           apiDoc0
                   where
-                    upl = T.pack $ maybe "" id uplDate
+                    upl = maybe "" id uplDate
                         where
                           uplDate
                               = do dt1 <- p_uploaddate <$> cu
-                                   pd <- parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y" dt1
-                                   return $ formatTime defaultTimeLocale "%FT%X" $ (pd::UTCTime)
+                                   pd  <- parseDateHTTP dt1
+                                   return $ fmtDateXmlSchema pd
+
+              apiDoc2   = insDescrMap d'indexed now'' $
+                          insIndexMap c'indexed now'  $
+                          apiDoc1
+
 
 -- ------------------------------------------------------------
 
