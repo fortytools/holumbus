@@ -34,9 +34,9 @@ progs	= $(indexer)
 # the default is set to 8M
 
 N       = 1
-H       = 500
+H       = 100
 A       = 8
-K       = 200
+K       = 1
 RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 
 # partition: size of partial indexes build with whole-index
@@ -135,7 +135,21 @@ whole	:
 
 #----------------------------------------
 
-whole-json-schema	: $(indexer)
+JSERV	= --json-server=http://localhost:3000/
+
+jserv-schema	:
+	$(MAKE) json-schema OPTS="$(OPTS) $(JSERV)"
+
+jserv-index	:
+	$(MAKE) json-index OPTS="$(OPTS) $(JSERV)"
+
+jserv-pkg	:
+	$(MAKE) json-pkg OPTS="$(OPTS) $(JSERV)"
+
+jserv-rank	:
+	$(MAKE) json-rank OPTS="$(OPTS) $(JSERV)"
+
+json-schema	: $(indexer)
 	@echo "create Hayoo! Schema for Hunt server"
 	$< $(RUNOPTS) --json-create-schema $(OPTS)
 	ls ./json/00-*.js
@@ -145,7 +159,7 @@ delete-json-schema	: $(indexer)
 	$< $(RUNOPTS) --json-delete-schema $(OPTS)
 	ls ./json/00-*.js
 
-whole-json-index	: $(indexer)
+json-index	: $(indexer)
 	@echo "build an index of all haddock pages on hackage in a single run"
 	@echo "fill the local cache before running this,"
 	@echo "to avoid network traffic and to get an up to date index"
@@ -160,7 +174,7 @@ whole-json-index	: $(indexer)
 		$(OPTS)
 	ls ./json/
 
-whole-json-pkg	: $(indexer)
+json-pkg	: $(indexer)
 	@echo "generate a new package index for all hackage packages inclusive ranking"
 	@echo "the resulting package index is $(px)"
 	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
@@ -174,7 +188,7 @@ whole-json-pkg	: $(indexer)
 		$(OPTS)
 	ls -l ./json/00-*.js
 
-whole-json-rank	: $(indexer)
+json-rank	: $(indexer)
 	@echo "generate a new package index for all hackage packages inclusive ranking"
 	@echo "the resulting package index is $(px)"
 	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
@@ -190,10 +204,10 @@ whole-json-rank	: $(indexer)
 
 whole-json	: $(indexer)
 	@echo not done: "$(MAKE) update-cache      > log/update-cache.out      2>&1"
-	$(MAKE) whole-json-schema > log/whole-json-schema.out 2>&1
-	$(MAKE) whole-json-pkg    > log/whole-json-pkg.out    2>&1
-	$(MAKE) whole-json-rank   > log/whole-json-rank.out   2>&1
-	$(MAKE) whole-json-index  > log/whole-json-index.out  2>&1
+	$(MAKE) json-schema > log/whole-json-schema.out 2>&1
+	$(MAKE) json-pkg    > log/whole-json-pkg.out    2>&1
+	$(MAKE) json-rank   > log/whole-json-rank.out   2>&1
+	$(MAKE) json-index  > log/whole-json-index.out  2>&1
 	ls -l ./json/
 
 #----------------------------------------

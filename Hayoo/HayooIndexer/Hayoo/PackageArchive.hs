@@ -9,7 +9,10 @@ import qualified Codec.Archive.Tar.Entry as Tar
 
 import qualified Codec.Compression.GZip  as GZip (decompress)
 
+import           Control.Applicative
 import           Control.Arrow
+
+import           Holumbus.Crawler        (match)
 
 import           Data.ByteString.Lazy    (ByteString)
 import qualified Data.ByteString.Lazy    as BL
@@ -23,17 +26,10 @@ import           System.Time
 
 getNewPackages          :: Bool -> Int -> IO [String]
 getNewPackages updateArchive since
-                        = do
-                          if updateArchive
-                             -- this is a hack, should be done more elegant without the use of system and wget
-                             then system ("wget http://hackage.haskell.org/packages/" ++ archiveFile ++ " -O cache/" ++ archiveFile)
-                                  >> return ()
-                             else return ()
-                          t <- secondsAgo
-                          a <- BL.readFile $ "cache/" ++ archiveFile
-                          return $ latestPackages t a
+                        = do t <- secondsAgo
+                             a <- getArchiveFile updateArchive
+                             return $ latestPackages t a
     where
-    archiveFile         = "00-index.tar.gz"
     secondsAgo          :: IO ClockTime
     secondsAgo          = do
                           (TOD s _f) <- getClockTime
@@ -41,6 +37,27 @@ getNewPackages updateArchive since
                                          then 0
                                          else s - toInteger since
                                        ) 0
+
+-- ------------------------------------------------------------
+
+getRegexPackages        :: String -> IO [String]
+getRegexPackages re
+    = filterPkg <$> getArchiveFile False
+    where
+      filterPkg = nub . sort . filter (match re) . map fst . selectPackages
+
+getArchiveFile         :: Bool -> IO ByteString
+getArchiveFile update  = do if update
+                              -- this is a hack, should be done more elegant
+                              -- without the use of system and wget
+                              then system ( "wget http://hackage.haskell.org/packages/"
+                                            ++ archiveFile ++ " -O cache/" ++ archiveFile
+                                          )
+                                       >> return ()
+                              else return ()
+                            BL.readFile $ "cache/" ++ archiveFile
+    where
+      archiveFile       = "00-index.tar.gz"
 
 -- ------------------------------------------------------------
 

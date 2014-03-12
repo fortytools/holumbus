@@ -71,6 +71,7 @@ data AppOpts
       , ao_partix      :: Bool
       , ao_resume      :: Maybe String
       , ao_packages    :: [String]
+      , ao_pkgregex    :: Maybe String
       , ao_latest      :: Maybe Int
       , ao_getHack     :: Bool
       , ao_pkgRank     :: Bool
@@ -106,6 +107,7 @@ initAppOpts
       , ao_partix       = False
       , ao_resume       = Nothing
       , ao_packages     = []
+      , ao_pkgregex     = Nothing
       , ao_latest       = Nothing
       , ao_getHack      = False
       , ao_pkgRank      = False
@@ -216,8 +218,9 @@ mainCache
       action
           = asks ao_latest >>=
             maybe action2 updatePackages
+
       action2
-          = do pl <- asks ao_packages
+          = do pl <- getPackages
                case pl of
                  [] -> action3
                  _  -> updatePkg pl
@@ -264,7 +267,8 @@ mainHackageJSON
           = do latest <- asks ao_latest
                maybe action2 (updateLatest action2) latest
       action2
-          = do (act, ps) <- asks (ao_action &&& ao_packages)
+          = do act <- asks ao_action
+               ps <- getPackages
                case act of
                  BuildIx
                      -> indexPkg ps
@@ -285,7 +289,7 @@ mainHackageJSON
           = do serv <- asks ao_JSONserv
                ct <- liftIO $ getCurrentTime
                notice $ "flushing package index as JSON to" : target serv
-               outputValue (dest serv) (PJ.toCommand ct ix)
+               outputValue (dest serv) (PJ.toCommand ct True ix)
                notice $ ["flushing package index as JSON done"]
                return ()
           where
@@ -299,17 +303,18 @@ mainHackage'
     = action
     where
       action
-          = do apl <- asks (ao_action &&& ao_packages)
-               case apl of
-                 (RemovePkg, [])
-                     -> noaction
-                 (RemovePkg, ps)
-                     -> removePkg ps >>= writeRes
-                 (UpdatePkg, [])
-                     -> noaction
-                 (UpdatePkg, ps)
-                     -> updatePkg ps >>= writeRes
-                 (_,         ps)
+          = do ac <- asks ao_action
+               ps <- getPackages
+               case ac of
+                 RemovePkg
+                     -> if null ps
+                        then noaction
+                        else removePkg ps >>= writeRes
+                 UpdatePkg
+                     -> if null ps
+                        then noaction
+                        else updatePkg ps >>= writeRes
+                 _
                      -> do rs <- asks ao_resume
                            if isJust rs
                               then notice ["resume hackage package description indexing"]
@@ -396,7 +401,8 @@ mainHaddockJSON
           = do latest <- asks ao_latest
                maybe action2 (updateLatest action2) latest
       action2
-          = do (act, ps) <- asks (ao_action &&& ao_packages)
+          = do act <- asks ao_action
+               ps  <- getPackages
                case act of
                  BuildIx
                      -> indexPkgList ps
@@ -404,7 +410,7 @@ mainHaddockJSON
 
       indexPkgList :: [String] -> HIO ()
       indexPkgList ps
-          | null ps   = getPackageList >>= indexPkgList'
+          | null ps   = getPackageList >>= indexPkgList'        -- index all packages
           | otherwise =                    indexPkgList' ps
           where
             indexPkgList' []  = noaction
@@ -413,7 +419,9 @@ mainHaddockJSON
       indexPkg :: String -> HIO ()
       indexPkg pkg
           = do notice ["start indexing haddock pages in JSON for package:", show pkg]
-               local (\ o -> o { ao_packages = [pkg] }
+               local (\ o -> o { ao_packages = [pkg]
+                               , ao_pkgregex = Nothing
+                               }
                      ) $ do ix <- getS theResultAccu <$> hayooFJIndexer
                             flushJSON pkg ix
 
@@ -443,6 +451,7 @@ updateLatest cont latest
             then notice ["no new packages to be indexed"]
             else do local (\ o -> o { ao_latest   = Nothing
                                     , ao_packages = ps
+                                    , ao_pkgregex = Nothing
                                     }
                           ) cont
 
@@ -454,19 +463,20 @@ mainHaddock'
           = do latest <- asks ao_latest
                maybe action2 updateLatest' latest
       action2
-          = do apl <- asks (ao_action &&& ao_packages)
+          = do apl <- asks ao_action
+               ps  <- getPackages
                case apl of
-                 (RemovePkg, [])
-                     -> noaction
-                 (RemovePkg, ps)
-                     -> removePkg ps >>= writeRes
-                 (UpdatePkg, [])
-                     -> noaction
-                 (UpdatePkg, ps)
-                     -> updatePkg ps >>= writeRes
-                 (MergeIx, _)
+                 RemovePkg
+                     -> if null ps
+                        then noaction
+                        else removePkg ps >>= writeRes
+                 UpdatePkg
+                     -> if null ps
+                        then noaction
+                        else updatePkg ps >>= writeRes
+                 MergeIx
                      -> loadPartialIx >>= mergeAndWritePartialRes
-                 (_,         ps)
+                 _
                      -> do rs <- asks ao_resume
                            if isJust rs
                               then notice ["resume haddock document indexing"]
@@ -493,6 +503,7 @@ mainHaddock'
       loadPartialIx
           = local (\ o -> o { ao_action   = BuildIx
                             , ao_packages = []
+                            , ao_pkgregex = Nothing
                             }) (snd `fmap` indexPkg [])
 
       indexPkg :: [String] -> HIO (HayooIndexerState, [Int])
@@ -526,12 +537,25 @@ getPackageList
     = do age <- maybe 0 id <$> asks ao_latest
          liftIO $ getNewPackages False age
 
+getPackages :: HIO [String]
+getPackages
+    = do pl <- asks ao_packages
+         r  <- asks ao_pkgregex
+         case r of
+           Nothing -> return pl
+           Just x  -> do ps <- liftIO $ getRegexPackages x
+                         return ( if null ps
+                                  then pl
+                                  else ps
+                                )
+
 -- ------------------------------------------------------------
 
 removePacks :: (B.Binary di, NFData di) =>
                    (Document di -> String) -> HIO (HolumbusState di)
 removePacks getPkgName'
-    = do (ix, (pkg, dfg)) <- asks (ao_index &&& ao_packages &&& ao_defrag)
+    = do (ix, dfg) <- asks (ao_index &&& ao_defrag)
+         pkg <- getPackages
          liftIO $ removePackages' getPkgName' ix pkg dfg
 
 removePackagesIx ::HIO HayooIndexerState
@@ -857,21 +881,6 @@ hayooOptDescr
         )
         "output of final crawler state in xml format, \"-\" for stdout"
 
-      , Option "j" ["json-output"]
-        ( NoArg
-          (\ x -> x { ao_JSON = True })
-        )
-        "output of crawler results in JSON format, default: output to files in subdir \"./json/\""
-
-      , Option "" ["json-server"]
-        ( ReqArg
-          (\ u x -> x { ao_JSONserv = Just $ if null u then defaultServer else u})
-          "URI"
-        )
-        ( "the server, into which the JSON output will be pushed, default is " ++
-          show defaultServer ++ " (no file output)"
-        )
-
       , Option "r" ["resume"]
         ( ReqArg (\ s x -> x { ao_resume = Just s})
           "FILE"
@@ -880,10 +889,23 @@ hayooOptDescr
 
       , Option "p" ["packages"]
         ( ReqArg
-          (\ l x -> x { ao_packages = pkgList l })
+          (\ l x -> x { ao_packages = pkgList l
+                      , ao_pkgregex = Nothing
+                      }
+          )
           "PACKAGE-LIST"
         )
-        "packages to be processed, a comma separated list of package names"
+        "packages to be processed, a comma separated list of package names (overwrites --pkg-regex)"
+
+      , Option "" ["pkg-regex"]
+        ( ReqArg
+          (\ l x -> x { ao_pkgregex = Just l
+                      , ao_packages = []
+                      }
+          )
+          "PACKAGE-REGEX"
+        )
+        "packages to be processed, a regular expression pattern (overwrites --packages)"
 
       , Option "u" ["update"]
         ( NoArg $
@@ -945,6 +967,21 @@ hayooOptDescr
                    }
         )
         "JSON command to compute Hayoo package rank in Hunt server (--json-output implied)"
+
+      , Option "j" ["json-output"]
+        ( NoArg
+          (\ x -> x { ao_JSON = True })
+        )
+        "output of crawler results in JSON format, default: output to files in subdir \"./json/\""
+
+      , Option "" ["json-server"]
+        ( ReqArg
+          (\ u x -> x { ao_JSONserv = Just $ if null u then defaultServer else u})
+          "URI"
+        )
+        ( "the server, into which the JSON output will be pushed, default is " ++
+          show defaultServer ++ " (no file output)"
+        )
 
       , Option "" ["maxdocs"]
         ( ReqArg (setOption parseInt (\ x i -> x { ao_crawlDoc = setMaxDocs i $

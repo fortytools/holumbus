@@ -55,7 +55,9 @@ hackageRefs                     :: Bool -> [String] -> URI -> Bool
 hackageRefs withDoc pkgs        = simpleFollowRef'
                                   ( (hackagePackages ++ packageName')
                                     : ( if withDoc
-                                        then [ hackagePackageDocPath ++ modulePath ++ ext "html" ]
+                                        then [ hackagePackageDocPath' packageName'
+                                               ++ modulePath ++ ext "html"
+                                             ]
                                         else []
                                       )
                                   )
@@ -72,7 +74,10 @@ hackageRefs withDoc pkgs        = simpleFollowRef'
         | otherwise             = alternatives pkgs
 
 hackagePackageDocPath           :: String
-hackagePackageDocPath           = hackagePackages ++ packageName ++ opt packageVersion'' ++ "/docs/"
+hackagePackageDocPath           = hackagePackageDocPath' packageName
+
+hackagePackageDocPath'          :: String -> String
+hackagePackageDocPath' pn       = hackagePackages ++ pn ++ opt packageVersion'' ++ "/docs/"
 
 hackageGetPackage               :: String -> String
 hackageGetPackage u

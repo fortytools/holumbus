@@ -23,6 +23,7 @@ import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Common        hiding (URI)
 
 import           Hunt.Interpreter.Command
+import           Hunt.Query.Language.Grammar
 
 import           Text.XML.HXT.Core
 
@@ -79,12 +80,29 @@ insertHayooPkgM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: UTCTime -> PkgIndexerState -> Command
-toCommand now (IndexerState _ (RDX ix))
-    = Sequence . concatMap toCmd . M.toList $ ix
+toCommand :: UTCTime -> Bool -> PkgIndexerState -> Command
+toCommand now update (IndexerState _ (RDX ix))
+    = Sequence
+      [ deletePkgCmd
+      , Sequence . concatMap toCmd . M.toList $ ix
+      ]
     where
       now'  = fmtDateXmlSchema now
       now'' = fmtDateHTTP      now
+
+      deletePkgCmd
+          | update && not (M.null ix)
+              = DeleteByQuery $
+                QBinary And ( QContext [c'type] $
+                              QPhrase QCase $
+                              d'package
+                            ) $
+                foldr1 (\ x y -> QBinary Or x y) $
+                map (\(_cx, t, _cs) -> QContext [c'name] . QPhrase QCase . T.pack $ t) $
+                M.elems ix
+
+          | otherwise
+              = NOOP
 
       toCmd (k, (cx, t, cu))
           = insertCmd apiDoc2
