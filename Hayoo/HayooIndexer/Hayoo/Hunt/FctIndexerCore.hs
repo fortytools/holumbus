@@ -14,8 +14,8 @@ import qualified Data.Binary                  as B
 import qualified Data.IntMap.Strict           as IM
 import qualified Data.List                    as L
 import qualified Data.StringMap.Strict        as M
-import           Data.Time
 import qualified Data.Text                    as T
+import           Data.Time
 -- import qualified Data.Map.Strict              as SM
 
 import           Hayoo.FunctionInfo
@@ -86,19 +86,20 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: UTCTime -> Bool -> String -> FctIndexerState -> Command
-toCommand now update pkg (IndexerState _ (RDX ix))
+toCommand :: UTCTime -> Bool -> [String] -> FctIndexerState -> Command
+toCommand now update pkgs (IndexerState _ (RDX ix))
     = Sequence
       [ deletePkgCmd
       , Sequence . concatMap toCmd . M.toList $ ix
       ]
     where
       deletePkgCmd
-          | update
-              = DeleteByQuery $
-                QContext [c'package] $
-                QPhrase QCase $
-                T.pack pkg
+          | update && not (null pkgs)
+              = DeleteByQuery                $
+                QContext [c'package]         $
+                foldr1 (QBinary Or)          $
+                map (QPhrase QCase . T.pack) $
+                pkgs
           | otherwise
               = NOOP
 

@@ -94,10 +94,10 @@ toCommand now update (IndexerState _ (RDX ix))
           | update && not (M.null ix)
               = DeleteByQuery $
                 QBinary And ( QContext [c'type] $
-                              QPhrase QCase $
+                              QPhrase QCase     $
                               d'package
                             ) $
-                foldr1 (\ x y -> QBinary Or x y) $
+                foldr1 (QBinary Or) $
                 map (\(_cx, t, _cs) -> QContext [c'name] . QPhrase QCase . T.pack $ t) $
                 M.elems ix
 

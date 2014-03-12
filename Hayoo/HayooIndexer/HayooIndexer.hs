@@ -66,11 +66,12 @@ data AppOpts
       , ao_pkgIndex    :: Bool
       , ao_JSON        :: Bool
       , ao_JSONserv    :: Maybe String
+      , ao_JSONmax     :: Int
       , ao_action      :: AppAction
       , ao_defrag      :: Bool
       , ao_partix      :: Bool
       , ao_resume      :: Maybe String
-      , ao_packages    :: [String]
+      , ao_packages    :: Maybe [String]
       , ao_pkgregex    :: Maybe String
       , ao_latest      :: Maybe Int
       , ao_getHack     :: Bool
@@ -102,11 +103,12 @@ initAppOpts
       , ao_pkgIndex     = False
       , ao_JSON         = False
       , ao_JSONserv     = Nothing
+      , ao_JSONmax      = 1
       , ao_action       = Usage
       , ao_defrag       = False
       , ao_partix       = False
       , ao_resume       = Nothing
-      , ao_packages     = []
+      , ao_packages     = Nothing
       , ao_pkgregex     = Nothing
       , ao_latest       = Nothing
       , ao_getHack      = False
@@ -216,14 +218,13 @@ mainCache
     = do action
     where
       action
-          = asks ao_latest >>=
-            maybe action2 updatePackages
+          = withPackages False action2
 
       action2
-          = do pl <- getPackages
+          = do pl <- asks ao_packages
                case pl of
-                 [] -> action3
-                 _  -> updatePkg pl
+                 Nothing -> action3
+                 Just xs -> updatePkg xs
 
       action3
           = do rs <- asks ao_resume
@@ -231,7 +232,7 @@ mainCache
                         then ["resume cache update"]
                         else ["cache hayoo pages"]
                hayooCacher >>= writeResults
-
+{-
       updatePackages latest
           = do notice ["compute list of latest packages"]
                (hk, cp) <- asks (ao_getHack &&& ao_crawlPar)
@@ -240,7 +241,7 @@ mainCache
                                      , ao_crawlPar = setDocAge 1 cp    -- force cache update
                                      }
                      ) $ updatePkg pl
-
+-}
       updatePkg []
           = notice ["no packages to be updated"]
       updatePkg ps
@@ -264,11 +265,11 @@ mainHackageJSON
     = do action
     where
       action
-          = do latest <- asks ao_latest
-               maybe action2 (updateLatest action2) latest
+          = withPackages False action2
+
       action2
           = do act <- asks ao_action
-               ps <- getPackages
+               ps <- (maybe [] id) <$> asks ao_packages
                case act of
                  BuildIx
                      -> indexPkg ps
@@ -300,11 +301,11 @@ mainHackageJSON
 
 mainHackage' :: HIO ()
 mainHackage'
-    = action
+    = withPackages False action
     where
       action
           = do ac <- asks ao_action
-               ps <- getPackages
+               ps <- (maybe [] id) <$> asks ao_packages
                case ac of
                  RemovePkg
                      -> if null ps
@@ -395,53 +396,53 @@ mainHaddock
 
 mainHaddockJSON :: HIO ()
 mainHaddockJSON
-    = do action
+    = withPackages True action
     where
       action
-          = do latest <- asks ao_latest
-               maybe action2 (updateLatest action2) latest
-      action2
           = do act <- asks ao_action
-               ps  <- getPackages
+               ps  <- (maybe [] id) <$>
+                      asks ao_packages
                case act of
                  BuildIx
                      -> indexPkgList ps
                  _   -> notice ["mainHaddockJSON:", "ignoring command"]
 
       indexPkgList :: [String] -> HIO ()
-      indexPkgList ps
-          | null ps   = getPackageList >>= indexPkgList'        -- index all packages
-          | otherwise =                    indexPkgList' ps
+      indexPkgList []  = noaction
+      indexPkgList ps' = do mx  <- asks ao_JSONmax
+                            mapM_ (indexPkg) $ part mx ps'
           where
-            indexPkgList' []  = noaction
-            indexPkgList' ps' = mapM_ indexPkg ps'
+            part _ [] = []
+            part n xs = x : part n xs'
+                where
+                  (x, xs') = splitAt n xs
 
-      indexPkg :: String -> HIO ()
-      indexPkg pkg
-          = do notice ["start indexing haddock pages in JSON for package:", show pkg]
-               local (\ o -> o { ao_packages = [pkg]
-                               , ao_pkgregex = Nothing
-                               }
+      indexPkg :: [String] -> HIO ()
+      indexPkg pkgs
+          = do notice ["start indexing haddock pages in JSON for package:", show pkgs]
+               local (\ o -> o { ao_packages = Just pkgs }
                      ) $ do ix <- getS theResultAccu <$> hayooFJIndexer
-                            flushJSON pkg ix
+                            flushJSON pkgs ix
 
-               notice ["finish indexing haddock pages in JSON for package:", show pkg]
+               notice ["finish indexing haddock pages in JSON for package:", show pkgs]
                return ()
 
-      flushJSON :: String -> FJ.FctIndexerState -> HIO ()
-      flushJSON pkg ix
+      flushJSON :: [String] -> FJ.FctIndexerState -> HIO ()
+      flushJSON pkgs ix
           = do serv <- asks ao_JSONserv
                ct <- liftIO $ getCurrentTime
                notice $ "flushing function index as JSON to" : target serv
-               outputValue (dest serv) (FJ.toCommand ct True pkg ix)
+               outputValue (dest serv) (FJ.toCommand ct True pkgs ix)
                notice $ ["flushing function index as JSON done"]
                return ()
           where
             target (Just uri) = ["server", show uri]
-            target  Nothing   = ["file",   show pkg]
+            target  Nothing   = ["file",   show $ fn pkgs]
             dest  (Just uri)  = Right uri
-            dest   Nothing    = Left pkg
-
+            dest   Nothing    = Left $ fn pkgs
+            fn [pkg]          = pkg
+            fn xs             = head xs ++ ".." ++ last xs
+{-
 updateLatest :: HIO () -> Int -> HIO ()
 updateLatest cont latest
     = do notice ["updateLatest: compute latest packages"]
@@ -450,30 +451,30 @@ updateLatest cont latest
          if null ps
             then notice ["no new packages to be indexed"]
             else do local (\ o -> o { ao_latest   = Nothing
-                                    , ao_packages = ps
+                                    , ao_packages = Just ps
                                     , ao_pkgregex = Nothing
                                     }
                           ) cont
-
+-}
 mainHaddock' :: HIO ()
 mainHaddock'
-    = do action
+    = withPackages False action
     where
       action
           = do latest <- asks ao_latest
                maybe action2 updateLatest' latest
       action2
           = do apl <- asks ao_action
-               ps  <- getPackages
+               ps  <- asks ao_packages
                case apl of
                  RemovePkg
-                     -> if null ps
-                        then noaction
-                        else removePkg ps >>= writeRes
+                     -> maybe noaction
+                              (\x -> removePkg x >>= writeRes)
+                              ps
                  UpdatePkg
-                     -> if null ps
-                        then noaction
-                        else updatePkg ps >>= writeRes
+                     -> maybe noaction
+                              (\x -> updatePkg x >>= writeRes)
+                              ps
                  MergeIx
                      -> loadPartialIx >>= mergeAndWritePartialRes
                  _
@@ -481,7 +482,7 @@ mainHaddock'
                            if isJust rs
                               then notice ["resume haddock document indexing"]
                               else return ()
-                           (indexPkg ps >>= writePartialRes)
+                           ((indexPkg $ maybe [] id ps) >>= writePartialRes)
 
       removePkg ps
           = do notice $ "deleting packages" : ps ++ ["from haddock index"]
@@ -502,8 +503,7 @@ mainHaddock'
       loadPartialIx :: HIO [Int]
       loadPartialIx
           = local (\ o -> o { ao_action   = BuildIx
-                            , ao_packages = []
-                            , ao_pkgregex = Nothing
+                            , ao_packages = Nothing
                             }) (snd `fmap` indexPkg [])
 
       indexPkg :: [String] -> HIO (HayooIndexerState, [Int])
@@ -531,23 +531,62 @@ noaction
     = notice ["no packages to be processed"]
 
 -- ------------------------------------------------------------
-
+{-
 getPackageList :: HIO [String]
 getPackageList
     = do age <- maybe 0 id <$> asks ao_latest
          liftIO $ getNewPackages False age
-
-getPackages :: HIO [String]
-getPackages
+-}
+getPackages :: Bool -> HIO (Maybe [String])
+getPackages allPkgs
     = do pl <- asks ao_packages
          r  <- asks ao_pkgregex
-         case r of
-           Nothing -> return pl
-           Just x  -> do ps <- liftIO $ getRegexPackages x
-                         return ( if null ps
-                                  then pl
-                                  else ps
-                                )
+         ls <- asks ao_latest
+         pl1 <- packageList pl ls
+         pl2 <- filterRegex r pl1
+         case pl2 of
+           Just xs -> notice ["packages to be processed:", show xs]
+           Nothing -> notice ["all packages to be processed"]
+         return pl2
+    where
+      packageList :: Maybe [String] -> Maybe Int -> HIO (Maybe [String])
+      packageList _ (Just age)                                  -- eval option --latest
+          = do notice ["compute list of latest packages"]
+               res <- liftIO $ getNewPackages False age
+               notice ["latest packages:", show res]
+               return $ Just res
+
+      packageList Nothing _                                     -- compute default package list
+          | allPkgs
+              = Just <$> (liftIO $ getRegexPackages ".*")
+          | otherwise
+              = return Nothing
+
+      packageList ps _                                          -- explicit list --packages
+          = return ps
+
+      filterRegex :: Maybe String -> Maybe [String] -> HIO (Maybe [String])
+      filterRegex _ Nothing
+          = return Nothing
+
+      filterRegex Nothing ps
+          = return ps
+
+      filterRegex (Just rex) (Just ps)
+          = do notice ["filtered package list:", show ps]
+               return $ Just res
+            where
+              res = filter (match rex) ps
+
+withPackages :: Bool -> HIO a -> HIO a
+withPackages allPkgs act
+    = do ps <- getPackages allPkgs
+         local (\opts -> opts
+                         { ao_latest   = Nothing
+                         , ao_pkgregex = Nothing
+                         , ao_packages = ps
+                         }
+               ) act
 
 -- ------------------------------------------------------------
 
@@ -555,7 +594,7 @@ removePacks :: (B.Binary di, NFData di) =>
                    (Document di -> String) -> HIO (HolumbusState di)
 removePacks getPkgName'
     = do (ix, dfg) <- asks (ao_index &&& ao_defrag)
-         pkg <- getPackages
+         pkg <- (maybe [] id) <$> asks ao_packages
          liftIO $ removePackages' getPkgName' ix pkg dfg
 
 removePackagesIx ::HIO HayooIndexerState
@@ -660,7 +699,7 @@ hayooPkgIndexer
     config0 o
         = indexCrawlerConfig
           (ao_crawlPar o)
-          (hayooRefs False $ ao_packages o)
+          (hayooRefs False $ (maybe [] id $ ao_packages o))
           Nothing
           (Just $ checkDocumentStatus >>> preparePkg)
           (Just $ hayooGetPkgTitle)
@@ -695,7 +734,7 @@ hayooPJIndexer
       config0 o
           = PJ.indexCrawlerConfig
             (ao_crawlPar o)
-            (hayooRefs False $ ao_packages o)
+            (hayooRefs False $ (maybe [] id $ ao_packages o))
             Nothing
             (Just $ checkDocumentStatus >>> preparePkg)
             (Just $ hayooGetPkgTitle)
@@ -730,7 +769,7 @@ hayooFJIndexer
       config0 o
           = FJ.indexCrawlerConfig
             (ao_crawlPar o)
-            (hayooRefs True $ ao_packages o)
+            (hayooRefs True $ (maybe [] id $ ao_packages o))
             Nothing
             (Just $ checkDocumentStatus >>> prepareHaddock)
             (Just $ hayooGetTitle)
@@ -764,7 +803,7 @@ hayooIndexer
     config0 o
         = indexCrawlerConfig
           (ao_crawlPar o)
-          (hayooRefs True $ ao_packages o)
+          (hayooRefs True $ (maybe [] id $ ao_packages o))
           Nothing
           (Just $ checkDocumentStatus >>> prepareHaddock)
           (Just $ hayooGetTitle)
@@ -889,23 +928,19 @@ hayooOptDescr
 
       , Option "p" ["packages"]
         ( ReqArg
-          (\ l x -> x { ao_packages = pkgList l
-                      , ao_pkgregex = Nothing
-                      }
+          (\ l x -> x { ao_packages = Just $ pkgList l }
           )
           "PACKAGE-LIST"
         )
-        "packages to be processed, a comma separated list of package names (overwrites --pkg-regex)"
+        "packages to be processed, a comma separated list of package names"
 
       , Option "" ["pkg-regex"]
         ( ReqArg
-          (\ l x -> x { ao_pkgregex = Just l
-                      , ao_packages = []
-                      }
+          (\ l x -> x { ao_pkgregex = Just l }
           )
           "PACKAGE-REGEX"
         )
-        "packages to be processed, a regular expression pattern (overwrites --packages)"
+        "filter for packages to be processed, a regular expression pattern)"
 
       , Option "u" ["update"]
         ( NoArg $
@@ -982,6 +1017,12 @@ hayooOptDescr
         ( "the server, into which the JSON output will be pushed, default is " ++
           show defaultServer ++ " (no file output)"
         )
+
+      , Option "" ["json-maxpkg"]
+        ( ReqArg (setOption parseInt (\ x i -> x { ao_JSONmax = 1 `max` i }))
+          "NUMBER"
+        )
+        "when indexing JSON, maximum # of packages indexed as a bundle, default is 1"
 
       , Option "" ["maxdocs"]
         ( ReqArg (setOption parseInt (\ x i -> x { ao_crawlDoc = setMaxDocs i $
