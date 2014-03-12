@@ -37,7 +37,7 @@ N       = 1
 H       = 100
 A       = 8
 K       = 1
-RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
+RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -I0 -RTS
 
 # partition: size of partial indexes build with whole-index
 #            if size >= 1000, there occur "out of memory" errors when writing partial indexes
@@ -47,6 +47,7 @@ RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -RTS
 partition =500
 maxpar    =500
 maxdocs   =50000
+maxpkg    =100
 
 all	:
 	cd .. && cabal configure && cabal build && cabal install
@@ -135,44 +136,60 @@ whole	:
 
 #----------------------------------------
 
-JSERV	= --json-server=http://localhost:3000/
+JHOST   = http://localhost:3000/
+JSERV	= --json-server=$(JHOST)
 
 jserv-schema	:
 	$(MAKE) json-schema OPTS="$(OPTS) $(JSERV)"
 
+jserv-index-1	:
+	$(MAKE) json-index OPTS="'--pkg-regex=[0-9A-Z].*' $(OPTS) $(JSERV)"
+	curl $(JHOST)/binary/save/hayoo-fct-ix.0-9A-Z
+
+jserv-index-2	:
+	$(MAKE) json-index OPTS="'--pkg-regex=[a-k].*' $(OPTS) $(JSERV)"
+	curl $(JHOST)/binary/save/hayoo-fct-ix.0-9A-Za-k
+
+jserv-index-3	:
+	$(MAKE) json-index OPTS="'--pkg-regex=[l-z].*' $(OPTS) $(JSERV)"
+	curl $(JHOST)/binary/save/hayoo-fct-ix
+
 jserv-index	:
-	$(MAKE) json-index OPTS="$(OPTS) $(JSERV)"
+	$(MAKE) jserv-index-1
+	$(MAKE) jserv-index-2
+	$(MAKE) jserv-index-3
 
 jserv-pkg	:
 	$(MAKE) json-pkg OPTS="$(OPTS) $(JSERV)"
+	curl $(JHOST)/binary/save/hayoo-pkg-ix
 
 jserv-rank	:
 	$(MAKE) json-rank OPTS="$(OPTS) $(JSERV)"
+	curl $(JHOST)/binary/save/hayoo-rank-ix
+
+whole-jserv	: $(indexer)
+	@echo not done: "$(MAKE) update-cache      > log/update-cache.out      2>&1"
+	for i in jserv-schema jserv-pkg jserv-rank jserv-index ;\
+	do \
+	  $(MAKE) $$i > log/$$i.out 2>&1 ; \
+	done
 
 json-schema	: $(indexer)
 	@echo "create Hayoo! Schema for Hunt server"
 	$< $(RUNOPTS) --json-create-schema $(OPTS)
-	ls ./json/00-*.js
 
 delete-json-schema	: $(indexer)
 	@echo "delete Hayoo! Schema for Hunt server"
 	$< $(RUNOPTS) --json-delete-schema $(OPTS)
-	ls ./json/00-*.js
 
 json-index	: $(indexer)
-	@echo "build an index of all haddock pages on hackage in a single run"
-	@echo "fill the local cache before running this,"
-	@echo "to avoid network traffic and to get an up to date index"
-	@echo 'the result is written in JSON format into subdir "functions"'
-	@echo "there is a JSON file per hackage package"
 	$< $(RUNOPTS) \
 		--json-fct \
 		--maxdocs=$(maxdocs) \
 		--maxthreads=$(threads) \
-		--maxpar=$(maxpar) \
+		--json-maxpkg=$(maxpkg) \
 		--valid=$(validix) \
 		$(OPTS)
-	ls ./json/
 
 json-pkg	: $(indexer)
 	@echo "generate a new package index for all hackage packages inclusive ranking"
@@ -186,7 +203,6 @@ json-pkg	: $(indexer)
 		--maxpar=$(maxdocs) \
 		--valid=$(validix) \
 		$(OPTS)
-	ls -l ./json/00-*.js
 
 json-rank	: $(indexer)
 	@echo "generate a new package index for all hackage packages inclusive ranking"
@@ -200,15 +216,13 @@ json-rank	: $(indexer)
 		--maxpar=$(maxdocs) \
 		--valid=$(validix) \
 		$(OPTS)
-	ls -l ./json/00-*.js
 
 whole-json	: $(indexer)
 	@echo not done: "$(MAKE) update-cache      > log/update-cache.out      2>&1"
-	$(MAKE) json-schema > log/whole-json-schema.out 2>&1
-	$(MAKE) json-pkg    > log/whole-json-pkg.out    2>&1
-	$(MAKE) json-rank   > log/whole-json-rank.out   2>&1
-	$(MAKE) json-index  > log/whole-json-index.out  2>&1
-	ls -l ./json/
+	for i in json-schema json-pkg json-rank json-index ; \
+	do \
+	  $(MAKE) $$i > log/$$i.out 2>&1 ; \
+	done
 
 #----------------------------------------
 

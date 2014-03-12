@@ -265,7 +265,7 @@ mainHackageJSON
     = do action
     where
       action
-          = withPackages False action2
+          = withPackages True action2
 
       action2
           = do act <- asks ao_action
@@ -541,28 +541,29 @@ getPackages :: Bool -> HIO (Maybe [String])
 getPackages allPkgs
     = do pl <- asks ao_packages
          r  <- asks ao_pkgregex
+         h  <- asks ao_getHack
          ls <- asks ao_latest
-         pl1 <- packageList pl ls
+         pl1 <- packageList h pl ls
          pl2 <- filterRegex r pl1
          case pl2 of
            Just xs -> notice ["packages to be processed:", show xs]
            Nothing -> notice ["all packages to be processed"]
          return pl2
     where
-      packageList :: Maybe [String] -> Maybe Int -> HIO (Maybe [String])
-      packageList _ (Just age)                                  -- eval option --latest
+      packageList :: Bool -> Maybe [String] -> Maybe Int -> HIO (Maybe [String])
+      packageList b _ (Just age)                                  -- eval option --latest
           = do notice ["compute list of latest packages"]
-               res <- liftIO $ getNewPackages False age
+               res <- liftIO $ getNewPackages b age
                notice ["latest packages:", show res]
                return $ Just res
 
-      packageList Nothing _                                     -- compute default package list
+      packageList b Nothing _                                   -- compute default package list
           | allPkgs
-              = Just <$> (liftIO $ getRegexPackages ".*")
+              = Just <$> (liftIO $ getNewPackages b 0)
           | otherwise
               = return Nothing
 
-      packageList ps _                                          -- explicit list --packages
+      packageList _ ps _                                        -- explicit list --packages
           = return ps
 
       filterRegex :: Maybe String -> Maybe [String] -> HIO (Maybe [String])
