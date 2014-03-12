@@ -136,8 +136,8 @@ whole	:
 
 #----------------------------------------
 
-JHOST   = http://localhost:3000/
-JSERV	= --json-server=$(JHOST)
+JHOST   = http://localhost:3000
+JSERV	= --json-server=$(JHOST)/
 
 jserv-schema	:
 	$(MAKE) json-schema OPTS="$(OPTS) $(JSERV)"
