@@ -47,7 +47,6 @@ RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -I0 -RTS
 partition =500
 maxpar    =500
 maxdocs   =50000
-maxpkg    =100
 
 all	:
 	cd .. && cabal configure && cabal build && cabal install
@@ -136,36 +135,46 @@ whole	:
 
 #----------------------------------------
 
+# uri of hunt server
 JHOST   = http://localhost:3000
-JSERV	= --json-server=$(JHOST)/
+
+# indexer options to push results directly into hunt-server
+# with --json-maxsave=n the server saves its state after indexing n haddock packges
+# for packges and rank the state is saved at the end of indexing
+
+JSERV	= --json-server=$(JHOST)/  --json-maxsave=1000
+
+# default crawler option for json
+# --maxdocs=n is the upper limit of pages to be indexed,
+# it prevents the crawler running into an infinite loop
+#
+# --maxtheads=n is the number of haskell threads indexing pages in parallel
+# it is set to 1 meaning the crawler is running sequentially
+# values > 1 led to segmentation faults, the reason seem, that
+# the curl lib is (was?) not thread save
+#
+# --valid=d is the duration for which the local cache with the hackage pages
+# is valid, --valid=0 leads to a total refresh of the cache
+
+OPTS0	= --maxdocs=50000 --maxthreads=1  --valid=$(validix) --json-maxpkg=100
 
 jserv-schema	:
 	$(MAKE) json-schema OPTS="$(OPTS) $(JSERV)"
 
-jserv-index-1	:
-	$(MAKE) json-index OPTS="'--pkg-regex=[0-9A-Z].*' $(OPTS) $(JSERV)"
-	curl $(JHOST)/binary/save/hayoo-fct-ix.0-9A-Z
-
-jserv-index-2	:
-	$(MAKE) json-index OPTS="'--pkg-regex=[a-k].*' $(OPTS) $(JSERV)"
-	curl $(JHOST)/binary/save/hayoo-fct-ix.0-9A-Za-k
-
-jserv-index-3	:
-	$(MAKE) json-index OPTS="'--pkg-regex=[l-z].*' $(OPTS) $(JSERV)"
-	curl $(JHOST)/binary/save/hayoo-fct-ix
-
 jserv-index	:
-	$(MAKE) jserv-index-1
-	$(MAKE) jserv-index-2
-	$(MAKE) jserv-index-3
+	$(MAKE) json-index OPTS="$(OPTS) $(JSERV)"
 
 jserv-pkg	:
 	$(MAKE) json-pkg OPTS="$(OPTS) $(JSERV)"
-	curl $(JHOST)/binary/save/hayoo-pkg-ix
 
 jserv-rank	:
 	$(MAKE) json-rank OPTS="$(OPTS) $(JSERV)"
-	curl $(JHOST)/binary/save/hayoo-rank-ix
+
+jserv-update	:
+	$(MAKE) json-update OPTS="$(OPTS) $(JSERV)"
+
+jserv-update-all	:
+	$(MAKE) json-update-all OPTS="$(OPTS) $(JSERV)"
 
 whole-jserv	: $(indexer)
 	@echo not done: "$(MAKE) update-cache      > log/update-cache.out      2>&1"
@@ -178,44 +187,18 @@ json-schema	: $(indexer)
 	@echo "create Hayoo! Schema for Hunt server"
 	$< $(RUNOPTS) --json-create-schema $(OPTS)
 
-delete-json-schema	: $(indexer)
+json-schema-delete	: $(indexer)
 	@echo "delete Hayoo! Schema for Hunt server"
 	$< $(RUNOPTS) --json-delete-schema $(OPTS)
 
 json-index	: $(indexer)
-	$< $(RUNOPTS) \
-		--json-fct \
-		--maxdocs=$(maxdocs) \
-		--maxthreads=$(threads) \
-		--json-maxpkg=$(maxpkg) \
-		--valid=$(validix) \
-		$(OPTS)
+	$< $(RUNOPTS) --json-fct $(OPTS0) $(OPTS)
 
 json-pkg	: $(indexer)
-	@echo "generate a new package index for all hackage packages inclusive ranking"
-	@echo "the resulting package index is $(px)"
-	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
-	rm -f tmp/pkg-*
-	$< $(RUNOPTS) \
-		--json-pkg \
-		--maxdocs=$(maxdocs) \
-		--maxthreads=$(threads) \
-		--maxpar=$(maxdocs) \
-		--valid=$(validix) \
-		$(OPTS)
+	$< $(RUNOPTS) --json-pkg $(OPTS0) $(OPTS)
 
 json-rank	: $(indexer)
-	@echo "generate a new package index for all hackage packages inclusive ranking"
-	@echo "the resulting package index is $(px)"
-	@echo for an XML version, use 'make whole-pkg OPTS=--xml-output="$(px).xml"'
-	rm -f tmp/pkg-*
-	$< $(RUNOPTS) \
-		--json-pkg-rank \
-		--maxdocs=$(maxdocs) \
-		--maxthreads=$(threads) \
-		--maxpar=$(maxdocs) \
-		--valid=$(validix) \
-		$(OPTS)
+	$< $(RUNOPTS) --json-pkg-rank $(OPTS0) $(OPTS)
 
 whole-json	: $(indexer)
 	@echo not done: "$(MAKE) update-cache      > log/update-cache.out      2>&1"
@@ -223,6 +206,16 @@ whole-json	: $(indexer)
 	do \
 	  $(MAKE) $$i > log/$$i.out 2>&1 ; \
 	done
+
+LATEST=1day
+
+json-update	: $(indexer)
+	$(MAKE) json-index validix=0 "OPTS=$(OPTS) --hackage --latest=$(LATEST)"
+
+json-update-all	: $(indexer)
+	$(MAKE) json-update
+	$(MAKE) json-pkg validix=0 "OPTS=$(OPTS) --latest=$(LATEST)"
+	$(MAKE) json-rank
 
 #----------------------------------------
 

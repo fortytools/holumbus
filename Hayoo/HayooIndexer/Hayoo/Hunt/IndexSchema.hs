@@ -181,7 +181,7 @@ parseDateHTTP = parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y"
 mkSaveCmd :: UTCTime -> Command
 mkSaveCmd now = StoreIx fn
           where
-            fn = "hayoo/ix." ++ (unpack . fmtDateXmlSchema $ now)
+            fn = "hayoo-ix." ++ (unpack . fmtDateXmlSchema $ now)
 
 appendSaveCmd :: Bool -> UTCTime -> Command -> Command
 appendSaveCmd True now cmd
