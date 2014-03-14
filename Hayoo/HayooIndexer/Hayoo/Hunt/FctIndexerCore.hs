@@ -15,8 +15,7 @@ import qualified Data.IntMap.Strict           as IM
 import qualified Data.List                    as L
 import qualified Data.StringMap.Strict        as M
 import qualified Data.Text                    as T
-import           Data.Time
--- import qualified Data.Map.Strict              as SM
+import           Data.Time                    (UTCTime)
 
 import           Hayoo.FunctionInfo
 import           Hayoo.Hunt.ApiDocument
@@ -26,8 +25,6 @@ import           Hayoo.IndexTypes
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 
--- import           Hunt.Common.BasicTypes
--- import           Hunt.Index.Schema
 import           Hunt.Interpreter.Command
 import           Hunt.Query.Language.Grammar
 
@@ -86,12 +83,12 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: UTCTime -> Bool -> [String] -> FctIndexerState -> Command
-toCommand now update pkgs (IndexerState _ (RDX ix))
-    = Sequence
-      [ deletePkgCmd
-      , Sequence . concatMap toCmd . M.toList $ ix
-      ]
+toCommand :: Bool -> UTCTime -> Bool -> [String] -> FctIndexerState -> Command
+toCommand save now update pkgs (IndexerState _ (RDX ix))
+    = appendSaveCmd save now $
+      Sequence [ deletePkgCmd
+               , Sequence . concatMap toCmd . M.toList $ ix
+               ]
     where
       deletePkgCmd
           | update && not (null pkgs)

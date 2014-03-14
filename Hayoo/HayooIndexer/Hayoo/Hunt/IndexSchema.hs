@@ -3,9 +3,10 @@
 module Hayoo.Hunt.IndexSchema
 where
 
+import           Control.Applicative      ()
 import           Control.Monad.IO.Class
 
-import           Data.Text                (Text, pack)
+import           Data.Text                (Text, pack, unpack)
 import           Data.Time
 
 import           Hayoo.Hunt.Output
@@ -176,5 +177,16 @@ fmtDate' fmt
 
 parseDateHTTP :: String -> Maybe UTCTime
 parseDateHTTP = parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y"
+
+mkSaveCmd :: UTCTime -> Command
+mkSaveCmd now = StoreIx fn
+          where
+            fn = "hayoo/ix." ++ (unpack . fmtDateXmlSchema $ now)
+
+appendSaveCmd :: Bool -> UTCTime -> Command -> Command
+appendSaveCmd True now cmd
+    = Sequence [cmd, mkSaveCmd now]
+appendSaveCmd False _ cmd
+    = cmd
 
 -- ------------------------------------------------------------

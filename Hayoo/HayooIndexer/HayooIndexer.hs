@@ -67,6 +67,7 @@ data AppOpts
       , ao_JSON        :: Bool
       , ao_JSONserv    :: Maybe String
       , ao_JSONmax     :: Int
+      , ao_JSONmaxsave :: Maybe Int
       , ao_action      :: AppAction
       , ao_defrag      :: Bool
       , ao_partix      :: Bool
@@ -104,6 +105,7 @@ initAppOpts
       , ao_JSON         = False
       , ao_JSONserv     = Nothing
       , ao_JSONmax      = 1
+      , ao_JSONmaxsave  = Nothing
       , ao_action       = Usage
       , ao_defrag       = False
       , ao_partix       = False
@@ -288,9 +290,10 @@ mainHackageJSON
       flushJSON :: String -> PJ.PkgIndexerState -> HIO ()
       flushJSON pkg ix
           = do serv <- asks ao_JSONserv
+               save <- maybe False (const True) <$> asks ao_JSONmaxsave
                ct <- liftIO $ getCurrentTime
                notice $ "flushing package index as JSON to" : target serv
-               outputValue (dest serv) (PJ.toCommand ct True ix)
+               outputValue (dest serv) (PJ.toCommand save ct True ix)
                notice $ ["flushing package index as JSON done"]
                return ()
           where
@@ -376,9 +379,12 @@ mainHackage'
       rankPkgJSON dt
           = do rank <- asks ao_pkgRank
                serv <- asks ao_JSONserv
+               save <- maybe False (const True) <$>
+                       asks ao_JSONmaxsave
+               now  <- liftIO getCurrentTime
                if rank
                   then do notice ["computing package ranks"]
-                          outputValue (dest serv) (PJ.rankToCommand $ packageDocRanking dt)
+                          outputValue (dest serv) (PJ.rankToCommand save now $ packageDocRanking dt)
                           notice ["JSON package ranks written"]
                   else do notice ["no package ranks computed"]
           where
@@ -409,30 +415,38 @@ mainHaddockJSON
 
       indexPkgList :: [String] -> HIO ()
       indexPkgList []  = noaction
-      indexPkgList ps' = do mx  <- asks ao_JSONmax
-                            mapM_ (indexPkg) $ part mx ps'
+      indexPkgList ps' = do mx <- asks ao_JSONmax
+                            ms <- maybe maxBound id <$> asks ao_JSONmaxsave
+                            sequence_ . (map $ uncurry indexPkg) $ part mx ms ps'
           where
-            part _ [] = []
-            part n xs = x : part n xs'
+            part :: Int -> Int -> [String] -> [(Bool, [String])]
+            part n s = part' 0
                 where
-                  (x, xs') = splitAt n xs
+                  part' _ [] = []
+                  part' i xs = (b, x) : part' i' xs'
+                      where
+                        (x, xs') = splitAt n xs
+                        i' = if b then 0 else i + n
+                        b  = (i + n >= s)                -- maximum reached
+                             ||
+                             (s /= maxBound && null xs') -- last chunk
 
-      indexPkg :: [String] -> HIO ()
-      indexPkg pkgs
+      indexPkg :: Bool -> [String] -> HIO ()
+      indexPkg save pkgs
           = do notice ["start indexing haddock pages in JSON for package:", show pkgs]
                local (\ o -> o { ao_packages = Just pkgs }
                      ) $ do ix <- getS theResultAccu <$> hayooFJIndexer
-                            flushJSON pkgs ix
+                            flushJSON save pkgs ix
 
                notice ["finish indexing haddock pages in JSON for package:", show pkgs]
                return ()
 
-      flushJSON :: [String] -> FJ.FctIndexerState -> HIO ()
-      flushJSON pkgs ix
+      flushJSON :: Bool -> [String] -> FJ.FctIndexerState -> HIO ()
+      flushJSON save pkgs ix
           = do serv <- asks ao_JSONserv
                ct <- liftIO $ getCurrentTime
                notice $ "flushing function index as JSON to" : target serv
-               outputValue (dest serv) (FJ.toCommand ct True pkgs ix)
+               outputValue (dest serv) (FJ.toCommand save ct True pkgs ix)
                notice $ ["flushing function index as JSON done"]
                return ()
           where
@@ -1024,6 +1038,12 @@ hayooOptDescr
           "NUMBER"
         )
         "when indexing JSON, maximum # of packages indexed as a bundle, default is 1"
+
+      , Option "" ["json-maxsave"]
+        ( ReqArg (setOption parseInt (\ x i -> x { ao_JSONmaxsave = Just $ 1 `max` i }))
+          "NUMBER"
+        )
+        "when indexing JSON, saving server state after indexing # of packages, default: infinity"
 
       , Option "" ["maxdocs"]
         ( ReqArg (setOption parseInt (\ x i -> x { ao_crawlDoc = setMaxDocs i $

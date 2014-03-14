@@ -80,12 +80,12 @@ insertHayooPkgM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: UTCTime -> Bool -> PkgIndexerState -> Command
-toCommand now update (IndexerState _ (RDX ix))
-    = Sequence
-      [ deletePkgCmd
-      , Sequence . concatMap toCmd . M.toList $ ix
-      ]
+toCommand :: Bool -> UTCTime -> Bool -> PkgIndexerState -> Command
+toCommand save now update (IndexerState _ (RDX ix))
+    = appendSaveCmd save now $
+      Sequence [ deletePkgCmd
+               , Sequence . concatMap toCmd . M.toList $ ix
+               ]
     where
       now'  = fmtDateXmlSchema now
       now'' = fmtDateHTTP      now
@@ -138,9 +138,9 @@ toRankDocs = map toRank . elemsDocIdMap . toMap
 toRank :: Document PackageInfo -> (URI, ([a], String, Maybe RankDescr))
 toRank d = (uri d, ([], "", fmap (RD . p_rank) $ custom d))
 
-rankToCommand :: Documents PackageInfo -> Command
-rankToCommand
-    = Sequence . concatMap toCmd . toRankDocs
+rankToCommand :: Bool -> UTCTime -> Documents PackageInfo -> Command
+rankToCommand save now
+    = appendSaveCmd save now . Sequence . concatMap toCmd . toRankDocs
     where
       toCmd (k, rd)
           | boringApiDoc d = []
