@@ -36,7 +36,7 @@ progs	= $(indexer)
 N       = 1
 H       = 100
 A       = 8
-K       = 1
+K       = 10
 RUNOPTS = +RTS -N$(N) -s -K$(K)M -A$(A)M -H$(H)M -I0 -RTS
 
 # partition: size of partial indexes build with whole-index
