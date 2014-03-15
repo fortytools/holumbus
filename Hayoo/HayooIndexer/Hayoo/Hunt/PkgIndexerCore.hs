@@ -105,7 +105,7 @@ toCommand save now update (IndexerState _ (RDX ix))
               = NOOP
 
       toCmd (k, (cx, t, cu))
-          = insertCmd apiDoc2
+          = insertCmd apiDoc3
             where
               insertCmd = (:[]) . Insert
               apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
@@ -125,10 +125,21 @@ toCommand save now update (IndexerState _ (RDX ix))
                                    pd  <- parseDateHTTP dt1
                                    return $ fmtDateXmlSchema pd
 
+              -- add time of indexing to document and index
               apiDoc2   = insDescrMap d'indexed now'' $
                           insIndexMap c'indexed now'  $
                           apiDoc1
 
+              -- split the package name index into two parts:
+              -- the full name as a single word in the c'name context
+              -- and the parts separeted by a '-' into the c'partial context
+              -- so the c'name value becomes a key for selecting a package
+              apiDoc3   = insIndexMap c'name n     $
+                          insIndexMap c'partial ns $
+                          apiDoc2
+                  where
+                    names = T.words . lookupIndexMap c'name $ apiDoc2
+                    (n, ns) = (T.concat *** T.concat) . splitAt 1 $ names
 
 -- ------------------------------------------------------------
 

@@ -53,6 +53,10 @@ insDescrMap k v
     | T.null v  = chgDescrMap $ SM.delete k
     | otherwise = chgDescrMap $ SM.insert k v
 
+lookupIndexMap :: Context -> ApiDocument -> T.Text
+lookupIndexMap cx d
+    = maybe "" id . SM.lookup cx . apiDocIndexMap $ d
+
 -- ------------------------------------------------------------
 
 -- auxiliary types for ToDescr instances
