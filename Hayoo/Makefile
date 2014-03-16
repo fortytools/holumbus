@@ -20,3 +20,9 @@ unregister	:
 	cabal sandbox hc-pkg unregister Holumbus-Searchengine
 	cabal sandbox hc-pkg unregister data-stringmap
 	cabal sandbox hc-pkg unregister data-size
+
+
+use-hunt-sandbox:
+	cd HayooIndexer  && cabal sandbox init --sandbox ../../../hunt/.cabal-sandbox
+	cd HayooLib  && cabal sandbox init --sandbox ../../../hunt/.cabal-sandbox
+	cd HayooSnap  && cabal sandbox init --sandbox ../../../hunt/.cabal-sandbox
