@@ -124,7 +124,7 @@ createHayooIndexSchema
 
 dropHayooIndexSchema :: Command
 dropHayooIndexSchema
-    = Sequence . map (DeleteContext . icDCon) . icCmdSeq $ createHayooIndexSchema
+    = Sequence . map (DeleteContext . icDContext) . icCmdSeq $ createHayooIndexSchema
 
 
 execCreateHayooIndexSchema :: MonadIO m => Maybe String -> m ()
@@ -140,7 +140,7 @@ execDropHayooIndexSchema target
 mkIC :: Context -> ContextSchema -> Command
 mkIC name schema
     = InsertContext
-      { icICon     = name
+      { icIContext = name
       , icSchema   = schema
       }
 

@@ -22,9 +22,9 @@ import           Hunt.Common.BasicTypes
 toApiDoc :: ToDescr c => (URI, RawDoc c) -> ApiDocument
 toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
     = ApiDocument
-      { apiDocUri   = uri
-      , apiDocIndexMap = SM.fromList . concatMap toCC $ rawContexts
-      , apiDocDescrMap = ( if null rawTitle
+      { adUri   = uri
+      , adIndex = SM.fromList . concatMap toCC $ rawContexts
+      , adDescr = ( if null rawTitle
                     then id
                     else SM.insert d'name (T.pack rawTitle)
                   ) $ toDescr rawCustom
@@ -35,13 +35,13 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
 
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
-    = SM.null (apiDocIndexMap a) && SM.null (apiDocDescrMap a)
+    = SM.null (adIndex a) && SM.null (adDescr a)
 
 chgIndexMap :: (SM.Map Context Content -> SM.Map Context Content) -> ApiDocument -> ApiDocument
-chgIndexMap f a = a { apiDocIndexMap = f $ apiDocIndexMap a }
+chgIndexMap f a = a { adIndex = f $ adIndex a }
 
 chgDescrMap :: (Description -> Description) -> ApiDocument -> ApiDocument
-chgDescrMap f a = a { apiDocDescrMap = f $ apiDocDescrMap a }
+chgDescrMap f a = a { adDescr = f $ adDescr a }
 
 insIndexMap :: Context -> Content -> ApiDocument -> ApiDocument
 insIndexMap cx ct
@@ -55,7 +55,7 @@ insDescrMap k v
 
 lookupIndexMap :: Context -> ApiDocument -> T.Text
 lookupIndexMap cx d
-    = maybe "" id . SM.lookup cx . apiDocIndexMap $ d
+    = maybe "" id . SM.lookup cx . adIndex $ d
 
 -- ------------------------------------------------------------
 
@@ -117,6 +117,7 @@ piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
       , (d'synopsis,     T.pack syn)
       , (d'description,  T.pack des)
       , (d'upload,       T.pack upl)
+      , (d'type,         "package")
       , (d'rank,         rankToText ran)
       ]
 
