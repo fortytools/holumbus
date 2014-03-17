@@ -197,17 +197,26 @@ main2
                        then return ()
                        else throwError "wrong option"
            _   -> do asks (snd . ao_crawlLog) >>= setLogLevel ""
-                     case a of
-                       BuildCache   -> mainCache
-                       MergeIx      -> mainHaddock
-                       CreateSchema -> indexSchema execCreateHayooIndexSchema
-                       DeleteSchema -> indexSchema execDropHayooIndexSchema
-                       _            -> do p <- asks ao_pkgIndex
-                                          if p
-                                            then mainHackage
-                                            else mainHaddock
+                     asks ao_getHack          >>= getHackageIndex
+                     local (\ opts -> opts {ao_getHack = False}) $
+                       case a of
+                         BuildCache   -> mainCache
+                         MergeIx      -> mainHaddock
+                         CreateSchema -> indexSchema execCreateHayooIndexSchema
+                         DeleteSchema -> indexSchema execDropHayooIndexSchema
+                         _            -> do p <- asks ao_pkgIndex
+                                            if p
+                                              then mainHackage
+                                              else mainHaddock
 
 -- ------------------------------------------------------------
+
+getHackageIndex :: Bool -> HIO ()
+getHackageIndex False
+    = return ()
+getHackageIndex True
+    = do notice ["update 00-index.tag.gz from hackage"]
+         liftIO $ updateArchiveFile
 
 indexSchema :: (Maybe String -> HIO ()) -> HIO ()
 indexSchema out
@@ -234,16 +243,7 @@ mainCache
                         then ["resume cache update"]
                         else ["cache hayoo pages"]
                hayooCacher >>= writeResults
-{-
-      updatePackages latest
-          = do notice ["compute list of latest packages"]
-               (hk, cp) <- asks (ao_getHack &&& ao_crawlPar)
-               pl       <- liftIO $ getNewPackages hk latest
-               local (\ opts -> opts { ao_latest   = Nothing
-                                     , ao_crawlPar = setDocAge 1 cp    -- force cache update
-                                     }
-                     ) $ updatePkg pl
--}
+
       updatePkg []
           = notice ["no packages to be updated"]
       updatePkg ps
@@ -456,20 +456,7 @@ mainHaddockJSON
             dest   Nothing    = Left $ fn pkgs
             fn [pkg]          = pkg
             fn xs             = head xs ++ ".." ++ last xs
-{-
-updateLatest :: HIO () -> Int -> HIO ()
-updateLatest cont latest
-    = do notice ["updateLatest: compute latest packages"]
-         hk  <- asks ao_getHack
-         ps  <- liftIO $ getNewPackages hk latest
-         if null ps
-            then notice ["no new packages to be indexed"]
-            else do local (\ o -> o { ao_latest   = Nothing
-                                    , ao_packages = Just ps
-                                    , ao_pkgregex = Nothing
-                                    }
-                          ) cont
--}
+
 mainHaddock' :: HIO ()
 mainHaddock'
     = withPackages False action
@@ -529,8 +516,7 @@ mainHaddock'
 
       updateLatest' latest
           = do notice ["reindex with latest packages"]
-               hk  <- asks ao_getHack
-               ps  <- liftIO $ getNewPackages hk latest
+               ps  <- liftIO $ getNewPackages latest
                if null ps
                   then notice ["no new packages to be indexed"]
                   else do res <- local (\ o -> o { ao_latest = Nothing }
@@ -545,39 +531,33 @@ noaction
     = notice ["no packages to be processed"]
 
 -- ------------------------------------------------------------
-{-
-getPackageList :: HIO [String]
-getPackageList
-    = do age <- maybe 0 id <$> asks ao_latest
-         liftIO $ getNewPackages False age
--}
+
 getPackages :: Bool -> HIO (Maybe [String])
 getPackages allPkgs
     = do pl <- asks ao_packages
          r  <- asks ao_pkgregex
-         h  <- asks ao_getHack
          ls <- asks ao_latest
-         pl1 <- packageList h pl ls
+         pl1 <- packageList pl ls
          pl2 <- filterRegex r pl1
          case pl2 of
            Just xs -> notice ["packages to be processed:", show xs]
            Nothing -> notice ["all packages to be processed"]
          return pl2
     where
-      packageList :: Bool -> Maybe [String] -> Maybe Int -> HIO (Maybe [String])
-      packageList b _ (Just age)                                  -- eval option --latest
+      packageList :: Maybe [String] -> Maybe Int -> HIO (Maybe [String])
+      packageList _ (Just age)                                  -- eval option --latest
           = do notice ["compute list of latest packages"]
-               res <- liftIO $ getNewPackages b age
+               res <- liftIO $ getNewPackages age
                notice ["latest packages:", show res]
                return $ Just res
 
-      packageList b Nothing _                                   -- compute default package list
+      packageList Nothing _                                   -- compute default package list
           | allPkgs
-              = Just <$> (liftIO $ getNewPackages b 0)
+              = Just <$> (liftIO $ getNewPackages 0)
           | otherwise
               = return Nothing
 
-      packageList _ ps _                                        -- explicit list --packages
+      packageList ps _                                        -- explicit list --packages
           = return ps
 
       filterRegex :: Maybe String -> Maybe [String] -> HIO (Maybe [String])
