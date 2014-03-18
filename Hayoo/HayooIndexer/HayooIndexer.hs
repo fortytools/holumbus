@@ -284,7 +284,7 @@ mainHackageJSON
                           else "JSON indexing hackage package descriptions for packages:" : ps
                ix <- getS theResultAccu <$> hayooPJIndexer
                notice ["writing package index as JSON"]
-               flushJSON "00-packages" ix
+               flushJSON "01-packages" ix
                notice ["package index as JSON written"]
 
       flushJSON :: String -> PJ.PkgIndexerState -> HIO ()
@@ -388,7 +388,7 @@ mainHackage'
                           notice ["JSON package ranks written"]
                   else do notice ["no package ranks computed"]
           where
-            dest Nothing    = Left "00-ranking"
+            dest Nothing    = Left "02-ranking"
             dest (Just uri) = Right uri
 
 -- ------------------------------------------------------------

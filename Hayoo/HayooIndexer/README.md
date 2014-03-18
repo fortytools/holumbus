@@ -26,3 +26,11 @@ einmal und schreibt die in eine .js Datei
 
 man hat also anschließend rund 60 Dateien unter json/ die man mit curl
 in den server pushen kann
+
+
+Upload Json files to Hunt
+-------------------------
+
+# Start Hunt server
+# make insert-json
+

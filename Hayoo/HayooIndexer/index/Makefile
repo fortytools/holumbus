@@ -207,6 +207,16 @@ whole-json	: $(indexer)
 	  $(MAKE) $$i > log/$$i.out 2>&1 ; \
 	done
 
+JSONFILES = $(wildcard json/*.js)
+insert-json:
+	i=1; \
+	for file in $(JSONFILES); do \
+		echo -n "\n$$i - $$(date) - $$file "; \
+		curl -X POST -d @"$$file" $(JHOST)/eval; \
+		i=$$(($$i+1)); \
+	done
+
+
 LATEST=1day
 
 json-update	: $(indexer)
