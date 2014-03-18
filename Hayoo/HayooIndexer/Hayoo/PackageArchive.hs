@@ -11,6 +11,7 @@ import qualified Codec.Compression.GZip  as GZip (decompress)
 
 import           Control.Applicative
 import           Control.Arrow
+import           Control.Monad           ()
 
 import           Holumbus.Crawler        (match)
 
@@ -18,17 +19,47 @@ import           Data.ByteString.Lazy    (ByteString)
 import qualified Data.ByteString.Lazy    as BL
 import           Data.List
 
+import           Network.Browser
+import           Network.HTTP
+import           Network.URI             (URI, parseURI)
+
 import           System.FilePath
-import           System.Process          (system)
 import           System.Time
 
 -- ------------------------------------------------------------
 
-getNewPackages          :: Bool -> Int -> IO [String]
-getNewPackages updateArchive since
-                        = do t <- secondsAgo
-                             a <- getArchiveFile updateArchive
-                             return $ latestPackages t a
+updateArchiveFile       :: IO ()
+updateArchiveFile
+    = do res <- snd <$> getHTTP
+         case rspCode res of
+           (2,0,0) -> BL.writeFile cacheFile $ rspBody res
+           _       -> ioError . userError . show $ res
+         return ()
+    where
+      archiveUri = "http://hackage.haskell.org/packages/" ++ archiveFile
+
+      getHTTP :: IO (URI, Response BL.ByteString)
+      getHTTP = browse $ do
+                  setOutHandler (const $ return ())
+                  setAllowRedirects True
+                  request $
+                    mkRequest GET $
+                    maybe (error "Hayoo.PackageArchive.updateArchiveFile: Nothing") id $
+                    parseURI archiveUri
+
+archiveFile :: String
+archiveFile = "index.tar.gz"
+
+cacheFile :: String
+cacheFile  = "cache" </> ("00-" ++ archiveFile)
+
+-- ------------------------------------------------------------
+
+getNewPackages          :: Int -> IO [String]
+getNewPackages since
+    = do t <- secondsAgo
+         a <- getArchiveFile
+         return $ latestPackages t a
     where
     secondsAgo          :: IO ClockTime
     secondsAgo          = do
@@ -42,22 +73,12 @@ getNewPackages updateArchive since
 
 getRegexPackages        :: String -> IO [String]
 getRegexPackages re
-    = filterPkg <$> getArchiveFile False
+    = filterPkg <$> getArchiveFile
     where
       filterPkg = nub . sort . filter (match re) . map fst . selectPackages
 
-getArchiveFile         :: Bool -> IO ByteString
-getArchiveFile update  = do if update
-                              -- this is a hack, should be done more elegant
-                              -- without the use of system and wget
-                              then system ( "wget http://hackage.haskell.org/packages/"
-                                            ++ archiveFile ++ " -O cache/" ++ archiveFile
-                                          )
-                                       >> return ()
-                              else return ()
-                            BL.readFile $ "cache/" ++ archiveFile
-    where
-      archiveFile       = "00-index.tar.gz"
+getArchiveFile :: IO ByteString
+getArchiveFile = BL.readFile $ cacheFile
 
 -- ------------------------------------------------------------
 
