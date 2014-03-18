@@ -117,6 +117,7 @@ piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
       , (d'synopsis,     T.pack syn)
       , (d'description,  T.pack des)
       , (d'upload,       T.pack upl)
+      , (d'type,         "package")
       , (d'rank,         rankToText ran)
       ]
 

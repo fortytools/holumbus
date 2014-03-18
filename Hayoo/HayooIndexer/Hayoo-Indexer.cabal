@@ -43,7 +43,8 @@ executable hayooIndexer
                  , deepseq                >= 1.2
                  , directory              >= 1.1
                  , filepath               >= 1
-                 , Hayoo-Lib              >= 1.3
+                 , Hayoo-Indexer-Lib      >= 1.3
+                 , hayooLib               >= 0.1
                  , Holumbus-Searchengine  >= 1.2.6 && < 2
                  , hunt-searchengine      >= 0.1
                  , HTTP                   >= 4000.2

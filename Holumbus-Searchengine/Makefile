@@ -25,3 +25,7 @@ unregister	:
 	cabal sandbox hc-pkg unregister data-size
 
 .PHONY	: init depends delete unregister
+
+
+use-hunt-sandbox:
+	cabal sandbox init --sandbox ../../hunt/.cabal-sandbox
