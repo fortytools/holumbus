@@ -28,6 +28,7 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
                     then id
                     else SM.insert d'name (T.pack rawTitle)
                   ) $ toDescr rawCustom
+      , adWght  = Nothing
       }
     where
       toCC (_,  []) = []
