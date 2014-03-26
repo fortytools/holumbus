@@ -3,3 +3,5 @@ dist/
 *.swp
 *.out
 *.old
+.cabal-sandbox/
+cabal.sandbox.config

@@ -16,7 +16,6 @@ import           Control.Monad.Reader
 import qualified Data.Binary                as B
 import           Data.Char
 import           Data.Function.Selector
--- import           Data.List                   (intercalate)
 import           Data.Maybe
 import           Data.Size
 import           Data.Time                  (getCurrentTime)
@@ -54,6 +53,7 @@ data AppAction
     = Usage
     | BuildIx | UpdatePkg | RemovePkg | BuildCache | MergeIx
     | CreateSchema | DeleteSchema
+    | JsonAll | JsonUpdate
       deriving (Eq, Show)
 
 data AppOpts
@@ -204,6 +204,8 @@ main2
                          MergeIx      -> mainHaddock
                          CreateSchema -> indexSchema execCreateHayooIndexSchema
                          DeleteSchema -> indexSchema execDropHayooIndexSchema
+                         JsonAll      -> mainJsonAll
+                         JsonUpdate   -> mainJsonUpdate
                          _            -> do p <- asks ao_pkgIndex
                                             if p
                                               then mainHackage
@@ -221,6 +223,69 @@ getHackageIndex True
 indexSchema :: (Maybe String -> HIO ()) -> HIO ()
 indexSchema out
     = asks ao_JSONserv >>= out
+
+-- ------------------------------------------------------------
+
+-- | macro for computing whole hayoo index in JSON format
+-- cache can be updated on the fly by setting --valid=0sec
+
+mainJsonAll :: HIO ()
+mainJsonAll
+    = local ( \ x ->
+              x { ao_action      = BuildIx
+                , ao_JSON        = True
+                , ao_pkgIndex    = False
+                , ao_pkgRank     = False
+                , ao_pkgRankOnly = False
+                , ao_latest      = Nothing      -- no package selection by latest
+                , ao_packages    = Nothing      -- no selection by package list
+                , ao_pkgregex    = Nothing      -- and no selection by regex,
+                }                               -- all packages are taken
+            ) $ do indexSchema                  -- create index schema
+                     execCreateHayooIndexSchema
+                   jsonHackage                  -- create the package index
+                   jsonRank                     -- create the package rank
+                   mainHaddockJSON              -- the main step: index the haddock pages
+
+
+mainJsonUpdate :: HIO ()
+mainJsonUpdate
+    = do latest <- maybe defLatest Just <$> asks ao_latest
+         local ( \ x ->
+                 x { ao_action      = BuildIx
+                   , ao_JSON        = True
+                   , ao_pkgIndex    = False
+                   , ao_pkgRank     = False
+                   , ao_pkgRankOnly = False
+                   , ao_latest      = latest       -- select packages by age
+                   , ao_packages    = Nothing      -- no selection by package list
+                   , ao_pkgregex    = Nothing      -- and no selection by regex,
+                   , ao_crawlPar    = setDocAge 0 (ao_crawlPar x)
+                   }                               -- update cache for latest packages
+               ) $ withPackages False $
+                   do jsonHackage                  -- create the package index
+                      jsonRank                     -- create the package rank
+                      mainHaddockJSON              -- the main step: index the haddock pages
+    where
+      defLatest = Just $ 60 * 60 * 24   -- 1 day
+
+jsonHackage :: HIO ()
+jsonHackage
+    = local (\ x -> x { ao_pkgIndex    = True })
+      mainHackageJSON
+
+jsonRank :: HIO ()
+jsonRank
+    = local (\ x ->
+             x { ao_pkgIndex    = True
+               , ao_pkgRank     = True
+               , ao_pkgRankOnly = True
+               , ao_packages    = Nothing  -- for ranking switch off package selection
+               , ao_crawlPar    = setValid (ao_crawlPar x)
+               }                           -- switch of valid check for cache
+            ) mainHackage'                 -- it's already done in the previous step
+    where
+      setValid = setDocAge (60 * 60 * 24 * 365) -- 1 year
 
 -- ------------------------------------------------------------
 
@@ -545,7 +610,7 @@ getPackages allPkgs
          return pl2
     where
       packageList :: Maybe [String] -> Maybe Int -> HIO (Maybe [String])
-      packageList _ (Just age)                                  -- eval option --latest
+      packageList _ (Just age)                                -- eval option --latest
           = do notice ["compute list of latest packages"]
                res <- liftIO $ getNewPackages age
                notice ["latest packages:", show res]
@@ -572,6 +637,10 @@ getPackages allPkgs
                return $ Just res
             where
               res = filter (match rex) ps
+
+-- | compute packages to be updated by evaluating
+-- options --latest, --pkg-regex and --packages
+-- and perform an action with these packages
 
 withPackages :: Bool -> HIO a -> HIO a
 withPackages allPkgs act
@@ -949,6 +1018,27 @@ hayooOptDescr
         )
         "delete packages specified by \"packages\" option"
 
+      , Option "" ["json-all"]
+        ( NoArg $
+          \ x -> x { ao_action   = JsonAll
+                   }
+        )
+        ( unwords [ "JSON macro command to create complete Hayoo index in JSON format,"
+                  , "(--json-create-schema, --json-pkg, --json-rank, --json-fct)"
+                  ]
+        )
+
+      , Option "" ["json-update"]
+        ( NoArg $
+          \ x -> x { ao_action   = JsonUpdate
+                   , ao_getHack  = True
+                   }
+        )
+        ( unwords [ "JSON macro command to update Hayoo index with latest packages,"
+                  , "with option --latest the age of the packages may be set, default is 1 day"
+                  ]
+        )
+
       , Option "" ["json-create-schema"]
         ( NoArg $
           \ x -> x { ao_action   = CreateSchema
@@ -1049,17 +1139,17 @@ hayooOptDescr
 
       , Option "" ["valid"]
         ( ReqArg (setOption parseDuration (\ x t -> x { ao_crawlPar = setDocAge t $
-                                                                  ao_crawlPar x }))
+                                                                      ao_crawlPar x }))
           "DURATION"
         )
-        ( "validate cache for pages older than given time, format: " ++
+        ( "validate cache for pages older than given age, format: " ++
           "10sec, 5min, 20hours, 3days, 5weeks, 1month, default is 1month" )
 
       , Option "" ["latest"]
         ( ReqArg (setOption parseDuration (\ x t -> x { ao_latest   = Just t }))
           "DURATION"
         )
-        "select latest packages newer than given time, format like in option \"valid\""
+        "select latest packages newer than given age, format like in option \"valid\""
 
       , Option "" ["partition"]
         ( ReqArg (setOption parseInt (\ x i -> x { ao_partix    = True

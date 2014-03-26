@@ -6,13 +6,13 @@ all	:
 init	:
 	cabal sandbox init
 	$(isghc77) || \
-        cabal sandbox add-source ../../../bytestring
+	cabal sandbox add-source ../../../bytestring
 	cabal sandbox add-source ../../../data-size
 	cabal sandbox add-source ../../../data-stringmap
 	@echo NOT ADDED: cabal sandbox add-source ../../../ghc-heap-view
 	cabal sandbox add-source ../../../text
 	cabal sandbox add-source ../../Holumbus-Searchengine
-	cabal sandbox add-source ../HayooLib
+	cabal sandbox add-source ../HayooIndexerLib
 	cabal sandbox add-source ../../../hunt-framework/hunt/hunt-searchengine
 
 depends	:
@@ -23,7 +23,7 @@ delete	:
 
 unregister	:
 	cabal sandbox hc-pkg unregister hunt-searchengine
-	cabal sandbox hc-pkg unregister HayooLib
+	cabal sandbox hc-pkg unregister Hayoo-Indexer-Lib
 	cabal sandbox hc-pkg unregister Holumbus-Searchengine
 	cabal sandbox hc-pkg unregister data-stringmap
 	cabal sandbox hc-pkg unregister data-size

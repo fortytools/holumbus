@@ -19,7 +19,7 @@ ixn	= new-$(ix)
 pxn	= new-$(px)
 
 # bindir  = $(HOME)/.cabal/bin
-bindir  = ../.cabal-sandbox/bin
+bindir  = ../../../.cabal-sandbox/bin
 
 snapdir	= ../../HayooSnap
 snapbin	= $(snapdir)/.cabal-sandbox/bin
@@ -156,7 +156,8 @@ JSERV	= --json-server=$(JHOST)/  --json-maxsave=1000
 # --valid=d is the duration for which the local cache with the hackage pages
 # is valid, --valid=0 leads to a total refresh of the cache
 
-OPTS0	= --maxdocs=50000 --maxthreads=1  --valid=$(validix) --json-maxpkg=100
+OPTS1	= --maxdocs=50000 --maxthreads=1 --json-maxpkg=200
+OPTS0	= $(OPTS1) --valid=$(validix)
 
 jserv-schema	:
 	$(MAKE) json-schema OPTS="$(OPTS) $(JSERV)"
@@ -207,6 +208,16 @@ whole-json	: $(indexer)
 	  $(MAKE) $$i > log/$$i.out 2>&1 ; \
 	done
 
+VALID	= 1month
+json-all	: $(indexer)
+	$< $(RUNOPTS) --json-all $(OPTS1) $(OPTS) --valid=$(VALID)
+
+
+LATEST=1day
+json-update	: $(indexer)
+	$< $(RUNOPTS) --json-all $(OPTS1) $(OPTS) --latest=$(LATEST)
+
+
 JSONFILES = $(wildcard json/*.js)
 insert-json:
 	i=1; \
@@ -215,17 +226,6 @@ insert-json:
 		curl -X POST -d @"$$file" $(JHOST)/eval; \
 		i=$$(($$i+1)); \
 	done
-
-
-LATEST=1day
-
-json-update	: $(indexer)
-	$(MAKE) json-index validix=0 "OPTS=$(OPTS) --hackage --latest=$(LATEST)"
-
-json-update-all	: $(indexer)
-	$(MAKE) json-update
-	$(MAKE) json-pkg validix=0 "OPTS=$(OPTS) --latest=$(LATEST)"
-	$(MAKE) json-rank
 
 #----------------------------------------
 

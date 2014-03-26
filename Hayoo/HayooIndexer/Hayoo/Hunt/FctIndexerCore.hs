@@ -13,9 +13,9 @@ import           Data.Binary                  (Binary)
 import qualified Data.Binary                  as B
 import qualified Data.IntMap.Strict           as IM
 import qualified Data.List                    as L
+import qualified Data.Map.Strict              as SM
 import qualified Data.StringMap.Strict        as M
 import qualified Data.Text                    as T
-import qualified Data.Map.Strict              as SM
 import           Data.Time                    (UTCTime)
 
 import           Hayoo.FunctionInfo
@@ -23,7 +23,8 @@ import           Hayoo.Hunt.ApiDocument
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.IndexTypes
 
-import           Hayoo.ParseSignature         (modifySignatureWith, expand, expandNormalized)
+import           Hayoo.ParseSignature         (expand, expandNormalized,
+                                               modifySignatureWith)
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
