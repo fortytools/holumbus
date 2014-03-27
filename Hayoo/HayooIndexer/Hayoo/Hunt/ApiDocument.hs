@@ -19,8 +19,8 @@ import           Hunt.Common.BasicTypes
 
 -- ------------------------------------------------------------
 
-toApiDoc :: ToDescr c => (URI, RawDoc c) -> ApiDocument
-toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
+toApiDoc :: ToDescr c => (URI, RawDoc c, Maybe Float) -> ApiDocument
+toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
     = ApiDocument
       { adUri   = uri
       , adIndex = SM.fromList . concatMap toCC $ rawContexts
@@ -28,7 +28,7 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
                     then id
                     else SM.insert d'name (T.pack rawTitle)
                   ) $ toDescr rawCustom
-      , adWght  = Nothing
+      , adWght  = wght
       }
     where
       toCC (_,  []) = []
@@ -36,7 +36,7 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom))
 
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
-    = SM.null (adIndex a) && SM.null (adDescr a)
+    = SM.null (adIndex a) && SM.null (adDescr a) && (maybe 1.0 id $ adWght a) == 1.0
 
 chgIndexMap :: (SM.Map Context Content -> SM.Map Context Content) -> ApiDocument -> ApiDocument
 chgIndexMap f a = a { adIndex = f $ adIndex a }
@@ -64,7 +64,7 @@ lookupIndexMap cx d
 
 newtype FctDescr  = FD FunctionInfo
 newtype PkgDescr  = PD PackageInfo
-newtype RankDescr = RD Score
+newtype RankDescr = RD () -- old: Score
 
 class ToDescr a where
     toDescr :: a -> Description
@@ -77,7 +77,7 @@ instance ToDescr FctDescr where
     toDescr (FD x) = fiToDescr x
 
 instance ToDescr RankDescr where
-    toDescr (RD r) = mkDescr [(d'rank, rankToText r)]
+    toDescr (RD _) = mkDescr [] -- old: [(d'rank, rankToText r)]
 
 instance ToDescr PkgDescr where
     toDescr (PD x) = piToDescr x

@@ -108,7 +108,7 @@ toCommand save now update (IndexerState _ (RDX ix))
           = insertCmd apiDoc3
             where
               insertCmd = (:[]) . Insert
-              apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu))
+              apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu), Nothing)
 
               -- add "package" as type to the type context for easy search of packages
               apiDoc0   = insIndexMap c'type d'package apiDoc
@@ -143,21 +143,21 @@ toCommand save now update (IndexerState _ (RDX ix))
 
 -- ------------------------------------------------------------
 
-toRankDocs :: Documents PackageInfo -> [(URI, RawDoc RankDescr)]
+toRankDocs :: Documents PackageInfo -> [(URI, RawDoc RankDescr, Maybe Float)]
 toRankDocs = map toRank . elemsDocIdMap . toMap
 
-toRank :: Document PackageInfo -> (URI, ([a], String, Maybe RankDescr))
-toRank d = (uri d, ([], "", fmap (RD . p_rank) $ custom d))
+toRank :: Document PackageInfo -> (URI, ([a], String, Maybe RankDescr), Maybe Float)
+toRank d = (uri d, ([], "", Nothing), fmap p_rank $ custom d)
 
 rankToCommand :: Bool -> UTCTime -> Documents PackageInfo -> Command
 rankToCommand save now
     = appendSaveCmd save now . Sequence . concatMap toCmd . toRankDocs
     where
-      toCmd (k, rd)
+      toCmd (k, rd, w)
           | boringApiDoc d = []
           | otherwise      = [Update d]
           where
-            d = toApiDoc $ (T.pack k, rd)
+            d = toApiDoc $ (T.pack k, rd, w)
 
 -- ------------------------------------------------------------
 

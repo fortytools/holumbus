@@ -121,7 +121,7 @@ toCmd dupMap now ix (k, (cx, t, cu))
     where
 
       insertCmd = (:[]) . Insert
-      apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap FD cu))
+      apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap FD cu), Nothing)
 
       -- HACK: add the type attribute of the custom info record
       -- to a classifying context with name "type"
