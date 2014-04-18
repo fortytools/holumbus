@@ -23,6 +23,7 @@ executable hayooIndexer
                  , Hayoo.Haddock
                  , Hayoo.Hunt.ApiDocument
                  , Hayoo.Hunt.FctIndexerCore
+                 , Hayoo.Hunt.FctRankTable
                  , Hayoo.Hunt.IndexSchema
                  , Hayoo.Hunt.Output
                  , Hayoo.Hunt.PkgIndexerCore

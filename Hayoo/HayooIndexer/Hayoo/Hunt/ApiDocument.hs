@@ -16,6 +16,8 @@ import           Holumbus.Query.Result        (Score)
 
 import           Hunt.Common.ApiDocument
 import           Hunt.Common.BasicTypes
+import           Hunt.Common.DocDesc          (DocDesc (..))
+import qualified Hunt.Common.DocDesc          as DD
 
 -- ------------------------------------------------------------
 
@@ -26,7 +28,7 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
       , adIndex = SM.fromList . concatMap toCC $ rawContexts
       , adDescr = ( if null rawTitle
                     then id
-                    else SM.insert d'name (T.pack rawTitle)
+                    else DocDesc . SM.insert d'name (T.pack rawTitle) . unDesc
                   ) $ toDescr rawCustom
       , adWght  = wght
       }
@@ -36,13 +38,13 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
 
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
-    = SM.null (adIndex a) && SM.null (adDescr a) && (maybe 1.0 id $ adWght a) == 1.0
+    = SM.null (adIndex a) && DD.null (adDescr a) && (maybe 1.0 id $ adWght a) == 1.0
 
 chgIndexMap :: (SM.Map Context Content -> SM.Map Context Content) -> ApiDocument -> ApiDocument
 chgIndexMap f a = a { adIndex = f $ adIndex a }
 
 chgDescrMap :: (Description -> Description) -> ApiDocument -> ApiDocument
-chgDescrMap f a = a { adDescr = f $ adDescr a }
+chgDescrMap f a = a { adDescr = f . adDescr $ a }
 
 insIndexMap :: Context -> Content -> ApiDocument -> ApiDocument
 insIndexMap cx ct
@@ -51,8 +53,8 @@ insIndexMap cx ct
 
 insDescrMap :: T.Text -> T.Text -> ApiDocument -> ApiDocument
 insDescrMap k v
-    | T.null v  = chgDescrMap $ SM.delete k
-    | otherwise = chgDescrMap $ SM.insert k v
+    | T.null v  = chgDescrMap $ (DocDesc . SM.delete k   . unDesc)
+    | otherwise = chgDescrMap $ (DocDesc . SM.insert k v . unDesc)
 
 lookupIndexMap :: Context -> ApiDocument -> T.Text
 lookupIndexMap cx d
@@ -70,7 +72,7 @@ class ToDescr a where
     toDescr :: a -> Description
 
 instance ToDescr a => ToDescr (Maybe a) where
-    toDescr Nothing  = SM.empty
+    toDescr Nothing  = DD.empty
     toDescr (Just x) = toDescr x
 
 instance ToDescr FctDescr where
@@ -89,10 +91,14 @@ instance Hashable64 FctDescr where
 fiToHash :: String -> FunctionInfo -> Int
 fiToHash name fi = fromInteger . fromIntegral . asWord64 . hash64Add name . hash64 . FD $ fi
 
+fiToPkg :: FunctionInfo -> T.Text
+fiToPkg (FunctionInfo _mon _sig pac _sou _fct _typ)
+    = T.pack pac
+
 -- ----------------------------------------
 
 mkDescr :: [(T.Text, T.Text)] -> Description
-mkDescr = SM.fromList . filter (not . T.null . snd)
+mkDescr = DD.fromList . filter (not . T.null . snd)
 
 fiToDescr :: FunctionInfo -> Description
 fiToDescr (FunctionInfo mon sig pac sou fct typ)

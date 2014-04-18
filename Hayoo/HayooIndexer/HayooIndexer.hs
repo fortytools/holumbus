@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-
 -- ------------------------------------------------------------
 
 module Main (main)
@@ -24,6 +23,7 @@ import           Data.Typeable
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
 import qualified Hayoo.Hunt.FctIndexerCore  as FJ
+import           Hayoo.Hunt.FctRankTable
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.Hunt.Output          (defaultServer, outputValue)
 import qualified Hayoo.Hunt.PkgIndexerCore  as PJ
@@ -478,11 +478,33 @@ mainHaddockJSON
                      -> indexPkgList ps
                  _   -> notice ["mainHaddockJSON:", "ignoring command"]
 
+      getPkgRank :: HIO FctRankTable
+      getPkgRank
+          = asks ao_JSONserv >>= rankFrom
+          where
+            rankFile = "json/02-ranking.js"
+            rankFrom Nothing    = do notice [ "mainHaddockJSON:"
+                                            , "reading package rank from file"
+                                            , show rankFile
+                                            ]
+                                     liftIO $ rankFromFile rankFile
+            rankFrom (Just uri) = do notice [ "mainHaddockJSON:"
+                                            , "reading package rank from server"
+                                            , show uri
+                                            ]
+                                     critical [ "mainHaddockJSON:"
+                                              , "reading package rank from server"
+                                              , show uri
+                                              , "not yet implemented"
+                                              ]
+                                     liftIO $ rankFromServer uri
+
       indexPkgList :: [String] -> HIO ()
       indexPkgList []  = noaction
       indexPkgList ps' = do mx <- asks ao_JSONmax
                             ms <- maybe maxBound id <$> asks ao_JSONmaxsave
-                            sequence_ . (map $ uncurry indexPkg) $ part mx ms ps'
+                            rt <- getPkgRank
+                            sequence_ . (map $ uncurry (indexPkg rt)) $ part mx ms ps'
           where
             part :: Int -> Int -> [String] -> [(Bool, [String])]
             part n s = part' 0
@@ -496,22 +518,22 @@ mainHaddockJSON
                              ||
                              (s /= maxBound && null xs') -- last chunk
 
-      indexPkg :: Bool -> [String] -> HIO ()
-      indexPkg save pkgs
+      indexPkg :: FctRankTable -> Bool -> [String] -> HIO ()
+      indexPkg rt save pkgs
           = do notice ["start indexing haddock pages in JSON for package:", show pkgs]
                local (\ o -> o { ao_packages = Just pkgs }
                      ) $ do ix <- getS theResultAccu <$> hayooFJIndexer
-                            flushJSON save pkgs ix
+                            flushJSON rt save pkgs ix
 
                notice ["finish indexing haddock pages in JSON for package:", show pkgs]
                return ()
 
-      flushJSON :: Bool -> [String] -> FJ.FctIndexerState -> HIO ()
-      flushJSON save pkgs ix
+      flushJSON :: FctRankTable -> Bool -> [String] -> FJ.FctIndexerState -> HIO ()
+      flushJSON rt save pkgs ix
           = do serv <- asks ao_JSONserv
                ct <- liftIO $ getCurrentTime
                notice $ "flushing function index as JSON to" : target serv
-               outputValue (dest serv) (FJ.toCommand save ct True pkgs ix)
+               outputValue (dest serv) (FJ.toCommand rt save ct True pkgs ix)
                notice $ ["flushing function index as JSON done"]
                return ()
           where
@@ -902,6 +924,9 @@ noHaddockPage
 
 notice :: MonadIO m => [String] -> m ()
 notice = noticeC "hayoo"
+
+critical :: MonadIO m => [String] -> m ()
+critical = errC "hayoo"
 
 -- ------------------------------------------------------------
 

@@ -20,6 +20,7 @@ import           Data.Time                    (UTCTime)
 
 import           Hayoo.FunctionInfo
 import           Hayoo.Hunt.ApiDocument
+import           Hayoo.Hunt.FctRankTable
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.IndexTypes
 
@@ -87,11 +88,11 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: Bool -> UTCTime -> Bool -> [String] -> FctIndexerState -> Command
-toCommand save now update pkgs (IndexerState _ (RDX ix))
+toCommand :: FctRankTable -> Bool -> UTCTime -> Bool -> [String] -> FctIndexerState -> Command
+toCommand rt save now update pkgs (IndexerState _ (RDX ix))
     = appendSaveCmd save now $
       Sequence [ deletePkgCmd
-               , Sequence . concatMap (toCmd dupMap now ix). M.toList $ ix
+               , Sequence . concatMap (toCmd rt dupMap now ix). M.toList $ ix
                ]
     where
       deletePkgCmd
@@ -108,9 +109,13 @@ toCommand save now update pkgs (IndexerState _ (RDX ix))
       dupMap
           = toDup ix
 
--- toCmd :: IM.IntMap [URI] -> UTCTime -> M.StringMap (t, t1, Maybe FunctionInfo) -> ([Char], ([RawContext], [Char], Maybe FunctionInfo)) -> [Command]
-toCmd    :: IM.IntMap [URI] -> UTCTime -> M.StringMap (RawDoc FunctionInfo)       -> (M.Key, RawDoc FunctionInfo)                         -> [Command]
-toCmd dupMap now ix (k, (cx, t, cu))
+toCmd    :: FctRankTable
+            -> IM.IntMap [URI]
+            -> UTCTime
+            -> M.StringMap (RawDoc FunctionInfo)
+            -> (M.Key, RawDoc FunctionInfo)
+            -> [Command]
+toCmd rt dupMap now ix (k, (cx, t, cu))
     = case lookupDup t cu dupMap of
         Just uris@(uri : _uris1)                  -- re-exports found
             | uri == k
@@ -119,9 +124,9 @@ toCmd dupMap now ix (k, (cx, t, cu))
                 -> []
         _       -> insertCmd addIndexedToApiDoc
     where
-
+      pkg       = maybe "" id . fmap fiToPkg $ cu
       insertCmd = (:[]) . Insert
-      apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap FD cu), Nothing)
+      apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap FD cu), lookupRank pkg rt)
 
       -- HACK: add the type attribute of the custom info record
       -- to a classifying context with name "type"

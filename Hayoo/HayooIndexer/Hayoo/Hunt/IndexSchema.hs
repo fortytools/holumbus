@@ -156,13 +156,13 @@ ds  = ContextSchema
 datecx :: ContextSchema -> ContextSchema
 datecx s = s {cxType = ctDate}
 
-weight :: CWeight -> ContextSchema -> ContextSchema
+weight :: Weight -> ContextSchema -> ContextSchema
 weight w s = s {cxWeight = w}
 
 noDefault :: ContextSchema -> ContextSchema
 noDefault s = s {cxDefault = False}
 
-re :: CRegex -> ContextSchema -> ContextSchema
+re :: RegEx -> ContextSchema -> ContextSchema
 re ex s = s {cxRegEx = Just ex}
 
 fmtDateXmlSchema :: UTCTime -> Text
