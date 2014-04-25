@@ -6,13 +6,18 @@
 
 module Hayoo.Hunt.Output
 where
+import           Control.Applicative
 import           Control.Monad.IO.Class
 
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
-import qualified Data.ByteString.Lazy     as LB
+import qualified Data.ByteString.Lazy       as LB
+import qualified Data.ByteString.Lazy.Char8 as LC
 import           Data.Maybe
 import           Data.Monoid
+import           Data.Text                  (Text)
+
+import           Hunt.Interpreter.Command   (CmdError (..), CmdRes (..))
 
 import           Network.Browser
 import           Network.HTTP
@@ -23,8 +28,9 @@ import           System.FilePath
 
 -- ------------------------------------------------------------
 
-outputValue :: (MonadIO m, ToJSON c) => Either String String -> c -> m ()
-outputValue (Left fn) = liftIO . jsonOutput True toFile
+outputValue :: (Functor m, MonadIO m, ToJSON c) => Either String String -> c -> m (Maybe LB.ByteString)
+outputValue (Left fn) c = liftIO (jsonOutput True toFile c)
+                          >> return Nothing
     where
       toFile bs
           = do createDirectoryIfMissing True dirPath
@@ -33,7 +39,7 @@ outputValue (Left fn) = liftIO . jsonOutput True toFile
             (dirPath, _) = splitFileName file
             file         = jsonPath fn
 
-outputValue (Right uri) = liftIO . jsonOutput False toServer
+outputValue (Right uri) c = Just <$> liftIO (jsonOutput False toServer c)
     where
       toServer bs
           = postToServer $ mkPostReq (jsonUri uri) bs
@@ -44,9 +50,33 @@ jsonPath fn = "json" </> fn <.> "js"
 jsonUri :: String -> String
 jsonUri uri = uri </> "eval"
 
+evalOkRes :: MonadIO m => Maybe LB.ByteString -> m ()
+evalOkRes Nothing
+    = return ()
+evalOkRes (Just bs)
+    | isOkMsg bs = return ()
+    | otherwise  = liftIO . ioError . userError $
+                  "server error: \"ok\" expected, but got " ++ show (LC.unpack bs)
+    where
+      isOkMsg s = maybe False ((== "ok") . unCmdRes) js
+          where
+            js :: Maybe (CmdRes Text)
+            js = decode s
+
+evalErrRes :: MonadIO m => Int -> LB.ByteString -> m a
+evalErrRes rc bs
+    = liftIO . ioError . userError $
+      unwords ["server error: rc=", show rc, "msg=", msg ce]
+    where
+      ce :: Maybe CmdError
+      ce = decode bs
+
+      msg Nothing  = "result is not a JSON error message"
+      msg (Just e) = show e
+
 -- ------------------------------------------------------------
 
-jsonOutput :: (ToJSON c) => Bool -> (LB.ByteString -> IO ()) -> c -> IO ()
+jsonOutput :: (ToJSON c) => Bool -> (LB.ByteString -> IO a) -> c -> IO a
 jsonOutput pretty io x
     = io $ (if pretty then encodePretty' encConfig else encode) x
       where
@@ -86,15 +116,15 @@ mkPostReq uri bs
           where
             l = LB.length bs
 
-postToServer :: Req -> IO ()
+postToServer :: Req -> IO Bytes
 postToServer req
     = do res <- snd `fmap`
                 (browse $ do setOutHandler (const $ return ()) -- disable trace output
                              request req
                 )
          case rspCode res of
-           (2,0,0) -> return ()
-           _       -> ioError . userError . show $ res
+           (2,0,0) -> return $ rspBody res
+           (i,j,k) -> evalErrRes ((i * 10 + j) * 10 + k) (rspBody res)
 
 defaultServer :: String
 defaultServer = "http://localhost:3000/"

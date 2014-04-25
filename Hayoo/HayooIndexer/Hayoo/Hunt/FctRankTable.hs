@@ -5,23 +5,25 @@
 module Hayoo.Hunt.FctRankTable
 where
 
-import           Control.Applicative      ((<$>))
+import           Control.Applicative         ((<$>))
 -- import           Control.DeepSeq
 -- import           Control.Monad
 
 import           Data.Aeson
-import qualified Data.ByteString.Lazy     as LB
-import qualified Data.Map.Strict          as SM
-import qualified Data.Text                as T
+import qualified Data.ByteString.Lazy        as LB
+import qualified Data.Map.Strict             as SM
+import qualified Data.Text                   as T
 
 -- import           Hayoo.FunctionInfo
 -- import           Hayoo.Hunt.ApiDocument
--- import           Hayoo.Hunt.IndexSchema
+import           Hayoo.Hunt.IndexSchema
+import           Hayoo.Hunt.Output
 -- import           Hayoo.IndexTypes
 
 import           Hunt.Common.ApiDocument
 import           Hunt.Interpreter.Command
--- import           Hunt.Query.Language.Grammar
+import           Hunt.Query.Language.Grammar
+import           Hunt.Query.Result           (Score)
 
 -- ------------------------------------------------------------
 
@@ -57,5 +59,34 @@ rankFromFile fn
     = (fromCommand . maybe NOOP id . decode) <$> LB.readFile fn
 
 rankFromServer :: String -> IO FctRankTable
-rankFromServer _uri
-    = return $ fromCommand NOOP
+rankFromServer uri
+    = do r1 <- (toJ . maybe "" id) <$> outputValue (Right uri) c
+         print r1
+         r2 <- toLimitedResult r1
+         print r2
+         r3 <- return $ toFT r2
+         print r3
+         return r3
+    where
+      c = Search q 0 (-1) True (Just [])
+      q = QContext [c'type] $
+          QPhrase QCase     $
+          "package"
+
+      toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult (ApiDocument, Score)))
+      toJ = decode
+
+      toLimitedResult :: Maybe (CmdRes (LimitedResult (ApiDocument, Score))) ->
+                         IO            (LimitedResult (ApiDocument, Score))
+      toLimitedResult Nothing
+          = ioError . userError $
+            "server error: syntax error in JSON response for rank table"
+      toLimitedResult (Just (CmdRes r))
+          = return r
+
+      toFT :: LimitedResult (ApiDocument, Score) -> FctRankTable
+      toFT r = SM.fromList . map toUW . map fst . lrResult $ r
+          where
+            toUW d = (adUri d, maybe 1.0 id $ adWght d)
+
+-- ------------------------------------------------------------

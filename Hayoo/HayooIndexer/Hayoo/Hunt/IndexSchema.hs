@@ -127,13 +127,15 @@ dropHayooIndexSchema
     = Sequence . map (DeleteContext . icDContext) . icCmdSeq $ createHayooIndexSchema
 
 
-execCreateHayooIndexSchema :: MonadIO m => Maybe String -> m ()
+execCreateHayooIndexSchema :: (Functor m, MonadIO m) => Maybe String -> m ()
 execCreateHayooIndexSchema target
     = outputValue (maybe (Left "00-schema") Right target) createHayooIndexSchema
+      >>= evalOkRes
 
-execDropHayooIndexSchema :: MonadIO m => Maybe String -> m ()
+execDropHayooIndexSchema :: (Functor m, MonadIO m) => Maybe String -> m ()
 execDropHayooIndexSchema target
     = outputValue (maybe (Left "00-delete-schema") Right target) dropHayooIndexSchema
+      >>= evalOkRes
 
 -- ------------------------------------------------------------
 

@@ -25,7 +25,8 @@ import           Hayoo.Haddock
 import qualified Hayoo.Hunt.FctIndexerCore  as FJ
 import           Hayoo.Hunt.FctRankTable
 import           Hayoo.Hunt.IndexSchema
-import           Hayoo.Hunt.Output          (defaultServer, outputValue)
+import           Hayoo.Hunt.Output          (defaultServer, evalOkRes,
+                                             outputValue)
 import qualified Hayoo.Hunt.PkgIndexerCore  as PJ
 import           Hayoo.IndexConfig
 import           Hayoo.IndexerCore
@@ -358,7 +359,7 @@ mainHackageJSON
                save <- maybe False (const True) <$> asks ao_JSONmaxsave
                ct <- liftIO $ getCurrentTime
                notice $ "flushing package index as JSON to" : target serv
-               outputValue (dest serv) (PJ.toCommand save ct True ix)
+               outputValue (dest serv) (PJ.toCommand save ct True ix) >>= evalOkRes
                notice $ ["flushing package index as JSON done"]
                return ()
           where
@@ -449,7 +450,7 @@ mainHackage'
                now  <- liftIO getCurrentTime
                if rank
                   then do notice ["computing package ranks"]
-                          outputValue (dest serv) (PJ.rankToCommand save now $ packageDocRanking dt)
+                          outputValue (dest serv) (PJ.rankToCommand save now $ packageDocRanking dt) >>= evalOkRes
                           notice ["JSON package ranks written"]
                   else do notice ["no package ranks computed"]
           where
@@ -533,7 +534,7 @@ mainHaddockJSON
           = do serv <- asks ao_JSONserv
                ct <- liftIO $ getCurrentTime
                notice $ "flushing function index as JSON to" : target serv
-               outputValue (dest serv) (FJ.toCommand rt save ct True pkgs ix)
+               outputValue (dest serv) (FJ.toCommand rt save ct True pkgs ix) >>= evalOkRes
                notice $ ["flushing function index as JSON done"]
                return ()
           where

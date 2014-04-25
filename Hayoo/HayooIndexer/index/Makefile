@@ -210,12 +210,12 @@ whole-json	: $(indexer)
 
 VALID	= 1month
 json-all	: $(indexer)
-	$< $(RUNOPTS) --json-all $(OPTS1) $(OPTS) --valid=$(VALID)
+	$< $(RUNOPTS) --json-all $(OPTS1) $(OPTS) --hackage --valid=$(VALID)
 
 
 LATEST=1day
 json-update	: $(indexer)
-	$< $(RUNOPTS) --json-all $(OPTS1) $(OPTS) --latest=$(LATEST)
+	$< $(RUNOPTS) --json-all $(OPTS1) $(OPTS) --hackage --latest=$(LATEST)
 
 
 JSONFILES = $(shell find json -name '*.js' -print | sort)
