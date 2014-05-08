@@ -493,12 +493,12 @@ mainHaddockJSON
                                             , "reading package rank from server"
                                             , show uri
                                             ]
-                                     critical [ "mainHaddockJSON:"
-                                              , "reading package rank from server"
-                                              , show uri
-                                              , "not yet implemented"
-                                              ]
-                                     liftIO $ rankFromServer uri
+                                     rnk <- liftIO $ rankFromServer uri
+                                     notice [ "mainHaddockJSON:"
+                                            , "rank table from server:\n"
+                                            , show rnk
+                                            ]
+                                     return rnk
 
       indexPkgList :: [String] -> HIO ()
       indexPkgList []  = noaction

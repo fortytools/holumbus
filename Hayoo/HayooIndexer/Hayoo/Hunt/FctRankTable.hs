@@ -43,16 +43,17 @@ fromCommand (Sequence cs)
         cmdToRank _
             = []
 
-        docToRank d
-            | wght /= 1.0 = [(pkg, wght)]
-            | otherwise   = []
-            where
-              pkg  = T.copy .           -- prevent sharing of Text values
-                     last . T.split (== '/') . adUri $ d
-              wght = maybe 1.0 id . adWght $ d
-
 fromCommand _
     = SM.empty
+
+docToRank :: ApiDocument -> [(T.Text, Float)]
+docToRank d
+    | wght /= 1.0 = [(pkg, wght)]
+    | otherwise   = []
+    where
+      pkg  = T.copy .           -- prevent sharing of Text values
+             last . T.split (== '/') . adUri $ d
+      wght = maybe 1.0 id . adWght $ d
 
 rankFromFile :: FilePath -> IO FctRankTable
 rankFromFile fn
@@ -61,11 +62,11 @@ rankFromFile fn
 rankFromServer :: String -> IO FctRankTable
 rankFromServer uri
     = do r1 <- (toJ . maybe "" id) <$> outputValue (Right uri) c
-         print r1
+         -- print r1
          r2 <- toLimitedResult r1
-         print r2
+         -- print r2
          r3 <- return $ toFT r2
-         print r3
+         -- print r3
          return r3
     where
       c = Search q 0 (-1) True (Just [])
@@ -85,8 +86,6 @@ rankFromServer uri
           = return r
 
       toFT :: LimitedResult (ApiDocument, Score) -> FctRankTable
-      toFT r = SM.fromList . map toUW . map fst . lrResult $ r
-          where
-            toUW d = (adUri d, maybe 1.0 id $ adWght d)
+      toFT r = SM.fromList . concatMap docToRank . map fst . lrResult $ r
 
 -- ------------------------------------------------------------
