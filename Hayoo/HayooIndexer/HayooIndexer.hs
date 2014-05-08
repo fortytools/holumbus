@@ -926,9 +926,10 @@ noHaddockPage
 notice :: MonadIO m => [String] -> m ()
 notice = noticeC "hayoo"
 
+{-
 critical :: MonadIO m => [String] -> m ()
 critical = errC "hayoo"
-
+-- -}
 -- ------------------------------------------------------------
 
 evalOptions :: String -> [String] -> AppOpts
