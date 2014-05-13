@@ -7,12 +7,12 @@ where
 
 import           Control.Arrow
 
-import           Data.Map       ( Map )
-import qualified Data.Map       as M
+import           Data.Map      (Map)
+import qualified Data.Map      as M
 import           Data.Maybe
-import           Data.Set       ( Set )
-import qualified Data.Set       as S
-{-
+import           Data.Set      (Set)
+import qualified Data.Set      as S
+-- {-
 import           Debug.Trace
 -- -}
 -- ------------------------------------------------------------
@@ -39,7 +39,7 @@ unsaveDagFromList l             = -- traceShow l $
 -- sequence of the pairs in the input list
 
 dagFromList                     :: (Ord a, Show a) => [(a, [a])] -> DAG a
-dagFromList l                   = -- traceShow l $
+dagFromList l                   = traceShow l $
                                   map (second S.fromList)
                                   >>>
                                   foldl (flip insEdges) M.empty $ l
@@ -59,9 +59,9 @@ insEdges (x, ys) g
 
 insertEdge                      :: (Ord a, Show a) => a -> a -> DAG a -> DAG a
 insertEdge x y g
-    | x == y                    = -- traceShow ("cycle:", [x,y]) $
+    | x == y                    = traceShow ("cycle:", [x,y]) $
                                   g
-    | existPath                 = -- traceShow ("cycle:", x:(head path)) $
+    | existPath                 = traceShow ("cycle:", x:(head path)) $
                                   g
     | otherwise                 = M.insertWith S.union x (S.singleton y) g
     where

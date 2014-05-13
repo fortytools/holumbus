@@ -33,7 +33,13 @@ progs	= $(indexer)
 # a good value is about the size of the L2 cache of the cpu
 # the default is set to 8M
 
+HOST	:= $(shell hostname)
+
 N       = 1
+ifeq ($(HOST),holumbus)
+N       = 2
+endif
+
 H       = 100
 A       = 8
 K       = 10
