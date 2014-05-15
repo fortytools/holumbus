@@ -1,0 +1,5 @@
+*.hi
+*.o
+rank-string
+rank-with-trace
+rank-without-trace
