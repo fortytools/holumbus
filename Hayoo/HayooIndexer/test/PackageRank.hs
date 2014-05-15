@@ -2,15 +2,7 @@
 
 -- ------------------------------------------------------------
 
-module Hayoo.PackageRank
-    ( DAGList
-    , DAG
-    , Ranking
-    , dagFromList
-    , dagToList
-    , ranking
-    , rankingStd
-    )
+module Main
 where
 
 import           Control.Arrow
@@ -53,21 +45,13 @@ unsaveDagFromList l             = -- traceShow l $
 
 -- with ghc-7.8.2 this function is evaluated repeatedly
 -- a lot of times, visible by the traceShow in insertEdge,
--- but with the insertion of the traceShow (1. line) it's evalated only once,
+-- with the insertion of the traceShow it's evalated only once,
 -- as it should be and as it's done with ghc-7.6
 --
 -- substituting traceShow by a deepseq does not help
---
--- This behaviour only shows up in complete HayooIndexer,
--- not in a test program containing this code and a simple
--- main reading the DAG from a file.
--- Independent of the optimization flags, no -O, -O or -O2,
--- the error can't reproduced with the test prog
---
--- Its really a Heisenbug.
 
 dagFromList                     :: (Ord a, Show a, NFData a) => DAGList a -> DAG a
-dagFromList l                   = traceShow l $ -- <<<<<<<<<<<<<<<<<<<<<<<<<
+dagFromList l                   = -- traceShow l $
                                   map (second S.fromList)
                                   >>>
                                   foldl (flip insEdges) M.empty $ l
@@ -141,7 +125,7 @@ dagInvert                       = M.foldrWithKey invVs M.empty
 -- deepseq with g does not help, stil multiple evaluations of dagFromList and insertEdge
 
 ranking                         :: (Ord a, Show a, NFData a) => Score -> DAG a -> Ranking a
-ranking w g                     = -- traceShow r $
+ranking w g                     = -- traceShow r
                                   r
     where
     g'                          = {- g `deepseq` -} dagInvert g
@@ -152,7 +136,6 @@ ranking w g                     = -- traceShow r $
             usedBy              = fromMaybe S.empty . M.lookup k $ g'
             accRank k' acc'     = ( fromJust . M.lookup k' $ r ) + acc'
 
--- use of strict (SM) map leads to complete evaluation of result
 rankingStd                      :: (Ord a, Show a, NFData a) => DAGList a -> Ranking a
 rankingStd                      = SM.map scale . ranking deflate . dagFromList
     where
@@ -169,3 +152,10 @@ d1 = dagFromList [(1,[2,3])
                  ]
 -- -}
 -- ------------------------------------------------------------
+--
+-- test app
+
+main :: IO ()
+main
+    = do g <- fmap read (readFile "Dependencies.txt")
+         print $ rankingStd (g :: DAGList String)

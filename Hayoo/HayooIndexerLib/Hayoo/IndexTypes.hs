@@ -71,7 +71,7 @@ removePack' pkgName ps IndexerState
                                   , ixs_documents = ds'
                                   }
     where
-                                                        -- collect all DocIds used in the given packages
+                                  -- collect all DocIds used in the given packages
     docIds                      = foldWithKeyDocIdMap checkDoc emptyDocIdMap . toMap $ ds
     checkDoc did doc xs
         | docPartOfPack         = insertDocIdMap did emptyPos xs
@@ -79,10 +79,10 @@ removePack' pkgName ps IndexerState
         where
         docPartOfPack           = (`elem` ps) . pkgName $ doc
 
-                                                        -- remove all DocIds from index
+                                  -- remove all DocIds from index
     ix'                         = removeDocIdsInverted docIds ix
 
-                                                        -- restrict document table
+                                  -- restrict document table
     ds'                         = foldl' removeById ds $ keysDocIdMap docIds
 
 -- ------------------------------------------------------------
@@ -105,20 +105,20 @@ packageRanking ixs@(IndexerState { ixs_documents = ds })
 packageDocRanking :: Documents PackageInfo -> Documents PackageInfo
 packageDocRanking ds = updateDocuments insertRank ds
     where
-    deflate                     = 0.5
-    scale                       = (/10.0) . fromInteger . round . (*10) . (+1.0) . logBase 2
-    rank                        = ranking deflate
-                                  . dagFromList
+    rank                        = rankingStd
                                   . map (\ p -> (getPackageName p, getPackageDependencies p))
                                   . map fromJust
-                                  . filter isJust               -- all illegal package refs are filtered out (there are illegal refs)
-                                  . map custom
+                                  . filter isJust  -- all illegal package refs
+                                  . map custom     -- are filtered out (there are illegal refs)
                                   . elemsDocIdMap
                                   . toMap $ ds
 
     insertRank d                = d { custom = fmap insertRank' (custom d) }
         where
-        insertRank' ci          = setPackageRank (scale . fromMaybe (1.0) . M.lookup (getPackageName ci) $ rank) ci
+        insertRank' ci          = setPackageRank  ( fromMaybe (1.0)
+                                                    . M.lookup (getPackageName ci)
+                                                    $ rank
+                                                  ) ci
 
 {-
 traceNothing d
@@ -150,6 +150,7 @@ buildRankTable                  = toMap
             Nothing -> error $ "buildRankTable: Doc without custom component: " ++ show d
             Just _  -> d
 -- -}
+
 -- ------------------------------------------------------------
 
 type HayooFctDocuments                  = SmallDocuments  FunctionInfo

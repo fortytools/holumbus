@@ -6,30 +6,26 @@ module Hayoo.Hunt.FctRankTable
 where
 
 import           Control.Applicative         ((<$>))
--- import           Control.DeepSeq
--- import           Control.Monad
 
 import           Data.Aeson
 import qualified Data.ByteString.Lazy        as LB
+import           Data.Map.Strict             (Map)
 import qualified Data.Map.Strict             as SM
+import           Data.Text                   (Text)
 import qualified Data.Text                   as T
 
--- import           Hayoo.FunctionInfo
--- import           Hayoo.Hunt.ApiDocument
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.Hunt.Output
--- import           Hayoo.IndexTypes
 
 import           Hunt.Common.ApiDocument
 import           Hunt.Interpreter.Command
 import           Hunt.Query.Language.Grammar
-import           Hunt.Query.Result           (Score)
 
 -- ------------------------------------------------------------
 
-type FctRankTable = SM.Map T.Text Float
+type FctRankTable = Map Text Float
 
-lookupRank :: T.Text -> FctRankTable -> Maybe Float
+lookupRank :: Text -> FctRankTable -> Maybe Float
 lookupRank = SM.lookup
 
 fromCommand :: Command -> FctRankTable
@@ -46,7 +42,7 @@ fromCommand (Sequence cs)
 fromCommand _
     = SM.empty
 
-docToRank :: ApiDocument -> [(T.Text, Float)]
+docToRank :: ApiDocument -> [(Text, Float)]
 docToRank d
     | wght /= 1.0 = [(pkg, wght)]
     | otherwise   = []
@@ -74,18 +70,18 @@ rankFromServer uri
           QPhrase QCase     $
           "package"
 
-      toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult (ApiDocument, Score)))
+      toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))
       toJ = decode
 
-      toLimitedResult :: Maybe (CmdRes (LimitedResult (ApiDocument, Score))) ->
-                         IO            (LimitedResult (ApiDocument, Score))
+      toLimitedResult :: Maybe (CmdRes (LimitedResult ApiDocument)) ->
+                         IO            (LimitedResult ApiDocument)
       toLimitedResult Nothing
           = ioError . userError $
             "server error: syntax error in JSON response for rank table"
       toLimitedResult (Just (CmdRes r))
           = return r
 
-      toFT :: LimitedResult (ApiDocument, Score) -> FctRankTable
-      toFT r = SM.fromList . concatMap docToRank . map fst . lrResult $ r
+      toFT :: LimitedResult ApiDocument -> FctRankTable
+      toFT r = SM.fromList . concatMap docToRank . lrResult $ r
 
 -- ------------------------------------------------------------

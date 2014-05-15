@@ -27,6 +27,7 @@ executable hayooIndexer
                  , Hayoo.Hunt.IndexSchema
                  , Hayoo.Hunt.Output
                  , Hayoo.Hunt.PkgIndexerCore
+                 , Hayoo.Hunt.PkgRankTable
                  , Hayoo.IndexConfig
                  , Hayoo.IndexerCore
                  , Hayoo.PackageArchive

@@ -22,17 +22,19 @@ import           Data.Typeable
 
 import           Hayoo.HackagePackage
 import           Hayoo.Haddock
+import           Hayoo.IndexConfig
+import           Hayoo.IndexerCore
+import           Hayoo.IndexTypes
+import           Hayoo.PackageArchive
+import           Hayoo.URIConfig
+
 import qualified Hayoo.Hunt.FctIndexerCore  as FJ
 import           Hayoo.Hunt.FctRankTable
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.Hunt.Output          (defaultServer, evalOkRes,
                                              outputValue)
 import qualified Hayoo.Hunt.PkgIndexerCore  as PJ
-import           Hayoo.IndexConfig
-import           Hayoo.IndexerCore
-import           Hayoo.IndexTypes
-import           Hayoo.PackageArchive
-import           Hayoo.URIConfig
+import           Hayoo.Hunt.PkgRankTable    as PR
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.CacheCore
@@ -54,7 +56,7 @@ data AppAction
     = Usage
     | BuildIx | UpdatePkg | RemovePkg | BuildCache | MergeIx
     | CreateSchema | DeleteSchema
-    | JsonAll | JsonUpdate
+    | JsonAll | JsonUpdate | JsonRank
       deriving (Eq, Show)
 
 data AppOpts
@@ -205,6 +207,7 @@ main2
                          MergeIx      -> mainHaddock
                          CreateSchema -> indexSchema execCreateHayooIndexSchema
                          DeleteSchema -> indexSchema execDropHayooIndexSchema
+                         JsonRank     -> jsonRank
                          JsonAll      -> mainJsonAll
                          JsonUpdate   -> mainJsonUpdate
                          _            -> do p <- asks ao_pkgIndex
@@ -275,6 +278,9 @@ jsonHackage
     = local (\ x -> x { ao_pkgIndex    = True })
       mainHackageJSON
 
+
+{- old: JSON rank is computed by complete crawling of packages list
+
 jsonRank :: HIO ()
 jsonRank
     = local (\ x ->
@@ -287,7 +293,28 @@ jsonRank
             ) mainHackage'                 -- it's already done in the previous step
     where
       setValid = setDocAge (60 * 60 * 24 * 365) -- 1 year
+-- -}
 
+-- {- new: JSON rank is computed from 01-packages.js or by quering hunt server for packages
+
+jsonRank :: HIO ()
+jsonRank
+    = do serv <- asks ao_JSONserv
+         save <- maybe False (const True) <$>
+                 asks ao_JSONmaxsave
+         now  <- liftIO getCurrentTime
+         notice ["computing JSON package ranks"]
+         rank <- liftIO $ PR.toCommand save now (src serv)
+         outputValue (dest serv) rank >>= evalOkRes
+         notice ["JSON package ranks written"]
+    where
+      dest Nothing    = Left "02-ranking"
+      dest (Just uri) = Right uri
+
+      src  Nothing    = Left "01-packages"
+      src  (Just uri) = Right uri
+
+-- -}
 -- ------------------------------------------------------------
 
 mainCache :: HIO ()
@@ -1106,11 +1133,8 @@ hayooOptDescr
 
       , Option "" ["json-pkg-rank"]
         ( NoArg $
-          \ x -> x { ao_action      = BuildIx
-                   , ao_pkgIndex    = True
+          \ x -> x { ao_action      = JsonRank
                    , ao_JSON        = True
-                   , ao_pkgRank     = True
-                   , ao_pkgRankOnly = True
                    }
         )
         "JSON command to compute Hayoo package rank in Hunt server (--json-output implied)"

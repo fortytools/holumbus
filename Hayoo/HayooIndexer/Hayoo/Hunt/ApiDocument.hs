@@ -12,7 +12,6 @@ import           Hayoo.Hunt.IndexSchema
 import           Hayoo.PackageInfo
 
 import           Holumbus.Crawler.IndexerCore
-import           Holumbus.Query.Result        (Score)
 
 import           Hunt.Common.ApiDocument
 import           Hunt.Common.BasicTypes

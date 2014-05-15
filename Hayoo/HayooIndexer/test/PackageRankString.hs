@@ -2,35 +2,27 @@
 
 -- ------------------------------------------------------------
 
-module Hayoo.PackageRank
-    ( DAGList
-    , DAG
-    , Ranking
-    , dagFromList
-    , dagToList
-    , ranking
-    , rankingStd
-    )
+module Main
 where
 
 import           Control.Arrow
 import           Control.DeepSeq
 
-import           Data.Map        (Map)
-import qualified Data.Map        as M
-import qualified Data.Map.Strict as SM
 import           Data.Maybe
-import           Data.Set        (Set)
-import qualified Data.Set        as S
+import           Data.Set              (Set)
+import qualified Data.Set              as S
+import           Data.StringMap        (StringMap)
+import qualified Data.StringMap        as M
+import qualified Data.StringMap.Strict as SM
 -- {-
 import           Debug.Trace
 -- -}
 -- ------------------------------------------------------------
 
-type DAGList a                  = [(a, [a])]
-type DAG a                      = Map a (Set a)
-type Ranking a                  = Map a Score
-type Score                      = Float
+type DAGList                  = [(String, [String])]
+type DAG                      = StringMap (Set String)
+type Ranking                  = StringMap Score
+type Score                    = Float
 
 -- ------------------------------------------------------------
 
@@ -53,26 +45,18 @@ unsaveDagFromList l             = -- traceShow l $
 
 -- with ghc-7.8.2 this function is evaluated repeatedly
 -- a lot of times, visible by the traceShow in insertEdge,
--- but with the insertion of the traceShow (1. line) it's evalated only once,
+-- with the insertion of the traceShow it's evalated only once,
 -- as it should be and as it's done with ghc-7.6
 --
 -- substituting traceShow by a deepseq does not help
---
--- This behaviour only shows up in complete HayooIndexer,
--- not in a test program containing this code and a simple
--- main reading the DAG from a file.
--- Independent of the optimization flags, no -O, -O or -O2,
--- the error can't reproduced with the test prog
---
--- Its really a Heisenbug.
 
-dagFromList                     :: (Ord a, Show a, NFData a) => DAGList a -> DAG a
-dagFromList l                   = traceShow l $ -- <<<<<<<<<<<<<<<<<<<<<<<<<
+dagFromList                     :: DAGList -> DAG
+dagFromList l                   = -- traceShow l $
                                   map (second S.fromList)
                                   >>>
                                   foldl (flip insEdges) M.empty $ l
 
-insEdges                        :: (Ord a, Show a) => (a, Set a) -> DAG a -> DAG a
+insEdges                        :: (String, Set String) -> DAG -> DAG
 insEdges (x, ys) g
     | S.null ys                 = M.insertWith S.union x ys g
     | otherwise                 = S.fold (insertEdge x) g $ ys
@@ -91,7 +75,7 @@ insEdges (x, ys) g
 --
 -- Check for possible cycles. Edges leading to cycles are discarded
 
-insertEdge                      :: (Ord a, Show a) => a -> a -> DAG a -> DAG a
+insertEdge                      :: String -> String -> DAG -> DAG
 insertEdge x y g
     | x == y                    = traceShow ("cycle:", [x,y]) $
                                   g
@@ -108,7 +92,7 @@ insertEdge x y g
 --
 -- this is used by insertEdge, when checking for cycles
 
-allPaths                        :: (Ord a) => DAG a -> a -> a -> [[a]]
+allPaths                        :: DAG -> String -> String -> [[String]]
 allPaths g                      = allPaths'
     where
     allPaths' x y
@@ -121,14 +105,14 @@ allPaths g                      = allPaths'
 
 -- | Inverse to dagFromList
 
-dagToList                       :: DAG a -> [(a, [a])]
+dagToList                       :: DAG -> DAGList
 dagToList                       = M.toList >>> map (second S.toList)
 
 -- ------------------------------------------------------------
 
 -- | Switch the direction in the DAG
 
-dagInvert                       :: (Ord a) => DAG a -> DAG a
+dagInvert                       :: DAG -> DAG
 dagInvert                       = M.foldrWithKey invVs M.empty
     where
     invVs k ks acc              = S.fold invV acc1 $ ks
@@ -140,8 +124,8 @@ dagInvert                       = M.foldrWithKey invVs M.empty
 
 -- deepseq with g does not help, stil multiple evaluations of dagFromList and insertEdge
 
-ranking                         :: (Ord a, Show a, NFData a) => Score -> DAG a -> Ranking a
-ranking w g                     = -- traceShow r $
+ranking                         :: Score -> DAG -> Ranking
+ranking w g                     = -- traceShow r
                                   r
     where
     g'                          = {- g `deepseq` -} dagInvert g
@@ -152,8 +136,7 @@ ranking w g                     = -- traceShow r $
             usedBy              = fromMaybe S.empty . M.lookup k $ g'
             accRank k' acc'     = ( fromJust . M.lookup k' $ r ) + acc'
 
--- use of strict (SM) map leads to complete evaluation of result
-rankingStd                      :: (Ord a, Show a, NFData a) => DAGList a -> Ranking a
+rankingStd                      :: DAGList -> Ranking
 rankingStd                      = SM.map scale . ranking deflate . dagFromList
     where
       scale                     = (/10.0) . fromInteger . round . (*10) . (+1.0) . logBase 2
@@ -169,3 +152,10 @@ d1 = dagFromList [(1,[2,3])
                  ]
 -- -}
 -- ------------------------------------------------------------
+--
+-- test app
+
+main :: IO ()
+main
+    = do g <- fmap read (readFile "Dependencies.txt")
+         print $ rankingStd (g :: DAGList)
