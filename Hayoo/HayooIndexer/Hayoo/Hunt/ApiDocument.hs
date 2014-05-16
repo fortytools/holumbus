@@ -13,24 +13,25 @@ import           Hayoo.PackageInfo
 
 import           Holumbus.Crawler.IndexerCore
 
-import           Hunt.Common.ApiDocument
-import           Hunt.Common.BasicTypes
+import           Hunt.ClientInterface
+-- import           Hunt.Common.ApiDocument
+-- import           Hunt.Common.BasicTypes
 import           Hunt.Common.DocDesc          (DocDesc (..))
 import qualified Hunt.Common.DocDesc          as DD
 
 -- ------------------------------------------------------------
 
-toApiDoc :: ToDescr c => (URI, RawDoc c, Maybe Float) -> ApiDocument
+toApiDoc :: ToDescr c => (URI, RawDoc c, Score) -> ApiDocument
 toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
-    = ApiDocument
-      { adUri   = uri
-      , adIndex = SM.fromList . concatMap toCC $ rawContexts
-      , adDescr = ( if null rawTitle
-                    then id
-                    else DocDesc . SM.insert d'name (T.pack rawTitle) . unDesc
-                  ) $ toDescr rawCustom
-      , adWght  = wght
-      }
+    = withDescription
+         ( (if null rawTitle
+            then id
+            else DocDesc . SM.insert d'name (T.pack rawTitle) . unDesc
+           ) $ toDescr rawCustom
+         )
+      . withIndex (SM.fromList . concatMap toCC $ rawContexts)
+      . withDocWeight wght
+      $ mkApiDoc uri
     where
       toCC (_,  []) = []
       toCC (cx, ws) = [(cxToHuntCx cx, T.pack . unwords . map fst $ ws)]
@@ -38,22 +39,6 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
     = SM.null (adIndex a) && DD.null (adDescr a) && (maybe 1.0 id $ adWght a) == 1.0
-
-chgIndexMap :: (SM.Map Context Content -> SM.Map Context Content) -> ApiDocument -> ApiDocument
-chgIndexMap f a = a { adIndex = f $ adIndex a }
-
-chgDescrMap :: (Description -> Description) -> ApiDocument -> ApiDocument
-chgDescrMap f a = a { adDescr = f . adDescr $ a }
-
-insIndexMap :: Context -> Content -> ApiDocument -> ApiDocument
-insIndexMap cx ct
-    | T.null ct = id
-    | otherwise = chgIndexMap $ SM.insert cx ct
-
-insDescrMap :: T.Text -> T.Text -> ApiDocument -> ApiDocument
-insDescrMap k v
-    | T.null v  = chgDescrMap $ (DocDesc . SM.delete k   . unDesc)
-    | otherwise = chgDescrMap $ (DocDesc . SM.insert k v . unDesc)
 
 lookupIndexMap :: Context -> ApiDocument -> T.Text
 lookupIndexMap cx d

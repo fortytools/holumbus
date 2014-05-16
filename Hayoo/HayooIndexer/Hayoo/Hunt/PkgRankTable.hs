@@ -5,24 +5,23 @@
 module Hayoo.Hunt.PkgRankTable
 where
 
-import           Control.Applicative         ((<$>))
+import           Control.Applicative      ((<$>))
 
 import           Data.Aeson
-import qualified Data.ByteString.Lazy        as LB
-import           Data.Map.Strict             (Map)
-import qualified Data.Map.Strict             as SM
-import           Data.Text                   (Text)
-import qualified Data.Text                   as T
+import qualified Data.ByteString.Lazy     as LB
+import           Data.Map.Strict          (Map)
+import qualified Data.Map.Strict          as SM
+import           Data.Text                (Text)
+import qualified Data.Text                as T
 import           Data.Time
 
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.Hunt.Output
 import           Hayoo.PackageRank
 
-import           Hunt.Common.ApiDocument
-import           Hunt.Common.DocDesc         (unDesc)
-import           Hunt.Interpreter.Command
-import           Hunt.Query.Language.Grammar
+import           Hunt.ClientInterface     hiding (URI)
+import           Hunt.Common.DocDesc      (unDesc)
+import           Hunt.Interpreter.Command (Command (..))
 
 -- ------------------------------------------------------------
 
@@ -40,10 +39,10 @@ dependenciesFromServer uri
          -- print r3
          return r3
     where
-      c = Search q 0 (-1) False (Just [d'name, d'dependencies])
-      q = QContext [c'type] $
-          QPhrase QCase     $
-          "package"
+      c = withSelectedFields [d'name, d'dependencies]
+          . cmdSearch
+          . withinContext c'type
+          $ qPhrase "package"
 
       toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))
       toJ = decode
@@ -63,7 +62,7 @@ dependenciesFromFile :: FilePath -> IO (PkgMap, RankTable)
 dependenciesFromFile fn
     = toRes <$> LB.readFile fn
     where
-      toRes = fromDepList . toDepList . maybe NOOP id . decode
+      toRes = fromDepList . toDepList . maybe cmdNOOP id . decode
 
 fromDepList :: [(Text, (Text, [Text]))] -> (PkgMap, RankTable)
 fromDepList xs
@@ -96,19 +95,20 @@ docToDep d
 
 rankToCommand :: Bool -> UTCTime -> (PkgMap, RankTable) -> Command
 rankToCommand save now (pm, rt)
-    = appendSaveCmd save now .
-      Sequence .
-      map Update .
-      concatMap toApiDoc . SM.toList $ pm
+    = appendSaveCmd save now
+      . cmdSequence
+      . map cmdUpdateDoc
+      . concatMap toApiDoc'
+      . SM.toList
+      $ pm
     where
-      toApiDoc (uri, name)
+      toApiDoc' (uri, name)
           | wght == 1.0
               = []
           | otherwise
-              = (:[]) $
-                emptyApiDoc { adUri  = uri
-                            , adWght = Just wght
-                            }
+              = (:[])
+                $ withDocWeight wght
+                $ mkApiDoc uri
           where
             wght = maybe 1.0 id . SM.lookup name $ rt
 

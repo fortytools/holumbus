@@ -3,20 +3,18 @@
 module Hayoo.Hunt.IndexSchema
 where
 
-import           Control.Applicative      ()
+import           Control.Applicative    ()
 import           Control.Monad.IO.Class
 
-import           Data.Text                (Text, pack, unpack)
+import           Data.Text              (Text, pack, unpack)
 import           Data.Time
 
 import           Hayoo.Hunt.Output
 import           Hayoo.IndexConfig
 
-import           Hunt.Common.BasicTypes
-import           Hunt.Index.Schema
-import           Hunt.Interpreter.Command
+import           Hunt.ClientInterface
 
-import           System.Locale            (defaultTimeLocale)
+import           System.Locale          (defaultTimeLocale)
 
 -- ------------------------------------------------------------
 
@@ -94,38 +92,45 @@ d'version      = c'version
 
 createHayooIndexSchema :: Command
 createHayooIndexSchema
-    = Sequence $
-      map ($ ds)
-      [ mkIC c'author       . weight 1.0 . re "[^,]*"
-      , mkIC c'category     . weight 1.0              . noDefault
-      , mkIC c'dependencies . weight 1.0 . re "[^ ]*" . noDefault
-      , mkIC c'description  . weight 0.3
-      , mkIC c'hierarchy    . weight 0.1
-      , mkIC c'indexed      . weight 1.0 . re dr      . noDefault . datecx
-      , mkIC c'maintainer   . weight 1.0              . noDefault
-      , mkIC c'module       . weight 0.5 . re ".*"
-      , mkIC c'name         . weight 3.0 . re "[^ ]*"
-      , mkIC c'normalized   . weight 0.2 . re "[^$]*" . noDefault -- from Hayoo.ParseSignature.modifySignatureWith
-      , mkIC c'package      . weight 1.0 . re ".*"
-      , mkIC c'partial      . weight 0.2 . re "[^ ]*"
-      , mkIC c'signature    . weight 1.0 . re "[^$]*" . noDefault -- from Hayoo.ParseSignature.modifySignatureWith
-      , mkIC c'source       . weight 0.1 . re ".*"    . noDefault
-      , mkIC c'synopsis     . weight 0.8
-      , mkIC c'type         . weight 0.0              . noDefault
-      , mkIC c'upload       . weight 1.0 . re dr      . noDefault . datecx
-      , mkIC c'version      . weight 1.0 . re ".*"    . noDefault
+    = cmdSequence $
+      map (uncurry cmdInsertContext) $
+      hayooIndexSchema
+
+dropHayooIndexSchema :: Command
+dropHayooIndexSchema
+    = cmdSequence $
+      map (cmdDeleteContext . fst) $
+      hayooIndexSchema
+
+hayooIndexSchema :: [(Context, ContextSchema)]
+hayooIndexSchema
+    = map ($ ds) $
+      [ mkIC c'author       . withCxWeight 1.0 . withCxRegEx "[^,]*"
+      , mkIC c'category     . withCxWeight 1.0                       . withoutCxDefault
+      , mkIC c'dependencies . withCxWeight 1.0 . withCxRegEx "[^ ]*" . withoutCxDefault
+      , mkIC c'description  . withCxWeight 0.3
+      , mkIC c'hierarchy    . withCxWeight 0.1
+      , mkIC c'indexed      . withCxWeight 1.0 . withCxRegEx dr      . withoutCxDefault . withCxDate
+      , mkIC c'maintainer   . withCxWeight 1.0                       . withoutCxDefault
+      , mkIC c'module       . withCxWeight 0.5 . withCxRegEx ".*"
+      , mkIC c'name         . withCxWeight 3.0 . withCxRegEx "[^ ]*"
+      , mkIC c'normalized   . withCxWeight 0.2 . withCxRegEx "[^$]*" . withoutCxDefault -- from Hayoo.ParseSignature.modifySignatureWith
+      , mkIC c'package      . withCxWeight 1.0 . withCxRegEx ".*"
+      , mkIC c'partial      . withCxWeight 0.2 . withCxRegEx "[^ ]*"
+      , mkIC c'signature    . withCxWeight 1.0 . withCxRegEx "[^$]*" . withoutCxDefault -- from Hayoo.ParseSignature.modifySignatureWith
+      , mkIC c'source       . withCxWeight 0.1 . withCxRegEx ".*"    . withoutCxDefault
+      , mkIC c'synopsis     . withCxWeight 0.8
+      , mkIC c'type         . withCxWeight 0.0                       . withoutCxDefault
+      , mkIC c'upload       . withCxWeight 1.0 . withCxRegEx dr      . withoutCxDefault . withCxDate
+      , mkIC c'version      . withCxWeight 1.0 . withCxRegEx ".*"    . withoutCxDefault
       ]
     where
+      mkIC x cs = (x, cs)
       d4 = "[0-9]{4}"
       d2 = "[0-9]{2}"
       ms = "-"
       cl = ":"
       dr = pack $ concat [d4, "(", ms, d2, "(", ms, d2, "(T", d2, cl, d2, cl, d2,")?)?)?"]
-
-dropHayooIndexSchema :: Command
-dropHayooIndexSchema
-    = Sequence . map (DeleteContext . icDContext) . icCmdSeq $ createHayooIndexSchema
-
 
 execCreateHayooIndexSchema :: (Functor m, MonadIO m) => Maybe String -> m ()
 execCreateHayooIndexSchema target
@@ -139,33 +144,8 @@ execDropHayooIndexSchema target
 
 -- ------------------------------------------------------------
 
-mkIC :: Context -> ContextSchema -> Command
-mkIC name schema
-    = InsertContext
-      { icIContext = name
-      , icSchema   = schema
-      }
-
 ds :: ContextSchema
-ds  = ContextSchema
-      { cxRegEx      = Just "\\w*"
-      , cxNormalizer = []
-      , cxWeight     = 1.0
-      , cxDefault    = True
-      , cxType       = ctText
-      }
-
-datecx :: ContextSchema -> ContextSchema
-datecx s = s {cxType = ctDate}
-
-weight :: Weight -> ContextSchema -> ContextSchema
-weight w s = s {cxWeight = w}
-
-noDefault :: ContextSchema -> ContextSchema
-noDefault s = s {cxDefault = False}
-
-re :: RegEx -> ContextSchema -> ContextSchema
-re ex s = s {cxRegEx = Just ex}
+ds  = withCxRegEx "\\w*" $ mkSchema
 
 fmtDateXmlSchema :: UTCTime -> Text
 fmtDateXmlSchema = fmtDate' "%FT%X"
@@ -181,13 +161,13 @@ parseDateHTTP :: String -> Maybe UTCTime
 parseDateHTTP = parseTime defaultTimeLocale "%a %b %e %H:%M:%S %Z %Y"
 
 mkSaveCmd :: UTCTime -> Command
-mkSaveCmd now = StoreIx fn
+mkSaveCmd now = cmdStoreIndex fn
           where
             fn = "hayoo-ix." ++ (unpack . fmtDateXmlSchema $ now)
 
 appendSaveCmd :: Bool -> UTCTime -> Command -> Command
 appendSaveCmd True now cmd
-    = Sequence [cmd, mkSaveCmd now]
+    = cmdSequence [cmd, mkSaveCmd now]
 appendSaveCmd False _ cmd
     = cmd
 

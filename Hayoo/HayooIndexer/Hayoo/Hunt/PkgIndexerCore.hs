@@ -22,8 +22,7 @@ import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Common        hiding (URI)
 
-import           Hunt.Interpreter.Command
-import           Hunt.Query.Language.Grammar
+import           Hunt.ClientInterface         hiding (URI)
 
 import           Text.XML.HXT.Core
 
@@ -83,39 +82,38 @@ insertHayooPkgM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
 toCommand :: Bool -> UTCTime -> Bool -> PkgIndexerState -> Command
 toCommand save now update (IndexerState _ (RDX ix))
     = appendSaveCmd save now $
-      Sequence [ deletePkgCmd
-               , Sequence . concatMap toCmd . M.toList $ ix
-               ]
+      cmdSequence [ deletePkgCmd
+                  , cmdSequence . concatMap toCmd . M.toList $ ix
+                  ]
     where
       now'  = fmtDateXmlSchema now
       now'' = fmtDateHTTP      now
 
       deletePkgCmd
           | update && not (M.null ix)
-              = DeleteByQuery $
-                QBinary And ( QContext [c'type] $
-                              QPhrase QCase     $
-                              d'package
-                            ) $
-                foldr1 (QBinary Or) $
-                map (\(_cx, t, _cs) -> QContext [c'name] . QPhrase QCase . T.pack $ t) $
-                M.elems ix
+              = cmdDeleteDocsByQuery
+                $ qAnd ( withinContext c'type
+                         $ qPhrase d'package
+                     )
+                $ foldr1 qOr
+                $ map (\(_cx, t, _cs) -> withinContext c'name . qPhrase . T.pack $ t)
+                $ M.elems ix
 
           | otherwise
-              = NOOP
+              = cmdNOOP
 
       toCmd (k, (cx, t, cu))
           = insertCmd apiDoc3
             where
-              insertCmd = (:[]) . Insert
-              apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu), Nothing)
+              insertCmd = (:[]) . cmdInsertDoc
+              apiDoc    = toApiDoc $ (T.pack k, (cx, t, fmap PD cu), 1.0)
 
               -- add "package" as type to the type context for easy search of packages
-              apiDoc0   = insIndexMap c'type d'package apiDoc
+              apiDoc0   = addToIndex c'type d'package apiDoc
 
               -- HACK: add upload time to c'upload context
               -- to enable search for latest packages
-              apiDoc1   = insIndexMap c'upload upl $
+              apiDoc1   = addToIndex c'upload upl $
                           apiDoc0
                   where
                     upl = maybe "" id uplDate
@@ -126,16 +124,16 @@ toCommand save now update (IndexerState _ (RDX ix))
                                    return $ fmtDateXmlSchema pd
 
               -- add time of indexing to document and index
-              apiDoc2   = insDescrMap d'indexed now'' $
-                          insIndexMap c'indexed now'  $
+              apiDoc2   = addDescription d'indexed now'' $
+                          addToIndex c'indexed now'  $
                           apiDoc1
 
               -- split the package name index into two parts:
               -- the full name as a single word in the c'name context
               -- and the parts separeted by a '-' into the c'partial context
               -- so the c'name value becomes a key for selecting a package
-              apiDoc3   = insIndexMap c'name n     $
-                          insIndexMap c'partial ns $
+              apiDoc3   = addToIndex c'name n     $
+                          addToIndex c'partial ns $
                           apiDoc2
                   where
                     names = T.words . lookupIndexMap c'name $ apiDoc2
@@ -151,26 +149,27 @@ toRank d = (uri d, ([], "", Nothing), fmap p_rank $ custom d)
 
 rankToCommand :: Bool -> UTCTime -> Documents PackageInfo -> Command
 rankToCommand save now
-    = appendSaveCmd save now . Sequence . concatMap toCmd . toRankDocs
+    = appendSaveCmd save now . cmdSequence . concatMap toCmd . toRankDocs
     where
       toCmd (k, rd, w)
           | boringApiDoc d = []
-          | otherwise      = [Update d]
+          | otherwise      = [cmdUpdateDoc d]
           where
-            d = toApiDoc $ (T.pack k, rd, w)
+            d = toApiDoc $ (T.pack k, rd, maybe 1.0 id $ w)
 
 -- ------------------------------------------------------------
 
 -- the pkgIndex crawler configuration
 
-indexCrawlerConfig           :: SysConfig                                    -- ^ document read options
-                                -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
-                                -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
-                                -> Maybe (IOSArrow XmlTree XmlTree)             -- ^ the pre document filter, default is the this arrow
-                                -> Maybe (IOSArrow XmlTree String)              -- ^ the filter for computing the document title, default is empty string
-                                -> Maybe (IOSArrow XmlTree PackageInfo)         -- ^ the filter for the cutomized doc info, default Nothing
-                                -> [IndexContextConfig]                         -- ^ the configuration of the various index parts
-                                -> PkgCrawlerConfig                             -- ^ result is a crawler config
+indexCrawlerConfig
+  :: SysConfig                                    -- ^ document read options
+  -> (URI -> Bool)                                -- ^ the filter for deciding, whether the URI shall be processed
+  -> Maybe (IOSArrow XmlTree String)              -- ^ the document href collection filter, default is 'Holumbus.Crawler.Html.getHtmlReferences'
+  -> Maybe (IOSArrow XmlTree XmlTree)             -- ^ the pre document filter, default is the this arrow
+  -> Maybe (IOSArrow XmlTree String)              -- ^ the filter for computing the document title, default is empty string
+  -> Maybe (IOSArrow XmlTree PackageInfo)         -- ^ the filter for the cutomized doc info, default Nothing
+  -> [IndexContextConfig]                         -- ^ the configuration of the various index parts
+  -> PkgCrawlerConfig                             -- ^ result is a crawler config
 
 indexCrawlerConfig
     = indexCrawlerConfig' insertHayooPkgM unionHayooPkgStatesM

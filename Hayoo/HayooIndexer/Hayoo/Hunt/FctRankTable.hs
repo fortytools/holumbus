@@ -5,21 +5,20 @@
 module Hayoo.Hunt.FctRankTable
 where
 
-import           Control.Applicative         ((<$>))
+import           Control.Applicative      ((<$>))
 
 import           Data.Aeson
-import qualified Data.ByteString.Lazy        as LB
-import           Data.Map.Strict             (Map)
-import qualified Data.Map.Strict             as SM
-import           Data.Text                   (Text)
-import qualified Data.Text                   as T
+import qualified Data.ByteString.Lazy     as LB
+import           Data.Map.Strict          (Map)
+import qualified Data.Map.Strict          as SM
+import           Data.Text                (Text)
+import qualified Data.Text                as T
 
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.Hunt.Output
 
-import           Hunt.Common.ApiDocument
-import           Hunt.Interpreter.Command
-import           Hunt.Query.Language.Grammar
+import           Hunt.ClientInterface     hiding (URI)
+import           Hunt.Interpreter.Command (Command (..))
 
 -- ------------------------------------------------------------
 
@@ -53,7 +52,7 @@ docToRank d
 
 rankFromFile :: FilePath -> IO FctRankTable
 rankFromFile fn
-    = (fromCommand . maybe NOOP id . decode) <$> LB.readFile fn
+    = (fromCommand . maybe cmdNOOP id . decode) <$> LB.readFile fn
 
 rankFromServer :: String -> IO FctRankTable
 rankFromServer uri
@@ -65,10 +64,11 @@ rankFromServer uri
          -- print r3
          return r3
     where
-      c = Search q 0 (-1) True (Just [])
-      q = QContext [c'type] $
-          QPhrase QCase     $
-          "package"
+      c = withSelectedFields []         -- no fields, just the weight is needed
+          . withWeightIncluded
+          . cmdSearch
+          . withinContext c'type
+          $ qPhrase "package"
 
       toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))
       toJ = decode
