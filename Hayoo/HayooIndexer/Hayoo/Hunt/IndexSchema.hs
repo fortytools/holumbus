@@ -105,7 +105,7 @@ dropHayooIndexSchema
 hayooIndexSchema :: [(Context, ContextSchema)]
 hayooIndexSchema
     = map ($ ds) $
-      [ mkIC c'author       . withCxWeight 1.0 . withCxRegEx "[^,]*"
+      [ mkIC c'author       . withCxWeight 1.0
       , mkIC c'category     . withCxWeight 1.0                       . withoutCxDefault
       , mkIC c'dependencies . withCxWeight 1.0 . withCxRegEx "[^ ]*" . withoutCxDefault
       , mkIC c'description  . withCxWeight 0.3
