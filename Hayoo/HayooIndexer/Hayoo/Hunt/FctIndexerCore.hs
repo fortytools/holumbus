@@ -23,6 +23,7 @@ import           Hayoo.Hunt.ApiDocument
 import           Hayoo.Hunt.FctRankTable
 import           Hayoo.Hunt.IndexSchema
 import           Hayoo.IndexTypes
+import           Hayoo.URIConfig
 
 import           Hayoo.ParseSignature         (expand, expandNormalized,
                                                modifySignatureWith)
@@ -33,6 +34,8 @@ import           Holumbus.Crawler.IndexerCore
 import           Hunt.ClientInterface         hiding (URI)
 
 import           Text.XML.HXT.Core
+
+import           Debug.Trace                  (traceShow)
 
 -- ------------------------------------------------------------
 
@@ -87,7 +90,55 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     nullContexts
         = and . map (null . snd) $ rawContexts
 
-toCommand :: FctRankTable -> Bool -> UTCTime -> Bool -> [String] -> FctIndexerState -> Command
+-- ------------------------------------------------------------
+
+rewriteHrefs :: String -> String -> String -> String
+rewriteHrefs pkg text uri
+    = traceShow ("rewriteHrefs: pkg=", pkg, "text=", text, "uri=", uri, "res=", res)
+      $ res                       -- TODO
+    where
+      uri'  = takeWhile (/= '#') uri	                         -- throw the anchor away
+      uri'' = hackagePackages ++ drop (length ("/package/"::String)) uri'  -- make an absolut hackage uri
+
+      res
+          | text == uri = uri		-- external ref: no edit
+          | internal    = buildQuery  pkg   (modn uri') text
+          | haddock     = buildQuery hpkg  (hmodn uri') text
+          | otherwise   = ""            -- unknown ref:  throw away
+
+      internal
+          = isRelHaddockURI uri'
+
+      haddock
+          = "/package/" `L.isPrefixOf` uri'
+            &&
+            isHaddockURI uri''
+
+      modn
+          = map (\ x -> if x == '-' then '.' else x)
+           . takeWhile (/= '.')
+
+      hmodn
+          = modn
+            . concat . take 1 . reverse
+            . words
+            . map (\x -> if x == '/' then ' ' else x)
+
+      hpkg
+          = hackageGetPackage uri''
+
+      buildQuery pkg' mod' name'
+          = concat ["/", pkg', "/", mod', "/", name']
+
+-- ------------------------------------------------------------
+
+toCommand :: FctRankTable
+          -> Bool
+          -> UTCTime
+          -> Bool
+          -> [String]
+          -> FctIndexerState
+          -> Command
 toCommand rt save now update pkgs (IndexerState _ (RDX ix))
     = appendSaveCmd save now $
       cmdSequence [ deletePkgCmd
@@ -112,11 +163,11 @@ toCommand rt save now update pkgs (IndexerState _ (RDX ix))
           = toDup ix
 
 toCmd    :: FctRankTable
-            -> IM.IntMap [URI]
-            -> UTCTime
-            -> M.StringMap (RawDoc FunctionInfo)
-            -> (M.Key, RawDoc FunctionInfo)
-            -> [Command]
+         -> IM.IntMap [URI]
+         -> UTCTime
+         -> M.StringMap (RawDoc FunctionInfo)
+         -> (M.Key, RawDoc FunctionInfo)
+         -> [Command]
 toCmd rt dupMap now ix (k, (cx, t, cu))
     = case lookupDup t cu dupMap of
         Just uris@(uri : _uris1)                  -- re-exports found

@@ -10,7 +10,9 @@ module Hayoo.URIConfig
 
     , hackagePackages
     , hackageStart
+    , hackageGetPackage
     , isHaddockURI
+    , isRelHaddockURI
 
     , editLatestPackage
 
@@ -95,6 +97,9 @@ getHackagePackage s
 
 isHaddockURI                    :: URI -> Bool
 isHaddockURI                    = match (hackagePackageDocPath ++ modulePath ++ ext "html")
+
+isRelHaddockURI                 :: URI -> Bool
+isRelHaddockURI                 = match (modulePath ++ ext "html")
 
 -- ------------------------------------------------------------
 

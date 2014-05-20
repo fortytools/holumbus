@@ -887,7 +887,7 @@ hayooFJIndexer
             Nothing
             (Just $ checkDocumentStatus >>> prepareHaddock)
             (Just $ hayooGetTitle)
-            (Just $ hayooGetFctInfo)
+            (Just $ hayooGetFctInfo FJ.rewriteHrefs)
             hayooIndexContextConfig
 
       config o
@@ -921,7 +921,7 @@ hayooIndexer
           Nothing
           (Just $ checkDocumentStatus >>> prepareHaddock)
           (Just $ hayooGetTitle)
-          (Just $ hayooGetFctInfo)
+          (Just $ hayooGetFctInfo (\ _pkg _txt uri -> uri))
           hayooIndexContextConfig
 
     config o

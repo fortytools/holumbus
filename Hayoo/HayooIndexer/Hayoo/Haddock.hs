@@ -30,8 +30,9 @@ import           Text.XML.HXT.XPath
 
 -- ------------------------------------------------------------
 
-hayooGetFctInfo                 :: IOSArrow XmlTree FunctionInfo
-hayooGetFctInfo                 = -- withTraceLevel 3 (traceDoc "hayooGetFctInfo") -- just for dev.
+hayooGetFctInfo                 :: (String -> String -> String -> String)
+                                -> IOSArrow XmlTree FunctionInfo
+hayooGetFctInfo rewriteHref     = -- withTraceLevel 3 (traceDoc "hayooGetFctInfo") -- just for dev.
                                   -- >>>
                                   ( fromLA $
                                     ( getAttrValue "module"
@@ -42,15 +43,7 @@ hayooGetFctInfo                 = -- withTraceLevel 3 (traceDoc "hayooGetFctInfo
                                       &&&
                                       getAttrValue "source"
                                       &&&
-                                      ( xshow
-                                        ( hayooGetDescr
-                                          >>>
-                                          getChildren
-                                          >>>
-                                          editDescrMarkup
-                                        )
-                                        >>^ escapeNoneAscii
-                                      )
+                                      ( getDescr $< getAttrValue "package" )
                                       &&&
                                       ( getChildren >>> getAttrValue "type" )
                                     )
@@ -58,6 +51,15 @@ hayooGetFctInfo                 = -- withTraceLevel 3 (traceDoc "hayooGetFctInfo
                                     (\ (m, (s, (p, (r, (d, t))))) -> mkFunctionInfo m s p r d t)
                                   )
     where
+      getDescr pkg               = xshow
+                                   ( hayooGetDescr
+                                     >>>
+                                     getChildren
+                                     >>>
+                                     (editDescrMarkup rewriteHref pkg)
+                                   )
+                                   >>^ escapeNoneAscii
+
       -- escape the serialized XML, such that it's a 7-bit ASCII string
       -- else serialization into binary format does not work properly
       escapeNoneAscii           = concatMap esc
@@ -82,11 +84,17 @@ hayooGetDescr                   = ifA version28
                                   )
                                   ( deep (trtdWithClass (== "doc")) )           -- 2.6
 
-editDescrMarkup                 :: LA XmlTree XmlTree
-editDescrMarkup                 = processTopDown
-                                  ( remHref `when` hasName "a" )
+editDescrMarkup                 :: (String -> String -> String -> String)
+                                -> String
+                                -> LA XmlTree XmlTree
+editDescrMarkup rewriteHref pk  = processTopDown
+                                  ( (editHref $< xshow getChildren) `when` hasName "a" )
     where
-    remHref                     = processAttrl (none `when` hasName "href")
+      editHref content          = processAttrl
+                                  ( changeAttrValue (rewriteHref pk content)
+                                    `when`
+                                    hasName "href"
+                                  )
 
 version28                       :: LA XmlTree XmlTree
 version28                       = hasAttrValue "version" (== "2.8")
