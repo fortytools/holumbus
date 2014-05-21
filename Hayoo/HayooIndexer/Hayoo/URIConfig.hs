@@ -13,6 +13,7 @@ module Hayoo.URIConfig
     , hackageGetPackage
     , isHaddockURI
     , isRelHaddockURI
+    , isExternalURI
 
     , editLatestPackage
 
@@ -100,6 +101,9 @@ isHaddockURI                    = match (hackagePackageDocPath ++ modulePath ++ 
 
 isRelHaddockURI                 :: URI -> Bool
 isRelHaddockURI                 = match (modulePath ++ ext "html")
+
+isExternalURI                   :: URI -> Bool
+isExternalURI                   = match "[A-Za-z][A-Za-z0-9]*://.*"
 
 -- ------------------------------------------------------------
 

@@ -27,6 +27,7 @@ import           Hayoo.URIConfig
 
 import           Hayoo.ParseSignature         (expand, expandNormalized,
                                                modifySignatureWith)
+import           Hayoo.Url                    (urlForDocument)
 
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
@@ -34,9 +35,9 @@ import           Holumbus.Crawler.IndexerCore
 import           Hunt.ClientInterface         hiding (URI)
 
 import           Text.XML.HXT.Core
-
+{-
 import           Debug.Trace                  (traceShow)
-
+-- -}
 -- ------------------------------------------------------------
 
 type FctCrawlerConfig   = IndexCrawlerConfig () RawDocIndex FunctionInfo
@@ -94,17 +95,22 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
 
 rewriteHrefs :: String -> String -> String -> String
 rewriteHrefs pkg text uri
-    = traceShow ("rewriteHrefs: pkg=", pkg, "text=", text, "uri=", uri, "res=", res)
-      $ res                       -- TODO
+    = -- traceShow ("rewriteHrefs: pkg=", pkg, "text=", text, "uri=", uri, "res=", res) $
+      res
     where
-      uri'  = takeWhile (/= '#') uri	                         -- throw the anchor away
+      uri'  = takeWhile (/= '#') uri                             -- throw the anchor away
       uri'' = hackagePackages ++ drop (length ("/package/"::String)) uri'  -- make an absolut hackage uri
 
       res
-          | text == uri = uri		-- external ref: no edit
-          | internal    = buildQuery  pkg   (modn uri') text
-          | haddock     = buildQuery hpkg  (hmodn uri') text
-          | otherwise   = ""            -- unknown ref:  throw away
+          | external    = uri                                  -- external ref: no edit
+          | internal    = buildQuery  pkg   (modn uri') text   -- ref into haddock for this package
+          | haddock     = buildQuery hpkg  (hmodn uri') text   -- ref into haddock for other package
+          | otherwise   = ""                                   -- unknown ref:  throw away
+
+      external
+          = isExternalURI uri
+            &&
+            text == uri
 
       internal
           = isRelHaddockURI uri'
@@ -128,7 +134,7 @@ rewriteHrefs pkg text uri
           = hackageGetPackage uri''
 
       buildQuery pkg' mod' name'
-          = concat ["/", pkg', "/", mod', "/", name']
+          = T.unpack $ urlForDocument (T.pack pkg') (T.pack mod') (T.pack name')
 
 -- ------------------------------------------------------------
 

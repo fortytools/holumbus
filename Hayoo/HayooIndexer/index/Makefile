@@ -228,7 +228,7 @@ JSONFILES = $(shell find json -name '*.js' -print | sort)
 insert-json:
 	i=1; \
 	for file in $(JSONFILES); do \
-		echo -n "\n$$i - $$(date) - $$file "; \
+		echo ; echo -n "$$i - $$(date) - $$file "; \
 		curl -X POST -d @"$$file" $(JHOST)/eval; \
 		i=$$(($$i+1)); \
 	done ; \
