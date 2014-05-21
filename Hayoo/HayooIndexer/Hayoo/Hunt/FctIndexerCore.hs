@@ -158,7 +158,7 @@ toCommand rt save now update pkgs (IndexerState _ (RDX ix))
           | update && not (null pkgs)
               = cmdDeleteDocsByQuery
                 . withinContext c'package
-                . foldr1 qOr
+                . qOrs
                 . map (qPhrase . T.pack)
                 $ pkgs
           | otherwise

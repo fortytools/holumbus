@@ -92,12 +92,13 @@ toCommand save now update (IndexerState _ (RDX ix))
       deletePkgCmd
           | update && not (M.null ix)
               = cmdDeleteDocsByQuery
-                $ qAnd ( withinContext c'type
+                . qAnd ( withinContext c'type
                          $ qPhrase d'package
                      )
-                $ foldr1 qOr
-                $ map (\(_cx, t, _cs) -> withinContext c'name . qPhrase . T.pack $ t)
-                $ M.elems ix
+                . qOrs
+                . map (\(_cx, t, _cs) -> withinContext c'name . qPhrase . T.pack $ t)
+                . M.elems
+                $ ix
 
           | otherwise
               = cmdNOOP
