@@ -64,10 +64,10 @@ rankFromServer uri
          -- print r3
          return r3
     where
-      c = withSelectedFields []         -- no fields, just the weight is needed
-          . withWeightIncluded
+      c = setSelectedFields []         -- no fields, just the weight is needed
+          . setWeightIncluded
           . cmdSearch
-          . withinContext c'type
+          . setContext c'type
           $ qPhrase "package"
 
       toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))

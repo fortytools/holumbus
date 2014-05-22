@@ -39,9 +39,9 @@ dependenciesFromServer uri
          -- print r3
          return r3
     where
-      c = withSelectedFields [d'name, d'dependencies]
+      c = setSelectedFields [d'name, d'dependencies]
           . cmdSearch
-          . withinContext c'type
+          . setContext c'type
           $ qPhrase "package"
 
       toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))
@@ -107,7 +107,7 @@ rankToCommand save now (pm, rt)
               = []
           | otherwise
               = (:[])
-                $ withDocWeight wght
+                $ setDocWeight wght
                 $ mkApiDoc uri
           where
             wght = maybe 1.0 id . SM.lookup name $ rt

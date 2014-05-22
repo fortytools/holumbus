@@ -92,11 +92,11 @@ toCommand save now update (IndexerState _ (RDX ix))
       deletePkgCmd
           | update && not (M.null ix)
               = cmdDeleteDocsByQuery
-                . qAnd ( withinContext c'type
+                . qAnd ( setContext c'type
                          $ qPhrase d'package
                      )
                 . qOrs
-                . map (\(_cx, t, _cs) -> withinContext c'name . qPhrase . T.pack $ t)
+                . map (\(_cx, t, _cs) -> setContext c'name . qPhrase . T.pack $ t)
                 . M.elems
                 $ ix
 
@@ -137,7 +137,7 @@ toCommand save now update (IndexerState _ (RDX ix))
                           addToIndex c'partial ns $
                           apiDoc2
                   where
-                    names = T.words . lookupIndexMap c'name $ apiDoc2
+                    names = T.words . getFromIndex c'name $ apiDoc2
                     (n, ns) = (T.concat *** T.concat) . splitAt 1 $ names
 
 -- ------------------------------------------------------------

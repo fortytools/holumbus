@@ -105,24 +105,24 @@ dropHayooIndexSchema
 hayooIndexSchema :: [(Context, ContextSchema)]
 hayooIndexSchema
     = map ($ ds) $
-      [ mkIC c'author       . withCxWeight 1.0
-      , mkIC c'category     . withCxWeight 1.0                       . withoutCxDefault
-      , mkIC c'dependencies . withCxWeight 1.0 . withCxRegEx "[^ ]*" . withoutCxDefault
-      , mkIC c'description  . withCxWeight 0.3
-      , mkIC c'hierarchy    . withCxWeight 0.1
-      , mkIC c'indexed      . withCxWeight 1.0 . withCxRegEx dr      . withoutCxDefault . withCxDate
-      , mkIC c'maintainer   . withCxWeight 1.0                       . withoutCxDefault
-      , mkIC c'module       . withCxWeight 0.5 . withCxRegEx ".*"
-      , mkIC c'name         . withCxWeight 3.0 . withCxRegEx "[^ ]*"
-      , mkIC c'normalized   . withCxWeight 0.2 . withCxRegEx "[^$]*" . withoutCxDefault -- from Hayoo.ParseSignature.modifySignatureWith
-      , mkIC c'package      . withCxWeight 1.0 . withCxRegEx ".*"
-      , mkIC c'partial      . withCxWeight 0.2 . withCxRegEx "[^ ]*"
-      , mkIC c'signature    . withCxWeight 1.0 . withCxRegEx "[^$]*" . withoutCxDefault -- from Hayoo.ParseSignature.modifySignatureWith
-      , mkIC c'source       . withCxWeight 0.1 . withCxRegEx ".*"    . withoutCxDefault
-      , mkIC c'synopsis     . withCxWeight 0.8
-      , mkIC c'type         . withCxWeight 0.0                       . withoutCxDefault
-      , mkIC c'upload       . withCxWeight 1.0 . withCxRegEx dr      . withoutCxDefault . withCxDate
-      , mkIC c'version      . withCxWeight 1.0 . withCxRegEx ".*"    . withoutCxDefault
+      [ mkIC c'author       . setCxWeight 1.0
+      , mkIC c'category     . setCxWeight 1.0                      . setCxNoDefault
+      , mkIC c'dependencies . setCxWeight 1.0 . setCxRegEx "[^ ]*" . setCxNoDefault
+      , mkIC c'description  . setCxWeight 0.3
+      , mkIC c'hierarchy    . setCxWeight 0.1
+      , mkIC c'indexed      . setCxWeight 1.0 . setCxRegEx dr      . setCxNoDefault . setCxDate
+      , mkIC c'maintainer   . setCxWeight 1.0                      . setCxNoDefault
+      , mkIC c'module       . setCxWeight 0.5 . setCxRegEx ".*"
+      , mkIC c'name         . setCxWeight 3.0 . setCxRegEx "[^ ]*"
+      , mkIC c'normalized   . setCxWeight 0.2 . setCxRegEx "[^$]*" . setCxNoDefault -- from Hayoo.ParseSignature.modifySignatureWith
+      , mkIC c'package      . setCxWeight 1.0 . setCxRegEx ".*"
+      , mkIC c'partial      . setCxWeight 0.2 . setCxRegEx "[^ ]*"
+      , mkIC c'signature    . setCxWeight 1.0 . setCxRegEx "[^$]*" . setCxNoDefault -- from Hayoo.ParseSignature.modifySignatureWith
+      , mkIC c'source       . setCxWeight 0.1 . setCxRegEx ".*"    . setCxNoDefault
+      , mkIC c'synopsis     . setCxWeight 0.8
+      , mkIC c'type         . setCxWeight 0.0                      . setCxNoDefault
+      , mkIC c'upload       . setCxWeight 1.0 . setCxRegEx dr      . setCxNoDefault . setCxDate
+      , mkIC c'version      . setCxWeight 1.0 . setCxRegEx ".*"    . setCxNoDefault
       ]
     where
       mkIC x cs = (x, cs)
@@ -145,7 +145,7 @@ execDropHayooIndexSchema target
 -- ------------------------------------------------------------
 
 ds :: ContextSchema
-ds  = withCxRegEx "\\w*" $ mkSchema
+ds  = setCxRegEx "\\w*" $ mkSchema
 
 fmtDateXmlSchema :: UTCTime -> Text
 fmtDateXmlSchema = fmtDate' "%FT%X"

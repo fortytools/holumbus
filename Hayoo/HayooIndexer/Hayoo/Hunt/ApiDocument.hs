@@ -5,6 +5,7 @@ where
 
 import           Data.Digest.Murmur64
 import qualified Data.Map.Strict              as SM
+import           Data.Text                    (Text)
 import qualified Data.Text                    as T
 
 import           Hayoo.FunctionInfo
@@ -14,23 +15,19 @@ import           Hayoo.PackageInfo
 import           Holumbus.Crawler.IndexerCore
 
 import           Hunt.ClientInterface
--- import           Hunt.Common.ApiDocument
--- import           Hunt.Common.BasicTypes
-import           Hunt.Common.DocDesc          (DocDesc (..))
 import qualified Hunt.Common.DocDesc          as DD
 
 -- ------------------------------------------------------------
 
 toApiDoc :: ToDescr c => (URI, RawDoc c, Score) -> ApiDocument
 toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
-    = withDescription
-         ( (if null rawTitle
-            then id
-            else DocDesc . SM.insert d'name (T.pack rawTitle) . unDesc
-           ) $ toDescr rawCustom
-         )
-      . withIndex (SM.fromList . concatMap toCC $ rawContexts)
-      . withDocWeight wght
+    = ( if null rawTitle
+        then id
+        else addDescription d'name (T.pack rawTitle)
+      )
+      . setDescription (toDescr rawCustom)
+      . setIndex       (SM.fromList . concatMap toCC $ rawContexts)
+      . setDocWeight   wght
       $ mkApiDoc uri
     where
       toCC (_,  []) = []
@@ -39,10 +36,6 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
     = SM.null (adIndex a) && DD.null (adDescr a) && (maybe 1.0 id $ adWght a) == 1.0
-
-lookupIndexMap :: Context -> ApiDocument -> T.Text
-lookupIndexMap cx d
-    = maybe "" id . SM.lookup cx . adIndex $ d
 
 -- ------------------------------------------------------------
 
@@ -56,14 +49,14 @@ class ToDescr a where
     toDescr :: a -> Description
 
 instance ToDescr a => ToDescr (Maybe a) where
-    toDescr Nothing  = DD.empty
+    toDescr Nothing  = emptyDescription
     toDescr (Just x) = toDescr x
 
 instance ToDescr FctDescr where
     toDescr (FD x) = fiToDescr x
 
 instance ToDescr RankDescr where
-    toDescr (RD _) = mkDescr [] -- old: [(d'rank, rankToText r)]
+    toDescr (RD _) = emptyDescription
 
 instance ToDescr PkgDescr where
     toDescr (PD x) = piToDescr x
@@ -75,18 +68,15 @@ instance Hashable64 FctDescr where
 fiToHash :: String -> FunctionInfo -> Int
 fiToHash name fi = fromInteger . fromIntegral . asWord64 . hash64Add name . hash64 . FD $ fi
 
-fiToPkg :: FunctionInfo -> T.Text
+fiToPkg :: FunctionInfo -> Text
 fiToPkg (FunctionInfo _mon _sig pac _sou _fct _typ)
     = T.pack pac
 
 -- ----------------------------------------
 
-mkDescr :: [(T.Text, T.Text)] -> Description
-mkDescr = DD.fromList . filter (not . T.null . snd)
-
 fiToDescr :: FunctionInfo -> Description
 fiToDescr (FunctionInfo mon sig pac sou fct typ)
-    = mkDescr
+    = mkDescription
       [ (d'module,      T.pack                   mon)
       , (d'signature,   T.pack . cleanupSig    $ sig)
       , (d'package,     T.pack                   pac)
@@ -97,7 +87,7 @@ fiToDescr (FunctionInfo mon sig pac sou fct typ)
 
 piToDescr :: PackageInfo -> Description
 piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
-    = mkDescr
+    = mkDescription
       [ (d'name,         T.pack nam)
       , (d'version,      T.pack ver)
       , (d'dependencies, T.pack dep)
@@ -112,7 +102,7 @@ piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
       , (d'rank,         rankToText ran)
       ]
 
-rankToText :: Score -> T.Text
+rankToText :: Score -> Text
 rankToText r
     | r == defPackageRank = T.empty
     | otherwise           = T.pack . show $ r
