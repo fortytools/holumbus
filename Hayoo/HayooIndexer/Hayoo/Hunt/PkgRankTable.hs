@@ -11,6 +11,7 @@ import           Data.Aeson
 import qualified Data.ByteString.Lazy     as LB
 import           Data.Map.Strict          (Map)
 import qualified Data.Map.Strict          as SM
+import           Data.Maybe               (fromMaybe)
 import           Data.Text                (Text)
 import qualified Data.Text                as T
 import           Data.Time
@@ -20,7 +21,6 @@ import           Hayoo.Hunt.Output
 import           Hayoo.PackageRank
 
 import           Hunt.ClientInterface     hiding (URI)
-import           Hunt.Common.DocDesc      (unDesc)
 import           Hunt.Interpreter.Command (Command (..))
 
 -- ------------------------------------------------------------
@@ -89,9 +89,8 @@ docToDep d
     | T.null name = []
     | otherwise   = [(adUri d, (name, deps))]
       where
-        desc = unDesc . adDescr $ d
-        name =           maybe "" id . SM.lookup d'name         $ desc
-        deps = T.words . maybe "" id . SM.lookup d'dependencies $ desc
+        name =                lookupDescriptionText d'name         d
+        deps = fromMaybe [] $ lookupDescription     d'dependencies d
 
 rankToCommand :: Bool -> UTCTime -> (PkgMap, RankTable) -> Command
 rankToCommand save now (pm, rt)
@@ -107,7 +106,7 @@ rankToCommand save now (pm, rt)
               = []
           | otherwise
               = (:[])
-                $ setDocWeight wght
+                $ setDocWeight (mkScore wght)
                 $ mkApiDoc uri
           where
             wght = maybe 1.0 id . SM.lookup name $ rt

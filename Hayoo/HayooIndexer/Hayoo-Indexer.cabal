@@ -1,5 +1,5 @@
 name:          Hayoo-Indexer
-version:       1.4.3.1
+version:       1.4.4.0
 license:       MIT
 license-file:  LICENSE
 author:        Sebastian M. Gauck, Timo B. Kranz, Uwe Schmidt
@@ -48,7 +48,7 @@ executable hayooIndexer
                  , Hayoo-Indexer-Lib      >= 1.3
                  , hayooLib               >= 0.1
                  , Holumbus-Searchengine  >= 1.2.6 && < 2
-                 , hunt-searchengine      >= 0.1
+                 , hunt-searchengine      >= 0.2.0.0
                  , HTTP                   >= 4000.2
                  , hxt                    >= 9.1   && < 10
                  , hxt-cache              >= 9     && < 10

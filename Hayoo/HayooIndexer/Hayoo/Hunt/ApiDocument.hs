@@ -19,7 +19,7 @@ import qualified Hunt.Common.DocDesc          as DD
 
 -- ------------------------------------------------------------
 
-toApiDoc :: ToDescr c => (URI, RawDoc c, Score) -> ApiDocument
+toApiDoc :: ToDescr c => (URI, RawDoc c, Float) -> ApiDocument
 toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
     = ( if null rawTitle
         then id
@@ -27,7 +27,7 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
       )
       . setDescription (toDescr rawCustom)
       . setIndex       (SM.fromList . concatMap toCC $ rawContexts)
-      . setDocWeight   wght
+      . setDocWeight   (if wght == 1.0 then noScore else mkScore wght)
       $ mkApiDoc uri
     where
       toCC (_,  []) = []
@@ -35,7 +35,9 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
 
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
-    = SM.null (adIndex a) && DD.null (adDescr a) && (maybe 1.0 id $ adWght a) == 1.0
+    = SM.null (adIndex a)
+      && DD.null (adDescr a)
+      && adWght a == noScore
 
 -- ------------------------------------------------------------
 
@@ -87,10 +89,11 @@ fiToDescr (FunctionInfo mon sig pac sou fct typ)
 
 piToDescr :: PackageInfo -> Description
 piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
-    = mkDescription
+    = insDescription d'dependencies (map T.pack . words $ dep) -- add the list of dependencies
+      $
+      mkDescription                                            -- add all simple text attributes
       [ (d'name,         T.pack nam)
       , (d'version,      T.pack ver)
-      , (d'dependencies, T.pack dep)
       , (d'author,       T.pack aut)
       , (d'maintainer,   T.pack mai)
       , (d'category,     T.pack cat)
@@ -102,12 +105,12 @@ piToDescr (PackageInfo nam ver dep aut mai cat hom syn des upl ran)
       , (d'rank,         rankToText ran)
       ]
 
-rankToText :: Score -> Text
+rankToText :: Float -> Text
 rankToText r
     | r == defPackageRank = T.empty
     | otherwise           = T.pack . show $ r
 
--- HACK: the old Hayoo index contains keywords in the signature for type of object
+-- HACK: the old Hayoo index contains keywords in the signature for the type of objects
 -- these are removed, the type is encoded in the type field
 
 cleanupSig :: String -> String

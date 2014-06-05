@@ -43,12 +43,11 @@ fromCommand _
 
 docToRank :: ApiDocument -> [(Text, Float)]
 docToRank d
-    | wght /= 1.0 = [(pkg, wght)]
-    | otherwise   = []
+    = maybe [] (\ w -> [(pkg, w)]) $ wght
     where
       pkg  = T.copy .           -- prevent sharing of Text values
              last . T.split (== '/') . adUri $ d
-      wght = maybe 1.0 id . adWght $ d
+      wght = getScore . adWght $ d
 
 rankFromFile :: FilePath -> IO FctRankTable
 rankFromFile fn
