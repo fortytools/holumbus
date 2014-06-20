@@ -17,7 +17,7 @@ module Main(main) where
 
 import           Control.Exception
 
--- import           Text.XML.HXT.Arrow 
+-- import           Text.XML.HXT.Core
 
 import qualified Holumbus.Data.KeyMap as KMap
 import           Holumbus.MapReduce.Types

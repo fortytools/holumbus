@@ -100,7 +100,7 @@ import           System.IO.Unsafe
 import           System.Log.Logger
 import           System.Timeout
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 import           Holumbus.Common.Utils		( handleAll )
 import           Holumbus.Network.Site

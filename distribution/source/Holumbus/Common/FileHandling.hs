@@ -73,7 +73,7 @@ import           Foreign
 import           System.IO hiding (utf8)
 import           System.IO.Unsafe
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 import           Control.DeepSeq
 
 -- ----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ loadFromXmlFile f
     r <- runX (xunpickleDocument xpickle options f)
     return $! head r
     where
-    options = [ (a_validate,v_0), (a_remove_whitespace, v_1), (a_encoding, utf8), (a_validate, v_0) ]
+    options = [ withValidate no, withRemoveWS yes, withInputEncoding utf8 ]
 
 
 -- | Converts a dataset to XML and saves the XML-string into a file.
@@ -98,7 +98,7 @@ saveToXmlFile f i
     _ <- runX (constA i >>> xpickleDocument xpickle options f)
     return ()
     where
-    options = [ (a_indent, v_1), (a_output_encoding, utf8), (a_validate, v_0) ]
+    options = [ withIndent yes, withOutputEncoding utf8, withValidate no ]
 
 -- ----------------------------------------------------------------------------
 -- generic lists

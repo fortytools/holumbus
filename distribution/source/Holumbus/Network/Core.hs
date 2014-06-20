@@ -69,7 +69,7 @@ import           System.IO
 import           System.Posix
 
 import           Text.Printf
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 import           Holumbus.Common.Utils  ( handleAll )
 

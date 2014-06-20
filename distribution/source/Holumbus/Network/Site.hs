@@ -48,7 +48,7 @@ import qualified Data.List as List
 import           Network.Socket
 import           System.Posix
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set

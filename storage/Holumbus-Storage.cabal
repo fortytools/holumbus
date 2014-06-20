@@ -35,7 +35,6 @@ library
                 , bytestring >= 0.9
                 , containers >= 0.1
                 , directory  >= 1.0
-                , haskell98  >= 1
                 , hslogger   >= 1.0
                 , hxt        >= 8.2
                 , network    >= 2.1

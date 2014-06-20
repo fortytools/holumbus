@@ -120,7 +120,7 @@ import           Data.Time
 import           System.Log.Logger
 import           Data.Time.Clock.POSIX
 
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 
 import qualified Holumbus.Data.AccuMap as AMap
 import           Holumbus.Common.FileHandling
