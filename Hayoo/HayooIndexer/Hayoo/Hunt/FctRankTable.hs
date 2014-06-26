@@ -67,7 +67,7 @@ rankFromServer uri
           . setWeightIncluded
           . cmdSearch
           . setContext c'type
-          $ qPhrase "package"
+          $ qFullWord "package"
 
       toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))
       toJ = decode

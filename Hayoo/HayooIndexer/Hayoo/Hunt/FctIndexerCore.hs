@@ -159,7 +159,7 @@ toCommand rt save now update pkgs (IndexerState _ (RDX ix))
               = cmdDeleteDocsByQuery
                 . setContext c'package
                 . qOrs
-                . map (qPhrase . T.pack)
+                . map (qFullWord . T.pack)
                 $ pkgs
           | otherwise
               = cmdNOOP

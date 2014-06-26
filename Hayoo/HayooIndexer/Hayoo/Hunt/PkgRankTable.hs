@@ -42,7 +42,7 @@ dependenciesFromServer uri
       c = setSelectedFields [d'name, d'dependencies]
           . cmdSearch
           . setContext c'type
-          $ qPhrase "package"
+          $ qFullWord "package"
 
       toJ :: LB.ByteString -> Maybe (CmdRes (LimitedResult ApiDocument))
       toJ = decode

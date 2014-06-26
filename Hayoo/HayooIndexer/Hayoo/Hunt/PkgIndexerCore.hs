@@ -93,10 +93,11 @@ toCommand save now update (IndexerState _ (RDX ix))
           | update && not (M.null ix)
               = cmdDeleteDocsByQuery
                 . qAnd ( setContext c'type
-                         $ qPhrase d'package
+                         $ qFullWord d'package
                      )
+                . setContext c'name
                 . qOrs
-                . map (\(_cx, t, _cs) -> setContext c'name . qPhrase . T.pack $ t)
+                . map (\(_cx, t, _cs) -> qFullWord . T.pack $ t)
                 . M.elems
                 $ ix
 
