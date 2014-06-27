@@ -76,12 +76,13 @@ unionHayooFctStatesM (IndexerState _ (RDX dt1)) (IndexerState _ (RDX dt2))
 insertHayooFctM :: (URI, RawDoc FunctionInfo) ->
                    FctIndexerState ->
                    IO FctIndexerState
-insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
+insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, rawCustom))
                 ixs@(IndexerState _ (RDX dt))
-    | nullContexts
-        = return ixs    -- no words found in document,
-                        -- so there are no refs in index
-                        -- and document is thrown away
+    | nullContexts           -- no words found in document, so there are no refs in index
+      ||
+      nullFctInfo rawCustom  -- unknown Haddock element
+        = return ixs         -- throw the suff away
+
     | otherwise
         = return $!
           IndexerState { ixs_index = ()
@@ -90,6 +91,16 @@ insertHayooFctM (rawUri, rawDoc@(rawContexts, _rawTitle, _rawCustom))
     where
     nullContexts
         = and . map (null . snd) $ rawContexts
+
+    nullFctInfo Nothing
+        = True
+    nullFctInfo (Just fi)
+        | null (package fi)
+          ||
+          (fctType fi == Fct'unknown)
+              = True
+    nullFctInfo _
+        = False
 
 -- ------------------------------------------------------------
 

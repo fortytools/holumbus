@@ -234,6 +234,16 @@ insert-json:
 	done ; \
         curl $(JHOST)/binary/save/hayoo-ix.$$(date +%FT%T)
 
+insert-json1:
+	i=1; \
+	for file in $(JSONFILES); do \
+		echo ; echo -n "$$i - $$(date) - $$file "; \
+		curl -X POST -d @"$$file" $(JHOST)/eval; \
+                echo curl $(JHOST)/binary/save/hayoo-ix.$$(date +%FT%T); \
+                curl $(JHOST)/binary/save/hayoo-ix.$$(date +%FT%T); \
+		i=$$(($$i+1)); \
+	done ; \
+
 #----------------------------------------
 
 update-cache	: $(indexer)

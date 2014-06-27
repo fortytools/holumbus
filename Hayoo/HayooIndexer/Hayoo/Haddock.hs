@@ -434,7 +434,7 @@ prepareHaddock26                = process
     process                     = seqA . zipWith phase [(0::Int)..]
     phase _i f                  = fromLA f
                                   -- >>>
-                                  -- traceDoc ("prepare haddock-2.6: step " ++ show i)
+                                  -- traceDoc ("prepare haddock-2.6: step " ++ show _i)
 
 splitHaddock26                  :: LA XmlTree XmlTree
 splitHaddock26                  = mkVirtualDoc26 $< this
