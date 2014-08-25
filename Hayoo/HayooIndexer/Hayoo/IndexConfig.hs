@@ -28,6 +28,7 @@ ix'partial      :: String
 ix'signature    :: String
 ix'normalized   :: String
 ix'description  :: String
+ix'rawsig       :: String
 
 ix'Names@[ ix'module
          , ix'hierarchy
@@ -37,6 +38,7 @@ ix'Names@[ ix'module
          , ix'signature
          , ix'normalized
          , ix'description
+         , ix'rawsig
          ] = [ "module"
              , "hierarchy"
              , "package"
@@ -45,8 +47,8 @@ ix'Names@[ ix'module
              , "signature"
              , "normalized"
              , "description"
+             , "rawsig"
              ]
-
 
 hayooIndexContextConfig         :: [IndexContextConfig]
 hayooIndexContextConfig         = [ ixModule
@@ -57,6 +59,7 @@ hayooIndexContextConfig         = [ ixModule
                                   , ixSignature
                                   , ixNormalizedSig
                                   , ixDescription
+                                  , ixRawSig
                                   ]
     where
     ixDefault                   = IndexContextConfig
@@ -98,6 +101,13 @@ hayooIndexContextConfig         = [ ixModule
                                   , ixc_textToWords     = stripSignature >>> return
                                   , ixc_boringWord      = not . isSignature
                                   }
+    ixRawSig                    = ixDefault
+                                  { ixc_name            = ix'rawsig
+                                  , ixc_collectText     = getAttrValue "rawsig"
+                                  , ixc_textToWords     = words
+                                  , ixc_boringWord      = null
+                                  }
+
     ixNormalizedSig             = ixSignature
                                   { ixc_name            = ix'normalized
                                   , ixc_textToWords     = normalizeSignature >>> return

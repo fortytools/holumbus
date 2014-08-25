@@ -25,8 +25,9 @@ import           Hayoo.Hunt.IndexSchema
 import           Hayoo.IndexTypes
 import           Hayoo.URIConfig
 
-import           Hayoo.ParseSignature         (expand, expandNormalized,
-                                               modifySignatureWith)
+import           Hayoo.ParseSignature         (Signature, complexSignatures,
+                                               processSignatureWith,
+                                               subSignatures)
 import           Hayoo.Url                    (urlForDocument)
 
 import           Holumbus.Crawler
@@ -35,9 +36,15 @@ import           Holumbus.Crawler.IndexerCore
 import           Hunt.ClientInterface         hiding (URI)
 
 import           Text.XML.HXT.Core
-{-
+
+-- {-
 import           Debug.Trace                  (traceShow)
+
+trc1 :: Show a => String -> a -> a
+trc1 msg x = traceShow (msg, x) x
+
 -- -}
+
 -- ------------------------------------------------------------
 
 type FctCrawlerConfig   = IndexCrawlerConfig () RawDocIndex FunctionInfo
@@ -196,6 +203,8 @@ toCmd rt dupMap now ix (k, (cx, t, cu))
     where
       pkg       = maybe "" id . fmap fiToPkg $ cu
       insertCmd = (:[]) . cmdInsertDoc
+
+      apiDoc    :: ApiDocument
       apiDoc    = toApiDoc $ ( T.pack k
                              , (cx, t, fmap FD cu)
                              , maybe 1.0 id . lookupRank pkg $ rt
@@ -203,20 +212,24 @@ toCmd rt dupMap now ix (k, (cx, t, cu))
 
       -- HACK: add the type attribute of the custom info record
       -- to a classifying context with name "type"
+      addTypeToApiDoc   :: ApiDocument
       addTypeToApiDoc   = addToIndex c'type tp apiDoc
         where
           tp = T.pack $ maybe "" (drop 4 . show . fctType) cu
 
-      addIndexedToApiDoc   = addDescription d'indexed now'' $
-                             addToIndex c'indexed now'  $
-                             addTypeToApiDoc
+      addIndexedToApiDoc   :: ApiDocument
+      addIndexedToApiDoc   = addDescription d'indexed now''
+                             $ addToIndex c'indexed now'
+                             $ changeIndex changeSignature
+                             $ addTypeToApiDoc
         where
           now'  = fmtDateXmlSchema now
           now'' = fmtDateHTTP      now
 
-
       addModulesAndUrisToApiDoc u
-          = addListOfModules $ addListOfUris $ changeSignature $ addTypeToApiDoc
+          = addListOfModules
+            $ addListOfUris
+            $ addTypeToApiDoc
         where
           addListOfModules = addDescription d'module ms
           addListOfUris    = addDescription d'uris   us
@@ -229,16 +242,34 @@ toCmd rt dupMap now ix (k, (cx, t, cu))
                                   fd          <- cu'
                                   return (moduleName fd)
 
-      changeSignature =
-          changeIndex (changeSig c'normalized expandNormalized)
-          .
-          changeIndex (changeSig c'signature expand)
+      changeSignature :: IndexMap -> IndexMap
+      changeSignature cm0
+          = -- trc1 "changeSignature" $
+            (changeSig c'signature  (complexSignatures 0 . (:[])))
+
+          -- signatures are already normalize,
+          -- this must also be done in query processing
+          -- so normalized contexts are not longer in use
+
+          -- . (changeSig c'normalized  normSignature)
+          . (changeSig c'subsig     (take maxSubsignatures . complexSignatures 2
+                                     . subSignatures))
+          -- . (changeSig c'subnorm    (take maxSubsignatures . complexSignatures 2
+          --                           . normSignatures . subSignatures))
+          $ SM.delete c'signature cm0
         where
-        -- changeSig :: Context -> (Signature -> [Signature]) -> IndexMap -> IndexMap
-        changeSig c f cm = SM.insert c (maybe "" id newSig) cm
-          where
-          oldSig =  c `SM.lookup` cm
-          newSig = (T.pack . modifySignatureWith f . T.unpack) <$> oldSig
+          maxSubsignatures = 20
+
+          oldSig = SM.lookup c'signature cm0
+
+          changeSig :: Context -> (Signature -> [Signature]) -> IndexMap -> IndexMap
+          changeSig c f cm
+              = case maybe "" id newSig of
+                  "" -> cm
+                  s  -> SM.insert c s cm
+              where
+                newSig = -- trc1 "newSig" $
+                         (T.pack . processSignatureWith f . T.unpack) <$> oldSig
 
 lookupDup :: String -> Maybe FunctionInfo -> IM.IntMap [URI] -> Maybe [URI]
 lookupDup n v m

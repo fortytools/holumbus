@@ -21,8 +21,11 @@ import           System.Locale          (defaultTimeLocale)
 -- the context names
 
 c'author, c'category, c'dependencies, c'description, c'hierarchy, c'homepage,
-  c'indexed, c'maintainer, c'module, c'name, c'normalized,
+  c'indexed, c'maintainer, c'module, c'name,
+  -- c'normalized,
   c'partial, c'package, c'signature, c'source,
+  -- c'subnorm,
+  c'subsig,
   c'synopsis, c'type, c'upload, c'version :: Text
 
 c'author       = "author"
@@ -35,27 +38,29 @@ c'indexed      = "indexed"
 c'maintainer   = "maintainer"
 c'module       = "module"
 c'name         = "name"
-c'normalized   = "normalized"
+-- c'normalized   = "normalized"
 c'package      = "package"
 c'partial      = "partial"
 c'signature    = "signature"
 c'source       = "source"
+-- c'subnorm      = "subnorm"
+c'subsig       = "subsig"
 c'synopsis     = "synopsis"
 c'type         = "type"
 c'upload       = "upload"
 c'version      = "version"
 
-cxToHuntCx :: String -> Text
+cxToHuntCx :: String -> Maybe Text
 cxToHuntCx cx
-    = maybe (error $ "no Hunt context found for: " ++ show cx) id . lookup cx $
+    = -- maybe (error $ "no Hunt context found for: " ++ show cx) id . lookup cx $
+      lookup cx
       [ (ix'description,  c'description)        -- the haddock contexts
       , (ix'hierarchy,    c'hierarchy)
       , (ix'module,       c'module)
       , (ix'name,         c'name)
-      , (ix'normalized,   c'normalized)
       , (ix'package,      c'package)
       , (ix'partial,      c'partial)
-      , (ix'signature,    c'signature)
+      , (ix'rawsig,       c'signature)
 
       , (pk'author,       c'author)             -- the hackage package contexts
       , (pk'category,     c'category)
@@ -114,17 +119,27 @@ hayooIndexSchema
       , mkIC c'maintainer   . setCxWeight 1.0                      . setCxNoDefault
       , mkIC c'module       . setCxWeight 0.5 . setCxRegEx ".*"
       , mkIC c'name         . setCxWeight 3.0 . setCxRegEx "[^ ]*"
-      , mkIC c'normalized   . setCxWeight 0.2 . setCxRegEx "[^$]*" . setCxNoDefault -- from Hayoo.ParseSignature.modifySignatureWith
       , mkIC c'package      . setCxWeight 1.0 . setCxRegEx ".*"
       , mkIC c'partial      . setCxWeight 0.2 . setCxRegEx "[^ ]*"
-      , mkIC c'signature    . setCxWeight 1.0 . setCxRegEx "[^$]*" . setCxNoDefault -- from Hayoo.ParseSignature.modifySignatureWith
       , mkIC c'source       . setCxWeight 0.1 . setCxRegEx ".*"    . setCxNoDefault
       , mkIC c'synopsis     . setCxWeight 0.8
       , mkIC c'type         . setCxWeight 0.0                      . setCxNoDefault
       , mkIC c'upload       . setCxWeight 1.0 . setCxRegEx dr      . setCxNoDefault . setCxDate
       , mkIC c'version      . setCxWeight 1.0 . setCxRegEx ".*"    . setCxNoDefault
+
+      , mkIC c'signature    . setCxWeight w'signature  . setCxRegEx reSig . setCxNoDefault
+      , mkIC c'subsig       . setCxWeight w'subsig     . setCxRegEx reSig . setCxNoDefault
+      -- , mkIC c'normalized   . setCxWeight w'normalized . setCxRegEx reSig . setCxNoDefault
+      -- , mkIC c'subnorm      . setCxWeight w'subnorm    . setCxRegEx reSig . setCxNoDefault
       ]
     where
+      reSig = "[^$\n]*" -- from Hayoo.ParseSignature.modifySignatureWith,
+                        -- $ is the old, \n the new delimiter
+      w'signature  = 1.0
+      w'subsig     = w'signature * 0.5
+      -- w'normalized = w'signature * 0.2
+      -- w'subnorm    = w'signature * 0.1
+
       mkIC x cs = (x, cs)
       d4 = "[0-9]{4}"
       d2 = "[0-9]{2}"

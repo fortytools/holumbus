@@ -26,6 +26,8 @@ where
 import           Control.DeepSeq
 import           Control.Monad                (foldM)
 
+import           Hayoo.IndexConfig            (ix'rawsig)
+
 import           Holumbus.Crawler
 import           Holumbus.Crawler.IndexerCore
 import           Holumbus.Index.Common        hiding (URI)
@@ -110,7 +112,10 @@ insertRawDocM (rawUri, (rawContexts, rawTitle, rawCustom)) ixs
 insertRawContextM               :: (Monad m, HolIndexM m i) =>
                                    DocId -> i -> (Context, [(Word, Position)]) -> m i
 insertRawContextM did ix (cx, ws)
-                                = foldM (insWordM cx did) ix ws
+    -- hack: ix'rawsig is used only in Hunt search, not in old Hayoo search
+    -- so it's here discarded
+    | cx == ix'rawsig           = return ix
+    | otherwise                 = foldM (insWordM cx did) ix ws
 
 insWordM                        :: (Monad m, HolIndexM m i) =>
                                    Context -> DocId -> i -> (Word, Position) -> m i

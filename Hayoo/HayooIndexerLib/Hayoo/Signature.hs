@@ -9,15 +9,19 @@ import           Control.Arrow
 
 import           Data.List
 
-import           Holumbus.Crawler.Util  ( tokenize
-                                        , match
-                                        , split
-                                        )
+import           Holumbus.Crawler.Util (match, sed, split, tokenize)
 
 -- ------------------------------------------------------------
 
 getSignature                    :: String -> String
 getSignature                    = split "(.*(=>|::))?(\\s)*" >>> snd
+
+getRawSignature                 :: String -> String
+getRawSignature s
+   | null s1   = ""
+   | otherwise = unwords . words $ sed (const "") "!" s2
+   where
+    (s1, s2) = split ".*(::)(\\s)*" s
 
 -- | Strip redundant whitespace from a signature, e.g. @String -> Map k a -> Int@ will be transformed
 -- to @String->Map k a->Int@.
@@ -25,7 +29,7 @@ getSignature                    = split "(.*(=>|::))?(\\s)*" >>> snd
 stripSignature                  :: String -> String
 stripSignature                  = tokenizeSignature >>> joinSignatureTokens
 
--- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to 
+-- | Normalizes a Haskell signature, e.g. @String -> Int -> Int@ will be transformed to
 -- @a->b->b@. All whitespace will be removed from the resulting string.
 
 normalizeSignature              :: String -> String
@@ -36,7 +40,11 @@ normalizeSignature              = tokenizeSignature >>> normSignatureIds >>> joi
 tokenizeSignature               :: String -> [String]
 tokenizeSignature               = tokenize sigToken
     where
-    sigToken                    = "[\\]\\[(,)]|->|=>|\\*|" ++ sigIdent
+    sigToken                    = "[\\]\\[(,)~" ++ [sarrow, darrow] ++ "]|->|=>|\\*|" ++ sigIdent
+
+sarrow, darrow :: Char
+sarrow = '\8594'   -- unicode ->
+darrow = '\8658'   -- unicode =>
 
 ascSym                          :: String
 ascSym                          = "[-!#$%&*+./<=>?@\\\\^|~]"
@@ -60,7 +68,7 @@ varIdent                        :: String
 varIdent                        = "[\\p{Ll}][\\p{L}\\{N}'_.]*"
 
 typeIdent                       :: String
-typeIdent                       = "[\\p{Lu}#][\\p{L}\\{N}'_.]*" -- "|" ++ conSym        -- but this requires latest hxt-8.5.3, beacuse of a parser error in uniSym expression
+typeIdent                       = "[\\p{Lu}#][\\p{L}\\{N}'_.]*" -- "|" ++ conSym        -- but this requires latest hxt-8.5.3, due to a parser error in uniSym expression
 
 joinSignatureTokens             :: [String] -> String
 joinSignatureTokens             = mapAccumL insBlank False >>> snd >>> concat
@@ -86,8 +94,14 @@ normSignatureIds                = mapAccumL renId ([], ['a'..]) >>> snd
         where
         isId                    = match varIdent
 
+-- | A signature contains at least a one of these symbols: "=>", "->", "(.,.)", "[.]"
+--   else it's boring
+
 isSignature                     :: String -> Bool
-isSignature                     = match $ anyWord ++ "(->|" ++ tupleType ++ "|" ++ listType ++ ")" ++ anyWord
+isSignature                     = match
+                                  $ anyWord
+                                    ++ "([" ++ [sarrow, darrow] ++ "]|=>|->|" ++ tupleType ++ "|" ++ listType ++ ")"
+                                    ++ anyWord
     where
     anyWord                     = "(.|\\n|\\r)*"
     listType                    = "\\[" ++ anyWord ++ "\\]"

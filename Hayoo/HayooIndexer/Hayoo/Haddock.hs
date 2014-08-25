@@ -14,19 +14,29 @@ import           Data.List
 import           Data.Maybe
 
 import           Hayoo.FunctionInfo
+import           Hayoo.ParseSignature        (buildConstructorSignature)
 import           Hayoo.Signature
 import           Hayoo.URIConfig
+
 
 import           Holumbus.Crawler.Html
 import           Holumbus.Utility
 
 import           Network.URI                 (unEscapeString)
 
-import           Text.Regex.XMLSchema.String (match, tokenize)
+import           Text.Regex.XMLSchema.String (match, sed, tokenize)
 
 import           Text.XML.HXT.Arrow.XmlRegex
 import           Text.XML.HXT.Core
 import           Text.XML.HXT.XPath
+
+{-
+import           Debug.Trace                 (traceShow)
+
+trc2 :: Show a => String -> a -> a
+trc2 msg x = traceShow (msg, x) x
+
+-- -}
 
 -- ------------------------------------------------------------
 
@@ -37,7 +47,7 @@ hayooGetFctInfo rewriteHref     = -- withTraceLevel 3 (traceDoc "hayooGetFctInfo
                                   ( fromLA $
                                     ( getAttrValue "module"
                                       &&&
-                                      getAttrValue "signature"
+                                      getAttrValue "rawsig"
                                       &&&
                                       getAttrValue "package"
                                       &&&
@@ -157,6 +167,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                     += attr "module"    (theModule    >>> mkText)
                                     += attr "package"   (thePackage   >>> mkText)
                                     += attr "signature" (theSignature >>> mkText)
+                                    += attr "rawsig"    (theRawSignature >>> mkText)
                                     += attr "source"    (theSourceURI >>> mkText)
                                     += sattr "version"  "2.8"
                                     += attr transferURI ( ( (theURI &&& theAnchor)
@@ -208,7 +219,9 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                       [ isDataTypeNewtypeDecl
                                                        :-> ( processTypeDecl
                                                              <+>
-                                                             ( processConstructors $< getSrcLnk ) -- the data source link is propagated
+                                                             ( processConstructors
+                                                               $<< (getSrcLnk &&& getDefName)
+                                                             )                   -- the data source link and the name are propagated
                                                            )                                      -- to the constructors and fields
                                       , isClassDecl    :-> ( processClassDecl
                                                              <+>
@@ -224,6 +237,13 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   )
                                   `orElse`
                                   txt ""
+
+    getDefName                  = xshow ( first_p_src
+                                          >>>
+                                          firstChildWithClass "a" "def"
+                                          >>>
+                                          deep isText
+                                        )
 
     isFunctionDecl              = first_p_src
                                   >>>
@@ -265,13 +285,14 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
 
     processTypeDecl             = this +=  attr "type" theType
 
-    processConstructors srcLnk  = this
+    processConstructors srcLnk defName
+                                = this
                                   />  divWithClass (words >>> ("constructors" `elem`))
                                   />  hasName "table"
                                   />  hasName "tr"
-                                  >>> ( (isConstrRow `guards` theConstructors srcLnk)
+                                  >>> ( (isConstrRow `guards` theConstructors srcLnk defName)
                                         <+>
-                                        processConstrFields srcLnk
+                                        processConstrFields srcLnk defName
                                       )
     isConstrRow                 = matchRegexA ( mkSeq
                                                 (mkPrimA $ tdWithClass (== "src"))
@@ -281,7 +302,8 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   >>>
                                   unlistA
 
-    processConstrFields srcLnk  = getChildren
+    processConstrFields srcLnk defName
+                                = getChildren
                                   >>>
                                   hasName "td"
                                   />
@@ -293,7 +315,7 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                       ( mkSeq (mkPrimA $ hasName "dt") (mkPrimA $ hasName "dd"))
                                       getChildren
                                   >>>
-                                  theConstrFields srcLnk
+                                  theConstrFields srcLnk defName
 
     processClassDecl            = ( this += sattr "type" "class" )
                                   >>>
@@ -342,33 +364,52 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                   )
                                   `withDefault` ""
 
-    theConstructors srcLnk      = mkFctDecl
+    theConstructors srcLnk defName
+                                = mkFctDecl
                                   ( ( getChildren
-                                      >>>
-                                      tdWithClass (== "src")
-                                      >>>
-                                      getChildren
+                                      >>> tdWithClass (== "src")
+                                      >>> ( getChildren
+                                            -- this weird code builds a nice signature
+                                            -- out of the fields of a constructor
+                                            -- this works only for fields without selectors
+                                            >>. (\ (x : xs) ->
+                                                     x : runLA (txt "::") undefined
+                                                     ++  runLA (txt $ editSig defName xs) undefined
+                                                )
+                                          )
+                                      -- >>> arr (trc2 $ "theConstructors:" ++ defName)
+                                    )
+                                    <+> constA srcLnk
+                                  )
+                                  ( getChildren
+                                    >>> tdWithClass (== "doc")
+                                    >>> getChildren
+                                  )
+        where
+          editSig n xs = editConstrSig n s
+              where
+                s = concat $ runLA (xshow (constL xs >>> deep isText)) undefined
+
+    theConstrFields srcLnk defName
+                                = mkFctDecl
+                                  ( ( unlistA
+                                      >>> hasName "dt"
+                                      >>> getChildren
+                                      >>> (addDefName `when` isSigStart)
                                     )
                                     <+>
                                     constA srcLnk
                                   )
-                                  ( getChildren
-                                    >>>
-                                    tdWithClass (== "doc")
-                                    >>>
-                                    getChildren
-                                  )
-
-    theConstrFields srcLnk      = mkFctDecl
-                                  ( (unlistA >>> hasName "dt" >>> getChildren)
-                                    <+>
-                                    constA srcLnk
-                                  )
                                   ( unlistA >>> hasName "dd" >>> getChildren )
-
+        where
+          addDefName = changeText $ sed (++ (defName ++ "->")) "\\s*::"
+          isSigStart = hasText    $ match "\\s*::.*"
     theMethods                  = mkDecl0 "method" ( this >>> unlistA )
 
-    theSignature                = ( ifA
+    theSignature                = theSignature' getSignature
+    theRawSignature             = theSignature' getRawSignature
+
+    theSignature' getSig        = ( ifA
                                     ( hasAttrValue "type" (`elem` ["function", "method"]) )
                                     ( xshow ( ( single ( this /> pWithClass (== "src") )
                                                 <+>
@@ -377,13 +418,15 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
                                               >>>
                                               removeSourceLinks
                                               >>>
+                                              removeSpanElems
+                                              >>>
                                               deep isText
                                             )
                                     )
                                     ( getAttrValue "type" )
                                   )
                                   >>^
-                                  getSignature
+                                  getSig
 
     theSubArguments             = getChildren
                                   >>>
@@ -408,6 +451,15 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
     theModule                   = constA rt >>> getAttrValue "module"
     thePackage                  = constA rt >>> getAttrValue "package"
     theURI                      = constA rt >>> getAttrValue transferURI
+
+
+editConstrSig               :: String -> String -> String
+editConstrSig defName s
+    | null sig              = defName
+    | otherwise             = concat [sig, "->", defName]
+    where
+      sig                   = buildConstructorSignature
+                              $ sed (const "") "!" s
 
 -- ------------------------------------------------------------
 
@@ -451,6 +503,7 @@ mkVirtualDoc26 rt               = getDecls
                                     += attr "module"    (theModule    >>> mkText)
                                     += attr "package"   (thePackage   >>> mkText)
                                     += attr "signature" (theSignature >>> mkText)
+                                    += attr "rawsig"    (theRawSignature >>> mkText)
                                     += attr "source"    (theSourceURI >>> mkText)
                                     += sattr "version"  "2.6"
                                     += attr transferURI ( ( (theURI &&& theLinkPrefix &&& theTitle)
@@ -476,14 +529,17 @@ mkVirtualDoc26 rt               = getDecls
                                   >>^
                                   unEscapeString
 
-    theSignature                = xshow ( removeSourceLinks
+    theSignature                = theSignature' getSignature
+    theRawSignature             = theSignature' getRawSignature
+
+    theSignature'  getSig       = xshow ( removeSourceLinks
                                           >>>
                                           deep (tdWithClass (== "decl"))
                                           >>>
                                           deep isText
                                         )
                                   >>^
-                                  getSignature
+                                  getSig
 
     theLinkPrefix               = theSignature
                                   >>^
@@ -562,6 +618,14 @@ removeSourceLinks               = processTopDown
                                               )
                                     )
                                   )
+
+removeSpanElems                 :: LA XmlTree XmlTree
+removeSpanElems                 = processTopDown
+                                  ( none
+                                    `when`
+                                    spanWithClass (`elem` ["fixity", "rightedge"])
+                                  )
+
 -- there are rotten source links in class method docs,
 -- e.g. in "http://hackage.haskell.org/package/base-4.6.0.1/docs/Prelude.html" for (==),
 -- these contain a substring "/^A/^B/" (^A stand for ASCII char 0x01, ^B for 0x02)

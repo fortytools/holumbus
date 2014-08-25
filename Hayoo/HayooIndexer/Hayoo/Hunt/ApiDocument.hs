@@ -17,6 +17,13 @@ import           Holumbus.Crawler.IndexerCore
 import           Hunt.ClientInterface
 import qualified Hunt.Common.DocDesc          as DD
 
+{-
+import           Debug.Trace                  (traceShow)
+
+trc :: Show a => String -> a -> a
+trc msg x = traceShow (msg, x) x
+
+-- -}
 -- ------------------------------------------------------------
 
 toApiDoc :: ToDescr c => (URI, RawDoc c, Float) -> ApiDocument
@@ -31,7 +38,10 @@ toApiDoc (uri, (rawContexts, rawTitle, rawCustom), wght)
       $ mkApiDoc uri
     where
       toCC (_,  []) = []
-      toCC (cx, ws) = [(cxToHuntCx cx, T.pack . unwords . map fst $ ws)]
+      toCC (cx, ws) = case cxToHuntCx cx of
+                        Nothing  -> []  -- ignore context, maybe a context for old Hayoo
+                        Just cx' -> -- trc "toApiDoc" $
+                                    [(cx', T.pack . unwords . map fst $ ws)]
 
 boringApiDoc :: ApiDocument -> Bool
 boringApiDoc a
@@ -114,7 +124,6 @@ rankToText r
 -- these are removed, the type is encoded in the type field
 
 cleanupSig :: String -> String
-cleanupSig ('!' : s) = s
 cleanupSig "class"   = ""
 cleanupSig "data"    = ""
 cleanupSig "module"  = ""
