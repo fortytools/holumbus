@@ -18,13 +18,13 @@ import           Hayoo.ParseSignature        (buildConstructorSignature)
 import           Hayoo.Signature
 import           Hayoo.URIConfig
 
-
 import           Holumbus.Crawler.Html
-import           Holumbus.Utility
+import           Holumbus.Utility            (split)
 
 import           Network.URI                 (unEscapeString)
 
 import           Text.Regex.XMLSchema.String (match, sed, tokenize)
+import qualified Text.Regex.XMLSchema.String as RE
 
 import           Text.XML.HXT.Arrow.XmlRegex
 import           Text.XML.HXT.Core
@@ -388,7 +388,8 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
         where
           editSig n xs = editConstrSig n s
               where
-                s = concat $ runLA (xshow (constL xs >>> deep isText)) undefined
+                s = -- trc2 "editSig" $
+                    concat $ runLA (xshow (constL xs >>> deep isText)) undefined
 
     theConstrFields srcLnk defName
                                 = mkFctDecl
@@ -455,9 +456,11 @@ mkVirtualDoc28 rt               = (getModule <+> getDecls)
 
 editConstrSig               :: String -> String -> String
 editConstrSig defName s
+    | not (null s1)         = s2  -- tricky: in case of a GADT there is already a nice signature
     | null sig              = defName
     | otherwise             = concat [sig, "->", defName]
     where
+      (s1, s2)              = RE.split ".*(::)(\\s)*" s
       sig                   = buildConstructorSignature
                               $ sed (const "") "!" s
 
