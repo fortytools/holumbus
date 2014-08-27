@@ -247,18 +247,19 @@ toCmd rt dupMap now ix (k, (cx, t, cu))
           = -- trc1 "changeSignature" $
             (changeSig c'signature  (complexSignatures 0 . (:[])))
 
-          -- signatures are already normalize,
+          -- signatures are already normalized,
           -- this must also be done in query processing
           -- so normalized contexts are not longer in use
 
           -- . (changeSig c'normalized  normSignature)
-          . (changeSig c'subsig     (take maxSubsignatures . complexSignatures 2
-                                     . subSignatures))
+          . (changeSig c'subsig     (complexSignatures 1 . subSignatures))
+            -- the 1 must match the complexity in hayooFrontend Hayoo.Common
+
           -- . (changeSig c'subnorm    (take maxSubsignatures . complexSignatures 2
           --                           . normSignatures . subSignatures))
           $ SM.delete c'signature cm0
         where
-          maxSubsignatures = 20
+          -- maxSubsignatures = 20
 
           oldSig = SM.lookup c'signature cm0
 
