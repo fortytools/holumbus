@@ -234,9 +234,11 @@ insert-json:
 	done ; \
         curl $(JHOST)/binary/save/hayoo-ix.$$(date +%FT%T)
 
+MAXJS	   = 10
+JSONFILES1 = $(shell find json -name '*.js' -print | sort | head -$(MAXJS))
 insert-json1:
 	i=1; \
-	for file in $(JSONFILES); do \
+	for file in $(JSONFILES1); do \
 		echo ; echo -n "$$i - $$(date) - $$file "; \
 		curl -X POST -d @"$$file" $(JHOST)/eval; \
                 echo curl $(JHOST)/binary/save/hayoo-ix.$$(date +%FT%T); \

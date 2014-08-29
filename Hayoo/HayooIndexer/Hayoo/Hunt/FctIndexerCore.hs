@@ -229,7 +229,7 @@ toCmd rt dupMap now ix (k, (cx, t, cu))
       addModulesAndUrisToApiDoc u
           = addListOfModules
             $ addListOfUris
-            $ addTypeToApiDoc
+            $ addIndexedToApiDoc
         where
           addListOfModules = addDescription d'module ms
           addListOfUris    = addDescription d'uris   us
