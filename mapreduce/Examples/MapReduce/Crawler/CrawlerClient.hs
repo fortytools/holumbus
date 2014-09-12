@@ -10,7 +10,7 @@ where
 
 -- Holumbus (SearchEngine)
 import           Control.Monad
-import           Text.XML.HXT.Arrow
+import           Text.XML.HXT.Core
 -- import           Holumbus.Build.Config
 -- import           Holumbus.Build.Crawl
 -- import           Holumbus.Build.Index

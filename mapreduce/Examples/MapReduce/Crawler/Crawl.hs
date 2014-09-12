@@ -58,7 +58,7 @@ import           Holumbus.Build.Config
 import           Holumbus.Index.Common
 import           Holumbus.Utility
 
-import           Text.XML.HXT.Arrow hiding (getXPathTrees)
+import           Text.XML.HXT.Core hiding (getXPathTrees)
 import           Text.XML.HXT.Arrow.XPathSimple
 -- import           System.Directory
 import           System.Time

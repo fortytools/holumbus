@@ -56,7 +56,7 @@ import           Holumbus.Utility
 
 import           System.Time
 
-import           Text.XML.HXT.Arrow hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
+import           Text.XML.HXT.Core hiding (getXPathTrees)     -- import all stuff for parsing, validating, and transforming XML
 
 import qualified Holumbus.FileSystem.FileSystem as FS
 import           Holumbus.MapReduce.Types
@@ -337,5 +337,4 @@ getTexts                                                      -- select all text
        ]
     where
     space = txt " "
-            
             
